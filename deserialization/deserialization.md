@@ -640,3 +640,87 @@ The only robust defense is to **eliminate the conflation of data and behavior**:
 
 *This document was created for defensive security research and vulnerability understanding purposes.*
 
+---
+
+## References
+
+### Research Papers
+
+**[R1]** Yiheng Zhang, Ming Wen, Shunjie Liu, Dongjie He, and Hai Jin. "Precise and Effective Gadget Chain Mining through Deserialization Guided Call Graph Construction (FLASH)." In *Proceedings of the 34th USENIX Security Symposium (USENIX Security '25)*, 2025. [[Paper]](https://www.usenix.org/system/files/usenixsecurity25-zhang-yiheng.pdf) [[Presentation]](https://www.usenix.org/conference/usenixsecurity25/presentation/zhang-yiheng)
+
+**[R2]** Sicong Cao, Biao He, Xiaobing Sun, Yu Ouyang, Chao Zhang, Xiaoxue Wu, Ting Su, Lili Bo, Bin Li, Chuanlei Ma, Jiajia Li, and Tao Wei. "ODDFUZZ: Discovering Java Deserialization Vulnerabilities via Structure-Aware Directed Greybox Fuzzing." In *Proceedings of the 44th IEEE Symposium on Security and Privacy (S&P '23)*, May 2023. [[IEEE]](https://ieeexplore.ieee.org/document/10179377/) [[arXiv]](https://arxiv.org/abs/2304.04233)
+
+**[R3]** Bruno Kreyssig and Alexandre Bartel. "Gleipner: A Benchmark for Gadget Chain Detection in Java Deserialization Vulnerabilities." In *Proceedings of the ACM on Software Engineering (FSE '25)*, 2025. [[ACM]](https://dl.acm.org/doi/10.1145/3715711) [[PDF]](https://www.abartel.net/static/p/fse2025-gleipner.pdf)
+
+**[R4]** Sicong Cao, Xiaobing Sun, Xiaoxue Wu, Lili Bo, Bin Li, Rongxin Wu, Wei Liu, Biao He, Yu Ouyang, and Jiajia Li. "Improving Java Deserialization Gadget Chain Mining via Overriding-Guided Object Generation (GCMiner)." In *Proceedings of the 45th International Conference on Software Engineering (ICSE '23)*, May 2023. [[ACM]](https://dl.acm.org/doi/abs/10.1109/ICSE48619.2023.00044) [[arXiv]](https://arxiv.org/abs/2303.07593) [[GitHub]](https://github.com/GCMiner/GCMiner)
+
+**[R5]** Bruno Kreyssig, Sabine Houy, Timothee Riom, and Alexandre Bartel. "Sleeping Giants -- Activating Dormant Java Deserialization Gadget Chains through Stealthy Code Changes." In *Proceedings of the 2025 ACM SIGSAC Conference on Computer and Communications Security (CCS '25)*, 2025. [[ACM]](https://doi.org/10.1145/3719027.3765031) [[arXiv]](https://arxiv.org/abs/2504.20485)
+
+**[R6]** Boyan Milanov. "Sleepy Pickle: Exploiting ML Models with Pickle File Attacks." Trail of Bits Blog, June 11, 2024. [[Part 1]](https://blog.trailofbits.com/2024/06/11/exploiting-ml-models-with-pickle-file-attacks-part-1/) [[Part 2]](https://blog.trailofbits.com/2024/06/11/exploiting-ml-models-with-pickle-file-attacks-part-2/)
+
+**[R7]** ReversingLabs Research Team. "Malicious ML Models Discovered on Hugging Face Platform (nullifAI Attack)." ReversingLabs Blog, February 6, 2025. [[Blog]](https://www.reversinglabs.com/blog/rl-identifies-malware-ml-model-hosted-on-hugging-face)
+
+**[R8]** Tong Liu, Guozhu Meng, Peng Zhou, Zizhuang Deng, Shuaiyin Yao, and Kai Chen. "The Art of Hide and Seek: Making Pickle-Based Model Supply Chain Poisoning Stealthy Again (PickleCloak)." arXiv preprint, August 2025. [[arXiv]](https://arxiv.org/abs/2508.19774)
+
+**[R9]** Andreas D. Kellas, Neophytos Christou, Wenxin Jiang, Penghui Li, Laurent Simon, Yaniv David, Vasileios P. Kemerlis, James C. Davis, and Junfeng Yang. "PickleBall: Secure Deserialization of Pickle-based Machine Learning Models." In *Proceedings of the 2025 ACM SIGSAC Conference on Computer and Communications Security (CCS '25)*, October 2025. *Distinguished Artifact Award*. [[ACM]](https://dl.acm.org/doi/10.1145/3719027.3765037) [[arXiv]](https://arxiv.org/abs/2508.15987)
+
+### CVE Advisories
+
+**[CVE-2025-55182]** React Server Components Flight Protocol — Unauthenticated RCE via Prototype Pollution. CVSS 10.0. [[NVD]](https://nvd.nist.gov/vuln/detail/CVE-2025-55182) [[Wiz Research]](https://www.wiz.io/blog/critical-vulnerability-in-react-cve-2025-55182) [[React Advisory]](https://react.dev/blog/2025/12/03/critical-security-vulnerability-in-react-server-components)
+
+**[CVE-2024-34102]** Adobe Commerce/Magento "CosmicSting" — Nested Deserialization → XXE. CVSS 9.8. [[NVD]](https://nvd.nist.gov/vuln/detail/CVE-2024-34102) [[Assetnote]](https://www.assetnote.io/resources/research/why-nested-deserialization-is-harmful-magento-xxe-cve-2024-34102)
+
+**[CVE-2024-11394]** Hugging Face Transformers Trax Model Deserialization RCE. CVSS 8.8. [[NVD]](https://nvd.nist.gov/vuln/detail/CVE-2024-11394) [[GitHub Advisory]](https://github.com/advisories/GHSA-hxxf-235m-72v3)
+
+**[CVE-2025-68664]** LangChain Core "LangGrinch" — Serialization Injection via Prompt Injection. CVSS 9.3. [[NVD]](https://nvd.nist.gov/vuln/detail/CVE-2025-68664) [[Cyata Research]](https://cyata.ai/blog/langgrinch-langchain-core-cve-2025-68664/)
+
+**[CVE-2025-26399]** SolarWinds Web Help Desk — Unauthenticated AjaxProxy Deserialization RCE. CVSS 9.8. [[NVD]](https://nvd.nist.gov/vuln/detail/CVE-2025-26399) [[Huntress]](https://www.huntress.com/blog/active-exploitation-solarwinds-web-help-desk-cve-2025-26399)
+
+**[CVE-2025-1716]** Picklescan Bypass via `pip.main()` Callable Substitution. [[NVD]](https://nvd.nist.gov/vuln/detail/CVE-2025-1716) [[GitHub Advisory]](https://github.com/advisories/GHSA-655q-fx9r-782v)
+
+**[CVE-2025-32444]** vLLM ZeroMQ Pickle RCE via Mooncake Integration. Affects vLLM 0.6.5–0.8.4. [[GitHub Advisory]](https://github.com/vllm-project/vllm/security/advisories/GHSA-hj4w-hm2g-p6w5)
+
+**[CVE-2022-40609]** IBM SDK Java Technology Edition — JEP 290 Bypass via ORB Deserialization. CVSS 8.1. [[IBM Bulletin]](https://www.ibm.com/support/pages/security-bulletin-cve-2022-40609-affects-ibm-sdk-java-technology-edition)
+
+**[CVE-2022-32224]** Rails Active Record Serialized Columns — RCE via YAML Deserialization. CVSS 9.8. [[Rails Advisory]](https://discuss.rubyonrails.org/t/cve-2022-32224-possible-rce-escalation-bug-with-serialized-columns-in-active-record/81017) [[GitHub Advisory]](https://github.com/advisories/GHSA-3hhc-qp5v-9p2j)
+
+**[CVE-2017-0903]** RubyGems Unsafe Object Deserialization via YAML. [[RubyGems Blog]](https://blog.rubygems.org/2017/10/09/unsafe-object-deserialization-vulnerability.html)
+
+### Tools
+
+**[T1]** Chris Frohoff. "ysoserial: Proof-of-Concept Tool for Generating Java Deserialization Payloads." [[GitHub]](https://github.com/frohoff/ysoserial)
+
+**[T2]** Alvaro Munoz and Soroush Dalili. "ysoserial.net: Deserialization Payload Generator for .NET Formatters." [[GitHub]](https://github.com/pwntester/ysoserial.net)
+
+**[T3]** Ambionics Security. "PHPGGC: PHP Generic Gadget Chains." [[GitHub]](https://github.com/ambionics/phpggc)
+
+**[T4]** Bishop Fox. "GadgetProbe: Exploiting Deserialization to Brute-Force the Remote Classpath." [[GitHub]](https://github.com/BishopFox/GadgetProbe) [[Blog]](https://bishopfox.com/blog/gadgetprobe)
+
+**[T5]** Matthieu Maitre. "Picklescan: Security Scanner for Python Pickle Files." [[GitHub]](https://github.com/mmaitre314/picklescan)
+
+**[T6]** Protect AI. "ModelScan: Protection Against Model Serialization Attacks." [[GitHub]](https://github.com/protectai/modelscan)
+
+**[T7]** Nick Sherlock. "SerializationDumper: Java Serialization Stream Analysis Tool." [[GitHub]](https://github.com/NickstaDB/SerializationDumper)
+
+### Standards and Specifications
+
+**[S1]** Oracle. "JEP 290: Filter Incoming Serialization Data." Java 9+. [[OpenJDK]](https://openjdk.org/jeps/290)
+
+**[S2]** Oracle. "JEP 415: Context-Specific Deserialization Filters." Java 17+. [[OpenJDK]](https://openjdk.org/jeps/415)
+
+**[S3]** Microsoft .NET Team. "BinaryFormatter Removed from .NET 9." September 2024. [[Blog]](https://devblogs.microsoft.com/dotnet/binaryformatter-removed-from-dotnet-9/) [[Security Guide]](https://learn.microsoft.com/en-us/dotnet/standard/serialization/binaryformatter-security-guide) [[Migration Guide]](https://learn.microsoft.com/en-us/dotnet/standard/serialization/binaryformatter-migration-guide/)
+
+**[S4]** Hugging Face. "SafeTensors: Simple, Safe Way to Store and Distribute Tensors." [[GitHub]](https://github.com/huggingface/safetensors) [[Documentation]](https://huggingface.co/docs/text-generation-inference/en/conceptual/safetensors)
+
+**[S5]** React Team. "React Server Components and Flight Protocol." [[Documentation]](https://react.dev/reference/rsc/server-components)
+
+### Additional Industry Research
+
+**[A1]** Sonatype Research. "Exposing 4 Critical Vulnerabilities in Python Picklescan." [[Blog]](https://www.sonatype.com/blog/bypassing-picklescan-sonatype-discovers-four-vulnerabilities)
+
+**[A2]** JFrog Security Research. "PyTorch Users at Risk: Unveiling 3 Zero-Day PickleScan Vulnerabilities." [[Blog]](https://jfrog.com/blog/unveiling-3-zero-day-vulnerabilities-in-picklescan/)
+
+**[A3]** Cisco Talos. "Breaking the Jar: Hardening Pickle File Scanners with Structure-Aware Fuzzing." [[Blog]](https://blogs.cisco.com/ai/hardening-pickle-file-scanners)
+
+**[A4]** Hugging Face. "Pickle Scanning." [[Documentation]](https://huggingface.co/docs/hub/security-pickle)
+

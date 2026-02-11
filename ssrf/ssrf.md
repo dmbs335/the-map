@@ -456,3 +456,122 @@ The 452% increase in SSRF attacks observed in 2024 — driven partly by AI-autom
 ---
 
 *This document was created for defensive security research and vulnerability understanding purposes.*
+
+---
+
+## References
+
+### Foundational References
+
+- OWASP Top 10 (2021) — A10: Server-Side Request Forgery (SSRF): https://owasp.org/Top10/A10_2021-Server-Side_Request_Forgery_(SSRF)/
+- OWASP SSRF Prevention Cheat Sheet: https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html
+- OWASP SSRF Bible (PDF): https://cheatsheetseries.owasp.org/assets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet_SSRF_Bible.pdf
+- OWASP Web Security Testing Guide — Testing for SSRF: https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/07-Input_Validation_Testing/19-Testing_for_Server-Side_Request_Forgery
+- PortSwigger Web Security Academy — SSRF: https://portswigger.net/web-security/ssrf
+- PayloadsAllTheThings — Server Side Request Forgery: https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Server%20Side%20Request%20Forgery/README.md
+- HackTricks — SSRF (Server Side Request Forgery): https://book.hacktricks.xyz/pentesting-web/ssrf-server-side-request-forgery
+
+### Standards and Specifications
+
+- RFC 3986 — Uniform Resource Identifier (URI): Generic Syntax: https://datatracker.ietf.org/doc/html/rfc3986
+- RFC 6874 — Representing IPv6 Zone Identifiers in Address Literals and URIs: https://datatracker.ietf.org/doc/html/rfc6874
+- WHATWG URL Living Standard: https://url.spec.whatwg.org/
+
+### Seminal Research and Conference Talks
+
+- Orange Tsai — "A New Era of SSRF: Exploiting URL Parser in Trending Programming Languages" (Black Hat USA 2017): https://blackhat.com/docs/us-17/thursday/us-17-Tsai-A-New-Era-Of-SSRF-Exploiting-URL-Parser-In-Trending-Programming-Languages.pdf
+- Orange Tsai — How I Chained 4 Vulnerabilities on GitHub Enterprise (SSRF to RCE): https://blog.orange.tw/posts/2017-07-how-i-chained-4-vulnerabilities-on/
+- Ben Sadeghipour & Cody Brocious — "Owning the Clout Through SSRF and PDF Generators" (DEF CON 27): https://media.defcon.org/DEF%20CON%2027/DEF%20CON%2027%20presentations/DEFCON-27-Ben-Sadeghipour-Owning-the-clout-through-SSRF-and-PDF-generators.pdf
+- Jonathan Birch — "Host/Split: Exploitable Antipatterns in Unicode Normalization" (Black Hat USA 2019): https://i.blackhat.com/USA-19/Thursday/us-19-Birch-HostSplit-Exploitable-Antipatterns-In-Unicode-Normalization-wp.pdf
+
+### URL Parser Differentials
+
+- Claroty Team82 & Snyk — "Exploiting URL Parsing Confusion" (2022): https://claroty.com/team82/research/exploiting-url-parsing-confusion
+- Snyk — "URL Confusion Vulnerabilities in the Wild": https://snyk.io/blog/url-confusion-vulnerabilities/
+- PortSwigger — URL Validation Bypass Cheat Sheet: https://portswigger.net/web-security/ssrf/url-validation-bypass-cheat-sheet
+- PortSwigger Research — "New Crazy Payloads in the URL Validation Bypass Cheat Sheet": https://portswigger.net/research/new-crazy-payloads-in-the-url-validation-bypass-cheat-sheet
+- YesWeHack — "The Minefield Between Syntaxes: Exploiting Syntax Confusion": https://www.yeswehack.com/learn-bug-bounty/syntax-confusion-ambiguous-parsing-exploits
+
+### IP Address and Hostname Manipulation
+
+- nip.io — Wildcard DNS for Any IP Address: https://nip.io/
+- HackTricks — Cloud SSRF (IP Address Alternative Representations): https://book.hacktricks.xyz/pentesting-web/ssrf-server-side-request-forgery/cloud-ssrf
+- Cloud Metadata Dictionary for SSRF Testing (jhaddix): https://gist.github.com/jhaddix/78cece26c91c6263653f31ba453e273b
+
+### Unicode and Encoding Mutations
+
+- Jorge Lajara — "WAF Bypassing with Unicode Compatibility": https://jlajara.gitlab.io/Bypass_WAF_Unicode
+- HackTricks — Unicode Normalization: https://book.hacktricks.xyz/pentesting-web/unicode-injection/unicode-normalization
+
+### DNS Resolution Mutations
+
+- NCC Group — Singularity of Origin: DNS Rebinding Attack Framework: https://github.com/nccgroup/singularity
+- SecureLayer7 — "Server-side Request Forgery (SSRF) via DNS Rebinding Attack": https://blog.securelayer7.net/server-side-request-forgery-dns-rebinding-attack/
+- Cyber Advisors — "Using DNS to Bypass SSRF Protections": https://blog.cyberadvisors.com/technical-blog/blog/using-dns-to-bypass-ssrf-protections
+
+### Blind SSRF and Out-of-Band Techniques
+
+- PortSwigger — Blind SSRF Vulnerabilities: https://portswigger.net/web-security/ssrf/blind
+- Assetnote — "A Glossary of Blind SSRF Chains": https://blog.assetnote.io/2021/01/13/blind-ssrf-chains/
+- Assetnote — Blind SSRF Chains (GitHub): https://github.com/assetnote/blind-ssrf-chains
+
+### Injection Points: PDF, SVG, LLM
+
+- Intigriti — "Exploiting PDF Generators: A Complete Guide to Finding SSRF Vulnerabilities": https://www.intigriti.com/researchers/blog/hacking-tools/exploiting-pdf-generators-a-complete-guide-to-finding-ssrf-vulnerabilities-in-pdf-generators
+- SVG Cheatsheet — Exploiting Server-Side SVG Processors: https://github.com/allanlw/svg-cheatsheet
+- svg2raster Cheatsheet — Exploiting Server-Side SVG Rasterization: https://github.com/yuriisanin/svg2raster-cheatsheet
+- PortSwigger — Web LLM Attacks: https://portswigger.net/web-security/llm-attacks
+
+### Gopher Protocol Exploitation
+
+- Gopherus — Gopher Payload Generator: https://github.com/tarunkant/Gopherus
+- PayloadsAllTheThings — SSRF Advanced Exploitation: https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Server%20Side%20Request%20Forgery/SSRF-Advanced-Exploitation.md
+- sirleeroyjenkins — "Just Gopher It: Escalating a Blind SSRF to RCE for $15k — Yahoo Mail": https://sirleeroyjenkins.medium.com/just-gopher-it-escalating-a-blind-ssrf-to-rce-for-15k-f5329a974530
+
+### Cloud Metadata Services
+
+- AWS — Instance Metadata Service Documentation: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configuring-instance-metadata-service.html
+- AWS — Transition to Using IMDSv2: https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-metadata-transition-to-version-2.html
+- AWS Security Blog — "Get the Full Benefits of IMDSv2 and Disable IMDSv1": https://aws.amazon.com/blogs/security/get-the-full-benefits-of-imdsv2-and-disable-imdsv1-across-your-aws-infrastructure/
+- Hacking The Cloud — Steal EC2 Metadata Credentials via SSRF: https://hackingthe.cloud/aws/exploitation/ec2-metadata-ssrf/
+- Microsoft Learn — Azure Instance Metadata Service: https://learn.microsoft.com/en-us/azure/virtual-machines/instance-metadata-service
+- Google Cloud — About VM Metadata: https://docs.cloud.google.com/compute/docs/metadata/overview
+- Oracle — Getting Instance Metadata: https://docs.oracle.com/en-us/iaas/Content/Compute/Tasks/gettingmetadata.htm
+- PayloadsAllTheThings — SSRF Cloud Instances: https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Server%20Side%20Request%20Forgery/SSRF-Cloud-Instances.md
+
+### CVE Advisories
+
+- CVE-2025-53767 (Azure OpenAI, CVSS 10.0): https://zeropath.com/blog/cve-2025-53767
+- CVE-2025-57822 (Next.js Middleware Header SSRF): https://vercel.com/changelog/cve-2025-57822
+- CVE-2025-1220 (PHP fsockopen Null Byte SSRF): https://nvd.nist.gov/vuln/detail/CVE-2025-1220
+- CVE-2024-22243 (Spring Framework UriComponentsBuilder): https://github.com/advisories/GHSA-ccgv-vj62-xf9h
+- CVE-2024-22329 (IBM WebSphere SSRF): https://www.ibm.com/support/pages/security-bulletin-ibm-websphere-application-server-and-ibm-websphere-application-server-liberty-are-vulnerable-server-side-request-forgery-cve-2024-22329
+- CVE-2024-38472 (Apache httpd UNC SSRF on Windows): https://httpd.apache.org/security/vulnerabilities_24.html
+- CVE-2024-40898 (Apache httpd mod_rewrite SSRF): https://hackerone.com/reports/2612028
+- CVE-2023-27592 (Miniflux SSRF): https://github.com/miniflux/v2/security/advisories/GHSA-mqqg-xjhj-wfgw
+
+### Real-World Incidents
+
+- Krebs on Security — "What We Can Learn from the Capital One Hack" (2019): https://krebsonsecurity.com/2019/08/what-we-can-learn-from-the-capital-one-hack/
+- Appsecco — "An SSRF, Privileged AWS Keys and the Capital One Breach": https://blog.appsecco.com/an-ssrf-privileged-aws-keys-and-the-capital-one-breach-4c3c2cded3af
+- MIT CAMS — "A Case Study of the Capital One Data Breach" (PDF): https://cams.mit.edu/wp-content/uploads/capitalonedatapaper.pdf
+- F5 Labs — "Campaign Targets Amazon EC2 Instance Metadata via SSRF" (March 2025): https://www.f5.com/labs/articles/threat-intelligence/campaign-targets-amazon-ec2-instance-metadata-via-ssrf
+- Google Cloud Threat Intelligence — "Old Services, New Tricks: Cloud Metadata Abuse by UNC2903": https://cloud.google.com/blog/topics/threat-intelligence/cloud-metadata-abuse-unc2903/
+
+### Offensive Tools
+
+- SSRFmap — Automatic SSRF Fuzzer and Exploitation Tool: https://github.com/swisskyrepo/SSRFmap
+- Gopherus — Gopher Link Generator: https://github.com/tarunkant/Gopherus
+- Singularity of Origin — DNS Rebinding Attack Framework: https://github.com/nccgroup/singularity
+- interactsh — OOB Interaction Gathering (ProjectDiscovery): https://github.com/projectdiscovery/interactsh
+- REcollapse — Black-Box Regex Fuzzing for URL Validation Bypass: https://github.com/0xacb/recollapse
+- SSRF-Scanner — Comprehensive SSRF Vulnerability Scanner: https://github.com/Dancas93/SSRF-Scanner
+- AllThingsSSRF — SSRF Writeups, Cheatsheets, and Videos: https://github.com/jdonsec/AllThingsSSRF
+- Top Disclosed SSRF Reports on HackerOne: https://github.com/reddelexc/hackerone-reports/blob/master/tops_by_bug_type/TOPSSRF.md
+
+### Additional Resources
+
+- Assetnote — "Digging for SSRF in NextJS Apps": https://www.assetnote.io/resources/research/digging-for-ssrf-in-nextjs-apps
+- Detectify Labs — "SSRF Vulnerabilities and Where to Find Them": https://labs.detectify.com/security-guidance/ssrf-vulnerabilities-and-where-to-find-them/
+- Intigriti — "SSRF: A Complete Guide to Exploiting Advanced SSRF Vulnerabilities": https://www.intigriti.com/researchers/blog/hacking-tools/ssrf-a-complete-guide-to-exploiting-advanced-ssrf-vulnerabilities
+- Qualys — "Unmasking AWS IMDSv1: The Hidden Flaw in AWS Security": https://blog.qualys.com/vulnerabilities-threat-research/2024/09/12/totalcloud-insights-unmasking-aws-instance-metadata-service-v1-imdsv1-the-hidden-flaw-in-aws-security

@@ -23,97 +23,19 @@ SSO protocols (SAML, OAuth 2.0, OpenID Connect, Kerberos, CAS) share a common tr
 
 ---
 
-## §1. XML Signature & Digest Verification Bypass (SAML)
+## §1. SAML Authentication Bypass
 
-SAML authentication relies on XML Digital Signatures (XMLDSig) to bind IdP assertions to cryptographic proof. The complexity of XML parsing, canonicalization, and signature verification creates a uniquely rich mutation surface. This category represents the most actively exploited SSO vulnerability class in 2024–2025.
+> **Full taxonomy**: See [SAML Vulnerability Mutation Taxonomy](../saml/saml.md) for comprehensive coverage of XML Signature Wrapping (§1), parser differential attacks (§2), canonicalization exploitation (§3), attribute & element pollution (§4), cryptographic & certificate exploitation including Golden/Silver SAML (§5), XXE attacks (§6), protocol flow & session manipulation (§7), and federation trust & metadata exploitation (§8).
 
-### §1-1. Classic XML Signature Wrapping (XSW)
-
-The foundational SAML attack. An attacker relocates the signed assertion to a non-processed location in the document and inserts an unsigned, malicious assertion where the SP expects to find it. The signature validates against the original (relocated) assertion, but the SP consumes the attacker-crafted one.
-
-| Subtype | Mechanism | Discrepancy | Key Condition |
-|---------|-----------|-------------|---------------|
-| **XSW Type 1–8** | Move signed `<Assertion>` into `<Extensions>`, `<Object>`, or duplicate wrapper; inject unsigned assertion at original location | D2 | SP locates assertion by position (first child) rather than by signature reference |
-| **Response-level wrapping** | Wrap the entire `<Response>` and inject a second unsigned `<Response>` containing a forged assertion | D2 | SP does not enforce that exactly one Response exists |
-| **Assertion duplication** | Insert a second `<Assertion>` with modified claims; SP processes the unsigned copy if it appears first | D2, D3 | SP does not verify that every processed assertion has a valid signature |
-
-### §1-2. Parser Differential Attacks
-
-When a SAML library uses two different XML parsers for different stages of processing (e.g., signature verification vs. assertion extraction), differences in how they handle edge cases create exploitable gaps.
-
-| Subtype | Mechanism | Discrepancy | Key Condition |
-|---------|-----------|-------------|---------------|
-| **Dual-parser divergence (REXML vs. Nokogiri)** | REXML and Nokogiri/libxml2 produce entirely different document structures from the same XML input due to differences in namespace handling, DOCTYPE processing, and entity expansion. Signature verifies against Parser A's interpretation; SP extracts identity from Parser B's interpretation | D1 | Library uses separate parsers for signature validation and assertion extraction (e.g., ruby-saml ≤1.17.0) |
-| **Namespace confusion** | Redefine namespace prefixes so that `<saml:Assertion>` resolves to different URIs in different parsers. The signature covers the assertion under one namespace; the SP processes a different element under another | D1 | Parsers handle namespace prefix rebinding differently |
-| **DOCTYPE/entity handling differential** | Inject DOCTYPE declarations that one parser processes (expanding entities, modifying document) while another ignores them | D1 | One parser supports DOCTYPE; the other strips or ignores it |
-| **Round-trip mutation** | Document is parsed → serialized to string → re-parsed. XML comments, CDATA sections, or whitespace that survive the first parse are stripped or interpreted differently on re-parse, changing the effective document structure | D1 | Library performs parse-serialize-reparse cycle (common in ruby-saml) |
-
-### §1-3. Canonicalization Exploitation
-
-XML canonicalization (C14N) normalizes documents before hashing. Errors or edge cases in canonicalization can be weaponized to make signatures validate over unintended content.
-
-| Subtype | Mechanism | Discrepancy | Key Condition |
-|---------|-----------|-------------|---------------|
-| **Void canonicalization** | Inject a relative namespace URI (e.g., `xmlns:ns="1"`) that causes libxml2's canonicalization to silently return an empty string. The digest is then computed over empty content, producing a predictable hash (`47DEQpj8...` for SHA-256 of empty string) | D2, D8 | Library uses libxml2 for C14N; does not validate that canonical output is non-empty |
-| **Golden SAML Response** | Combine void canonicalization with a precomputed signature over the empty string. This single signature validates for *any* modified assertion, since C14N always returns void regardless of content | D2, D8 | Extension of void canonicalization; requires one valid signature from the IdP |
-| **Comment injection in DigestValue** | Insert an XML comment inside `<DigestValue>`: `<!-- forged_digest -->legitimate_digest`. Digest validation reads the first child node (the comment's adjacent text = forged value) while signature validation uses the canonicalized form (comments stripped = legitimate value) | D1, D2 | Library extracts DigestValue via first-child rather than text-content; canonicalization strips comments (SAMLStorm / xml-crypto ≤6.0.0) |
-| **Exclusive C14N namespace manipulation** | Exploit differences between Exclusive and Inclusive canonicalization in namespace inheritance. Inject namespace declarations that are included in one mode but excluded in another, altering the signed content | D2 | Mismatch between specified and actual canonicalization algorithm |
-
-### §1-4. Attribute & Element Pollution
-
-Exploit how XML parsers handle duplicate or ambiguous attributes and elements to create divergent interpretations.
-
-| Subtype | Mechanism | Discrepancy | Key Condition |
-|---------|-----------|-------------|---------------|
-| **Attribute pollution** | Define duplicate attributes with different namespace prefixes (e.g., `ID="attack"` and `samlp:ID="legitimate"`). Different parsers select different values based on internal attribute ordering logic | D1 | Parsers disagree on which attribute takes precedence when duplicates exist in different namespaces |
-| **Reserved namespace redeclaration** | Redefine reserved XML namespaces (`xml`, `xmlns`) as regular attributes, causing elements to become visible to one parser but hidden from another's XPath queries | D1 | REXML treats reserved namespaces as regular attributes (ruby-saml ≤1.12.4) |
-| **Multiple SignedInfo injection** | Insert additional `<SignedInfo>` nodes inside `<Signature>`. If the library does not enforce exactly one SignedInfo, the attacker can provide a second SignedInfo referencing a forged assertion | D2, D3 | Library does not validate SignedInfo uniqueness (xml-crypto CVE-2025-29774) |
-
-### §1-5. Reference & ID Manipulation
-
-Exploit the binding between XML Signature `<Reference URI>` and the signed element's `ID` attribute.
-
-| Subtype | Mechanism | Discrepancy | Key Condition |
-|---------|-----------|-------------|---------------|
-| **ID confusion** | Assign the same `ID` value to both a legitimate signed element and an attacker-injected element. The signature reference resolves to the legitimate one, but the SP processes the attacker's element (which appears first or in the expected location) | D2 | SP does not verify that the element it processes is the exact element covered by the reference |
-| **Reference URI stripping** | Provide an empty or missing `URI` attribute in `<Reference>`, causing the library to sign the entire document or a default element instead of the specific assertion | D3 | Library does not enforce that Reference URI points to the specific assertion being consumed |
-| **XPath injection in Reference** | Inject XPath transforms within the `<Reference>` element that alter which nodes are included in the digest calculation | D2 | Library processes arbitrary XPath transforms without restriction |
+SAML represents the most actively exploited SSO vulnerability class in 2024–2025, driven by the inherent complexity of XML Digital Signatures. The dedicated SAML taxonomy covers the full attack surface: XSW Types 1–8, dual-parser divergence (REXML vs. Nokogiri), void canonicalization (Golden SAML Response), DigestValue comment injection (SAMLStorm), SignedInfo manipulation, namespace confusion, encrypted assertion bypass, Golden/Silver SAML persistence, and SP misconfiguration.
 
 ---
 
-## §2. Redirect URI & Authorization Flow Manipulation (OAuth/OIDC)
+## §2. OAuth 2.0 / OpenID Connect Flow Exploitation
 
-OAuth 2.0 and OpenID Connect rely on redirect-based flows where the authorization server redirects the user agent back to the client application with authorization codes or tokens. The `redirect_uri` parameter is the critical trust anchor.
+> **Full taxonomy**: See [OAuth 2.0 / OpenID Connect Vulnerability Mutation Taxonomy](../oauth/oauth.md) for comprehensive coverage of redirect URI manipulation (§1), authorization code & PKCE exploitation (§2), token lifecycle attacks (§3), state/nonce/CSRF exploitation (§4), scope & consent abuse (§5), client registration exploitation (§6), OIDC discovery & federation attacks (§7), and grant flow abuse including device code phishing (§8).
 
-### §2-1. Redirect URI Validation Bypass
-
-| Subtype | Mechanism | Discrepancy | Key Condition |
-|---------|-----------|-------------|---------------|
-| **Missing validation** | Authorization server does not validate `redirect_uri` at all, accepting any attacker-controlled URL | D3 | No redirect_uri validation implemented |
-| **Subdomain matching** | Validation checks only the parent domain (e.g., `*.example.com`), allowing redirect to attacker-controlled subdomain (`evil.example.com`) | D3 | Wildcard or suffix-based domain validation |
-| **Path traversal** | Validation checks domain + base path but allows path traversal (e.g., `https://legit.com/callback/../../../attacker/steal`) | D3 | Path normalization not applied before comparison |
-| **Fragment injection** | Append `#` to redirect_uri causing the authorization code/token to be sent to a legitimate URL but readable via JavaScript at attacker-controlled origin | D7 | SP-side open redirect or XSS on the callback domain |
-| **URL parser differential** | Exploit differences between how the authorization server and the client parse URLs (e.g., `https://legit.com@evil.com`, `https://legit.com%40evil.com`, `https://evil.com\@legit.com`) | D1 | Different URL parsing libraries between AS and client |
-| **Open redirect chaining** | Use a legitimate open redirect on the whitelisted callback domain to bounce the token to an attacker-controlled destination | D7 | Open redirect exists on a domain within the allowed redirect_uri list |
-| **Scheme downgrade** | Change `redirect_uri` from `https://` to `http://` to intercept tokens via network-level MitM | D3 | Authorization server does not enforce HTTPS for redirect_uri |
-
-### §2-2. Authorization Code / Token Interception
-
-| Subtype | Mechanism | Discrepancy | Key Condition |
-|---------|-----------|-------------|---------------|
-| **Code interception (no PKCE)** | Intercept the authorization code from the redirect URI before the legitimate client exchanges it. Without PKCE, any party with the code can exchange it for tokens | D3, D5 | Client does not use PKCE; code is transmitted via front channel |
-| **PKCE downgrade** | Authorization server supports PKCE but does not enforce it. Attacker sends authorization request without `code_challenge`, then intercepts and exchanges the code without `code_verifier` | D3 | PKCE not mandatory; server accepts requests without code_challenge |
-| **Implicit flow token exposure** | In Implicit Grant, access token is returned in URL fragment, exposable via Referer header leaks, browser history, or XSS on the callback page | D7 | Application uses Implicit Grant (deprecated in OAuth 2.1) |
-| **Custom scheme hijacking (mobile)** | Multiple apps register the same custom URI scheme (e.g., `myapp://callback`). A malicious app intercepts the authorization code intended for the legitimate app | D4 | Mobile app uses custom URI scheme without platform-verified deep linking |
-
-### §2-3. State & CSRF Manipulation
-
-| Subtype | Mechanism | Discrepancy | Key Condition |
-|---------|-----------|-------------|---------------|
-| **Missing state parameter** | No CSRF protection on the OAuth callback. Attacker initiates OAuth flow with their own account, forces victim's browser to complete it, linking attacker's identity to victim's session | D5 | `state` parameter not implemented or not validated |
-| **State fixation** | Attacker obtains a valid state value and forces the victim to use it, allowing the attacker to complete the flow on behalf of the victim | D5 | State is predictable or reusable |
-| **Nonce replay (OIDC)** | ID token nonce is not validated, allowing replay of a previously captured ID token to authenticate as the original user | D5 | Client does not verify `nonce` claim in ID token matches the value sent in the authorization request (CVE-2024-10318) |
-| **Login CSRF** | Attacker forces victim to log into the attacker's account via SSO, then captures victim's subsequent actions (credentials, sensitive data entered into what the victim believes is their own account) | D5, D7 | Application allows SSO-initiated login without CSRF protection |
+OAuth/OIDC-specific vulnerabilities — redirect URI validation bypass, PKCE downgrade, code interception, state/nonce manipulation, implicit flow token leakage, device code phishing, consent phishing, dynamic client registration SSRF, OIDC discovery endpoint manipulation, and CI/CD workload identity abuse — are documented in the dedicated OAuth taxonomy. In the SSO context, these mutations combine with SAML-specific attacks (§1) and Kerberos attacks (§7-3) to form the complete SSO attack surface.
 
 ---
 
@@ -123,30 +45,21 @@ SSO tokens (SAML assertions, JWTs, ID tokens) carry identity claims. Manipulatin
 
 ### §3-1. Claim Value Manipulation
 
-| Subtype | Mechanism | Discrepancy | Key Condition |
-|---------|-----------|-------------|---------------|
-| **Mutable claim identity binding** | SP identifies users by mutable fields (email, username) instead of immutable `sub`/`NameID`. Attacker changes their email at the IdP to match the victim's identifier at the SP | D6, D4 | SP uses email or other mutable claim as primary identifier |
-| **Claim injection via unsigned assertion** | In SAML, inject additional `<AttributeStatement>` elements outside the signed assertion. If the SP extracts attributes from the entire response rather than only from the signed assertion, injected claims are trusted | D2, D3 | SP does not restrict attribute extraction to signed elements only |
-| **Nested claim manipulation (JWT)** | Modify nested JSON objects within JWT claims (e.g., `{"user": {"role": "admin"}}`) when signature verification is bypassed or absent | D3, D6 | JWT signature not verified, or combined with algorithm confusion (§4-1) |
-| **Audience confusion** | Token issued for Service A is presented to Service B. If Service B does not verify the `aud` (audience) claim matches its own identifier, the token is accepted | D3, D4 | SP does not validate `aud` claim; same IdP serves multiple SPs |
-| **Issuer confusion / IdP mix-up** | Attacker tricks the client into sending the authorization request to one IdP but processing the response as if it came from another. Client accepts a token from an attacker-controlled IdP because it doesn't verify the `iss` claim against the intended provider | D4 | Client does not verify issuer matches the intended IdP; multiple IdPs use the same redirect_uri |
-
-### §3-2. Scope & Permission Escalation
+> SAML-specific claim injection (unsigned AttributeStatement, NameID manipulation, AudienceRestriction bypass) is covered in [SAML Taxonomy §4-2](../saml/saml.md#42-claim--identity-manipulation). JWT claim manipulation is covered in [JWT Taxonomy §4-2](../jwt/jwt.md#42-identity--authorization-claim-manipulation).
 
 | Subtype | Mechanism | Discrepancy | Key Condition |
 |---------|-----------|-------------|---------------|
-| **Scope upgrade in token request** | Send elevated `scope` parameter in the Access Token Request (not specified in the original authorization). If the AS trusts the scope in the token request without cross-referencing the authorization grant, elevated permissions are issued | D6 | AS does not verify scope in token request matches the authorized scope |
-| **Scope manipulation via token reuse** | Steal an access token from Implicit Flow and replay it with manually appended scope parameters against the resource server | D6 | Resource server reads scope from the token request rather than from the token itself |
-| **Consent bypass** | Manipulate the authorization request to skip user consent (e.g., `prompt=none` when the user has previously consented to a lesser scope) | D6, D7 | AS grants previously-consented scopes without re-prompting when additional scopes are requested |
+| **Mutable claim identity binding** | SP/RP identifies users by mutable fields (email, username) instead of immutable `sub`/`NameID`. Attacker changes their email at the IdP to match the victim's identifier | D6, D4 | SP/RP uses email or other mutable claim as primary identifier |
+| **Audience confusion** | Token issued for Service A is presented to Service B. If Service B does not verify the `aud` (audience) or `<AudienceRestriction>` matches its own identifier, the token is accepted | D3, D4 | SP does not validate audience; same IdP serves multiple SPs |
+| **Issuer confusion / IdP mix-up** | Attacker tricks the client into sending the authorization request to one IdP but processing the response as if it came from another | D4 | Client does not verify issuer matches the intended IdP; multiple IdPs share redirect_uri |
+
+### §3-2. Scope, Permission & Token Cross-Context Abuse
+
+> OAuth-specific scope manipulation, consent bypass, token exchange abuse, and cross-context token reuse are covered in [OAuth Taxonomy §5](../oauth/oauth.md#5-scope-consent--permission-exploitation) and [§3](../oauth/oauth.md#3-token-lifecycle--binding-attacks). CI/CD workload identity token abuse is covered in [OAuth Taxonomy §7-3](../oauth/oauth.md#73-oidc-federation-in-cicd-environments).
+
+| Subtype | Mechanism | Discrepancy | Key Condition |
+|---------|-----------|-------------|---------------|
 | **Role/group claim injection** | Modify group membership or role claims in SAML assertions or JWTs when signature verification is bypassed | D2, D6 | Combined with any signature bypass from §1 or §4 |
-
-### §3-3. Token Cross-Context Abuse
-
-| Subtype | Mechanism | Discrepancy | Key Condition |
-|---------|-----------|-------------|---------------|
-| **Client confusion (token substitution)** | Attacker obtains an access token generated for Client A (via an attacker-controlled Implicit Flow app) and presents it to Client B. If Client B accepts tokens from user-controlled parameters without verifying `client_id`, the attacker gains access | D4, D3 | Client uses Implicit Flow; does not verify token's `client_id` matches its own |
-| **Token chaining across services** | Steal a token from one service in an SSO ecosystem and use it to access other services that share the same IdP without service-specific authorization checks | D4 | Services within SSO ecosystem do not validate service-specific audience/scope |
-| **Workload identity token abuse (CI/CD)** | OIDC tokens issued to CI/CD workflows (e.g., GitHub Actions) are accepted by cloud providers with overly permissive trust policies. Attacker triggers a workflow in a forked/public repo to obtain tokens accepted by the victim's cloud IAM role | D4 | Trust policy uses wildcard matching on repo/branch claims; does not restrict to specific repositories or branches |
 
 ---
 
@@ -154,30 +67,15 @@ SSO tokens (SAML assertions, JWTs, ID tokens) carry identity claims. Manipulatin
 
 SSO protocols depend on cryptographic operations for token integrity and confidentiality. Weaknesses in algorithm selection, key management, or verification logic undermine the entire trust model.
 
-### §4-1. JWT Algorithm Confusion
+### §4-1. JWT Algorithm & Key Exploitation
 
-| Subtype | Mechanism | Discrepancy | Key Condition |
-|---------|-----------|-------------|---------------|
-| **RS256→HS256 downgrade** | Change the JWT `alg` header from RS256 (asymmetric) to HS256 (symmetric). Use the IdP's public RSA key (intended only for verification) as the HMAC secret to forge tokens | D8 | Library trusts the `alg` field from the JWT header rather than enforcing a server-side algorithm |
-| **`alg: none` bypass** | Set the JWT algorithm to `none` (no signature). Some libraries accept unsigned tokens if the algorithm field is set to none, None, NONE, or other case variants | D8, D3 | Library does not reject `alg: none` or does case-insensitive matching |
-| **ECDSA key confusion** | Exploit differences in how ECDSA curve parameters are validated. Provide a crafted public key with a different curve that produces a valid signature for attacker-controlled content | D8 | Library does not validate that the key curve matches the expected algorithm parameters |
-| **JWK injection** | Inject a JSON Web Key into the `jwk` or `jku` header parameter of the JWT, pointing to an attacker-controlled key. If the library fetches and trusts the embedded key, the attacker can self-sign tokens | D8, D4 | Library resolves JWK/JKU URLs from the token header without restriction (CVE-2025-24976) |
+> **Full taxonomy**: See [JWT Vulnerability Mutation Taxonomy](../jwt/jwt.md) for comprehensive coverage of algorithm confusion (§1), key source manipulation (§2), weak key material (§3), and JWE exploitation (§6).
 
-### §4-2. Key & Certificate Manipulation (SAML/Federation)
+JWT-specific vulnerabilities (algorithm confusion, `alg: none` bypass, JWK/JKU injection, `kid` parameter injection, ECDSA signature exploits, claim validation bypass, brute-force attacks) are documented in the dedicated JWT taxonomy. In the SSO context, these mutations are typically combined with protocol-level attacks (§2, §3, §5) to achieve authentication bypass or privilege escalation.
 
-| Subtype | Mechanism | Discrepancy | Key Condition |
-|---------|-----------|-------------|---------------|
-| **Golden SAML** | Compromise the IdP's token-signing certificate private key (e.g., AD FS signing certificate). Forge arbitrary SAML assertions for any user without touching the IdP | D8 | Attacker has access to the IdP signing key (post-compromise persistence) |
-| **Secondary certificate injection** | Federated IdP configurations (e.g., Microsoft Entra ID) accept multiple token-signing certificates. Attacker adds their own certificate as a secondary signer, then forges tokens signed with their key | D4, D8 | Federation configuration allows adding additional signing certificates without sufficient audit controls |
-| **Certificate rollover exploitation** | During IdP certificate rollover, both old and new certificates are temporarily trusted. Attacker uses a stolen old certificate (or forces rollover) to sign forged assertions during the overlap window | D8 | SP trusts both old and new certificates during rollover period |
-| **Self-signed certificate acceptance** | SP accepts SAML assertions signed with self-signed certificates that are not in the trusted certificate store | D3 | SP does not validate the signing certificate against a trusted root or pinned certificate |
+### §4-2. SAML Cryptographic & Certificate Exploitation
 
-### §4-3. Encrypted Assertion Exploitation
-
-| Subtype | Mechanism | Discrepancy | Key Condition |
-|---------|-----------|-------------|---------------|
-| **Encrypted assertion bypass** | When optional encrypted assertions are enabled, bypass encryption handling to process unencrypted assertions that the SP should reject | D3 | SP falls back to processing unencrypted assertions when decryption fails (CVE-2024-4985, GitHub Enterprise) |
-| **XML Encryption oracle** | Use error messages during decryption as an oracle to recover plaintext assertion content byte-by-byte | D3 | SP returns distinguishable errors for padding vs. decryption failures |
+> **Full coverage**: See [SAML Taxonomy §5](../saml/saml.md#5-cryptographic--certificate-exploitation) for Golden SAML, Silver SAML, certificate validation failures, encrypted assertion bypass, and XML Encryption oracle attacks.
 
 ---
 
@@ -185,22 +83,11 @@ SSO protocols depend on cryptographic operations for token integrity and confide
 
 SSO introduces complex session relationships: IdP sessions, SP sessions, and the tokens that bind them. Weaknesses in session lifecycle management create opportunities for fixation, replay, and hijacking.
 
-### §5-1. Session Fixation & Hijacking
+> SAML-specific session attacks (assertion replay, RelayState manipulation, session fixation, SLO failure) are covered in [SAML Taxonomy §7-2](../saml/saml.md#72-session--replay-attacks). OAuth state/nonce/CSRF attacks are covered in [OAuth Taxonomy §4](../oauth/oauth.md#4-state-nonce--csrf-exploitation). JWT token replay is covered in [JWT Taxonomy §4-3](../jwt/jwt.md#43-token-replay--lifecycle-abuse).
 
 | Subtype | Mechanism | Discrepancy | Key Condition |
 |---------|-----------|-------------|---------------|
-| **Pre-authentication session fixation** | Attacker sets the victim's session ID before SSO authentication. After the victim authenticates, the session (now bound to the victim's identity) is known to the attacker | D5 | SP does not regenerate session ID after successful SSO authentication |
 | **IdP session hijacking** | Compromise the IdP session cookie (via XSS, network sniffing, or malware). Since the IdP session grants access to all SPs, a single compromise cascades across the entire SSO ecosystem | D5, D4 | IdP session cookie is not adequately protected (missing HttpOnly, Secure, SameSite flags) |
-| **Relay state manipulation** | In SAML, the `RelayState` parameter carries the post-authentication redirect URL. Attacker modifies RelayState to redirect the authenticated user to a phishing page or attacker-controlled endpoint | D7 | SP does not validate RelayState against an allowlist of permitted URLs |
-
-### §5-2. Token Replay & Lifetime Abuse
-
-| Subtype | Mechanism | Discrepancy | Key Condition |
-|---------|-----------|-------------|---------------|
-| **Assertion replay** | Capture a valid SAML assertion and replay it to the SP within its validity window. If the SP does not track consumed assertions, the replayed assertion grants access | D5 | SP does not maintain an assertion ID cache / replay detection |
-| **Token lifetime extension** | Modify the `NotBefore`/`NotOnOrAfter` timestamps in a SAML assertion (when signature is bypassed) or `exp` claim in a JWT to extend token validity indefinitely | D6 | Combined with any signature bypass; SP relies solely on token-embedded timestamps |
-| **Refresh token abuse** | Steal a long-lived OAuth refresh token and use it to continuously generate new access tokens, maintaining persistent access even after password changes | D5 | Refresh tokens are not bound to the original client/device; not revoked on password change |
-| **Single Logout (SLO) failure** | After a user logs out of one SP, their sessions at other SPs remain active. Attacker exploits the orphaned sessions | D5 | SLO not implemented, or back-channel SLO messages fail silently |
 
 ---
 
@@ -208,13 +95,9 @@ SSO introduces complex session relationships: IdP sessions, SP sessions, and the
 
 SSO federation relies on trust relationships established through metadata exchange between IdPs and SPs. Compromising or manipulating this trust layer affects the entire SSO ecosystem.
 
-### §6-1. Metadata Manipulation
+### §6-1. SAML Metadata & Federation Trust Exploitation
 
-| Subtype | Mechanism | Discrepancy | Key Condition |
-|---------|-----------|-------------|---------------|
-| **Metadata injection/spoofing** | Attacker provides malicious IdP metadata during SP configuration, pointing the SP to an attacker-controlled IdP | D4 | SP accepts metadata from untrusted sources; does not verify metadata signatures |
-| **Metadata URL substitution** | Replace the IdP metadata URL with an attacker-controlled endpoint that serves crafted metadata containing the attacker's signing certificate | D4 | SP fetches metadata dynamically from a configurable URL without pinning |
-| **WS-Federation metadata repurposing** | Extract signed metadata from a legitimate IdP's WS-Federation endpoint and repurpose it for SAML namespace confusion attacks, since the signed XML can provide valid signatures in unexpected contexts | D4, D2 | IdP exposes signed WS-Federation metadata publicly; SP processes metadata-derived signatures without context validation |
+> **Full coverage**: See [SAML Taxonomy §8](../saml/saml.md#8-federation-trust--metadata-exploitation) for metadata injection/spoofing, metadata URL substitution, WS-Federation metadata repurposing, IdP trust chain manipulation, and SP misconfiguration attacks.
 
 ### §6-2. IdP Trust Escalation
 
@@ -226,11 +109,7 @@ SSO federation relies on trust relationships established through metadata exchan
 
 ### §6-3. OIDC Federation & Trust Chain Attacks
 
-| Subtype | Mechanism | Discrepancy | Key Condition |
-|---------|-----------|-------------|---------------|
-| **Overly permissive OIDC trust policy** | Cloud IAM roles trust OIDC tokens from a CI/CD provider with wildcarded conditions (e.g., `repo:*`, `branch:*`), allowing any repository or branch to assume the role | D4 | Trust policy does not restrict to specific repos/branches/environments |
-| **Poisoned pipeline execution (PPE) + OIDC** | Attacker modifies a CI/CD pipeline definition (via PR or compromised dependency) to execute code that requests OIDC tokens, then uses those tokens to access cloud resources | D4, D7 | CI/CD platform issues OIDC tokens to any workflow execution, including from forked repos |
-| **Issuer URL confusion** | OIDC discovery endpoint (`.well-known/openid-configuration`) serves different configurations based on path traversal or host header manipulation, allowing attacker to inject their own signing keys | D1, D4 | Discovery endpoint is vulnerable to path manipulation or host header injection |
+> **Full coverage**: See [OAuth Taxonomy §7](../oauth/oauth.md#7-oidc-discovery--federation-exploitation) for OIDC discovery endpoint manipulation, IdP trust attacks, multi-tenant confusion, and CI/CD OIDC federation exploitation.
 
 ---
 
@@ -238,21 +117,13 @@ SSO federation relies on trust relationships established through metadata exchan
 
 Each SSO protocol defines specific flows for different client types and deployment scenarios. Abusing the intended semantics of these flows—especially through social engineering—represents a growing attack vector.
 
-### §7-1. OAuth Device Code Flow Exploitation
+### §7-1. OAuth Grant Flow Abuse
 
-| Subtype | Mechanism | Discrepancy | Key Condition |
-|---------|-----------|-------------|---------------|
-| **Device code phishing** | Attacker initiates a device authorization request, obtains a user code, and socially engineers the victim into entering it at the legitimate IdP's device login page. Victim authenticates, granting the attacker's polling client an access token | D7 | Device flow is enabled; no mechanism to verify that the person entering the code is the device operator |
-| **Automated device code harvesting** | Scale device code phishing through automated phishing campaigns, generating unique device codes per target and polling for completion | D7 | No rate limiting on device code generation; long polling intervals allow extended attack windows |
-| **Device code + MFA bypass** | Since the victim authenticates directly at the IdP (including completing MFA), the attacker's token inherits full MFA-authenticated privileges | D7 | Token does not distinguish between direct and device-code-mediated authentication |
+> **Full coverage**: See [OAuth Taxonomy §8](../oauth/oauth.md#8-grant-flow-abuse) for device code flow exploitation (the dominant OAuth attack vector in 2024–2025), client credentials abuse, and ROPC grant abuse.
 
 ### §7-2. SAML Flow Manipulation
 
-| Subtype | Mechanism | Discrepancy | Key Condition |
-|---------|-----------|-------------|---------------|
-| **IdP-initiated SSO injection** | In IdP-initiated flows, there is no SP-generated `AuthnRequest` to bind the response to. Attacker crafts a SAML response and submits it directly to the SP's ACS endpoint | D5 | SP accepts unsolicited SAML responses (IdP-initiated SSO enabled) |
-| **InResponseTo bypass** | Remove or modify the `InResponseTo` attribute in the SAML response. If the SP does not verify that the response corresponds to a pending authentication request, forged responses are accepted | D5, D3 | SP does not validate `InResponseTo` against outstanding request IDs |
-| **AuthnRequest manipulation** | Modify the `AuthnRequest` to request a weaker authentication context (e.g., password-only instead of MFA), then use the resulting assertion at SPs that require stronger authentication | D6, D3 | IdP honors the requested authentication context without enforcing minimum security levels |
+> **Full coverage**: See [SAML Taxonomy §7-1](../saml/saml.md#71-protocol-flow-exploitation) for IdP-initiated SSO injection, InResponseTo bypass, AuthnRequest manipulation, and [SAML Taxonomy §7-2](../saml/saml.md#72-session--replay-attacks) for assertion replay and session fixation attacks.
 
 ### §7-3. Kerberos Ticket Exploitation
 
@@ -270,20 +141,16 @@ Each SSO protocol defines specific flows for different client types and deployme
 
 Vulnerabilities arising from the SSO setup, registration, and configuration process itself — targeting the administrative interface rather than the authentication flow.
 
-### §8-1. Client Registration Abuse (OAuth/OIDC)
+### §8-1. Client Registration & Identity Abuse (OAuth/OIDC)
 
-| Subtype | Mechanism | Discrepancy | Key Condition |
-|---------|-----------|-------------|---------------|
-| **Malicious client registration** | Register a new OAuth client with attacker-controlled `redirect_uri`, `logo_uri`, `jwks_uri`, or `sector_identifier_uri`. These URLs may trigger SSRF when the AS fetches them | D4, D7 | Dynamic client registration enabled without authentication or approval |
-| **Client impersonation** | Register a client with a name/logo resembling a trusted application to trick users into granting consent | D7 | No verification of client identity during registration |
-| **SSRF via client metadata URIs** | Set `logo_uri`, `policy_uri`, `tos_uri`, or `jwks_uri` to internal network addresses. When the AS fetches these for display or validation, it performs server-side requests to internal services | D4 | AS fetches client metadata URIs without SSRF protection |
+> **Full coverage**: See [OAuth Taxonomy §6](../oauth/oauth.md#6-client-identity--registration-exploitation) for client credential exploitation, dynamic client registration abuse (including SSRF via metadata URIs), and client impersonation.
 
 ### §8-2. SP/RP Misconfiguration
 
+> SAML-specific SP misconfigurations (signature validation disabled, certificate validation bypass) are covered in [SAML Taxonomy §8-3](../saml/saml.md#83-sp-misconfiguration).
+
 | Subtype | Mechanism | Discrepancy | Key Condition |
 |---------|-----------|-------------|---------------|
-| **Signature validation disabled** | SP is configured to not require signed assertions (often during development/testing and never re-enabled) | D3 | SP accepts unsigned SAML assertions |
-| **Certificate validation bypass** | SP validates the signature but does not verify the signing certificate against a trusted store, accepting any valid self-signed certificate | D3 | SP validates signature math but not certificate trust |
 | **Mixed authentication context** | SP accepts both SSO-authenticated and locally-authenticated sessions, with locally-authenticated sessions bypassing SSO security controls (MFA, conditional access) | D3, D4 | Alternative authentication paths exist alongside SSO |
 
 ---
@@ -292,14 +159,14 @@ Vulnerabilities arising from the SSO setup, registration, and configuration proc
 
 | Scenario | Architecture | Primary Mutation Categories | Typical Impact |
 |----------|-------------|---------------------------|----------------|
-| **User Impersonation** | Any SP accepting forged tokens | §1 + §4-1 + §4-2 | Authenticate as arbitrary user |
+| **User Impersonation** | Any SP accepting forged tokens | §1 ([SAML](../saml/saml.md)) + §4-1 ([JWT](../jwt/jwt.md)) + §4-2 | Authenticate as arbitrary user |
 | **Account Takeover** | Multi-SP SSO ecosystems | §3-1 + §5-1 + §7-1 | Full account compromise across services |
 | **Privilege Escalation** | SPs with role-based access from claims | §3-2 + §1 + §4-1 | Admin access via claim manipulation |
-| **Persistent Backdoor** | Enterprise AD/federation environments | §4-2 (Golden SAML) + §7-3 (Golden Ticket) | Long-term undetected access |
-| **Token Theft / Lateral Movement** | OAuth/OIDC ecosystems | §2 + §5-2 + §3-3 | Cross-service access from single compromise |
-| **CI/CD Pipeline Compromise** | Cloud-native OIDC federation | §6-3 + §3-3 | Cloud resource access via pipeline tokens |
-| **Consent Phishing** | OAuth device flow / consent screens | §7-1 + §8-1 | MFA-bypassing account compromise |
-| **WAF/Gateway Bypass** | Network appliances using SSO | §1 (SAML bypass on FortiGate) | Network perimeter bypass |
+| **Persistent Backdoor** | Enterprise AD/federation environments | §4-2 ([SAML §5](../saml/saml.md#5-cryptographic--certificate-exploitation)) + §7-3 (Golden Ticket) | Long-term undetected access |
+| **Token Theft / Lateral Movement** | OAuth/OIDC ecosystems | §2 ([OAuth §3](../oauth/oauth.md#3-token-lifecycle--binding-attacks)) | Cross-service access from single compromise |
+| **CI/CD Pipeline Compromise** | Cloud-native OIDC federation | §6-3 ([OAuth §7-3](../oauth/oauth.md#73-oidc-federation-in-cicd-environments)) | Cloud resource access via pipeline tokens |
+| **Consent / Device Code Phishing** | OAuth device flow / consent screens | §7-1 ([OAuth §8-1](../oauth/oauth.md#81-device-authorization-grant-device-code-flow-exploitation)) | MFA-bypassing account compromise |
+| **WAF/Gateway Bypass** | Network appliances using SSO | §1 ([SAML §1](../saml/saml.md#1-xml-signature-wrapping-xsw)) | Network perimeter bypass |
 
 ---
 
@@ -307,24 +174,9 @@ Vulnerabilities arising from the SSO setup, registration, and configuration proc
 
 | Mutation Combination | CVE / Case | Product | Impact |
 |---------------------|-----------|---------|--------|
-| §1-2 (parser differential) | CVE-2024-45409 | ruby-saml / GitLab | CVSS 10.0. Full auth bypass; sign in as any user |
-| §1-2 (parser differential) + §1-4 | CVE-2025-25291, CVE-2025-25292 | ruby-saml ≤1.17.0 | CVSS 8.8. Auth bypass via DOCTYPE/namespace parser differential |
-| §1-2 + §1-4 (namespace confusion + round-trip) | CVE-2025-66567 | ruby-saml | Auth bypass via namespace handling differential |
-| §1-3 (comment injection in DigestValue) | CVE-2025-29775 | xml-crypto (Node.js) ≤6.0.0 | SAMLStorm. Complete auth bypass via XML comment in DigestValue |
-| §1-4 (multiple SignedInfo) | CVE-2025-29774 | xml-crypto (Node.js) ≤6.0.0 | SAMLStorm. Auth bypass via duplicate SignedInfo |
-| §1-1 (signature wrapping) | CVE-2025-47949 | samlify (Node.js) <2.10.0 | Critical auth bypass, arbitrary user impersonation |
-| §1-1 + §1-3 (void canonicalization) | — (PortSwigger "Fragile Lock") | ruby-saml 1.12.4, PHP-SAML, xmlseclibs | Golden SAML Response — universal signature forgery |
-| §1-2 (round-trip + namespace) | — (PortSwigger "SAML Roulette") | ruby-saml / GitLab Enterprise | Unauthenticated admin access on GitLab |
-| §4-3 (encrypted assertion bypass) | CVE-2024-4985 | GitHub Enterprise Server | Full SAML SSO bypass via encrypted assertions |
-| §4-3 + §1 | CVE-2024-9487 | GitHub Enterprise Server | SAML SSO bypass, unauthorized user provisioning |
-| §1-5 + §1-1 | CVE-2024-8698 | Keycloak | SAML signature validation bypass, privilege escalation |
-| §1-1 (assertion processing) | CVE-2025-54369 | @node-saml/node-saml | SAML authentication bypass |
-| §5-2 (nonce replay) | CVE-2024-10318 | NGINX OIDC Reference Impl. | Session fixation via missing nonce validation |
-| §1-1 (SAML bypass on appliance) | CVE-2025-59718, CVE-2025-59719 | Fortinet FortiGate/FortiWeb | CVSS 9.8. Unauthenticated SSO bypass, active exploitation Dec 2025 |
-| §4-1 (algorithm confusion) | CVE-2024-54150 | — | JWT algorithm confusion |
-| §4-1 (JWK injection) | CVE-2025-24976 | Distribution (container registry) | Signing key injection via JWK verification bypass |
-| §3-1 (audience confusion) | CVE-2025-27371 | OAuth implementations | JWT audience value ambiguity |
-| §7-1 (device code phishing) | — (ShinyHunters/UNC6040 campaign) | Microsoft 365, Google, Salesforce | Mass enterprise compromise, MFA bypass, data exfiltration (2024–2025) |
+| §1 (SAML-specific) | *Multiple CVEs* | *Multiple libraries* | See [SAML Taxonomy CVE table](../saml/saml.md#cve--bounty-mapping-20242026) for XSW, parser differential, SAMLStorm, Golden SAML Response, encrypted assertion bypass CVEs |
+| §4-1 (JWT-specific) | *Multiple CVEs* | *Multiple libraries* | See [JWT Taxonomy CVE table](../jwt/jwt.md#cve--bounty-mapping-20242026) for algorithm confusion, JWK injection, claim validation CVEs |
+| §2 / §7-1 (OAuth/OIDC-specific) | *Multiple CVEs* | *Multiple products* | See [OAuth Taxonomy CVE table](../oauth/oauth.md#cve--bounty-mapping-20242025) for redirect_uri bypass, PKCE downgrade, device code phishing, consent phishing, MCP OAuth CVEs |
 
 ---
 
@@ -332,12 +184,10 @@ Vulnerabilities arising from the SSO setup, registration, and configuration proc
 
 | Tool | Type | Target Scope | Core Technique |
 |------|------|-------------|---------------|
-| **SAML Raider** | Burp Extension | SAML message manipulation | Intercept, decode, and modify SAML requests/responses; X.509 cert management; automated XSW attacks |
-| **SAMLReQuest** | Burp Extension | SAML AuthnRequest testing | Decode and manipulate SAML authentication requests |
+| **SAML tools** | Various | SAML analysis & attack | See [SAML Taxonomy Detection Tools](../saml/saml.md#detection-tools) for SAML Raider, SAMLReQuest, SAMLTool, and full SAML tooling matrix |
 | **EsPReSSO** | Burp Extension | Multi-protocol SSO | Detect SAML, OAuth, OIDC, BrowserId, Facebook Connect; built-in WS-Attacker XSW library |
-| **OAUTHScan** | Burp Extension | OAuth 2.0 / OIDC | Automated security checks for OAuth and OIDC flows |
-| **jwt_tool** | CLI Tool | JWT analysis & attack | Algorithm confusion, claim tampering, key brute-force, JWK injection |
-| **SAMLTool** | PortSwigger Research | SAML parser differential | Identify parser differential and canonicalization vulnerabilities (released with "Fragile Lock" research) |
+| **OAUTHScan** | Burp Extension | OAuth 2.0 / OIDC | See [OAuth Taxonomy Detection Tools](../oauth/oauth.md#detection-tools) for full OAuth/OIDC tooling matrix |
+| **jwt_tool** | CLI Tool | JWT analysis & attack | See [JWT Taxonomy Detection Tools](../jwt/jwt.md#detection-tools) for full JWT tooling matrix |
 | **vulnerable-sso** | Training Platform | Full SSO stack | Intentionally vulnerable SSO implementation for security testing practice |
 | **Rubeus** | CLI Tool | Kerberos attacks | Kerberoasting, ticket forging (Golden/Silver), delegation abuse, S4U exploitation |
 | **Impacket** | Python Library | Kerberos / NTLM | GetTGT, GetST, Golden/Silver ticket creation, delegation exploitation |
@@ -350,9 +200,9 @@ Vulnerabilities arising from the SSO setup, registration, and configuration proc
 
 **The fundamental property that makes the SSO mutation space so expansive is the delegation of trust across protocol boundaries.** SSO systems, by design, require one party (the SP) to accept identity assertions from another party (the IdP) conveyed through an untrusted intermediary (the user agent). Every mutation in this taxonomy exploits a gap in how that trust is established, verified, or maintained — whether it's the gap between two XML parsers interpreting the same signature differently, the gap between an OAuth authorization request and its callback, or the gap between what a Kerberos ticket claims and what the KDC actually issued.
 
-**Incremental fixes fail because the attack surface is inherent to the protocol architecture.** SAML's reliance on XML Signatures — a technology designed for general-purpose XML documents, not authentication tokens — means that every XML parser quirk, canonicalization edge case, and namespace ambiguity becomes a potential authentication bypass. The 2024–2025 wave of SAML vulnerabilities (ruby-saml, xml-crypto, samlify, PHP-SAML) demonstrates this: despite years of patches, researchers continue to find new parser differentials and canonicalization errors because the underlying XML processing stack is too complex to fully constrain. Similarly, OAuth's redirect-based architecture means that URL parsing discrepancies and open redirects will always threaten token security.
+**Incremental fixes fail because the attack surface is inherent to the protocol architecture.** SAML's reliance on XML Signatures — a technology designed for general-purpose XML documents, not authentication tokens — means that every XML parser quirk, canonicalization edge case, and namespace ambiguity becomes a potential authentication bypass. The 2024–2025 wave of SAML vulnerabilities (ruby-saml, xml-crypto, samlify, PHP-SAML) demonstrates this: despite years of patches, researchers continue to find new parser differentials and canonicalization errors because the underlying XML processing stack is too complex to fully constrain (see [SAML Taxonomy](../saml/saml.md) for the full SAML attack surface). Similarly, OAuth's redirect-based architecture means that URL parsing discrepancies and open redirects will always threaten token security (see [OAuth Taxonomy](../oauth/oauth.md) for the full OAuth/OIDC attack surface).
 
-**Structural solutions require reducing protocol complexity and eliminating parser differentials.** For SAML, this means strict XML schema enforcement with minimal extensibility, single-parser architectures, and validating that only signed elements influence authentication decisions. For OAuth/OIDC, OAuth 2.1's deprecation of Implicit Flow, mandatory PKCE, and exact redirect_uri matching address the most common flow-level mutations. For federation trust, zero-trust principles — pinned certificates, audience-restricted tokens, and continuous verification — must replace the implicit trust models that enable Golden SAML, metadata injection, and CI/CD token abuse. The long-term trajectory points toward simpler token formats (like PASETO over JWT) and hardware-bound credentials (like WebAuthn/passkeys) that eliminate the parsing complexity at the root of most SSO vulnerabilities.
+**Structural solutions require reducing protocol complexity and eliminating parser differentials.** For SAML, this means strict XML schema enforcement with minimal extensibility, single-parser architectures, and validating that only signed elements influence authentication decisions (see [SAML Taxonomy Summary](../saml/saml.md#summary-core-principles) for detailed structural analysis). For OAuth/OIDC, OAuth 2.1's deprecation of Implicit Flow, mandatory PKCE, and exact redirect_uri matching address the most common flow-level mutations. For federation trust, zero-trust principles — pinned certificates, audience-restricted tokens, and continuous verification — must replace the implicit trust models that enable Golden SAML, metadata injection, and CI/CD token abuse. The long-term trajectory points toward simpler token formats (like PASETO over JWT — see [JWT Taxonomy](../jwt/jwt.md) for detailed analysis) and hardware-bound credentials (like WebAuthn/passkeys) that eliminate the parsing complexity at the root of most SSO vulnerabilities.
 
 ---
 

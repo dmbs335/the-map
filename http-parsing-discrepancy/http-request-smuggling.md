@@ -1,4 +1,4 @@
-# HTTP Request Smuggling & Desync — Mutation Taxonomy (2025)
+# HTTP Request Smuggling & Desync — Mutation Taxonomy 
 
 
 
@@ -227,23 +227,9 @@ Exploiting H2's binary framing to inject or preserve headers that produce differ
 
 ## §3. Request-Line & URL Mutations
 
-
-
-Mutations that cause a proxy/CDN/cache and the origin server to **map the same URL to different resources**. These produce *path mismatch* and are the basis for Web Cache Deception, Web Cache Poisoning, and ACL bypass.
-
-
-
-| Technique | Mutation Example | Mismatch Effect |
-|---|---|---|
-| **Path suffix confusion** | `/account.php/image.png` | Cache sees `.png` → static; origin executes `account.php` |
-| **URL encoding asymmetry** | `%2F` vs `/`, double-encoding `%252F` | Differences in normalization depth and timing |
-| **Path parameter (`;`)** | `/admin;.js` | Servers like Tomcat strip after `;`; others treat it as part of the path |
-| **Dot segment normalization** | `/admin/..%2Fsecret` | Proxy normalizes first vs origin receives the encoded form |
-| **Null byte insertion** | `/admin%00.png` | C-based servers truncate at null |
-| **Backslash/slash confusion** | `\admin` → `/admin` | Windows/IIS path normalization |
-| **Module pipeline mismatch** | Apache `mod_rewrite` → `mod_proxy` URL interpretation divergence | CVE-2024-38474 (Apache HTTP Server RCE) |
-| **URL decode ordering error** | ModSecurity URL-decodes before query separation | CVE-2024-1019: encoded payloads bypass path-based WAF rules |
-| **WAF exception paths** | `/.well-known/acme-challenge/` and similar | WAF skips inspection on these paths → direct origin attack (Cloudflare ACME bypass, 2025) |
+> Moved to standalone document: **[Reverse Proxy Misrouting — Path & Host Mutation Taxonomy](reverse-proxy-misrouting.md)**
+>
+> Covers path suffix confusion, URL encoding asymmetry, path parameter injection, dot segment normalization, null byte insertion, backslash/slash confusion, module pipeline mismatch (CVE-2024-38474), and URL decode ordering errors (CVE-2024-1019). These mutations produce *path mismatch* — the root cause of Web Cache Deception, Web Cache Poisoning, and ACL bypass.
 
 
 
@@ -253,20 +239,9 @@ Mutations that cause a proxy/CDN/cache and the origin server to **map the same U
 
 ## §4. Host Identification Mutations
 
-
-
-Mutations that create contradictions between the multiple mechanisms for determining a request's target host (Host header, absolute URI, `:authority`, `X-Forwarded-Host`, etc.).
-
-
-
-| Technique | Mutation Example | Mismatch Effect |
-|---|---|---|
-| **Host header duplication** | `Host: evil.com\r\nHost: target.com` | First-wins vs last-wins policy |
-| **Absolute URI + Host conflict** | `GET http://evil.com/ HTTP/1.1\r\nHost: target.com` | RFC mandates absolute URI takes precedence, but implementations vary |
-| **X-Forwarded-Host injection** | `X-Forwarded-Host: evil.com` | Pollutes internal routing and cache key generation |
-| **`:authority` vs Host** | H2 `:authority` and post-downgrade Host header disagree | Virtual host selection and routing confusion |
-| **Port inclusion/omission** | `Host: target.com:443` vs `Host: target.com` | Cache key splitting, virtual host mapping differences |
-| **Internal header spoofing** | `X-Original-URL: /admin`, `X-Rewrite-URL: /admin` | Framework uses these headers instead of the actual request path for routing |
+> Moved to standalone document: **[Reverse Proxy Misrouting — Path & Host Mutation Taxonomy](reverse-proxy-misrouting.md)**
+>
+> Covers Host header duplication, absolute URI + Host conflicts, X-Forwarded-Host injection, `:authority` vs Host disagreement, port inclusion/omission, and internal header spoofing (X-Original-URL, X-Rewrite-URL). These mutations produce *host mismatch* — the root cause of routing manipulation, cache poisoning, and SSRF.
 
 
 
@@ -276,70 +251,9 @@ Mutations that create contradictions between the multiple mechanisms for determi
 
 ## §5. Body Structure & Content-Type Mutations
 
-
-
-Mutations that make a WAF and a web framework **parse the same HTTP body into different parameters/values**. The attack payload itself is not modified — only the *container structure* changes. This distinction separates body structure mutations from traditional payload encoding evasion (§8).
-
-
-
-### §5-1. Content-Type Switching & Confusion
-
-
-
-| Technique | Mutation Example | Mismatch Effect |
-|---|---|---|
-| **CT substitution** | Send `multipart/form-data` to a urlencoded endpoint | WAF applies wrong parsing rule set. Empirically 90%+ of websites accept both CTs interchangeably |
-| **CT omission** | Remove Content-Type header entirely | Framework's default parser diverges from WAF's assumed parser |
-| **CT–body mismatch** | `Content-Type: application/json` header with a multipart body | WAF applies JSON rules; app parses the actual body format |
-| **CT parameter pollution** | `Content-Type: multipart/form-data; boundary=a; boundary=b` | Which boundary is adopted determines the parse result |
-| **Non-standard CT** | `Content-Type: text/plain` with JSON/XML body | WAF skips structured inspection; framework parses body structure |
-| **Charset tampering** | `charset=ibm037` (EBCDIC), `charset=utf-7` | Payload encoded in legacy charset evades signature matching |
-
-
-
-### §5-2. Multipart/form-data Structure Mutations
-
-
-
-| Technique | Description |
-|---|---|
-| **Boundary header tampering** | Semicolons in boundary value; RFC 2231 parameter continuation to split the boundary declaration → WAF uses fake boundary, app uses real one |
-| **Boundary body tampering** | Dash count, whitespace, and CRLF handling differences in body delimiters |
-| **Content-Disposition tampering** | Quote presence/absence on field/file names, encoding, escaping differences |
-| **Preamble/Epilogue insertion** | Payloads hidden before the first boundary (preamble) or after the last (epilogue) — RFC mandates ignoring these, but some parsers process them |
-| **Whitespace/tab substitution** | Replacing spaces with tabs in CT header values |
-| **Non-standard field name characters** | Invalid characters in field names → WAF fails to recognize the parameter |
-| **CT header parameter removal** | Removing secondary parameters (e.g., `name`) alters WAF behavior |
-
-
-
-### §5-3. JSON Structure Mutations
-
-
-
-| Technique | Description |
-|---|---|
-| **Duplicate keys** | `{"key":"safe","key":"<xss>"}` — which value is adopted varies by parser (RFC 8259 leaves this undefined) |
-| **Unicode escapes** | `\u003cscript\u003e` → WAF sees string literal; app decodes to HTML |
-| **Non-standard comments** | `/* */`, `//` — absent from JSON spec but accepted by some parsers (e.g., Jackson) |
-| **Null bytes** | `\x00` within values to halt WAF parser mid-stream |
-| **Type confusion** | Switching between number/string/boolean to evade type-specific signatures |
-| **Deep nesting** | Extreme JSON depth exceeding WAF parser recursion/memory limits |
-
-
-
-### §5-4. XML Structure Mutations
-
-
-
-| Technique | Description |
-|---|---|
-| **DOCTYPE closure confusion** | Extra characters after DOCTYPE declaration disrupt WAF XML parse state |
-| **Schema closure manipulation** | Shifting XML schema closing tags, injecting elements/attributes to distort structure |
-| **Strategic newline placement** | Newlines between XML tags positioned to break WAF rule matching |
-| **Encoding declaration tampering** | `<?xml encoding="UTF-7"?>` confuses WAF charset interpretation |
-| **CDATA section abuse** | `<![CDATA[<script>]]>` — payload hidden inside CDATA |
-| **Internal entity expansion** | Entity definitions/references for WAF bypass (not XXE-targeted) |
+> Moved to standalone document: **[WAF Bypass via HTTP Body & Payload Mutations](waf-bypass.md)**
+>
+> Covers Content-Type switching/confusion (§5-1), multipart/form-data structure mutations (§5-2), JSON structure mutations (§5-3), and XML structure mutations (§5-4). These mutations exploit parsing discrepancies between WAFs and web frameworks — independent of HRS but frequently combined with it.
 
 
 
@@ -402,21 +316,9 @@ Micro-level differences in how individual servers and proxies implement HTTP par
 
 ## §8. Payload-Level Obfuscation
 
-
-
-Unlike §1–§7 which mutate **message structure**, this category mutates **the payload representation itself** to evade WAF signatures. Independent of HRS but commonly combined with §5 (body structure mutations) in practice.
-
-
-
-| Technique | Example |
-|---|---|
-| **Encoding substitution** | URL encoding, HTML entities, Unicode normalization, IBM037 (EBCDIC) |
-| **Case/whitespace insertion** | `SeLeCt`, `UN/**/ION` — breaking SQL/XSS signatures |
-| **HTTP Parameter Pollution** | Duplicate parameter names → servers vary on first/last/array handling |
-| **Oversized requests** | Body exceeding WAF inspection limits (typically 4KB–64KB) → inspection skipped |
-| **Non-standard HTTP methods** | Payloads via PUT, PATCH, DELETE that WAFs don't inspect |
-| **Legacy cookie parser abuse** | `$Version` cookie attributes and quoted-string encoding to bypass WAF rules |
-| **Internal header spoofing** | `X-HTTP-Method-Override`, `X-Middleware-Subreq` (CVE-2025-29927, CVSS 9.1) to alter framework behavior |
+> Moved to standalone document: **[WAF Bypass via HTTP Body & Payload Mutations](waf-bypass.md)**
+>
+> Covers encoding substitution, case/whitespace insertion, HTTP Parameter Pollution, oversized requests, non-standard HTTP methods, legacy cookie parser abuse, and internal header spoofing (CVE-2025-29927). Unlike §1–§7 which mutate message structure, §8 mutates the payload representation itself.
 
 
 
@@ -439,9 +341,9 @@ How the mutations above are **weaponized** under specific architectural conditio
 | **Browser-Powered Desync** | Attacker JS → victim's browser → target server | §1-2 + §6; requires target lacking HTTP/2 |
 | **Response Queue Poisoning** | Post-desync response queue corruption → stealing other users' responses. HEAD request CL + response concatenation enables cache poisoning | §1 (all framing) + §2 |
 | **Response Smuggling / Splitting** | Two complete requests smuggled to desync the **response** queue — attacker-controlled response delivered to victim; HttpOnly cookie theft | §1 + §2 + §6; requires timing differential (sleepy request) |
-| **Web Cache Deception / Poisoning** | Path/host interpretation difference between CDN/cache and origin | §3 + §4 |
-| **WAF Body Inspection Bypass** | Content-Type/body parsing difference between WAF and web framework | §5 + §8; no HRS required |
-| **ACL / Authentication Bypass** | Path/host interpretation difference between proxy routing and origin routing | §3 + §4 + §8 (internal headers) |
+| **Web Cache Deception / Poisoning** | Path/host interpretation difference between CDN/cache and origin | §3 + §4 ([see reverse proxy doc](reverse-proxy-misrouting.md)) |
+| **WAF Body Inspection Bypass** | Content-Type/body parsing difference between WAF and web framework | §5 + §8 ([see WAF bypass doc](waf-bypass.md)); no HRS required |
+| **ACL / Authentication Bypass** | Path/host interpretation difference between proxy routing and origin routing | §3 + §4 ([see reverse proxy doc](reverse-proxy-misrouting.md)) + §8 (internal headers) |
 | **Microservice Internal Desync** | Service mesh (Envoy/Istio) + heterogeneous runtimes (Go/Node/Python) with differing parser leniency | §6 + §7; manifests even on internal networks |
 | **Cross-Protocol TLS Desync (Opossum)** | MITM + server supporting both implicit and opportunistic TLS → permanent response stream desync | §6 (TLS Upgrade / Opossum); affects SMTP, FTP beyond HTTP |
 | **Cache Poisoning → C2 Side Channel** | CL.0 desync poisons CDN's 3xx redirect into global cache; Location header repurposed as covert C2 channel | §1-2 (CL.0) + §3 (path) + CDN cache |
@@ -462,11 +364,6 @@ How the mutations above are **weaponized** under specific architectural conditio
 | §1-2 (0.CL) + §1-4 (Expect) + §2-1 (TE line folding) | 2025 large-scale campaign | $200K+ bounties across Akamai, Cloudflare, Netlify within 2 weeks |
 | §1-2 (TE.0) | Google Cloud Load Balancer | $8,500 (Google VRP) |
 | §1-3 (H2.0, no CL sent) | AWS ALB | Patched within 5 days |
-| §5 (CT switching + structure mutations) × 5 WAFs × 6 frameworks | ACSAC 2025 research | 1,207 bypasses. Google Cloud Armor Tier 1 classification |
-| §3 (module pipeline mismatch) | CVE-2024-38474 (Apache HTTP Server) | RCE via `mod_rewrite` → `mod_proxy` path confusion |
-| §3 (URL decode ordering) | CVE-2024-1019 (ModSecurity v3) | Complete bypass of path-based WAF rules |
-| §8 (internal header spoofing) | CVE-2025-29927 (Next.js, CVSS 9.1) | `x-middleware-subreq` header fully bypasses auth middleware |
-| §3 (WAF exception path) | Cloudflare ACME path bypass (2025.10) | `/.well-known/acme-challenge/` exempt from WAF → direct origin attack |
 | §2-3 (H2 CRLF injection) | python-hyper/h2 GHSA | Affects numerous H2→1.1 proxies |
 | §2-1 (obsolete line folding) + OPTIONS method | CVE-2025-32094 (detail) | Line folding not stripped in OPTIONS-specific parser path |
 | §2-1 (TERM.EXT / EXT.TERM chunk extension) | CVE-2025-55315 (ASP.NET Core Kestrel) | CVSS 9.9 — Microsoft's highest-ever for ASP.NET Core. `\r`/`\n`/`\r\n` handling divergence enables request + response smuggling |
@@ -710,36 +607,6 @@ Host: vulnerable.com\r\n
 - Proxy: reads 5 bytes (`HELLO`), ignores excess bytes until next chunk delimiter.
 - Back-End: reads 5 bytes, then treats the excess `GET /admin...` as a line terminator + new request.
 
-### §5. WAF Bypass — Content-Type Confusion
-
-Bypass WAF body inspection by switching Content-Type so WAF applies wrong parser.
-
-```
-POST /api/search HTTP/1.1\r\n
-Host: vulnerable.com\r\n
-Content-Type: multipart/form-data; boundary=abc\r\n
-Content-Length: 60\r\n
-\r\n
---abc\r\n
-Content-Disposition: form-data; name="q"\r\n
-\r\n
-' OR 1=1--\r\n
---abc--
-```
-
-- WAF expects `application/x-www-form-urlencoded` or `application/json` on this endpoint → applies wrong parsing rules → misses the SQL injection payload.
-- Application framework accepts multipart and extracts `q=' OR 1=1--`.
-
-**Charset-based evasion (IBM037 / EBCDIC)**:
-```
-POST /api/login HTTP/1.1\r\n
-Host: vulnerable.com\r\n
-Content-Type: application/x-www-form-urlencoded; charset=ibm037\r\n
-Content-Length: 30\r\n
-\r\n
-\xA7\x96\x99...(EBCDIC-encoded "user=admin' OR 1=1--")
-```
-
 ### §6. H2C Tunneling — Edge Bypass
 
 ```
@@ -753,19 +620,6 @@ HTTP2-Settings: AAMAAABkAAQCAAAAAAIAAAAA\r\n
 
 - If the front-end proxy blindly forwards `Upgrade: h2c`, the connection upgrades to clear-text HTTP/2.
 - Subsequent H2 frames bypass the Edge's HTTP/1.1-level inspection entirely.
-
-### §4. Host Header Poisoning for Cache Poisoning
-
-```
-GET /static/main.js HTTP/1.1\r\n
-Host: vulnerable.com\r\n
-X-Forwarded-Host: evil.com\r\n
-\r\n
-```
-
-- Cache keys on `Host: vulnerable.com` + path.
-- Origin application uses `X-Forwarded-Host` to generate absolute URLs in the response body.
-- Cached response now contains `evil.com` references → all subsequent users receive poisoned content.
 
 ### Composite: CL.TE → Response Queue Poisoning
 
@@ -824,7 +678,6 @@ Host: vulnerable.com\r\n
 | **HTTP Request Smuggler v3.0** (Burp extension) | Server-side + H2 + CSD + 0.CL | Primitive-level parser discrepancy detection; bypasses fingerprint-based defenses |
 | **HTTP Garden** (open source) | Origin server parsers | Coverage-guided differential fuzzing with REPL; mutates all request stream components |
 | **Gudifu** | Proxies | Graybox differential fuzzing across full HTTP request space |
-| **WAFFLED** (open source) | WAF ↔ framework | Grammar-based fuzzing per Content-Type (JSON, multipart, XML) |
 | **smuggler.py** | Server-side HRS | CL.TE, TE.CL, TE.TE + mutation mode |
 | **smugchunks** (open source) | Chunk extension HRS | Automated TERM.EXT, EXT.TERM, TERM.SPILL, SPILL.TERM detection |
 | **h2cSmuggler** | H2C tunneling | Clear-text HTTP/2 upgrade automation |
@@ -859,3 +712,57 @@ Six years of individual patches and regex-based defenses block only **known muta
 
 
 *This document was created for defensive security research and vulnerability understanding purposes.*
+
+
+
+## References
+
+### Foundational Research
+
+- Linhart, Klein, Heled, Orrin — *HTTP Request Smuggling* (2005). The original whitepaper defining CL.TE and TE.CL.
+- James Kettle — *HTTP Desync Attacks: Smashing into the Cell Next Door* (DEF CON 27 / Black Hat USA 2019). Revived HRS research; introduced HTTP Request Smuggler Burp extension.
+- James Kettle — *HTTP/2: The Sequel is Always Scarier* (Black Hat USA 2021). H2.CL, H2.TE, H2.0 downgrade attacks and H2 CRLF injection.
+- James Kettle — *Browser-Powered Desync Attacks* (Black Hat USA 2022). Client-Side Desync (CSD), Pause-based desync, CL.0.
+
+### 2023–2025 Research
+
+- James Kettle — *Smashing the State Machine: The True Potential of Web Race Conditions* (Black Hat USA 2023). Timing-based desync and single-packet attacks.
+- Ben Kallus — *HTTP Garden* (DEF CON 31 / 2023). Coverage-guided differential fuzzing for HTTP parser discrepancies. GitHub: `narfindustries/http-garden`.
+- Yuki Osaki — *0.CL Desync with Early Response Gadgets* (2025). 0.CL exploitation at scale against Akamai, Cloudflare, Netlify. $200K+ bounties.
+- Jonathan Thyssens — *TERM.EXT / EXT.TERM / TERM.SPILL / SPILL.TERM: Chunk Extension Smuggling* (2025). Novel smuggling class without CL-vs-TE confusion. `smugchunks` tool.
+- Dennis Brinkrolf — *Opossum Attack: Cross-Protocol TLS Desync* (2025). Permanent desync via implicit + opportunistic TLS coexistence. 3M+ hosts affected.
+- Cache Poisoning → C2 Side Channel research (2025). CL.0 desync weaponized for covert C2 via CDN global cache Location header poisoning.
+
+### CVEs
+
+| CVE | Component | Description |
+|---|---|---|
+| CVE-2025-55315 | ASP.NET Core Kestrel | CVSS 9.9. Chunk extension `\r`/`\n`/`\r\n` handling divergence → request + response smuggling |
+| CVE-2025-49812 | Apache HTTP Server ≤2.4.63 | TLS Upgrade Desync / Opossum. Permanent desync with implicit + opportunistic TLS |
+| CVE-2025-32094 | Akamai CDN | 0.CL + CL whitespace obfuscation + obsolete line folding. Tens of millions of sites |
+| CVE-2025-22871 | Go net/http | Bare LF acceptance as line terminator → microservice desync |
+| CVE-2024-23326 | Envoy Proxy | Service mesh sidecar request tunneling |
+| CVE-2023-25950 | HAProxy 2.6/2.7 | HTX parser incorrectly merges pipelined requests |
+| CVE-2022-41721 | Go net/http (MaxBytesHandler) | Cross-protocol smuggling: residual bytes reinterpreted as H2 frames |
+
+### Tools
+
+| Tool | URL / Source |
+|---|---|
+| HTTP Request Smuggler v3.0 | Burp Suite BApp Store (PortSwigger) |
+| HTTP Garden | `https://github.com/narfindustries/http-garden` |
+| Gudifu | Graybox differential fuzzer for proxies |
+| smuggler.py | `https://github.com/defparam/smuggler` |
+| smugchunks | Chunk extension smuggling scanner |
+| h2cSmuggler | `https://github.com/BishopFox/h2csmuggler` |
+| Turbo Intruder | Burp Suite BApp Store (PortSwigger) |
+| HTTP-Normalizer | RFC-strict inbound request normalization |
+| HTTP Desync Guardian | AWS — request risk classification |
+
+### Specifications
+
+- RFC 7230 — *HTTP/1.1 Message Syntax and Routing* (obsoleted by RFC 9110/9112). §3.3.3 (Message Body Length), §3.2.4 (Field Parsing — obsolete line folding).
+- RFC 9110 — *HTTP Semantics* (2022). Successor to RFC 7230/7231.
+- RFC 9112 — *HTTP/1.1* (2022). Updated message framing rules.
+- RFC 9113 — *HTTP/2* (2022). Binary framing, pseudo-headers, forbidden connection-specific headers.
+- RFC 2046 — *MIME Part Two: Media Types*. Multipart boundary syntax and preamble/epilogue semantics.

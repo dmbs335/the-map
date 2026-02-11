@@ -403,3 +403,53 @@ True mitigation requires: (1) **parsing canonicalization** — using a single UR
 ---
 
 *This document was created for defensive security research and vulnerability understanding purposes.*
+
+---
+
+## References
+
+### Specifications
+
+| # | Title | URL |
+|---|-------|-----|
+| [1] | RFC 3986 — Uniform Resource Identifier (URI): Generic Syntax | https://datatracker.ietf.org/doc/html/rfc3986 |
+| [2] | WHATWG URL Standard (Living Standard) | https://url.spec.whatwg.org/ |
+| [3] | RFC 6874 — Representing IPv6 Zone Identifiers in URIs | https://datatracker.ietf.org/doc/html/rfc6874 |
+
+### CVE / Vulnerability Advisories
+
+| # | CVE | Title | URL |
+|---|-----|-------|-----|
+| [4] | CVE-2024-38475 | Apache HTTP Server mod_rewrite Filename Confusion | https://nvd.nist.gov/vuln/detail/cve-2024-38475 |
+| [5] | CVE-2024-38474 | Apache HTTP Server DocumentRoot Confusion | https://httpd.apache.org/security/vulnerabilities_24.html |
+| [6] | CVE-2024-38476 | Apache HTTP Server Handler Confusion (CVSS 9.8) | https://nvd.nist.gov/vuln/detail/cve-2024-38476 |
+| [7] | CVE-2024-38473 | Apache HTTP Server mod_proxy Encoding Problem | https://nvd.nist.gov/vuln/detail/cve-2024-38473 |
+| [8] | CVE-2024-38477 | Apache HTTP Server mod_proxy Null Pointer DoS | https://nvd.nist.gov/vuln/detail/cve-2024-38477 |
+| [9] | CVE-2024-22262 | Spring Framework UriComponentsBuilder Open Redirect / SSRF | https://www.cvedetails.com/cve/CVE-2024-22262/ |
+| [10] | CVE-2025-0454 | AutoGPT SSRF via Hostname Parser Confusion | https://github.com/advisories/GHSA-jg5r-v2h9-wfxx |
+| [11] | CVE-2025-0938 | Python urllib Square Bracket Hostname Confusion | https://github.com/advisories/GHSA-5qjr-cj9f-phrx |
+| [12] | CVE-2025-29914 | Coraza WAF URI Parser Bypass via `//` Prefix | https://nvd.nist.gov/vuln/detail/cve-2025-29914 |
+| [13] | CVE-2024-30043 | Microsoft SharePoint XXE via URL Parsing Confusion | https://www.thezdi.com/blog/2024/5/29/cve-2024-30043-abusing-url-parsing-confusion-to-exploit-xxe-on-sharepoint-server-and-cloud |
+
+### Research & Conference Talks
+
+| # | Title | Author/Source | URL |
+|---|-------|--------------|-----|
+| [14] | Confusion Attacks: Exploiting Hidden Semantic Ambiguity in Apache HTTP Server | Orange Tsai, Black Hat USA 2024 | https://blog.orange.tw/posts/2024-08-confusion-attacks-en/ |
+| [15] | Gotta Cache 'em All: Bending the Rules of Web Cache Exploitation | PortSwigger Research, Black Hat USA 2024 | https://portswigger.net/research/gotta-cache-em-all |
+| [16] | WAFFLED: Automated Discovery of WAF Parsing Discrepancy Bypasses | ACSAC 2025 | https://arxiv.org/abs/2503.10846 |
+| [17] | URL Validation Bypass Cheat Sheet | PortSwigger | https://portswigger.net/web-security/ssrf/url-validation-bypass-cheat-sheet |
+| [18] | Web Cache Deception | PortSwigger Web Security Academy | https://portswigger.net/web-security/web-cache-deception |
+
+### Tools
+
+| # | Tool | URL |
+|---|------|-----|
+| [19] | ipobf — IP Address Obfuscation for SSRF Filter Bypass | https://github.com/JorianWoltjer/ipobf |
+| [20] | rbndr — DNS Rebinding Service | https://github.com/taviso/rbndr |
+| [21] | 1u.ms — Zero-Configuration DNS Rebinding Utility | https://github.com/neex/1u.ms |
+| [22] | r3dir — HTTP Redirection Service for SSRF Filter Bypass | https://github.com/Horlad/r3dir |
+| [23] | PayloadsAllTheThings — Server Side Request Forgery | https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/Server%20Side%20Request%20Forgery |
+| [24] | HackTricks — URL Format Bypass | https://book.hacktricks.wiki/en/pentesting-web/ssrf-server-side-request-forgery/url-format-bypass.html |
+| [25] | WAFFLED Fuzzer | https://github.com/sa-akhavani/waffled |
+| [26] | PortSwigger URL Cheatsheet Data | https://github.com/PortSwigger/url-cheatsheet-data |

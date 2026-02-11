@@ -397,3 +397,92 @@ Modern architectures (microservices, serverless, event-driven) introduce race co
 ---
 
 *This document was created for defensive security research and vulnerability understanding purposes.*
+
+---
+
+## References
+
+### Research Papers & Conference Presentations
+
+| # | Author / Organization | Title | URL | Year |
+|---|---|---|---|---|
+| 1 | James Kettle (PortSwigger) | Smashing the State Machine: The True Potential of Web Race Conditions | [PortSwigger Research](https://portswigger.net/research/smashing-the-state-machine) | 2023 |
+| 2 | James Kettle (PortSwigger) | Smashing the State Machine (DEF CON 31 Presentation) | [DEF CON Media](https://media.defcon.org/DEF%20CON%2031/DEF%20CON%2031%20presentations/James%20%27albinowax%27%20Kettle%20-%20Smashing%20the%20state%20machine%20the%20true%20potential%20of%20web%20race%20conditions.pdf) | 2023 |
+| 3 | James Kettle (PortSwigger) | The Single-Packet Attack: Making Remote Race-Conditions 'Local' | [PortSwigger Research](https://portswigger.net/research/the-single-packet-attack-making-remote-race-conditions-local) | 2023 |
+| 4 | James Kettle (PortSwigger) | Turbo Intruder: Embracing the Billion-Request Attack | [PortSwigger Research](https://portswigger.net/research/turbo-intruder-embracing-the-billion-request-attack) | 2019 |
+| 5 | GMO Flatt Security | Beyond the Limit: Expanding Single-Packet Race Condition with First-Sequence Sync | [Flatt Security Research](https://flatt.tech/research/posts/beyond-the-limit-expanding-single-packet-race-condition-with-first-sequence-sync/) | 2024 |
+| 6 | Viktor Chuchurski (Doyensec) | A Race to the Bottom — Database Transactions Undermining Your AppSec (OWASP Global AppSec Lisbon 2024) | [Doyensec Blog](https://blog.doyensec.com/2024/07/11/database-race-conditions.html) | 2024 |
+| 7 | Qualys Threat Research Unit | regreSSHion: Remote Unauthenticated Code Execution Vulnerability in OpenSSH Server | [Qualys Blog](https://blog.qualys.com/vulnerabilities-threat-research/2024/07/01/regresshion-remote-unauthenticated-code-execution-vulnerability-in-openssh-server) | 2024 |
+| 8 | Rachid A. (zhero_web_security) | Eclipse on Next.js: Conditioned Exploitation of an Intended Race-Condition | [zhero_web_sec Research](https://zhero-web-sec.github.io/research-and-things/eclipse-on-nextjs-conditioned-exploitation-of-an-intended-race-condition) | 2024 |
+| 9 | Rachid A. (zhero_web_security) | Next.js and Cache Poisoning: A Quest for the Black Hole (CVE-2024-46982) | [zhero_web_sec Research](https://zhero-web-sec.github.io/research-and-things/nextjs-and-cache-poisoning-a-quest-for-the-black-hole) | 2024 |
+| 10 | Pepe Vila et al. | On Race Vulnerabilities in Web Applications | [SpringerLink](https://link.springer.com/chapter/10.1007/978-3-540-70542-0_7) | 2008 |
+| 11 | — | Navigating the Concurrency Landscape: A Survey of Race Condition Vulnerability Detectors | [arXiv](https://arxiv.org/abs/2312.14479) | 2023 |
+| 12 | — | Semantic Web Racer: Dynamic Security Testing of the Web Application Against Race Condition in the Business Layer | [ScienceDirect](https://www.sciencedirect.com/science/article/abs/pii/S0957417422000677) | 2022 |
+| 13 | Yoochan Lee et al. | EXPRACE: Exploiting Kernel Races through Raising Interrupts (USENIX Security 2021) | [USENIX](https://www.usenix.org/system/files/sec21fall-lee-yoochan.pdf) | 2021 |
+
+### CVE Advisories
+
+| # | CVE ID | Description | URL | Year |
+|---|---|---|---|---|
+| 1 | CVE-2024-6387 | OpenSSH regreSSHion — Signal handler race condition in sshd (CVSS 8.1) | [NVD](https://nvd.nist.gov/vuln/detail/cve-2024-6387) | 2024 |
+| 2 | CVE-2024-50379 | Apache Tomcat TOCTOU Race in JSP Compilation — RCE on case-insensitive FS (CVSS 9.8) | [CVE Feed](https://cvefeed.io/vuln/detail/CVE-2024-50379) | 2024 |
+| 3 | CVE-2024-56337 | Apache Tomcat TOCTOU Race — Incomplete fix for CVE-2024-50379 | [CVE Details](https://www.cvedetails.com/cve/CVE-2024-56337/) | 2024 |
+| 4 | CVE-2024-46982 | Next.js Cache Poisoning via Race Condition in Pages Router | [GitHub Advisory](https://github.com/advisories/GHSA-gp8f-8m3g-qvj9) | 2024 |
+| 5 | CVE-2025-32421 | Next.js "Eclipse" bypass of CVE-2024-46982 patch | [GitHub Advisory](https://github.com/advisories/GHSA-qpjv-v59x-3qc4) | 2025 |
+| 6 | CVE-2024-58248 | nopCommerce — Duplicate gift card redemption via missing order placement locking | [NVD](https://nvd.nist.gov/vuln/detail/CVE-2024-58248) | 2024 |
+| 7 | CVE-2024-21626 | runC — Container escape via file descriptor leak + symlink race | [NVD](https://nvd.nist.gov/vuln/detail/CVE-2024-21626) | 2024 |
+| 8 | CVE-2006-5051 | OpenSSH Signal Handler Race Condition (original, regressed by CVE-2024-6387) | [NVD](https://nvd.nist.gov/vuln/detail/CVE-2006-5051) | 2006 |
+
+### Bug Bounty Reports
+
+| # | Program | Title | URL |
+|---|---|---|---|
+| 1 | HackerOne | Race Condition in Flag Submission | [Report #454949](https://hackerone.com/reports/454949) |
+| 2 | HackerOne | Race Condition Leads to Duplicate Payouts | [Report #604534](https://hackerone.com/reports/604534) |
+| 3 | Internet Bug Bounty | Race Conditions in OAuth 2.0 API Implementations | [Report #55140](https://hackerone.com/reports/55140) |
+| 4 | HackerOne | Race Conditions in Popular Functionalities | [Report #146845](https://hackerone.com/reports/146845) |
+| 5 | Instacart | Race Condition — Multiple Coupon Redemptions | [Report #157996](https://hackerone.com/reports/157996) |
+| 6 | Stripe | Promotion Code Race Condition | [Report #1717650](https://hackerone.com/reports/1717650) |
+| 7 | Reverb.com | Gift Card Redemption Race | [Report #759247](https://hackerone.com/reports/759247) |
+| 8 | Shopify | Race Condition in Adding Team Members (staff limit bypass) | [Report #176127](https://hackerone.com/reports/176127) |
+| 9 | Shopify | Race Condition at Create New Location (location limit bypass) | [Report #413759](https://hackerone.com/reports/413759) |
+| 10 | — | Top HackerOne Race Condition Reports (curated list) | [GitHub — reddelexc](https://github.com/reddelexc/hackerone-reports/blob/master/tops_by_bug_type/TOPRACECONDITION.md) |
+
+### Tools & Repositories
+
+| # | Tool | Author / Organization | Description | URL |
+|---|---|---|---|---|
+| 1 | Turbo Intruder | PortSwigger (James Kettle) | Burp Suite extension; single-packet attack race scripts | [GitHub](https://github.com/PortSwigger/turbo-intruder) |
+| 2 | h2spacex | nxenon | HTTP/2 Single Packet Attack library (Scapy-based) | [GitHub](https://github.com/nxenon/h2spacex) |
+| 3 | RacePwn | racepwn | Race condition framework (librace C + racepwn Go) | [GitHub](https://github.com/racepwn/racepwn) |
+| 4 | Race The Web | TheHackerDev | Race condition tester with RESTful API for CI integration | [GitHub](https://github.com/TheHackerDev/race-the-web) |
+| 5 | race-condition-exploit | andresriancho | Web application race condition exploitation tool | [GitHub](https://github.com/andresriancho/race-condition-exploit) |
+| 6 | db-race-conditions-playground | Doyensec | Playground for database isolation-level race testing | [GitHub](https://github.com/doyensec/db-race-conditions-playground) |
+| 7 | WannaRace | Xib3rR4dAr | Intentionally vulnerable app for race condition practice | [GitHub](https://github.com/Xib3rR4dAr/WannaRace) |
+
+### Blog Posts & Writeups
+
+| # | Author / Organization | Title | URL |
+|---|---|---|---|
+| 1 | PortSwigger | Race Conditions — Web Security Academy (educational labs) | [Web Security Academy](https://portswigger.net/web-security/race-conditions) |
+| 2 | Doyensec | Common OAuth Vulnerabilities (includes token exchange race) | [Doyensec Blog](https://blog.doyensec.com/2025/01/30/oauth-common-vulnerabilities.html) |
+| 3 | OffSec | RegreSSHion Exploit, CVE-2024-6387: A Write-Up | [OffSec Blog](https://www.offsec.com/blog/regresshion-exploit-cve-2024-6387/) |
+| 4 | Mend.io | CVE-2024-50379: A Critical Race Condition in Apache Tomcat | [Mend Blog](https://www.mend.io/blog/cve-2024-50379-a-critical-race-condition-in-apache-tomcat/) |
+| 5 | Unit 42 (Palo Alto Networks) | Threat Brief: CVE-2024-6387 OpenSSH RegreSSHion Vulnerability | [Unit 42](https://unit42.paloaltonetworks.com/threat-brief-cve-2024-6387-openssh/) |
+| 6 | Bugcrowd | Racing Against Time: An Introduction to Race Conditions | [Bugcrowd Blog](https://www.bugcrowd.com/blog/racing-against-time-an-introduction-to-race-conditions/) |
+| 7 | YesWeHack | Ultimate Bug Bounty Guide to Race Condition Vulnerabilities | [YesWeHack](https://www.yeswehack.com/learn-bug-bounty/ultimate-guide-race-condition-vulnerabilities) |
+| 8 | HackTricks | Race Condition (community cheat sheet) | [HackTricks](https://book.hacktricks.xyz/pentesting-web/race-condition) |
+| 9 | SwissKyRepo | PayloadsAllTheThings — Race Condition | [GitHub](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/Race%20Condition) |
+| 10 | Cristian Cornea | Top 25 Race Condition Bug Bounty Reports | [Medium](https://corneacristian.medium.com/top-25-race-condition-bug-bounty-reports-84f9073bf9e5) |
+
+### Standards & Documentation
+
+| # | Organization | Title | URL |
+|---|---|---|---|
+| 1 | MITRE | CWE-362: Concurrent Execution using Shared Resource with Improper Synchronization | [CWE-362](https://cwe.mitre.org/data/definitions/362.html) |
+| 2 | MITRE | CWE-367: Time-of-check Time-of-use (TOCTOU) Race Condition | [CWE-367](https://cwe.mitre.org/data/definitions/367.html) |
+| 3 | IETF | RFC 6749 — The OAuth 2.0 Authorization Framework (§4.1.2: authorization codes MUST be single-use) | [RFC 6749](https://datatracker.ietf.org/doc/html/rfc6749) |
+| 4 | IETF | RFC 6819 — OAuth 2.0 Threat Model and Security Considerations | [RFC 6819](https://datatracker.ietf.org/doc/html/rfc6819) |
+| 5 | OWASP | Testing for OAuth Weaknesses (Web Security Testing Guide) | [OWASP WSTG](https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/05-Authorization_Testing/05-Testing_for_OAuth_Weaknesses) |
+| 6 | PostgreSQL | Transaction Isolation Documentation | [PostgreSQL Docs](https://www.postgresql.org/docs/current/transaction-iso.html) |
+| 7 | MySQL | InnoDB Transaction Isolation Levels | [MySQL Docs](https://dev.mysql.com/doc/refman/8.4/en/innodb-transaction-isolation-levels.html) |

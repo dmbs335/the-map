@@ -371,6 +371,9 @@ When validation and storage are not atomic, a window exists between file upload 
 | **Configuration Hijacking** | Apache with AllowOverride; IIS handler override; PHP-FPM SAPI | §6 |
 | **Supply Chain / Subdomain Takeover** | Cloud storage with dangling DNS; CDN serving uploaded content | §8-3 |
 | **Privilege Escalation via Deserialization** | Application deserializes uploaded files (pickle, YAML, Java serialized) | §7-4 |
+| **ML Model RCE** | Application loads user-uploaded ML models (pickle, .h5, .pt, ONNX) | §10-3 |
+| **Python Framework DoS** | Multipart parser abuse, unlimited file counts, decompression bombs | §10-1 + §10-2 |
+| **Python Processing Pipeline RCE** | Server-side document/image processing via Pillow, ReportLab, PyMuPDF, CairoSVG | §10-4 |
 
 ---
 
@@ -391,6 +394,112 @@ When validation and storage are not atomic, a window exists between file upload 
 | §4-3 (Multipart parser differential) | WAFFLED (ACSAC 2025 research) | 1,207 WAF bypasses discovered through multipart parsing discrepancies across PHP, Node.js, Python and major WAFs. |
 | §7-2 (XXE via XLSX) | Multiple WordPress plugin CVEs (2024) | XXE through uploaded Excel files processed by PHPSpreadsheet. |
 | §7-1 (CodeIgniter + ImageMagick) | CVE-2025-54418 (CodeIgniter4) | ImageMagick handler vulnerability in framework's image processing library. |
+
+---
+
+## §10. Python Ecosystem — Framework & Library Specific
+
+Python web frameworks and libraries introduce a distinct file upload attack surface due to framework-level parsing behaviors, permissive deserialization defaults, and processing library vulnerabilities. This section consolidates Python-specific vectors that cross-cut the general categories above.
+
+### §10-1. Framework Upload Handling Vulnerabilities
+
+| Framework | Subtype | Mechanism | Key Condition |
+|-----------|---------|-----------|---------------|
+| **Django** | Unlimited file count DoS | Before Django 4.2, no limit on the number of files per multipart request. Thousands of file parts in a single request exhaust memory and file descriptors. (CVE-2023-24580, CVSS 7.5) | Django < 4.1.7; `DATA_UPLOAD_MAX_NUMBER_FILES` not available |
+| **Django** | `FileExtensionValidator` bypass | Only checks the final extension string against an allowlist; does not validate file content. A PHP webshell renamed to `.jpg` passes validation. | Reliance on `FileExtensionValidator` as sole defense |
+| **Django** | `upload_to` path injection | If `upload_to` callable incorporates user input without sanitization, path traversal is possible. `FileSystemStorage` calls `os.path.join()` which resolves `../` sequences. | Custom `upload_to` using unsanitized user input |
+| **Django** | `MemoryUploadedFile` vs `TemporaryUploadedFile` | Files below `FILE_UPLOAD_MAX_MEMORY_SIZE` (default 2.5 MB) are held entirely in memory. Multiple concurrent uploads near the threshold can exhaust worker memory. | High-concurrency upload endpoints |
+| **Flask/Werkzeug** | `secure_filename` limitations | `secure_filename()` strips non-ASCII characters entirely, doesn't handle Windows reserved names (`CON`, `NUL`, `COM1`), and returns empty string for filenames consisting only of special characters. | Using `secure_filename()` as the sole sanitization layer |
+| **Flask/Werkzeug** | No default size limit | Flask has no built-in request body size limit. Must explicitly set `MAX_CONTENT_LENGTH`. Without it, a single upload can consume all available memory/disk. | `MAX_CONTENT_LENGTH` not configured |
+| **FastAPI/Starlette** | Multipart parser DoS | Crafted `Content-Disposition` headers cause excessive CPU usage in Starlette's multipart parser. (CVE-2024-47874, CVSS 8.0) | Starlette < 0.40.0 |
+| **FastAPI/Starlette** | `StaticFiles` directory traversal | When serving uploaded files via `StaticFiles`, path traversal through crafted request URIs can access files outside the intended directory. (CVE-2024-47824) | Serving uploads via `StaticFiles` mount |
+| **FastAPI/Starlette** | No body size limit by default | Uvicorn's `--limit-max-body-size` defaults to unlimited. No framework-level upload size restriction exists. | Uvicorn without explicit body size configuration |
+
+### §10-2. Python Archive & Compression Processing
+
+| Subtype | Mechanism | Key Condition |
+|---------|-----------|---------------|
+| **`zipfile` path traversal (pre-3.12)** | Python's `zipfile.extractall()` does not validate entry paths before Python 3.12. Archive entries containing `../../` write files outside the destination directory. | Python < 3.12 without manual path canonicalization |
+| **`zipfile` data_filter (3.12+)** | Python 3.12 introduced `ZipFile.extractall(filter='data')` which rejects absolute paths, `..` components, and symlinks. Before this, no built-in protection existed. | Python < 3.12; or 3.12+ without `filter='data'` |
+| **`tarfile` symlink/hardlink escape** | Tar archives can contain symbolic links pointing to `/etc/passwd` or hardlinks to `/etc/shadow`. Extraction preserves these links, enabling arbitrary file read. | `tarfile.extractall()` without member filtering |
+| **`tarfile` device file creation** | Tar entries specifying character/block device files create device nodes on extraction. | Extraction with root privileges |
+| **`tarfile` SETUID bit preservation** | Tar archives preserve Unix permission bits including setuid/setgid. Extracted files may have elevated privilege attributes. | `tarfile.extractall()` preserving permissions |
+| **`tarfile` data_filter (3.12+)** | Python 3.12 added `tarfile.extractall(filter='data')` which strips absolute paths, rejects `..` components, blocks symlinks/hardlinks/device files, and normalizes permissions. | Python < 3.12; or 3.12+ without `filter='data'` |
+| **`gzip`/`bz2`/`lzma` decompression bomb** | Python's compression modules have no built-in size limits. A 10 MB gzip file can decompress to multiple GB, exhausting memory. | No manual decompressed size limit enforcement |
+| **Nested archive bomb** | Recursive extraction of archives-within-archives bypasses single-level decompression limits. | Recursive extraction without depth/size limits |
+
+### §10-3. Python ML Model Deserialization
+
+Machine learning model files represent a critical and frequently overlooked file upload attack surface. Most ML serialization formats allow arbitrary code execution during deserialization.
+
+| Subtype | Mechanism | Key Condition |
+|---------|-----------|---------------|
+| **Pickle RCE via `__reduce__`** | Uploaded `.pkl`, `.pickle`, `.joblib` files execute arbitrary code through the `__reduce__` method during `pickle.load()`. Attackers can craft raw pickle opcodes (`GLOBAL`, `REDUCE`, `STACK_GLOBAL`) that bypass naive `__reduce__` string scanning. | Any Python app using `pickle.load()` / `joblib.load()` on user-uploaded files |
+| **Joblib compressed pickle** | `joblib` uses pickle internally but supports `.pkl.gz`, `.pkl.bz2`, `.pkl.xz` — compressed pickle that decompresses then deserializes. Compression evades content-based scanning. | `joblib.load()` on uploaded files |
+| **Keras .h5 Lambda layer RCE** | Keras `.h5` model files embed architecture as JSON containing base64-encoded pickle in Lambda layer definitions. `keras.models.load_model()` deserializes the Lambda function. (CVE-2024-3660, CVSS 9.8) | `tf.keras.models.load_model()` without `safe_mode=True` |
+| **PyTorch `torch.load()` RCE** | PyTorch `.pt` / `.pth` files use pickle for serialization. `torch.load()` is equivalent to `pickle.load()`. PyTorch 2.6+ defaults to `weights_only=True` but older versions do not. | `torch.load()` without `weights_only=True` |
+| **ONNX custom operator loading** | ONNX models can reference custom operator shared libraries (`.so`/`.dll`). ONNX Runtime loads these at inference time. A crafted `.onnx` file can specify a path to a malicious shared library. (CVE-2024-27318) | ONNX Runtime loading untrusted models |
+| **NumPy `.npy`/`.npz` pickle** | `numpy.load()` with `allow_pickle=True` (default before NumPy 1.16.3) deserializes embedded pickle objects in `.npy`/`.npz` files. | `numpy.load(allow_pickle=True)` on uploaded files |
+| **SafeTensors (defense)** | Hugging Face's `safetensors` format stores only raw tensor data with a JSON header. No arbitrary object deserialization. The only ML serialization format safe by construction. | Migration to SafeTensors for model weight storage |
+
+### §10-4. Python Document & Image Processing
+
+| Subtype | Mechanism | Key Condition |
+|---------|-----------|---------------|
+| **Pillow EXIF/TIFF buffer overflow** | Pillow's TiffImagePlugin has had multiple out-of-bounds read vulnerabilities in EXIF parsing. Crafted EXIF data in JPEG/TIFF files triggers heap corruption. (CVE-2021-25287, CVE-2021-25288) | Pillow processing untrusted images |
+| **Pillow decompression bomb** | Images with extreme pixel counts (e.g., 1×1 pixel decompressing to gigapixels) exhaust memory. `Image.MAX_IMAGE_PIXELS` defaults to ~89M pixels but can be disabled. (CVE-2023-44271) | `Image.MAX_IMAGE_PIXELS = None` or very high limit |
+| **Pillow GIF frame bomb** | GIFs with thousands of frames (10,000+) consume excessive memory/CPU when iterating with `img.seek()`. No built-in frame count limit. | Processing animated GIFs without frame count validation |
+| **Pillow font rendering (FreeType)** | Loading untrusted `.ttf`/`.otf` files via `ImageFont.truetype()` exposes FreeType's attack surface. (CVE-2020-15999 — FreeType heap buffer overflow) | Accepting user-uploaded fonts |
+| **Wand/ImageMagick binding** | Wand is a Python binding for ImageMagick. All ImageMagick vulnerabilities (ImageTragick, SSRF via SVG, delegate injection) apply directly. | Using Wand for image processing without restrictive `policy.xml` |
+| **CairoSVG/WeasyPrint SSRF** | CairoSVG renders SVG server-side. SVG `<image>`, `<use>`, `<foreignObject>` elements with external URLs trigger SSRF. WeasyPrint (HTML/CSS to PDF) fetches external resources from user-controlled HTML. | Server-side SVG/HTML-to-PDF conversion |
+| **ReportLab RCE** | ReportLab's paragraph markup supports `<para>` tags that can reference Python code. Crafted input to PDF generation achieves code execution. (CVE-2023-33733) | ReportLab processing user-controlled input |
+| **PyMuPDF (MuPDF) buffer overflow** | PyMuPDF wraps MuPDF C library. Crafted PDFs trigger buffer overflows in annotation parsing. (CVE-2023-38560, CVSS 7.5) | Server-side PDF processing with PyMuPDF |
+| **pypdf infinite loop/recursion** | Crafted PDFs with circular references or deeply nested objects cause infinite loops or stack overflow in pypdf's parser. (CVE-2023-36807, CVE-2023-36464) | PDF parsing with pypdf without timeout/recursion limits |
+| **openpyxl/xlrd XXE** | XLSX files are ZIP archives containing XML. `openpyxl` and `xlrd` may process embedded XML without disabling external entities, enabling XXE. | Parsing uploaded XLSX without `defusedxml` |
+
+### §10-5. Python Filename & Encoding Edge Cases
+
+| Subtype | Mechanism | Example |
+|---------|-----------|---------|
+| **Unicode normalization differential** | Different Unicode normalization forms (NFC vs NFD) produce visually identical but bytewise different filenames. A filter blocking `naïve.js` (NFC) may miss `na\u0308ive.js` (NFD, combining diaeresis). | Filename: `na\u0308ive.js` bypasses NFC-normalized blocklist |
+| **`mimetypes` module inconsistency** | Python's `mimetypes.guess_type()` returns platform-dependent results. On Windows, it queries the registry; on Linux, it reads `/etc/mime.types`. The same extension may map to different MIME types across platforms. | `.svg` → `image/svg+xml` on Linux, potentially different on Windows |
+| **`cgi.parse_header` deprecation** | `cgi.parse_header()` (used internally by many frameworks for Content-Disposition parsing) was deprecated in 3.11 and removed in 3.13. Transitioning to `email.message.Message` alters parsing behavior for edge cases (extra semicolons, unquoted values). | Behavioral change in multipart header parsing across Python versions |
+| **RTL override not stripped** | Python does not automatically strip Unicode bidirectional control characters (`U+202E` RLO, `U+202D` LRO). Werkzeug's `secure_filename()` does not remove them. | `document\u202Etxt.exe` displays as `documentexe.txt` |
+| **Windows reserved name collision** | `secure_filename()` does not reject Windows reserved device names (`CON`, `PRN`, `AUX`, `NUL`, `COM1`–`COM9`, `LPT1`–`LPT9`). Writing to these names on Windows causes unexpected behavior or hangs. | `filename="CON.txt"` → hangs on Windows |
+
+### §10-6. Python Async & Race Condition Vectors
+
+| Subtype | Mechanism | Key Condition |
+|---------|-----------|---------------|
+| **Async TOCTOU** | In async frameworks (FastAPI, Starlette, aiohttp), existence-check-then-write race conditions are amplified because multiple coroutines share the same event loop and filesystem. Between `await path.exists()` and `await file.write()`, another coroutine can create a symlink at the target path. | Async upload handlers without atomic write operations |
+| **`UploadFile.read()` memory exhaustion** | `await file.read()` in FastAPI reads the entire file into memory at once. Without `MAX_CONTENT_LENGTH` enforcement, concurrent large uploads exhaust worker memory. | FastAPI/Starlette without explicit size limiting middleware |
+| **Concurrent filename collision** | Multiple simultaneous uploads with identical filenames overwrite each other. Django's `Storage.get_available_name()` handles this, but custom async implementations often don't. | Custom async upload handlers using original filenames |
+| **Chunked Transfer-Encoding bypass** | Some WSGI servers (Gunicorn sync workers) buffer the entire chunked request before passing to the application. `Content-Length`-based size checks are bypassed because the header is absent in chunked requests. | Size validation relying on `Content-Length` header rather than actual bytes read |
+
+### §10-7. Python Cloud Storage Integration
+
+| Subtype | Mechanism | Key Condition |
+|---------|-----------|---------------|
+| **S3 presigned URL without conditions** | `boto3.generate_presigned_url('put_object')` without `ContentType` restriction allows uploading any content type. Presigned URLs cannot restrict `Content-Length`; use presigned POST with conditions instead. | Presigned PUT URLs without MIME type enforcement |
+| **S3 presigned POST condition bypass** | `generate_presigned_post()` conditions using `starts-with` can be overly permissive. `['starts-with', '$Content-Type', '']` allows any content type. | Misconfigured presigned POST conditions |
+| **django-storages path handling** | `S3Boto3Storage` does not call `os.path.basename()` on filenames. While S3 has a flat namespace (no real path traversal), files downloaded from S3 and saved locally with the original key path reintroduce traversal. | Files stored with traversal-pattern keys, later extracted to local filesystem |
+| **django-storages ACL misconfiguration** | `AWS_DEFAULT_ACL = 'public-read'` makes all uploaded files publicly accessible. Default changed to `None` in django-storages 1.10+, deferring to bucket policy. | Explicit `public-read` ACL or pre-1.10 defaults |
+
+### Python-Specific CVE / Advisory Mapping (2023–2025)
+
+| Mutation Category | CVE / Advisory | Impact |
+|-------------------|---------------|--------|
+| §10-1 (Django upload DoS) | CVE-2023-24580 | CVSS 7.5. DoS via unlimited file count per request. Led to introduction of `DATA_UPLOAD_MAX_NUMBER_FILES` in Django 4.2. |
+| §10-1 (Starlette multipart DoS) | CVE-2024-47874 | CVSS 8.0. Multipart parser CPU exhaustion via crafted Content-Disposition headers. |
+| §10-1 (Starlette path traversal) | CVE-2024-47824 | Directory traversal in `StaticFiles` serving uploaded content. |
+| §10-3 (Keras model RCE) | CVE-2024-3660 | CVSS 9.8. RCE via Lambda layer deserialization in .h5 model files. |
+| §10-3 (ONNX Runtime path traversal) | CVE-2024-27318 | CVSS 7.5. Path traversal in custom operator shared library loading. |
+| §10-3 (scikit-learn pickle) | CVE-2024-5206 | CVSS 7.5. Sensitive data disclosure via pickle serialization of models. |
+| §10-4 (Pillow decompression) | CVE-2023-44271 | DoS via crafted image exceeding pixel limits. |
+| §10-4 (ReportLab RCE) | CVE-2023-33733 | RCE via paragraph markup in PDF generation. |
+| §10-4 (PyMuPDF buffer overflow) | CVE-2023-38560 | CVSS 7.5. Buffer overflow in PDF annotation parsing via MuPDF. |
+| §10-4 (pypdf infinite loop) | CVE-2023-36807 | DoS via crafted PDF causing infinite loop in parser. |
+| §10-4 (Jinja2 XSS) | CVE-2024-34064 | XSS when rendering uploaded filenames in templates without `|e` escaping. |
 
 ---
 
@@ -439,6 +548,144 @@ Furthermore, the multipart/form-data transport protocol itself is a source of pe
 3. **Separate origin for user content**: Serve all user-uploaded files from a different origin (e.g., `uploads.example.com` or a CDN with no cookie scope) to eliminate same-origin XSS impact.
 4. **Atomic validation**: Validate before writing to accessible storage. Never expose a file to any request path until all checks have passed.
 5. **Filename rejection, not sanitization**: Generate server-side filenames (UUIDs); never use the client-supplied filename for storage. The original filename is metadata, not a filesystem path.
+
+---
+
+## References
+
+### Academic Papers & Conference Presentations
+
+1. **Koyuncu, A., Bisschop, T., Pellegrino, G., et al.** "WAFFLED: A Framework for Testing WAF Multipart Form-Data Parsing." *Proceedings of the Annual Computer Security Applications Conference (ACSAC)*, 2025. Discovered 1,207 WAF bypass vectors through systematic multipart/form-data parsing differentials across PHP, Node.js, Python backends and major WAFs including FortiWeb, Barracuda, AWS WAF, and ModSecurity/OWASP CRS.
+
+2. **Brisset, B., Music, D., Pellegrino, G.** "Fuxploider-NG: An Automated File Upload Vulnerability Scanner with XSS Detection." *Proceedings of the 21st International Conference on Detection of Intrusions and Malware, and Vulnerability Assessment (DIMVA)*, 2024. Extended the original Fuxploider with XSS detection in filenames and file content.
+
+3. **Snyk Security Research Team.** "Zip Slip Vulnerability." Snyk, June 2018. URL: `https://snyk.io/research/zip-slip-vulnerability`. Disclosed a widespread directory traversal vulnerability during archive extraction affecting thousands of projects across Java, .NET, Ruby, JavaScript, Go, and other ecosystems.
+
+4. **ImageTragick Research Team.** "ImageTragick." 2016. URL: `https://imagetragick.com/`. Coordinated disclosure of CVE-2016-3714 and related ImageMagick vulnerabilities enabling RCE through crafted SVG/MVG files via the delegate processing system.
+
+5. **Slaviero, M.** "Content-Type: application/hax -- Abusing File Processing in Web Applications." *Black Hat USA*, 2015. File upload exploitation techniques including polyglot file construction and processing pipeline abuse.
+
+6. **Kettle, J.** "Smashing the State Machine: the True Potential of Web Race Conditions." *Black Hat USA / DEF CON 31*, 2023. PortSwigger Research. Foundational research on race conditions applicable to upload-then-validate races (Section 9).
+
+7. **Tsai, O.** "A New Era of SSRF -- Exploiting URL Parsers in Trending Programming Languages!" *Black Hat USA*, 2017. Relevant to URL-based upload race conditions and remote fetch exploitation (Section 9-2).
+
+8. **Munoz, A., Mirosh, O.** "Friday the 13th: JSON Attacks." *Black Hat USA*, 2017. Relevant to deserialization via file upload vectors (Section 7-4).
+
+### RFCs & Standards
+
+9. **Masinter, L.** "Returning Values from Forms: multipart/form-data." RFC 7578, IETF, July 2015. URL: `https://www.rfc-editor.org/rfc/rfc7578`. Defines the multipart/form-data encoding used for file uploads. Ambiguities in this specification directly enable the parser differentials documented in Section 4.
+
+10. **Reschke, J.** "Use of the Content-Disposition Header Field in the Hypertext Transfer Protocol (HTTP)." RFC 6266, IETF, June 2011. URL: `https://www.rfc-editor.org/rfc/rfc6266`. Defines the `Content-Disposition` header including the `filename*=` extended parameter exploited in Section 4-3.
+
+11. **Freed, N., Borenstein, N.** "Multipurpose Internet Mail Extensions (MIME) Part Two: Media Types." RFC 2046, IETF, November 1996. URL: `https://www.rfc-editor.org/rfc/rfc2046`. Defines MIME media types and multipart boundary syntax foundational to Content-Type manipulation (Section 2).
+
+12. **Barth, A.** "Media Type Sniffing." W3C MIME Sniffing Standard / RFC 6838. Relevant to browser MIME sniffing exploitation (Section 2-2 and Section 8-2).
+
+### CVE References
+
+13. **CVE-2024-53677** -- Apache Struts 2, file upload path traversal. CVSS 9.5. File upload parameter manipulation enables path traversal to restricted directories. Actively exploited in the wild, 2024. URL: `https://nvd.nist.gov/vuln/detail/CVE-2024-53677`
+
+14. **CVE-2024-50623** -- Cleo Harmony / VLTrader / LexiCom, unrestricted file upload and download with autorun exploitation. Unauthenticated RCE. Mass exploitation by ransomware groups, 2024. URL: `https://nvd.nist.gov/vuln/detail/CVE-2024-50623`
+
+15. **CVE-2024-57968** -- Advantive VeraCore, unrestricted file upload to unintended directories. CVSS 9.9. Authenticated users can upload files to arbitrary directories, 2024. URL: `https://nvd.nist.gov/vuln/detail/CVE-2024-57968`
+
+16. **CVE-2024-5911** -- Palo Alto Networks Panorama, arbitrary file upload causing system disruption. Authenticated admin can upload files causing system crash and maintenance mode, 2024. URL: `https://nvd.nist.gov/vuln/detail/CVE-2024-5911`
+
+17. **CVE-2024-31210** -- WordPress, plugin/theme upload RCE vulnerability. Extension bypass combined with configuration override enables remote code execution through crafted plugin packages, 2024. URL: `https://nvd.nist.gov/vuln/detail/CVE-2024-31210`
+
+18. **CVE-2024-31280** -- WordPress church-admin plugin, arbitrary file upload in ZIP handling. Patched twice and bypassed twice, demonstrating the difficulty of incremental file upload fixes, 2024. URL: `https://nvd.nist.gov/vuln/detail/CVE-2024-31280`
+
+19. **CVE-2025-57803** -- ImageMagick, 32-bit integer overflow in BMP encoder. CVSS 9.8. Heap corruption via scanline-stride computation exploitable through upload-and-convert workflows, 2025. URL: `https://nvd.nist.gov/vuln/detail/CVE-2025-57803`
+
+20. **CVE-2025-54418** -- CodeIgniter4, ImageMagick handler vulnerability in framework's image processing library, 2025. URL: `https://nvd.nist.gov/vuln/detail/CVE-2025-54418`
+
+21. **CVE-2021-22204** -- ExifTool, RCE via crafted DjVu file. Versions 7.44 through 12.23 evaluate Perl code embedded in DjVu filenames during metadata extraction. $20,000 GitLab bounty, 2021. URL: `https://nvd.nist.gov/vuln/detail/CVE-2021-22204`
+
+22. **CVE-2018-1002200** -- Zip Slip, path traversal via archive extraction. Affected libraries across Java, .NET, Ruby, JavaScript, and Go. Snyk Research, 2018. URL: `https://nvd.nist.gov/vuln/detail/CVE-2018-1002200`
+
+23. **CVE-2016-3714** -- ImageTragick, ImageMagick delegate command injection. Crafted SVG/MVG files achieve RCE through ImageMagick's delegate processing system, 2016. URL: `https://nvd.nist.gov/vuln/detail/CVE-2016-3714`
+
+24. **CVE-2017-8291 and related** -- GhostScript command execution via PostScript/EPS files, enabling RCE through ImageMagick's delegated PDF/PS processing. Multiple CVEs across 2017--2019. URL: `https://nvd.nist.gov/vuln/detail/CVE-2017-8291`
+
+### Tool Repositories
+
+25. **almandin.** "Fuxploider -- File Upload Vulnerability Scanner and Exploitation Tool." GitHub, 2018. URL: `https://github.com/almandin/fuxploider`. Automated scanner that detects permitted file types and determines optimal webshell upload techniques.
+
+26. **Brisset, B.** "Fuxploider-NG -- Next Generation File Upload Vulnerability Scanner." GitHub, 2024. URL: `https://github.com/Bigb972/fuxploider-ng`. Extended version with XSS detection capabilities for filenames and file content.
+
+27. **Mohl, F. (PortSwigger).** "Upload Scanner -- Burp Suite Extension." BApp Store / GitHub. URL: `https://github.com/portswigger/upload-scanner`. Comprehensive file upload testing extension that tests extension/Content-Type/magic byte combinations and generates polyglot files.
+
+28. **swisskyrepo.** "PayloadsAllTheThings -- Upload Insecure Files." GitHub. URL: `https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/Upload%20Insecure%20Files`. Community-maintained repository of file upload bypass payloads organized by language and server type.
+
+29. **Phil Harvey.** "ExifTool." URL: `https://exiftool.org/`. Perl library and command-line tool for reading/writing metadata. Used offensively for polyglot file creation via EXIF metadata injection (Section 3-2).
+
+### OWASP & Industry Guidance
+
+30. **OWASP.** "Unrestricted File Upload." OWASP Web Security Testing Guide. URL: `https://owasp.org/www-community/vulnerabilities/Unrestricted_File_Upload`. Foundational reference for file upload vulnerability classification and mitigation.
+
+31. **OWASP.** "File Upload Cheat Sheet." OWASP Cheat Sheet Series. URL: `https://cheatsheetseries.owasp.org/cheatsheets/File_Upload_Cheat_Sheet.html`. Defensive guidance covering validation, storage, and serving best practices.
+
+32. **OWASP ModSecurity Core Rule Set (CRS).** Rule 933110 and related rules for PHP file upload detection. URL: `https://github.com/coreruleset/coreruleset`. Note: bypassed by `filename*=UTF-8''` encoding as documented in Section 4-3 and the WAFFLED research.
+
+### PortSwigger / Web Security Academy
+
+33. **PortSwigger.** "File Upload Vulnerabilities." Web Security Academy. URL: `https://portswigger.net/web-security/file-upload`. Comprehensive tutorial covering extension validation bypass, Content-Type manipulation, webshell upload, and race conditions with interactive labs.
+
+34. **PortSwigger.** "Race Conditions." Web Security Academy. URL: `https://portswigger.net/web-security/race-conditions`. Relevant to Section 9 temporal exploitation techniques.
+
+### HackerOne Reports & Bug Bounty Disclosures
+
+35. **HackerOne Report #223203** -- Shopify SVG Upload SSRF. Server-side SVG rendering triggered SSRF via uploaded SVG `<image>` and `<use>` elements referencing internal URLs. URL: `https://hackerone.com/reports/223203`
+
+36. **HackerOne / GitLab.** ExifTool RCE (CVE-2021-22204). $20,000 bounty for RCE via crafted DjVu file uploaded to GitLab's file processing pipeline, 2021.
+
+### Blog Posts & Technical Writeups
+
+37. **Snyk Security Research.** "Zip Slip Vulnerability -- Technical Writeup." June 2018. URL: `https://snyk.io/research/zip-slip-vulnerability`. Coordinated disclosure of CVE-2018-1002200 with comprehensive affected library inventory across multiple ecosystems.
+
+38. **Corben, S.** "Bypassing Web Application Firewalls with Multipart/Form-Data." Various blog posts and conference talks, 2019--2023. Foundational work on WAF bypass via multipart parser differentials preceding the WAFFLED systematic study.
+
+39. **Golunski, D.** "PHP-FPM Remote Code Execution (CVE-2019-11043)." 2019. Relevant to `.user.ini` configuration override exploitation in PHP-FPM environments (Section 6-2).
+
+40. **Tsai, O.** "A Wormable XSS on HackMD!" 2019. Demonstrated SVG-based stored XSS and inline rendering exploitation relevant to Sections 7-2 and 8-2.
+
+### Python Ecosystem References
+
+41. **Django Software Foundation.** "File Uploads." Django Documentation. URL: `https://docs.djangoproject.com/en/5.0/topics/http/file-uploads/`. Official documentation covering `MemoryUploadedFile`, `TemporaryUploadedFile`, upload handlers, and security settings (`DATA_UPLOAD_MAX_NUMBER_FILES`, `FILE_UPLOAD_MAX_MEMORY_SIZE`).
+
+42. **Pallets / Werkzeug.** "werkzeug.utils.secure_filename." Werkzeug Documentation. URL: `https://werkzeug.palletsprojects.com/`. Documents the limitations of filename sanitization including non-ASCII stripping and missing Windows reserved name handling.
+
+43. **CVE-2023-24580** -- Django DoS via unlimited file uploads per multipart request. CVSS 7.5. URL: `https://nvd.nist.gov/vuln/detail/CVE-2023-24580`. Led to the introduction of `DATA_UPLOAD_MAX_NUMBER_FILES` in Django 4.2.
+
+44. **CVE-2024-47874** -- Starlette multipart parser DoS via crafted Content-Disposition. CVSS 8.0. URL: `https://nvd.nist.gov/vuln/detail/CVE-2024-47874`.
+
+45. **CVE-2024-3660** -- Keras .h5 model file RCE via Lambda layer deserialization. CVSS 9.8. URL: `https://nvd.nist.gov/vuln/detail/CVE-2024-3660`.
+
+46. **CVE-2023-33733** -- ReportLab RCE via paragraph markup in PDF generation. URL: `https://nvd.nist.gov/vuln/detail/CVE-2023-33733`.
+
+47. **CVE-2023-44271** -- Pillow DoS via crafted image exceeding pixel limits. URL: `https://nvd.nist.gov/vuln/detail/CVE-2023-44271`.
+
+48. **Python Software Foundation.** "tarfile — Read and write tar archive files: Extraction filters." Python 3.12 Documentation. URL: `https://docs.python.org/3/library/tarfile.html#extraction-filters`. Documents `filter='data'` parameter introduced in Python 3.12 for safe archive extraction blocking symlinks, hardlinks, device files, absolute paths, and path traversal.
+
+49. **Python Software Foundation.** "zipfile — Work with ZIP archives: ZipFile.extractall() filter parameter." Python 3.12 Documentation. URL: `https://docs.python.org/3/library/zipfile.html`. Documents `filter='data'` for ZIP extraction.
+
+50. **Hugging Face.** "SafeTensors — A Safe Serialization Format for Machine Learning." GitHub. URL: `https://github.com/huggingface/safetensors`. The only ML model serialization format designed to be safe by construction — stores only raw tensor data with JSON metadata, no arbitrary code execution.
+
+51. **Trail of Bits.** "Fickling — A Python Pickle Decompiler and Static Analyzer." GitHub. URL: `https://github.com/trailofbits/fickling`. Static analysis tool for detecting malicious pickle payloads including raw opcode-level exploits that bypass `__reduce__` scanning.
+
+52. **Python Software Foundation.** "defusedxml — Defused XML Bombs and External Entities." PyPI. URL: `https://pypi.org/project/defusedxml/`. Drop-in replacement for Python's XML libraries that blocks XXE, billion-laughs, and external entity resolution. Essential for processing uploaded XLSX/DOCX/SVG files.
+
+### Defensive Tools & Libraries
+
+53. **ClamAV.** Open-source antivirus engine. URL: `https://www.clamav.net/`. Signature-based scanning for uploaded file content.
+
+54. **OPSWAT.** "MetaDefender -- Deep Content Inspection and CDR Platform." URL: `https://www.opswat.com/products/metadefender`. Multi-engine scanning with Content Disarm and Reconstruction for active content removal.
+
+55. **Apache Software Foundation.** "Apache Tika -- Content Detection and Analysis Framework." URL: `https://tika.apache.org/`. Java library for reliable MIME type detection based on file content rather than extension or declared Content-Type.
+
+56. **Abarber.** "python-magic." Python interface to libmagic for file type identification. URL: `https://github.com/ahupp/python-magic`. Magic byte verification independent of file extension.
+
+57. **sindresorhus.** "file-type." Node.js library for detecting file type from magic bytes. URL: `https://github.com/sindresorhus/file-type`. Content-based file type detection without extension reliance.
 
 ---
 

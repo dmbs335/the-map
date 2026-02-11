@@ -543,3 +543,54 @@ No single defensive measure can cover the entire SQL Injection mutation space �
 ---
 
 *This document was created for defensive security research and vulnerability understanding purposes.*
+
+---
+
+## References
+
+### Foundational Resources
+
+| # | Title | URL |
+|---|-------|-----|
+| [1] | SQL Injection \| OWASP Foundation | https://owasp.org/www-community/attacks/SQL_Injection |
+| [2] | What is SQL Injection? Tutorial & Examples \| PortSwigger Web Security Academy | https://portswigger.net/web-security/sql-injection |
+
+### CVE / Vulnerability Advisories
+
+| # | CVE | Title | URL |
+|---|-----|-------|-----|
+| [3] | CVE-2024-27304 | pgx PostgreSQL Driver — Protocol Message Size Overflow | https://nvd.nist.gov/vuln/detail/CVE-2024-27304 |
+| [4] | CVE-2025-1094 | PostgreSQL libpq Quoting APIs UTF-8 Validation Flaw | https://www.postgresql.org/support/security/CVE-2025-1094/ |
+| [5] | CVE-2024-1597 | PostgreSQL JDBC Driver SQL Injection (PreferQueryMode=SIMPLE) | https://www.postgresql.org/about/news/postgresql-jdbc-4272-4261-4255-4244-4239-42228-and-42228jre7-security-update-for-cve-2024-1597-2812/ |
+| [6] | CVE-2025-25257 | Fortinet FortiWeb Pre-Auth SQLi to RCE | https://labs.watchtowr.com/pre-auth-sql-injection-to-rce-fortinet-fortiweb-fabric-connector-cve-2025-25257/ |
+| [7] | CVE-2024-36412 | SuiteCRM Unauthenticated SQL Injection | https://nvd.nist.gov/vuln/detail/CVE-2024-36412 |
+| [8] | CVE-2024-45387 | Apache Traffic Control SQL Injection via PUT Request | https://nvd.nist.gov/vuln/detail/cve-2024-45387 |
+| [9] | CVE-2023-22794 | Rails ActiveRecord SQL Injection via Comments | https://discuss.rubyonrails.org/t/cve-2023-22794-sql-injection-vulnerability-via-activerecord-comments/82117 |
+| [10] | CVE-2024-42005 | Django ORM SQL Injection via JSONField Keys | https://nvd.nist.gov/vuln/detail/cve-2024-42005 |
+| [11] | CVE-2006-2753 | MySQL Multibyte Encoding (GBK) Escape Bypass | https://nvd.nist.gov/vuln/detail/CVE-2006-2753 |
+| [12] | CVE-2024-12356 | BeyondTrust PRA/RS Command Injection (chained with CVE-2025-1094) | https://www.rapid7.com/db/vulnerabilities/beyondtrust-pra-cve-2024-12356-remote/ |
+
+### Research & Conference Talks
+
+| # | Title | Author/Source | URL |
+|---|-------|--------------|-----|
+| [13] | SQL Injection Isn't Dead: Smuggling Queries at the Protocol Level | Paul Gerste, DEF CON 32 (2024) | https://media.defcon.org/DEF%20CON%2032/DEF%20CON%2032%20presentations/DEF%20CON%2032%20-%20Paul%20Gerste%20-%20SQL%20Injection%20Isn't%20Dead%20Smuggling%20Queries%20at%20the%20Protocol%20Level.pdf |
+| [14] | {JS-ON: Security-OFF}: Abusing JSON-Based SQL to Bypass WAF | Claroty Team82 (2022) | https://claroty.com/team82/research/js-on-security-off-abusing-json-based-sql-to-bypass-waf |
+
+### Offensive Tools
+
+| # | Tool | Repository |
+|---|------|-----------|
+| [15] | SQLMap — Automatic SQL Injection and Database Takeover Tool | https://github.com/sqlmapproject/sqlmap |
+| [16] | Ghauri — Advanced SQL Injection Detection and Exploitation | https://github.com/r0oth3x49/ghauri |
+| [17] | jSQL Injection — Java-based Automatic SQL Injection Tool | https://github.com/ron190/jsql-injection |
+| [18] | NoSQLMap — Automated NoSQL Injection and Exploitation | https://github.com/codingo/NoSQLMap |
+| [19] | Blisqy — Time-based Blind SQL Injection via HTTP Headers | https://github.com/JohnTroony/Blisqy |
+
+### Defensive Tools
+
+| # | Tool | Repository |
+|---|------|-----------|
+| [20] | ModSecurity — Open Source Web Application Firewall Engine | https://github.com/owasp-modsecurity/ModSecurity |
+| [21] | OWASP Core Rule Set (CRS) — Generic Attack Detection Rules | https://github.com/coreruleset/coreruleset |
+| [22] | libinjection — SQL/SQLI Tokenizer Parser Analyzer | https://github.com/libinjection/libinjection |
