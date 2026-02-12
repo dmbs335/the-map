@@ -1,383 +1,437 @@
-# OAuth 2.0 / OpenID Connect Vulnerability Mutation/Variation Taxonomy
+# OAuth 2.0 / OpenID Connect Mutation & Variation Taxonomy
 
 ---
 
 ## Classification Structure
 
-This taxonomy organizes the entire OAuth 2.0 and OpenID Connect (OIDC) attack surface under three orthogonal axes. **Axis 1 (Mutation Target)** is the primary structural axis — it defines *what component of the OAuth/OIDC mechanism is being mutated*. **Axis 2 (Discrepancy Type)** is the cross-cutting axis — it explains *what kind of mismatch or bypass the mutation creates*. **Axis 3 (Attack Scenario)** is the mapping axis — it connects mutations to *real-world impact*.
+This taxonomy organizes the entire OAuth/OIDC attack surface along three orthogonal axes derived from systematic analysis of CVEs, academic research (USENIX, IEEE, BlackHat/DEF CON), practitioner writeups, and bug bounty disclosures through 2025.
 
-OAuth 2.0 (RFC 6749) is a delegation protocol — it enables a **Resource Owner** to grant a **Client** limited access to resources hosted by a **Resource Server**, mediated by an **Authorization Server (AS)**. OpenID Connect (OIDC) extends OAuth with an identity layer, adding ID tokens (JWTs), UserInfo endpoints, and discovery mechanisms. The security model relies on redirect-based flows where authorization codes or tokens traverse the user agent (browser). Every mutation in this taxonomy exploits a failure in how these flows validate redirects, bind state, verify tokens, manage consent, or establish trust between parties.
+**Axis 1 — Mutation Target (Primary):** The structural component of the OAuth protocol being mutated or exploited. This axis structures the main body of the document across 10 top-level categories covering redirect flow, authorization codes/tokens, client identity, user identity, consent/scope, session/state, token lifecycle, protocol flow selection, server-side infrastructure, and cross-protocol/integration architecture.
 
-For JWT-specific vulnerabilities (algorithm confusion, key injection, claim manipulation, brute force), see the dedicated [JWT Vulnerability Taxonomy](../jwt/jwt.md).
-
-### Axis 2: Discrepancy Types (Cross-Cutting)
+**Axis 2 — Discrepancy Type (Cross-cutting):** The nature of the mismatch or bypass that each mutation creates. Every technique exploits one or more of the following discrepancy types:
 
 | Code | Discrepancy Type | Description |
 |------|-----------------|-------------|
-| **D1** | Redirect/URL Validation Failure | Redirect URI or URL-based parameter is not properly validated against the registered value |
-| **D2** | State/Binding Mismatch | CSRF state, nonce, PKCE verifier, or session binding is absent or not properly enforced |
-| **D3** | Validation Omission | A required verification step (token validation, scope check, audience check) is missing or incomplete |
-| **D4** | Trust Boundary Confusion | Client, AS, or RP trusts an unverified or attacker-controlled entity |
-| **D5** | Token/Credential Leakage | Token or secret is exposed through front-channel, logs, referer, or insecure storage |
-| **D6** | Scope/Permission Escalation | Granted permissions exceed what was authorized by the resource owner |
-| **D7** | Flow Abuse | Legitimate protocol flow is weaponized via social engineering or redirection |
-| **D8** | Protocol-Level Gap | Structural omission or ambiguity in the specification itself enables attack |
+| **D1** | Validation Bypass | redirect_uri, scope, or client validation is absent or insufficient |
+| **D2** | Identity Confusion | User, client, or IdP identity is misattributed or spoofed |
+| **D3** | Token/Code Leakage | Authorization material escapes to an unintended party |
+| **D4** | State Manipulation | Session, CSRF state, or nonce integrity is broken |
+| **D5** | Privilege Escalation | Granted permissions exceed what was authorized |
+| **D6** | Protocol Confusion | Flow downgrade, mix-up, or cross-protocol mismatch |
+| **D7** | Temporal Exploitation | Race conditions, replay, or token lifetime abuse |
+
+**Axis 3 — Attack Scenario (Mapping):** The real-world outcome: account takeover, token theft, persistent access, SSRF, phishing, supply-chain compromise, or lateral movement. Mapped in §11.
 
 ---
 
 ## §1. Redirect URI Manipulation
 
-The `redirect_uri` parameter is the critical trust anchor of OAuth's authorization code and implicit flows. The AS redirects the user agent back to this URI carrying authorization codes or tokens. If an attacker can substitute or manipulate this URI, they intercept the authorization response.
+The `redirect_uri` parameter is the primary target for OAuth attacks because it controls where authorization material (codes, tokens) is delivered. Any weakness in redirect URI validation creates a direct path to credential theft.
 
-### §1-1. Redirect URI Validation Bypass
+### §1-1. Validation Bypass Techniques
 
-| Subtype | Mechanism | Discrepancy | Key Condition |
-|---------|-----------|-------------|---------------|
-| **Missing validation** | AS does not validate `redirect_uri` at all, accepting any attacker-controlled URL. The authorization code or token is delivered to the attacker's server | D1 | No redirect_uri validation implemented; or validation only at registration, not at authorization |
-| **Subdomain matching** | Validation checks only the parent domain (e.g., `*.example.com`), allowing redirect to an attacker-controlled subdomain (`evil.example.com`) or a subdomain with XSS | D1 | Wildcard or suffix-based domain validation |
-| **Path manipulation** | Validation checks domain + base path but allows path traversal (e.g., `https://legit.com/callback/../../../attacker/steal`) or appended path segments (e.g., `https://legit.com/callback/../../attacker`) | D1 | Path normalization not applied before comparison; or prefix-only matching |
-| **URL parser differential** | Exploit differences between how the AS and the client parse URLs. Techniques include userinfo confusion (`https://legit.com@evil.com`), backslash confusion (`https://evil.com\.legit.com`), percent-encoding tricks (`%40`, `%2F`), and Unicode normalization differences | D1, D4 | Different URL parsing libraries between AS and client; inconsistent handling of special characters |
-| **Fragment injection** | Append `#` to redirect_uri, causing the authorization code to be appended after a fragment delimiter. The code is not sent to the server in the HTTP request but is accessible via JavaScript on the page | D1, D5 | Client-side code on the callback page processes URL fragments; or AS does not strip fragments from redirect_uri |
-| **Open redirect chaining** | Use a legitimate open redirect endpoint on the whitelisted callback domain to bounce the authorization response to an attacker-controlled destination | D1, D7 | Open redirect exists on a domain within the allowed redirect_uri set |
-| **Scheme downgrade** | Change `redirect_uri` from `https://` to `http://` to enable token interception via network-level MitM | D1, D5 | AS does not enforce HTTPS for redirect_uri |
-| **Port manipulation** | Register `https://legit.com/callback` but request authorization with `https://legit.com:8443/callback` where the attacker controls port 8443 | D1 | AS applies lax port matching or ignores port in comparison |
-| **Regex bypass** | When the AS validates redirect_uri using regular expressions, exploit unescaped special characters (`.` matching any character, missing `$` anchor, unescaped `?`) to match unintended URIs | D1 | AS uses regex matching without proper escaping or anchoring (CVE-2024-52289, Authentik) |
-| **Response_mode manipulation** | Change `response_mode` from `query` to `fragment` or `form_post`. Some AS implementations apply different redirect_uri validation logic depending on the response mode, or the change alters where/how the token is exposed | D1, D5 | AS validation behavior varies by response_mode |
+The authorization server must verify that the `redirect_uri` in the authorization request exactly matches a pre-registered URI. Failures in this validation create the broadest class of OAuth vulnerabilities.
 
-### §1-2. Mobile & Native App Redirect Interception
+| Subtype | Mechanism | Key Condition | Discrepancy |
+|---------|-----------|---------------|-------------|
+| **No validation** | Server accepts any `redirect_uri` value without checking against registered URIs | AS has no allowlist enforcement | D1 |
+| **Domain-only matching** | Server validates only the domain/origin, ignoring path, query, and fragment components. Attacker uses `https://legitimate.com/attacker-controlled-path` | AS checks origin but not full path | D1 |
+| **Subdomain matching** | Server validates `*.example.com`, allowing `attacker.example.com` or exploiting subdomain takeover | Wildcard or suffix-based validation | D1 |
+| **Path traversal** | Attacker appends `/../` or `/..\` sequences to escape validated path prefixes, e.g., `https://client.com/callback/../attacker` | Server normalizes path after validation | D1 |
+| **Parameter pollution** | Injecting duplicate `redirect_uri` parameters; server uses the first for validation but the last for redirection (or vice versa) | Inconsistent parameter parsing | D1, D6 |
+| **Regex bypass** | Exploiting flawed regex patterns — missing anchors (`^`, `$`), unescaped dots, or greedy quantifiers. E.g., `redirect_uri=https://legitimateXcom.attacker.com` | Custom regex validation instead of exact match | D1 |
+| **Scheme manipulation** | Changing `https://` to `http://`, custom schemes (`myapp://`), or `javascript:` URIs | AS doesn't enforce scheme restrictions | D1 |
+| **Fragment injection** | Appending `#fragment` to redirect URI; some servers ignore fragments during validation but browsers preserve them during redirect | Inconsistent fragment handling | D1, D3 |
+| **Unicode/encoding bypass** | Using URL-encoded, double-encoded, or Unicode characters (e.g., `%2F` for `/`, full-width characters) to bypass string comparison | Validation occurs before URL normalization | D1 |
+| **Port manipulation** | Specifying non-standard ports in `redirect_uri` when validation ignores port numbers, e.g., `https://legitimate.com:8443/callback` | Port not included in validation | D1 |
 
-| Subtype | Mechanism | Discrepancy | Key Condition |
-|---------|-----------|-------------|---------------|
-| **Custom scheme hijacking** | Multiple apps register the same custom URI scheme (e.g., `myapp://callback`). A malicious app intercepts the authorization code intended for the legitimate app | D4, D5 | Mobile app uses custom URI scheme without platform-verified app links (Universal Links / App Links) |
-| **Localhost port sniffing** | Native desktop app uses `http://localhost:{port}/callback`. Attacker runs a listener on the same port before the legitimate app starts, intercepting the authorization code | D5 | Loopback redirect without PKCE; OS allows binding to the same port |
-| **WebView token theft** | Malicious app opens the OAuth flow in an embedded WebView rather than the system browser, gaining JavaScript access to the callback URL and intercepting tokens or codes | D5 | User is directed to authenticate in an embedded WebView controlled by the attacker app |
-| **Loopback IPv4/IPv6 confusion** | Authorization server validates `redirect_uri` against `http://localhost`, but attacker binds to `http://127.0.0.1` or `http://[::1]` which bypass the validation while resolving to the same machine | D1 | AS treats `localhost`, `127.0.0.1`, and `[::1]` as distinct values |
+### §1-2. Open Redirect Chaining
 
-### §1-3. Front-Channel Token Interception via Browser Mechanisms
+When the authorization server enforces strict `redirect_uri` matching but the client application contains an open redirect vulnerability, the attacker chains the two to leak authorization material.
 
-| Subtype | Mechanism | Discrepancy | Key Condition |
-|---------|-----------|-------------|---------------|
-| **postMessage token theft** | OAuth popup flow uses `window.postMessage()` to send the authorization response to the parent window. If the `targetOrigin` is set to `"*"` or validated with weak regex, any parent window (including attacker-controlled pages) receives the token | D5, D1 | postMessage target origin not strictly validated; or `response_type=web_message` used without origin whitelist (Frans Rosen, "Dirty Dancing in Sign-In OAuth Flows") |
-| **Service Worker interception** | A malicious Service Worker registered on the redirect URI's origin (via XSS or supply chain compromise) intercepts all `fetch` events within its scope, capturing authorization codes and tokens. SWs persist across page loads and browser restarts, providing durable persistence even after the initial XSS is patched | D5 | XSS or supply chain compromise on the callback domain enables SW registration |
-| **Third-party JS on callback page** | The legitimate redirect_uri page includes third-party JavaScript (analytics, tag managers, ads). These scripts can read `location.hash` (fragment) or `location.search` (query string), exfiltrating the authorization code or token to external servers | D5 | Third-party scripts loaded on the OAuth callback page; no strict CSP |
+| Subtype | Mechanism | Key Condition | Discrepancy |
+|---------|-----------|---------------|-------------|
+| **Classic open redirect chain** | `redirect_uri=https://client.com/redirect?url=https://attacker.com` — code/token lands on client, then immediately redirected to attacker | Client has an open redirect endpoint under the registered domain | D1, D3 |
+| **Referer-based leakage** | After redirect to client, the client page loads external resources; the `Referer` header leaks the authorization code from the URL query string to third parties | Client pages include external images, scripts, or tracking pixels | D3 |
+| **Fragment persistence in redirect** | In implicit flow, access token is in the URL fragment (`#access_token=...`). During client-side redirects, fragments are preserved by the browser and can leak to attacker-controlled destinations | Implicit flow + open redirect on client | D3 |
+| **Proxy page leakage** | Client page with `postMessage` or `window.name` that can be read cross-origin acts as a proxy for token exfiltration | Client uses `postMessage` without origin validation | D3 |
+| **Path confusion via directory listing** | Redirect to a directory on the client that serves an index page with external links, leaking code via Referer | Client serves user-controllable content under registered path | D3 |
 
----
+### §1-3. Mobile Redirect Scheme Hijacking
 
-## §2. Authorization Code & PKCE Exploitation
+Mobile OAuth implementations use custom URI schemes (e.g., `myapp://callback`) which are not globally unique, creating interception opportunities.
 
-The authorization code flow is the recommended OAuth flow. PKCE (Proof Key for Code Exchange, RFC 7636) was designed to protect the code exchange from interception. Failures in PKCE enforcement or code handling create interception vectors.
-
-### §2-1. Code Interception Without PKCE
-
-| Subtype | Mechanism | Discrepancy | Key Condition |
-|---------|-----------|-------------|---------------|
-| **Classic code interception** | Intercept the authorization code from the redirect URI (via network MitM, open redirect, or malicious app) and exchange it for tokens at the token endpoint. Without PKCE, any party possessing the code and client credentials can complete the exchange | D2, D5 | Client does not use PKCE; code transmitted via front channel without binding |
-| **Code leakage via Referer header** | The authorization code in the callback URL is leaked through the HTTP Referer header when the callback page loads external resources (images, scripts, tracking pixels) | D5 | Callback page loads third-party resources; code is in query string (not fragment) |
-| **Code leakage via browser history** | Authorization code persists in browser history and can be extracted by shared computer users or browser extensions | D5 | Code in URL query string; no immediate code exchange and redirect |
-
-### §2-2. PKCE Downgrade & Bypass
-
-| Subtype | Mechanism | Discrepancy | Key Condition |
-|---------|-----------|-------------|---------------|
-| **PKCE not enforced** | AS supports PKCE but does not require it. Attacker sends the authorization request without `code_challenge`, then intercepts and exchanges the code without `code_verifier` | D2, D3 | PKCE optional; AS accepts requests without code_challenge (CVE-2024-23647, Authentik) |
-| **PKCE method downgrade** | Downgrade from `S256` (SHA-256 hashed) to `plain` code challenge method. If the AS accepts `plain`, the attacker who intercepts the authorization request can read the `code_challenge` directly and use it as the `code_verifier` | D2 | AS accepts `plain` method; does not enforce S256 |
-| **PKCE state mismatch** | AS does not bind the `code_challenge` to the specific authorization session. Attacker initiates their own authorization request (obtaining a code_challenge-free session) and then substitutes the victim's authorization code into this session | D2 | code_challenge not cryptographically bound to the authorization session |
-| **PKCE skip via MCP proxy** | In MCP (Model Context Protocol) OAuth implementations, the PKCE check can be bypassed by manipulating the proxy's state handling, allowing code exchange without the verifier | D2, D3 | MCP OAuth proxy does not enforce PKCE on code exchange (Cloudflare workers-oauth-provider GHSA-qgp8-v765-qxx9) |
-
-### §2-3. Code Replay & Exchange Manipulation
-
-| Subtype | Mechanism | Discrepancy | Key Condition |
-|---------|-----------|-------------|---------------|
-| **Code replay** | Use the same authorization code multiple times. If the AS does not invalidate the code after first use, tokens can be obtained repeatedly | D3 | AS does not enforce single-use authorization codes |
-| **Code substitution** | Attacker obtains an authorization code (e.g., via social engineering or rogue client) and substitutes it into the victim's callback flow | D2, D4 | Missing state parameter validation; code not bound to the specific client session |
-| **Client authentication bypass** | Exchange authorization code at the token endpoint without proper client authentication (missing or forged `client_secret`, or no client authentication required for confidential clients) | D3, D4 | Token endpoint does not enforce client authentication |
-
-### §2-4. Pushed Authorization Requests (PAR) Bypass
-
-| Subtype | Mechanism | Discrepancy | Key Condition |
-|---------|-----------|-------------|---------------|
-| **PAR not enforced (fallback to inline)** | AS supports PAR but does not require it (`require_pushed_authorization_requests` not enabled). Attacker bypasses PAR protections entirely by sending a traditional authorization request with manipulated inline parameters directly to the authorization endpoint | D3, D8 | PAR optional; AS accepts both PAR `request_uri` and inline parameters |
-| **request_uri replay** | The `request_uri` returned by the PAR endpoint is intercepted and reused in a different browser session. If the AS does not enforce single-use semantics or has an excessively long TTL, the attacker completes the flow using the stolen reference | D2 | PAR `request_uri` not single-use; excessive validity window (>60 seconds) |
-| **request_uri prediction** | PAR `request_uri` reference values are generated with insufficient entropy (sequential, timestamp-based, or short). Attacker guesses valid references and uses them before the legitimate client | D2, D5 | Weak randomness in `request_uri` generation |
-| **Client auth downgrade at PAR endpoint** | PAR endpoint accepts multiple client authentication methods. Attacker compromises the weaker credential (e.g., `client_secret_post`) and pushes authorization requests on behalf of the legitimate client that normally uses `private_key_jwt` | D3, D4 | AS does not enforce single authentication method per client at PAR endpoint |
-| **PAR + unsigned request tampering** | PAR requests are not signed (relying on client authentication + TLS). An attacker in a MitM position between client and AS (e.g., compromised corporate proxy) modifies PAR request parameters in transit | D4 | PAR used without JAR (RFC 9101) for request signing; TLS termination at an intermediary |
+| Subtype | Mechanism | Key Condition | Discrepancy |
+|---------|-----------|---------------|-------------|
+| **Custom scheme collision** | Multiple apps register the same custom URI scheme; OS delivers the redirect to the wrong (malicious) app | Android/iOS allow duplicate scheme registration | D2, D3 |
+| **Intent filter hijacking (Android)** | Malicious app registers a more specific Intent Filter for the OAuth callback URI, gaining priority over the legitimate app | Attacker's app matches the URI with higher specificity | D3 |
+| **Claimed URL bypass** | Bypassing Android App Links or iOS Universal Links verification to intercept HTTPS-based redirects | Improperly configured `.well-known/assetlinks.json` or `apple-app-site-association` | D3 |
 
 ---
 
-## §3. Token Lifecycle & Binding Attacks
+## §2. Authorization Code & Token Handling
 
-OAuth tokens (access tokens, refresh tokens, ID tokens) are bearer credentials by default — anyone possessing the token can use it. Attacks on token lifecycle exploit this bearer property, weak binding, and lifecycle management failures.
+The authorization code is the bearer credential exchanged for tokens. Attacks in this category target the code grant flow, token exchange, and the mechanisms that bind codes to their intended recipients.
 
-### §3-1. Token Leakage Vectors
+### §2-1. Authorization Code Interception & Injection
 
-| Subtype | Mechanism | Discrepancy | Key Condition |
-|---------|-----------|-------------|---------------|
-| **Implicit flow token exposure** | In the Implicit Grant, the access token is returned in the URL fragment, exposable via Referer header leaks, browser history, XSS on the callback page, or browser extensions | D5, D7 | Application uses Implicit Grant (deprecated in OAuth 2.1) |
-| **Token in URL query string** | Access token passed as URL query parameter (e.g., `?access_token=...`) instead of Authorization header. Logged in server access logs, proxy logs, and browser history | D5 | Client or API accepts tokens in query parameters |
-| **Token leakage via error pages** | Authorization errors redirect back to the client with the token still in the URL. Error pages may log or display the token | D5 | Error handling exposes token-bearing URLs |
-| **Token leakage via XSS** | Cross-site scripting on the callback domain or application pages allows JavaScript extraction of tokens from URL fragments, localStorage, sessionStorage, or cookies | D5 | XSS vulnerability on a domain that handles or stores tokens |
-| **Response_mode fragment exposure** | When `response_mode=fragment`, the token is delivered in the URL fragment. While fragments are not sent to servers in HTTP requests, they are accessible to any JavaScript on the page and persist in browser history | D5 | Application relies on fragment-based token delivery without strict CSP |
+| Subtype | Mechanism | Key Condition | Discrepancy |
+|---------|-----------|---------------|-------------|
+| **Code interception via redirect** | Attacker obtains the authorization code through redirect URI manipulation (§1) and exchanges it at the token endpoint before the legitimate client | No PKCE; code is a bearer credential | D3 |
+| **Code injection (login CSRF)** | Attacker initiates an OAuth flow, obtains a code bound to their own identity, then injects it into the victim's callback URL. Victim's session is now linked to attacker's account | Missing or weak `state` parameter validation | D4 |
+| **Code replay** | Reusing a previously valid authorization code if the AS doesn't invalidate it after first use or has a wide time window | AS allows code reuse or has long code lifetime | D7 |
+| **PKCE downgrade** | Attacker strips the `code_challenge` parameter from the authorization request or forces fallback to `plain` method. If AS doesn't mandate PKCE, the code becomes interceptable | AS doesn't require PKCE for all clients | D6 |
+| **PKCE bypass via open redirect** | Even with PKCE, if the code leaks to the attacker through an open redirect on the client domain (§1-2), the attacker can steal the code. However, they still need the `code_verifier` — unless the client's own endpoint processes the code automatically | Client auto-exchanges code without PKCE verification | D1, D3 |
 
-### §3-2. Token Replay & Revocation Failure
+### §2-2. Token Leakage Vectors
 
-| Subtype | Mechanism | Discrepancy | Key Condition |
-|---------|-----------|-------------|---------------|
-| **Refresh token persistence after revocation** | OAuth consumer authorization is revoked, but existing refresh tokens remain valid and can continue generating new access tokens | D3 | Revocation of authorization does not cascade to refresh tokens (CVE-2025-32068, MediaWiki OAuth Extension) |
-| **Refresh token theft** | Steal a long-lived refresh token (from device storage, database, or network interception) and use it to continuously generate new access tokens, maintaining persistent access even after password changes | D5 | Refresh tokens not bound to client/device; not revoked on password/credential change |
-| **Refresh token rotation race condition** | Send multiple concurrent requests to the token endpoint using the same refresh token. Non-atomic read-check-rotate operations allow multiple requests to succeed, each returning a different new refresh token — creating multiple valid token "branches" that defeat rotation | D3 | Refresh token rotation not serialized; no atomic compare-and-swap |
-| **Refresh token rotation grace period abuse** | Many implementations allow a "grace period" (30–120s) during which the old refresh token remains valid after rotation. Attacker who steals a token during this window uses the old token to obtain an independent new token pair, even after the legitimate client has rotated | D3, D5 | Grace/reuse interval implemented for reliability; attacker obtains token within window |
-| **Token replay across services** | Bearer access token issued for Resource Server A is replayed against Resource Server B that shares the same AS. Without audience restriction, the token is accepted | D3, D4 | No audience (`aud`) restriction on access tokens; shared AS across services |
-| **Missing token revocation endpoint** | Application has no mechanism to revoke tokens (RFC 7009). After user logout or password change, existing tokens remain valid until natural expiration | D3 | Token revocation endpoint not implemented; stateless token validation only |
+| Subtype | Mechanism | Key Condition | Discrepancy |
+|---------|-----------|---------------|-------------|
+| **Implicit flow token exposure** | Access token delivered in URL fragment is accessible to JavaScript on the page, including injected scripts (XSS) | Use of deprecated implicit flow | D3, D6 |
+| **Token in browser history** | Authorization code or token appears in URL, persisting in browser history, proxy logs, and server access logs | Code/token delivered via query parameter | D3 |
+| **Token via postMessage** | Client page uses `window.postMessage()` to communicate tokens cross-origin without proper `targetOrigin` restriction | Missing origin validation in postMessage handler | D3 |
+| **Token in error responses** | Authorization server or client includes token/code in error redirect parameters, exposing them in logs or to third parties | Verbose error handling that echoes sensitive parameters | D3 |
+| **Token via WebSocket** | Client transmits token over unencrypted WebSocket or to an attacker-observable WebSocket endpoint | Insecure WebSocket implementation for token transport | D3 |
 
-### §3-3. Sender-Constrained Token Bypass
+### §2-3. Token Exchange Attacks
 
-| Subtype | Mechanism | Discrepancy | Key Condition |
-|---------|-----------|-------------|---------------|
-| **DPoP proof replay** | Capture a DPoP (Demonstrating Proof of Possession, RFC 9449) proof JWT and replay it within its validity window. If the AS or RS does not enforce nonce binding or strict timestamp validation, the proof is accepted | D2 | DPoP nonce not enforced; excessive validity window |
-| **mTLS certificate substitution** | In certificate-bound access tokens (RFC 8705), substitute the client certificate during token presentation. If the RS does not validate that the presented certificate matches the one bound at issuance, the binding is ineffective | D3, D4 | RS does not validate certificate thumbprint against token binding |
-| **Downgrade to bearer** | Remove DPoP or mTLS binding headers from the request. If the RS accepts both sender-constrained and bearer tokens, the attacker can use the stolen token as a plain bearer token | D3 | RS does not enforce sender-constraining; accepts fallback to bearer |
-
----
-
-## §4. State, Nonce & CSRF Exploitation
-
-OAuth and OIDC rely on ephemeral state parameters to prevent cross-site request forgery and token replay. Weaknesses in these binding mechanisms enable session fixation and login CSRF attacks.
-
-### §4-1. State Parameter Attacks
-
-| Subtype | Mechanism | Discrepancy | Key Condition |
-|---------|-----------|-------------|---------------|
-| **Missing state parameter** | No CSRF protection on the OAuth callback. Attacker initiates an OAuth flow with their own identity, forces the victim's browser to complete it, linking the attacker's identity to the victim's session | D2 | `state` parameter not implemented or not validated on callback |
-| **State fixation** | Attacker obtains a valid state value and forces the victim to use it (e.g., by pre-loading the authorization URL). The attacker can then complete the flow on behalf of the victim | D2 | State is predictable, reusable, or not cryptographically bound to the user session |
-| **Predictable state** | State parameter is generated using weak randomness (sequential counter, timestamp, MD5 of session ID). Attacker predicts the value and crafts a forged callback URL | D2 | Insufficient entropy in state generation |
-| **State leakage** | State parameter leaked via Referer header, server logs, or browser history, enabling an attacker to use it for CSRF or session correlation | D2, D5 | State transmitted in URL without protections against leakage |
-
-### §4-2. Nonce & ID Token Replay (OIDC)
-
-| Subtype | Mechanism | Discrepancy | Key Condition |
-|---------|-----------|-------------|---------------|
-| **Missing nonce validation** | ID token `nonce` claim is not validated against the value sent in the authorization request. Attacker replays a captured ID token to authenticate as the victim | D2 | Client does not verify `nonce` claim matches the authorization request value (CVE-2024-10318, NGINX OIDC) |
-| **Nonce reuse** | Client reuses the same nonce across multiple authorization requests, defeating replay detection | D2 | Nonce not generated fresh per authorization request |
-| **ID token injection** | Attacker obtains an ID token (e.g., from their own flow) and injects it into the victim's callback response. Without `nonce` validation and `c_hash`/`at_hash` verification, the injected token is accepted | D2, D4 | Client does not validate `c_hash` (code hash) or `at_hash` (access token hash) claims in the ID token |
-
-### §4-3. Login CSRF & Session Fixation
-
-| Subtype | Mechanism | Discrepancy | Key Condition |
-|---------|-----------|-------------|---------------|
-| **Login CSRF (forced login)** | Attacker forces victim to log into the attacker's account via OAuth, then captures the victim's subsequent actions (credentials entered, sensitive data uploaded) in what the victim believes is their own account | D2, D7 | Application allows OAuth-initiated login without CSRF protection |
-| **Post-authentication session fixation** | After successful OAuth authentication, the application does not regenerate the session ID. An attacker who set the session ID before authentication can now use the authenticated session | D2 | Session ID not regenerated after OAuth callback completes |
+| Subtype | Mechanism | Key Condition | Discrepancy |
+|---------|-----------|---------------|-------------|
+| **Token endpoint CSRF** | Attacker submits a forged token request with a stolen code to the authorization server's token endpoint | Token endpoint doesn't validate client secret or uses public client | D4 |
+| **Scope upgrade at token exchange** | Attacker modifies the `scope` parameter in the token request to include higher privileges than originally authorized | AS accepts scope parameter at token endpoint without comparing to original authorization | D5 |
+| **Client secret brute-force** | Attacking the token endpoint to guess client_secret values for confidential clients | No rate limiting on token endpoint; weak client secrets | D1 |
 
 ---
 
-## §5. Scope, Consent & Permission Exploitation
+## §3. Client Identity & Registration
 
-OAuth scopes define the permissions a client is requesting. The consent screen is the user's opportunity to approve or deny these permissions. Manipulating scope handling or bypassing consent enables privilege escalation.
+The OAuth client's identity determines what access it receives. Attacks here target client authentication, registration, and impersonation.
 
-### §5-1. Scope Manipulation
+### §3-1. Dynamic Client Registration Abuse
 
-| Subtype | Mechanism | Discrepancy | Key Condition |
-|---------|-----------|-------------|---------------|
-| **Scope upgrade in token request** | Send an elevated `scope` parameter in the token exchange request (not specified in the original authorization). If the AS trusts the scope in the token request without cross-referencing the authorization grant, elevated permissions are issued | D6 | AS does not verify scope in token request matches the authorized scope |
-| **Scope manipulation via token reuse** | Steal an access token from Implicit Flow and replay it with manually appended scope parameters against the resource server | D6 | Resource server reads scope from the request rather than from the token introspection |
-| **Unrestricted client scopes** | AS allows any client to request any scope. Attacker registers a new client and requests highly privileged scopes (e.g., `admin:*`, `user.read.all`) | D6, D3 | No per-client scope restriction; AS grants any requested scope if user consents |
-| **Scope parameter injection** | Inject additional scope values via parameter pollution or delimiter manipulation (e.g., `scope=openid+admin:write` where `+` is interpreted as a space/delimiter differently by AS and client) | D6 | Inconsistent scope string parsing between components |
+OAuth/OIDC dynamic client registration (RFC 7591) allows programmatic client creation, introducing server-side attack surface.
 
-### §5-2. Consent Bypass
+| Subtype | Mechanism | Key Condition | Discrepancy |
+|---------|-----------|---------------|-------------|
+| **SSRF via `logo_uri`** | Registering a client with `logo_uri` pointing to an internal resource; AS fetches and returns the content when rendering the consent page | AS resolves `logo_uri` server-side without SSRF protections | D1 |
+| **SSRF via `jwks_uri`** | Setting `jwks_uri` to an internal endpoint; AS fetches it when validating client JWT assertions | AS resolves `jwks_uri` without network restrictions | D1 |
+| **SSRF via `sector_identifier_uri`** | This OIDC-specific URL points to a JSON array of redirect URIs; AS fetches it during validation | AS resolves the URI without SSRF controls | D1 |
+| **SSRF via `request_uris`** | Registering `request_uris` pointing to internal resources; AS fetches them when processing pushed authorization requests | AS supports PAR and resolves request URIs | D1 |
+| **XSS via `logo_uri` / `client_name`** | Injecting script payloads into client metadata that renders on the consent screen | AS renders client metadata without sanitization | D1 |
+| **Arbitrary redirect registration** | Registering a new client with attacker-controlled redirect URIs, then using session poisoning (§6-2) to redirect tokens to the new client | Open registration endpoint without admin approval | D1, D4 |
 
-| Subtype | Mechanism | Discrepancy | Key Condition |
-|---------|-----------|-------------|---------------|
-| **Consent bypass via `prompt=none`** | Submit authorization request with `prompt=none`. If the user has previously consented to any scope for this client, the AS may grant access without re-prompting, even if the current request includes additional scopes | D6, D7 | AS grants previously-consented scopes without re-prompting when additional scopes are requested |
-| **Pre-approved scope exploitation** | Some first-party or "trusted" clients are pre-approved and skip consent entirely. If the client_id of a pre-approved client is obtained, any authorization request using that client_id bypasses consent | D6, D4 | Pre-approved clients exist; client_id is predictable or leaked |
-| **Consent phishing (illicit consent grant)** | Attacker registers a malicious OAuth application with a legitimate-sounding name and requests broad permissions. Social engineering tricks the user into granting consent. The attacker then has persistent, MFA-bypassing access via OAuth tokens | D7 | No admin approval required for app registration; users can consent to broad scopes |
-| **Incremental consent abuse** | Request minimal scopes initially to gain user trust and approval, then silently escalate via incremental authorization without a new consent screen | D6, D7 | AS applies incremental consent without user re-approval for new scopes |
+### §3-2. Client Impersonation
 
-### §5-3. Token Exchange & Delegation Abuse
-
-| Subtype | Mechanism | Discrepancy | Key Condition |
-|---------|-----------|-------------|---------------|
-| **Impersonation via token exchange** | Use RFC 8693 Token Exchange to request a token acting as a different user. If the AS does not validate the `may_act` claim or restrict which clients can perform impersonation, arbitrary user impersonation is possible | D6, D4 | AS allows token exchange without validating delegation/impersonation constraints |
-| **Excessive delegation scope** | Token exchange produces a delegated token with broader scope than the original token, violating the principle that delegation should not escalate privileges | D6 | AS does not restrict delegated token scope to be a subset of the original |
-| **Chained token exchange** | Perform multiple successive token exchanges, each incrementally expanding scope or changing the subject, resulting in a token with permissions far beyond the original grant | D6 | No chain depth limit or cumulative scope restriction on token exchange |
+| Subtype | Mechanism | Key Condition | Discrepancy |
+|---------|-----------|---------------|-------------|
+| **Public client spoofing** | Since public clients (SPAs, mobile apps) have no client_secret, any party knowing the `client_id` can impersonate the client | Public client with no PKCE enforcement | D2 |
+| **Client secret leakage** | Client secret exposed in client-side code, version control, or error messages, enabling attacker to act as the legitimate client | Secret stored in public artifact (JS bundle, mobile APK, Git repo) | D2, D3 |
+| **Client ID metadata document spoofing** | In MCP and newer specs using URL-based client IDs, attacker claims a legitimate client's metadata URL as their own `client_id`, binding to localhost redirect | Metadata document URL used as client_id without ownership verification | D2 |
+| **First-party app abuse** | Exploiting pre-consented first-party applications (e.g., Azure CLI, Azure PowerShell) that have high-privilege permissions across all enterprise tenants | Pre-consented apps with `Directory.ReadWrite.All` or similar scopes | D2, D5 |
 
 ---
 
-## §6. Client Identity & Registration Exploitation
+## §4. User Identity & Claims
 
-OAuth clients are registered entities with credentials (client_id, client_secret). Weaknesses in client identity management, credential protection, and dynamic registration create impersonation and SSRF vectors.
+OAuth delegates authentication; OIDC extends it with identity claims. Attacks here target how user identity is established, verified, and consumed.
 
-### §6-1. Client Credential Exploitation
+### §4-1. Identity Binding Attacks
 
-| Subtype | Mechanism | Discrepancy | Key Condition |
-|---------|-----------|-------------|---------------|
-| **Client secret exposure** | `client_secret` leaked via source code repository, mobile app reverse engineering, client-side JavaScript, configuration files, or debug endpoints. Attacker impersonates the legitimate client | D5 | Secret embedded in public client (mobile app, SPA) or committed to version control |
-| **Client secret in URL** | `client_secret` passed as URL query parameter in token requests, logged in server access logs and proxy logs | D5 | Client sends secret via GET parameters instead of POST body or Authorization header |
-| **Missing client authentication** | Token endpoint does not require client authentication for confidential clients. Any party possessing an authorization code can exchange it for tokens | D3 | Token endpoint accepts unauthenticated token requests |
-| **Weak client secret** | Client secret is short, predictable, or shared across environments. Can be brute-forced or guessed | D5 | Insufficient entropy in client secret generation |
-| **OIDC client_secret leak (CVE-2025-59363)** | OIDC provider API exposes plaintext `client_secret` for all applications in the tenant, enabling mass client impersonation | D5 | Provider API does not redact secrets in admin responses |
+| Subtype | Mechanism | Key Condition | Discrepancy |
+|---------|-----------|---------------|-------------|
+| **Mutable claim confusion** | Application identifies users by mutable fields (email, username) rather than the immutable `sub` claim. Attacker changes their email at the IdP to match the victim's email at the client | Client uses `email` or `preferred_username` as primary identifier | D2 |
+| **Pre-account takeover** | Attacker creates an account at the client using the victim's email (without verification), then waits for the victim to "Sign in with OAuth" — the OAuth identity merges with the pre-created account under attacker's control | Client allows account creation without email verification | D2 |
+| **Account linking hijack** | When a client supports multiple OAuth providers, attacker forces linking of their IdP account to the victim's existing account by manipulating the linking flow | No CSRF protection on account linking endpoints | D2, D4 |
+| **Email verification bypass** | IdP provides `email_verified: false` in the ID token, but the client ignores this flag and trusts the email as verified | Client doesn't check `email_verified` claim | D2 |
+| **Sub claim collision across IdPs** | Different IdPs may use the same `sub` value (e.g., numeric IDs). Client using `sub` without scoping to the issuer creates cross-IdP identity collision | Client stores `sub` without `iss` binding | D2 |
 
-### §6-2. Dynamic Client Registration Abuse
+### §4-2. Identity Injection
 
-| Subtype | Mechanism | Discrepancy | Key Condition |
-|---------|-----------|-------------|---------------|
-| **Unauthenticated registration** | OAuth/OIDC dynamic client registration endpoint (RFC 7591) accepts registration requests without authentication. Attacker registers a malicious client with attacker-controlled redirect_uri | D4 | Dynamic registration enabled without authentication or admin approval |
-| **SSRF via client metadata URIs** | Set `logo_uri`, `policy_uri`, `tos_uri`, `sector_identifier_uri`, or `jwks_uri` to internal network addresses during client registration. When the AS fetches these URLs for display or validation, it performs server-side requests to internal services | D4 | AS fetches client metadata URIs without SSRF protection |
-| **Client impersonation via registration** | Register a client with a name, logo, and description closely resembling a trusted application. Users grant consent believing they are authorizing a legitimate service | D7 | No verification of client identity or branding during registration |
-| **Redirect URI injection via registration** | Register a client with multiple redirect_uris, including an attacker-controlled URL alongside legitimate ones. If the AS allows any registered redirect_uri to be used in authorization requests, the attacker can specify their URI | D1, D4 | AS does not restrict which registered redirect_uri can be used per-request |
-
----
-
-## §7. OIDC Discovery & Federation Exploitation
-
-OpenID Connect adds a discovery layer (`.well-known/openid-configuration`) and federation trust chains on top of OAuth 2.0. These additional components introduce their own attack surface.
-
-### §7-1. Discovery Endpoint Manipulation
-
-| Subtype | Mechanism | Discrepancy | Key Condition |
-|---------|-----------|-------------|---------------|
-| **Discovery endpoint injection** | Manipulate the OIDC discovery document (`.well-known/openid-configuration`) via path traversal or host header injection. The attacker's modified document specifies attacker-controlled `authorization_endpoint`, `token_endpoint`, or `jwks_uri`, redirecting the entire OAuth flow | D4 | Discovery endpoint is vulnerable to path manipulation or host header injection |
-| **MCP OAuth metadata injection** | In MCP (Model Context Protocol) environments, the server returns a crafted `authorization_endpoint` in its OAuth metadata. The MCP client opens this URL without sanitization, enabling command injection or redirection to attacker-controlled authentication pages | D4 | MCP client trusts server-provided OAuth metadata without validation (CVE-2025-6514, mcp-remote) |
-| **JWKS endpoint substitution** | Replace the `jwks_uri` in the discovery document with an attacker-controlled URL hosting crafted signing keys. The RP fetches the attacker's keys and accepts tokens signed with them | D4 | RP fetches JWKS from the discovery document URL without pinning or verification |
-| **Metadata inconsistency exploitation** | Different AS nodes behind a load balancer serve different versions of the discovery document (e.g., inconsistent `code_challenge_methods_supported`). Clients parsing different metadata versions behave differently, creating exploitable divergence | D4, D8 | AS cluster serves inconsistent discovery metadata |
-
-### §7-2. IdP Trust & Multi-Tenant Confusion
-
-| Subtype | Mechanism | Discrepancy | Key Condition |
-|---------|-----------|-------------|---------------|
-| **IdP mix-up attack** | Attacker tricks the client into sending the authorization request to one IdP but processing the response as if it came from another. The client accepts a token from an attacker-controlled IdP because it doesn't verify the `iss` claim against the intended provider | D4 | Client does not verify issuer matches the IdP it sent the authorization request to; multiple IdPs share the same redirect_uri |
-| **Multi-tenant common endpoint abuse** | In multi-tenant IdP deployments (e.g., Azure AD/Entra ID), attacker creates a tenant and configures it as a trusted IdP for target RPs that accept tokens from the common endpoint (`/common/` or `/organizations/`) | D4 | RP trusts the IdP's common endpoint rather than a tenant-specific endpoint |
-| **Mutable claim identity binding** | RP identifies users by mutable fields (email, UPN) from OIDC claims instead of immutable `sub` claim. Attacker changes their email at the IdP to match the victim's identifier at the RP | D4, D6 | RP uses email or other mutable claim as primary user identifier (GHSA-gxh2-6vvc-rrgp, Grafana Azure AD) |
-
-### §7-3. OIDC Federation in CI/CD Environments
-
-| Subtype | Mechanism | Discrepancy | Key Condition |
-|---------|-----------|-------------|---------------|
-| **Overly permissive OIDC trust policy** | Cloud IAM roles trust OIDC tokens from a CI/CD provider with wildcarded conditions (e.g., `repo:*`, `branch:*`), allowing any repository or branch to assume the role | D4, D6 | Trust policy does not restrict to specific repos/branches/environments |
-| **Forked repo token abuse** | CI/CD platform issues OIDC tokens to workflow executions from forked repositories. Attacker forks a public repo, modifies the workflow to exfiltrate the OIDC token, and uses it to access cloud resources | D4 | CI/CD platform issues tokens to forked repo workflows without restriction |
-| **Subject claim wildcard bypass** | OIDC trust policy uses regex-based matching on the `sub` claim. Attacker creates new organizations, repos, or branches whose names match the regex pattern | D4 | Regex-based `sub` claim matching without strict anchoring (Unit 42 "OH-MY-DC" research, DEF CON 32) |
-| **Poisoned pipeline execution + OIDC** | Attacker modifies a CI/CD pipeline definition (via PR, compromised dependency, or branch manipulation) to execute code that requests OIDC tokens, then uses those tokens to access cloud resources | D4, D7 | Pipeline allows execution of untrusted code with access to OIDC token generation |
+| Subtype | Mechanism | Key Condition | Discrepancy |
+|---------|-----------|---------------|-------------|
+| **ID token forgery** | Attacker forges an ID token with arbitrary claims if the client doesn't validate the JWT signature, or the signing key is compromised/weak | Client skips signature verification or uses `alg: none` | D2 |
+| **Claim injection via userinfo** | Attacker modifies claims returned by the userinfo endpoint if the client fetches user data over an insecure channel or doesn't validate against ID token claims | Unprotected userinfo endpoint or lack of cross-validation | D2 |
+| **Audience injection** | A novel attack class (2025) exploiting audience handling in signature-based client authentication. Attacker AS claims an honest AS's issuer URI as its token endpoint; client sends credentials to the attacker's endpoint believing it's the honest AS | Client interacts with multiple AS instances and doesn't bind audience to issuer | D2, D6 |
 
 ---
 
-## §8. Grant Flow Abuse
+## §5. Consent & Scope
 
-Each OAuth/OIDC grant type defines a specific authorization flow for different client types and deployment scenarios. Abusing the intended semantics of these flows — especially through social engineering — represents a growing attack vector.
+OAuth's authorization model relies on user consent and scope boundaries. Attacks here bypass consent or escalate granted permissions.
 
-### §8-1. Device Authorization Grant (Device Code Flow) Exploitation
+### §5-1. Consent Bypass
 
-The Device Authorization Grant (RFC 8628) is designed for input-constrained devices. It has become the most actively exploited OAuth flow in 2024–2025, weaponized at scale for enterprise phishing.
+| Subtype | Mechanism | Key Condition | Discrepancy |
+|---------|-----------|---------------|-------------|
+| **Consent phishing** | Attacker creates a legitimate-looking OAuth application with deceptive names ("Security Compliance Tool", "Data Loader") and requests dangerous scopes via social engineering | Users approve broad scopes without understanding implications | D5 |
+| **Hidden consent grant** | Using `Directory.ReadWrite.All` delegated permission to call `oauth2PermissionGrant` API, programmatically granting additional delegated permissions (e.g., `RoleManagement.ReadWrite.Directory`) to malicious apps without user interaction | Attacker already holds directory write permissions | D5 |
+| **Pre-consented app exploitation (AuthCodeFix/ConsentFix)** | Exploiting first-party applications (Azure CLI, Azure PowerShell) with broad pre-consented permissions across all enterprise tenants. Attacker steals auth codes for these apps and exchanges them for high-privilege tokens | Pre-consented apps exist with overly broad scopes | D5, D2 |
+| **Incremental scope accumulation** | Requesting minimal scopes initially, then gradually requesting additional scopes in subsequent authorization flows. Users become habituated and approve increasingly dangerous permissions | Application supports incremental consent | D5 |
+| **Admin consent phishing** | Targeting administrators to grant `admin_consent` for an application, bypassing per-user consent and granting organization-wide access | Target organization allows admin consent; admin is socially engineered | D5 |
 
-| Subtype | Mechanism | Discrepancy | Key Condition |
-|---------|-----------|-------------|---------------|
-| **Device code phishing** | Attacker initiates a device authorization request, obtains a user code, and socially engineers the victim into entering it at the legitimate IdP's device login page (e.g., `microsoft.com/devicelogin`). Victim authenticates with full MFA, granting the attacker's polling client an access and refresh token | D7 | Device flow is enabled; no mechanism to verify that the person entering the code is the device operator |
-| **Automated device code harvesting** | Scale device code phishing through automated campaigns (tools like SquarePhish, Graphish), generating unique device codes per target and polling for completion. Reported success rates exceed 50% in targeted campaigns | D7 | No rate limiting on device code generation; long polling intervals (default 5-minute expiry allows extended attack windows) |
-| **Device code + MFA bypass** | Since the victim authenticates directly at the IdP (including completing MFA), the attacker's token inherits full MFA-authenticated privileges. This makes device code phishing uniquely effective against MFA-protected accounts | D7 | Token does not distinguish between direct and device-code-mediated authentication |
-| **Persistent access via device code** | Attacker obtains refresh tokens through device code phishing, enabling long-term access that survives password changes (unless refresh tokens are explicitly revoked) | D7, D5 | Refresh tokens issued during device code flow are not specially restricted or monitored |
-| **Branded app social engineering** | Register OAuth applications with legitimate-sounding names ("Data Loader", "Security Compliance Tool", "My Ticket Portal") to increase credibility of the device code phishing pretext | D7 | No verification of app name/branding during registration |
+### §5-2. Scope Manipulation
 
-### §8-2. Client Credentials Grant Abuse
-
-| Subtype | Mechanism | Discrepancy | Key Condition |
-|---------|-----------|-------------|---------------|
-| **Stolen service credentials** | Obtain `client_id` and `client_secret` for a service account (from source code, config files, CI/CD variables). Use client_credentials grant to obtain tokens with the service's permissions, bypassing user authentication entirely | D5 | Service credentials exposed; no additional controls on client_credentials grant |
-| **Over-permissioned service identity** | Service account is granted broad scopes (`*`, `admin:*`) for operational convenience. Compromise of the service credentials provides total access | D6 | Principle of least privilege not applied to service accounts |
-
-### §8-3. Resource Owner Password Credentials (ROPC) Grant Abuse
-
-| Subtype | Mechanism | Discrepancy | Key Condition |
-|---------|-----------|-------------|---------------|
-| **Credential harvesting via rogue client** | A malicious or compromised client collects username/password directly (the ROPC grant requires the client to handle raw credentials). The client forwards credentials to the AS but also exfiltrates them | D5, D7 | Application uses ROPC grant; user enters credentials directly into the client (deprecated in OAuth 2.1) |
-| **Brute force via ROPC endpoint** | Use the token endpoint with ROPC grant as a credential-testing oracle, attempting username/password combinations. Rate limiting may be weaker on the token endpoint than on the login page | D7 | ROPC grant enabled; token endpoint lacks rate limiting |
+| Subtype | Mechanism | Key Condition | Discrepancy |
+|---------|-----------|---------------|-------------|
+| **Scope parameter injection** | Modifying the `scope` parameter in the authorization request to include additional permissions beyond what the application normally requests | AS doesn't restrict requestable scopes per client | D5 |
+| **Scope upgrade at token exchange** | Including elevated scopes in the token request that weren't present in the original authorization request (see §2-3) | AS accepts and honors scope parameter at token endpoint | D5 |
+| **Offline access persistence** | Including `offline_access` scope to obtain refresh tokens that provide long-lived access beyond the user's session | AS grants offline_access without explicit user understanding | D5, D7 |
+| **Dangerous scope combinations** | Individually benign scopes that create dangerous capabilities when combined (e.g., `Application.ReadWrite.All` + `AppRoleAssignment.ReadWrite.All` = full privilege escalation) | No policy engine evaluates combined scope risk | D5 |
 
 ---
 
-## Attack Scenario Mapping (Axis 3)
+## §6. Session & State Management
 
-| Scenario | Architecture | Primary Mutation Categories | Typical Impact |
-|----------|-------------|---------------------------|----------------|
-| **Account Takeover** | Web apps with OAuth login | §1 + §4-1 + §2-1 | Full account compromise via redirected auth code |
-| **Token Theft & Lateral Movement** | Multi-service OAuth ecosystems | §3-1 + §3-2 + §5-1 | Cross-service access from single token compromise |
-| **Enterprise Phishing (MFA Bypass)** | Microsoft 365, Google Workspace | §8-1 (device code) + §5-2 (consent) | MFA-bypassing account takeover at scale |
-| **Privilege Escalation** | APIs with scope-based access | §5-1 + §5-3 | Admin access via scope manipulation |
-| **CI/CD Pipeline Compromise** | Cloud-native OIDC federation | §7-3 + §3-2 | Cloud resource access via pipeline tokens |
-| **SSRF / Internal Network Access** | AS with dynamic client registration | §6-2 (SSRF) | Internal service scanning, metadata theft |
-| **Persistent Backdoor** | OAuth with refresh tokens | §3-2 + §8-1 | Long-term access surviving password changes |
-| **Client Impersonation** | Multi-tenant OAuth providers | §6-1 + §6-2 | Act as trusted application, harvest user consent |
-| **AI Agent Compromise** | MCP/Agent OAuth flows | §7-1 (metadata injection) | RCE on AI client via crafted OAuth metadata |
+OAuth relies on browser sessions, state parameters, and nonces to maintain flow integrity. Attacks here break these bindings.
 
----
+### §6-1. CSRF & State Attacks
 
-## CVE / Bounty Mapping (2024–2025)
+| Subtype | Mechanism | Key Condition | Discrepancy |
+|---------|-----------|---------------|-------------|
+| **Missing state parameter** | No `state` parameter in authorization request; attacker forges the callback URL with their own authorization code, linking victim's session to attacker's identity | Client omits `state` or doesn't validate it | D4 |
+| **Predictable state** | State parameter is guessable (sequential, timestamp-based, or derived from known values); attacker pre-computes valid state values | Weak PRNG or deterministic state generation | D4 |
+| **State fixation** | Attacker initiates an OAuth flow, captures the `state` value, then tricks the victim into completing the flow with the attacker's state, causing the client to associate the resulting tokens with the attacker's session | State not cryptographically bound to user session | D4 |
+| **Cross-tab state confusion** | User has multiple tabs open; authorization response from one flow is consumed by a different tab's OAuth session due to shared cookie state | Client uses cookies (not per-tab storage) for state tracking | D4 |
 
-| Mutation Combination | CVE / Case | Product | Impact |
-|---------------------|-----------|---------|--------|
-| §1-1 (regex bypass) | CVE-2024-52289 | Authentik | Account takeover via redirect_uri regex bypass |
-| §2-2 (PKCE downgrade) | CVE-2024-23647 | Authentik | PKCE bypass by removing code_challenge; code interception |
-| §2-2 (PKCE skip via MCP) | GHSA-qgp8-v765-qxx9 | Cloudflare workers-oauth-provider | PKCE check skipped in MCP OAuth proxy |
-| §4-2 (nonce replay) | CVE-2024-10318 | NGINX OIDC Reference Impl. | Session fixation via missing nonce validation |
-| §1-1 (skip_auth_routes regex) | CVE-2025-54576 | OAuth2-Proxy | CVSS 9.1. Auth bypass via regex match against full URI including query params |
-| §3-2 (refresh token revocation) | CVE-2025-32068 | MediaWiki OAuth Extension | Revoked authorization leaves refresh tokens valid |
-| §7-1 (MCP metadata injection) | CVE-2025-6514 | mcp-remote | CVSS 9.6. RCE via crafted OAuth authorization_endpoint in MCP metadata |
-| §6-1 (client_secret exposure) | CVE-2025-59363 | OneLogin API | Plaintext client_secret exposed for all OIDC apps in tenant |
-| §7-2 (mutable claim binding) | GHSA-gxh2-6vvc-rrgp | Grafana (Azure AD OAuth) | Account takeover via email claim manipulation in multi-tenant Azure AD |
-| §7-3 (CI/CD OIDC) | — (Unit 42 "OH-MY-DC") | GitHub Actions, CircleCI | Cloud resource access via OIDC trust policy misconfiguration |
-| §8-1 (device code phishing) | — (ShinyHunters/UNC6040) | Microsoft 365, Google, Salesforce | Mass enterprise compromise, MFA bypass, data exfiltration (2024–2025) |
-| §8-1 (device code phishing) | — (Storm-2372/UNK_AcademicFlare) | Microsoft 365 | State-aligned espionage via device code phishing (Proofpoint, 2025) |
-| §5-2 (consent phishing) | — (Multiple campaigns) | Microsoft 365 | Illicit consent grants; persistent OAuth access to email, files, Teams |
+### §6-2. Session Poisoning
+
+| Subtype | Mechanism | Key Condition | Discrepancy |
+|---------|-----------|---------------|-------------|
+| **Authorization session overwrite** | AS stores authorization parameters (`client_id`, `redirect_uri`) in server-side session. Concurrent requests overwrite stored values, causing the response to be sent to attacker's redirect URI | AS uses session-based (not request-ID-based) parameter storage | D4, D3 |
+| **Mass assignment on consent endpoint** | Framework's mass assignment (e.g., Spring `@ModelAttribute`) allows attacker to inject parameters like `redirectUri` directly into the consent confirmation request, bypassing initial validation | Framework automatically binds request parameters to session objects (CVE-2021-27582) | D4, D1 |
+| **Cookie clobbering** | Attacker sets or overwrites cookies from a related domain that the OAuth client uses for session tracking, disrupting state validation | Related-domain cookie scope or cookie tossing vulnerability | D4 |
+
+### §6-3. Nonce & Replay
+
+| Subtype | Mechanism | Key Condition | Discrepancy |
+|---------|-----------|---------------|-------------|
+| **Missing nonce validation** | Client doesn't include or validate the `nonce` in the ID token, allowing replay of intercepted ID tokens from previous sessions | Client omits nonce or skips verification | D7 |
+| **ID token replay** | Attacker captures a valid ID token (via network interception or XSS) and replays it to the client to establish an authenticated session | No nonce; long `exp` window; client doesn't track token usage | D7 |
+| **Authorization response replay** | Replaying an entire authorization response (code + state) if the code hasn't been invalidated and the state is still valid | AS doesn't enforce single-use codes; client doesn't expire state | D7 |
 
 ---
 
-## Detection Tools
+## §7. Token Lifecycle & Persistence
 
-| Tool | Type | Target Scope | Core Technique |
-|------|------|-------------|---------------|
-| **OAUTHScan** | Burp Extension | OAuth 2.0 / OIDC | Automated passive and active scanning for OAuth/OIDC misconfigurations; integrated with Burp Scanner |
-| **EsPReSSO** | Burp Extension | Multi-protocol SSO | Detect and test SAML, OAuth, OIDC, BrowserId, Facebook Connect flows |
-| **Authz0** | CLI Tool | OAuth scope testing | Automated scope enumeration and permission boundary testing |
-| **oauth-device-code-phishing** | Red Team Tool | Device code flow | Automated device code phishing simulation for security assessments |
-| **SquarePhish** | Phishing Kit | OAuth device code | Device code phishing automation (v1: email-based, v2: QR code-based) |
-| **Graphish** | Phishing Kit | Microsoft Graph OAuth | Device code phishing with Microsoft Graph API integration |
-| **Nuclei OAuth templates** | Scanner Templates | OAuth misconfigurations | Pre-built templates for common OAuth endpoint misconfigurations |
-| **oauth2-proxy** | Reverse Proxy | OAuth authentication | OAuth2 authentication proxy for protecting upstream services (itself subject to CVE-2025-54576) |
-| **Keycloak** | Identity Platform | OAuth/OIDC provider | Open-source OAuth/OIDC provider for testing; also used as reference implementation |
+Once tokens are issued, their lifecycle creates an extended attack surface. This category covers post-issuance token abuse.
+
+### §7-1. Token Theft
+
+| Subtype | Mechanism | Key Condition | Discrepancy |
+|---------|-----------|---------------|-------------|
+| **XSS-based token extraction** | JavaScript injection extracts access tokens from localStorage, sessionStorage, or in-memory variables | Token stored in browser-accessible location; XSS vulnerability present | D3 |
+| **Token from browser storage** | Access/refresh tokens stored in localStorage are accessible to any script running in the same origin, including injected third-party scripts | Token stored in localStorage instead of httpOnly cookies | D3 |
+| **Token from credential stores** | Extracting OAuth tokens from OS credential managers, configuration files, or environment variables on compromised hosts | Token persisted in plaintext on disk | D3 |
+| **Token from repository leaks** | OAuth tokens (especially long-lived refresh tokens or client secrets) committed to version control systems | Secrets in source code or configuration files | D3 |
+| **Token from proxy/log exposure** | Tokens appearing in server logs, CDN logs, or proxy logs when transmitted as URL parameters rather than headers | Token sent as query parameter instead of Authorization header | D3 |
+| **Pass-the-Token** | Using stolen OAuth access tokens directly against resource servers, bypassing the need for credentials or MFA | Bearer token accepted without sender constraint | D3 |
+
+### §7-2. Token Persistence & Abuse
+
+| Subtype | Mechanism | Key Condition | Discrepancy |
+|---------|-----------|---------------|-------------|
+| **Refresh token persistence** | Refresh tokens remain valid for 90+ days. Attacker with a stolen refresh token continuously mints new access tokens, maintaining access indefinitely | No refresh token rotation; long token lifetime | D7 |
+| **Device code persistence** | Device authorization codes obtain refresh tokens that persist across sessions; attacker maintains access without re-authentication | Device flow tokens not scoped or time-limited | D7 |
+| **Token not revoked on password change** | User changes password but existing OAuth tokens remain valid, allowing an attacker who previously stole tokens to maintain access | AS doesn't invalidate tokens on credential change | D7 |
+| **Zombie tokens in supply chain** | Third-party integration tokens (e.g., Salesforce connectors) remain active long after the integration relationship ends. Single compromised integration token provides access to hundreds of customer environments (UNC6395/Drift incident, 2025) | No integration token lifecycle management | D7, D3 |
+| **Lateral movement via Graph API** | Using stolen OAuth tokens to enumerate tenants, users, and connected applications via Microsoft Graph API, then pivoting to additional services | Token has Graph API scopes; interconnected SaaS environment | D5, D7 |
 
 ---
 
-## Summary: Core Principles
+## §8. Protocol Flow Selection & Confusion
 
-**The fundamental property that makes the OAuth/OIDC mutation space so expansive is the reliance on redirect-based flows through an untrusted user agent.** Every OAuth authorization flow requires the AS to redirect the user's browser back to the client carrying security-sensitive material (authorization codes, tokens, state). This means that URL parsing, redirect validation, and front-channel security are not peripheral concerns — they are load-bearing pillars of the entire security model. Every URL parsing discrepancy, every open redirect, every fragment-handling quirk becomes a potential token theft vector.
+OAuth defines multiple grant types. Attacks here exploit the selection, downgrade, or confusion between flows.
 
-**The 2024–2025 attack wave demonstrates that social engineering of legitimate flows is now the dominant OAuth threat.** Device code phishing (ShinyHunters, Storm-2372) achieves what credential phishing cannot: full MFA bypass, persistent refresh token access, and invisible compromise. The victim authenticates at the legitimate IdP with their real credentials and real MFA — there is no fake login page to detect, no credential to rotate. OAuth 2.1's omission of the Implicit Grant and mandatory PKCE address the *technical* flow-level mutations, but they do nothing against the *social engineering* vector that weaponizes device code flow. Similarly, illicit consent grants exploit the legitimate consent mechanism to extract persistent API access.
+### §8-1. Flow Downgrade & Deprecation Exploitation
 
-**Structural solutions require reducing flow complexity, constraining client capabilities, and binding tokens to senders.** OAuth 2.1 addresses the most common technical mutations: mandatory PKCE closes code interception, exact redirect_uri matching closes URL manipulation, and deprecating Implicit Flow closes front-channel token leakage. Pushed Authorization Requests (PAR, RFC 9126) move authorization parameters from the front channel to a back-channel request, preventing parameter tampering. Sender-constrained tokens (DPoP, RFC 9449; mTLS, RFC 8705) bind tokens to cryptographic keys, making stolen tokens unusable. For the social engineering vector, the structural solution is restricting device code flow issuance to managed devices (Conditional Access), enforcing admin consent policies (Microsoft's July 2025 default), and implementing anomaly detection on OAuth grant patterns. The emergence of MCP as a new OAuth consumer surface (CVE-2025-6514) signals that the OAuth attack surface will continue expanding as AI agents become first-class OAuth clients.
+| Subtype | Mechanism | Key Condition | Discrepancy |
+|---------|-----------|---------------|-------------|
+| **Implicit flow exploitation** | Forcing or exploiting use of the implicit flow (deprecated in OAuth 2.1) where tokens are exposed in URL fragments, accessible to JavaScript and leaked via Referer | Application still supports implicit flow | D6, D3 |
+| **ROPC (Resource Owner Password Credentials) abuse** | Exploiting applications that accept username/password directly, bypassing the authorization server's authentication UI and any MFA | Application supports ROPC grant | D6 |
+| **PKCE downgrade** | Stripping PKCE parameters from authorization requests when the AS doesn't mandate PKCE, reverting to less secure authorization code flow | AS supports both PKCE and non-PKCE flows | D6 |
+| **Response type manipulation** | Changing `response_type` from `code` to `token` or `id_token token` to force implicit-like behavior and receive tokens directly | AS supports multiple response types for the same client | D6, D3 |
+
+### §8-2. IdP Mix-Up Attack
+
+When a client interacts with multiple authorization servers, an attacker can confuse the client about which AS issued a particular response.
+
+| Subtype | Mechanism | Key Condition | Discrepancy |
+|---------|-----------|---------------|-------------|
+| **Classic mix-up** | Attacker operates a malicious AS (AIdP). Client initiates flow with AIdP, but attacker redirects the user to the honest AS (HIdP). User authenticates at HIdP; client sends the resulting code to AIdP's token endpoint, giving the attacker the victim's code | Client interacts with multiple AS; no `iss` parameter in authorization response | D6, D2 |
+| **Token endpoint mix-up** | Attacker's AS declares the honest AS's authorization endpoint as its own, but provides its own token endpoint. Client sends credentials (code + client_secret) to attacker's token endpoint | AS metadata not cryptographically verified | D6, D3 |
+| **Issuer confusion** | Attacker's AS returns the honest AS's `iss` value in its metadata, tricking the client into treating tokens from different issuers as equivalent | Client doesn't verify `iss` against the AS it originally contacted | D6, D2 |
+
+### §8-3. Device Authorization Grant Attacks
+
+The device code flow (RFC 8628) has emerged as a major attack vector in 2024-2025, particularly in enterprise environments.
+
+| Subtype | Mechanism | Key Condition | Discrepancy |
+|---------|-----------|---------------|-------------|
+| **Device code phishing** | Attacker initiates device authorization flow, obtains the user code, then socially engineers the victim (email, Teams message, QR code) to enter the code at the legitimate authorization URL. Victim authenticates and grants access to the attacker's session | Device flow enabled; social engineering target susceptible | D4 |
+| **MFA bypass via device flow** | Because the user authenticates directly at the AS's login page (which handles MFA), the attacker's device receives tokens with full MFA-authenticated privileges without ever possessing the second factor | Device flow by design separates authentication from the requesting device | D6 |
+| **Automated device code campaigns** | Large-scale automated phishing using tools like SquarePhish2 that generate QR codes → redirect to AS → email device codes. Success rates exceeding 50% reported in 2024-2025 campaigns | Bulk phishing infrastructure; enterprise targets | D4 |
+| **Mimicry apps** | Attacker registers OAuth applications with names mimicking legitimate tools ("Data Loader", "Security Compliance Tool", "My Ticket Portal") to appear trustworthy in consent prompts | Open app registration; no naming policy enforcement | D2, D5 |
+
+---
+
+## §9. Server-Side Endpoints & Infrastructure
+
+OAuth servers expose multiple endpoints (authorization, token, registration, discovery, userinfo, WebFinger) that present their own attack surface beyond the protocol flow itself.
+
+### §9-1. Discovery & Metadata Attacks
+
+| Subtype | Mechanism | Key Condition | Discrepancy |
+|---------|-----------|---------------|-------------|
+| **Metadata endpoint spoofing** | Attacker serves fake `/.well-known/openid-configuration` response (via DNS hijack, MITM, or cache poisoning), redirecting clients to malicious authorization/token endpoints | Client fetches metadata over insecure channel or doesn't pin metadata | D2, D6 |
+| **Metadata manipulation** | Modifying specific fields in the discovery document (e.g., `token_endpoint`, `jwks_uri`) to redirect credential flows to attacker infrastructure | Compromised or misconfigured metadata endpoint | D2 |
+
+### §9-2. Registration Endpoint SSRF
+
+(See §3-1 for detailed dynamic client registration SSRF vectors via `logo_uri`, `jwks_uri`, `sector_identifier_uri`, `request_uris`)
+
+### §9-3. WebFinger Injection
+
+| Subtype | Mechanism | Key Condition | Discrepancy |
+|---------|-----------|---------------|-------------|
+| **User enumeration** | `/.well-known/webfinger` endpoint returns HTTP 200 for existing users and 404 for non-existent ones, enabling username enumeration | Unauthenticated WebFinger endpoint with differential responses | D1 |
+| **LDAP injection via WebFinger** | The `resource` parameter in WebFinger requests is embedded unescaped into LDAP queries. Attacker uses LDAP wildcards (`*`) and filter injection to extract password hashes character by character | WebFinger backed by LDAP directory without input sanitization (CVE in ForgeRock OpenAM) | D1 |
+
+### §9-4. Token Endpoint Attacks
+
+| Subtype | Mechanism | Key Condition | Discrepancy |
+|---------|-----------|---------------|-------------|
+| **Token endpoint SSRF** | If the AS resolves client-provided URLs during token exchange (e.g., fetching JWKS for client authentication), SSRF to internal networks is possible | AS resolves URLs from client assertions without network restrictions | D1 |
+| **Consent screen injection** | Injecting malicious content (XSS) via client metadata fields (name, logo, description) that render on the AS consent page | AS renders client metadata without sanitization (CVE-2021-26715) | D1, D3 |
+
+---
+
+## §10. Cross-Protocol & Integration Architecture
+
+Modern OAuth deployments involve integration platforms, multi-hop authorization chains, and protocol bridging that introduce architectural attack surface.
+
+### §10-1. Integration Platform Attacks
+
+| Subtype | Mechanism | Key Condition | Discrepancy |
+|---------|-----------|---------------|-------------|
+| **Cross-app OAuth Account Takeover (COAT)** | In integration platforms (Zapier, IFTTT, Microsoft Power Automate), attacker's malicious app exploits the platform's shared OAuth architecture to steal authorization codes intended for other apps. A single click on an attacker link compromises the victim's connected services | Platform's OAuth architecture doesn't isolate per-app authorization flows (CVE-2023-36019, CVSS 9.6) | D2, D3 |
+| **Cross-app OAuth Request Forgery (CORF)** | Attacker app on integration platform initiates unauthorized actions using the victim's tokens through the platform's shared token store | Platform doesn't enforce app-level token isolation | D4, D5 |
+| **Supply chain token compromise** | Third-party SaaS integration stores OAuth tokens that are later compromised. Single token provides access to hundreds of customer environments (UNC6395/Drift → Salesforce incident, 2025) | Centralized token storage in integration middleware | D3, D7 |
+
+### §10-2. MCP (Model Context Protocol) Authorization Attacks
+
+The MCP protocol's adoption of OAuth (2025) introduces new attack surface in AI agent authorization.
+
+| Subtype | Mechanism | Key Condition | Discrepancy |
+|---------|-----------|---------------|-------------|
+| **Authorization endpoint injection (CVE-2025-6514)** | Malicious MCP server returns crafted `authorization_endpoint` containing embedded shell commands. MCP proxy (`mcp-remote`) executes these via system shell when opening the browser for authorization | MCP proxy doesn't sanitize server-provided OAuth metadata URLs | D1, D6 |
+| **Multi-hop confused deputy** | In MCP's multi-hop flow (user → AI host → MCP client → MCP server), identity and permission context is lost or confused at each boundary, enabling privilege escalation | Complex delegation chain without end-to-end authorization binding | D5, D6 |
+| **SSRF via Client ID Metadata Documents** | MCP servers fetch client metadata from client-provided URLs. Malicious clients provide URLs pointing to internal resources | Server resolves client_id URLs without SSRF protections | D1 |
+
+### §10-3. Cross-Protocol Confusion
+
+| Subtype | Mechanism | Key Condition | Discrepancy |
+|---------|-----------|---------------|-------------|
+| **OAuth/SAML confusion** | Systems supporting both OAuth and SAML for SSO may have inconsistent identity binding, allowing attackers to exploit differences in how identity is established | Dual-protocol SSO with different identity resolution paths | D2, D6 |
+| **Token type confusion** | Using an access token where an ID token is expected (or vice versa), exploiting applications that don't properly validate token type and audience | Application doesn't check token `typ` or `aud` claims | D2 |
+| **JWT bearer assertion abuse** | Using legitimate JWT tokens from one context as client assertions in another, exploiting shared signing keys or insufficient audience validation | Shared key infrastructure across services | D2, D6 |
+
+---
+
+## §11. Attack Scenario Mapping (Axis 3)
+
+| Scenario | Architecture | Primary Mutation Categories |
+|----------|-------------|---------------------------|
+| **Account Takeover** | Any OAuth-protected application | §1 + §2-1 + §4-1 + §6-1 |
+| **Token Theft / Credential Harvesting** | Applications with token leakage vectors | §1-2 + §2-2 + §7-1 + §8-3 |
+| **Persistent Unauthorized Access** | Enterprise cloud environments | §5-2 + §7-2 + §8-3 |
+| **Privilege Escalation** | Multi-scope enterprise OAuth (Azure AD, Google Workspace) | §2-3 + §5-1 + §5-2 |
+| **SSRF / Server-Side Exploitation** | OAuth servers with dynamic registration | §3-1 + §9-2 + §9-3 |
+| **Phishing / Social Engineering** | Enterprise OAuth, device flow | §5-1 + §8-3 |
+| **Supply Chain Compromise** | Integration platforms, third-party SaaS | §7-2 + §10-1 |
+| **Lateral Movement (Cloud)** | Microsoft 365, Azure AD, Google Workspace | §7-2 + §10-1 + §10-2 |
+
+---
+
+## §12. CVE / Bounty Mapping (2023–2025)
+
+| Mutation Combination | CVE / Case | Impact / Bounty |
+|---------------------|-----------|----------------|
+| §3-1 (SSRF via `logo_uri`) + §9-4 | CVE-2021-26715 (MITREid Connect) | SSRF + XSS via client registration endpoint. Server fetches and returns `logo_uri` content without validation |
+| §6-2 (Mass assignment session poisoning) | CVE-2021-27582 (MITREid Connect) | Spring `@ModelAttribute` mass assignment allows `redirectUri` override at consent endpoint |
+| §10-1 (COAT cross-app takeover) | CVE-2023-36019 (Microsoft) | CVSS 9.6. Single click compromises Microsoft 365 suite via integration platform |
+| §3-2 (First-party app abuse) | ConsentFix/AuthCodeFix (2025) | Azure CLI and Azure PowerShell pre-consented apps exploitable for tenant-wide privilege escalation |
+| §4-1 (Mutable claim confusion) | Google OAuth domain reuse (2024) | Failed startup domains expose millions of accounts. $1,337 Google VRP bounty |
+| §10-2 (MCP authorization endpoint injection) | CVE-2025-6514 (mcp-remote) | RCE via malicious MCP server. 558,846 affected downloads |
+| §9-3 (LDAP injection via WebFinger) | CVE in ForgeRock OpenAM | Password hash extraction via character-by-character LDAP wildcard injection |
+| §8-3 (Device code phishing) | Storm-2372 / ShinyHunters campaigns (2024-2025) | Enterprise-wide compromise of Google, Qantas, and dozens of major organizations. MFA bypass |
+| §7-2 (Supply chain token compromise) | UNC6395/Drift-Salesforce (2025) | Single stolen OAuth token provided access to 700+ customer Salesforce instances |
+| §2-1 (PKCE downgrade) | OAuth 2.1 / RFC 9700 (2026) | PKCE now mandatory for all clients; non-PKCE flows formally deprecated |
+| §4-2 (Audience injection) | Disclosed to IETF OAuth WG (Jan 2025) | New attack class affecting OAuth 2.0, OIDC, FAPI, CIBA, and multiple extensions. Coordinated multi-standard fix effort |
+| §10-1 (Cross-app attacks) | USENIX Security '25 | 11 of 18 major integration platforms vulnerable to COAT; 5 to CORF. Microsoft, Google, Amazon affected |
+| §1-1 (Redirect URI validation bypass) | Multiple HackerOne reports | Numerous $X,XXX+ bounties for redirect_uri bypasses across major platforms |
+| CVE-2025-54576 | OAuth2-Proxy auth bypass | Authentication bypass in OAuth2-Proxy; fixed in v7.11.0 |
+| CVE-2024-4985 | GitHub Enterprise Server | Authentication bypass via SAML/OAuth in GitHub Enterprise Server |
+
+---
+
+## §13. Detection Tools
+
+| Tool | Target Scope | Core Technique |
+|------|-------------|---------------|
+| **Burp Suite** (PortSwigger) | Full OAuth/OIDC flow testing | HTTP proxy with OAuth-specific scanning rules; manual flow manipulation |
+| **ActiveScan++** (Burp Extension) | OpenID/OAuth discovery | Detects `.well-known/openid-configuration` and registration endpoints automatically |
+| **COVScan** (USENIX '25) | Cross-app OAuth vulnerabilities in integration platforms | Semi-automated network traffic analysis for COAT/CORF detection |
+| **SquarePhish2** (Offensive) | Device code phishing simulation | Automated device code flow phishing with QR code generation |
+| **OWASP ZAP** | General OAuth flow testing | Active/passive scanning of OAuth endpoints |
+| **oauth-scanner** (GitHub) | OAuth misconfiguration detection | Checks for common redirect_uri bypasses, missing state, scope issues |
+| **Nuclei** (ProjectDiscovery) | OAuth template-based scanning | Community templates for OAuth/OIDC misconfiguration detection |
+| **Obsidian Security** (Commercial) | SaaS OAuth token monitoring | Detects suspicious OAuth grants, token abuse, and scope anomalies in cloud environments |
+| **Push Security** (Commercial) | OAuth scope risk analysis | Identifies dangerous third-party OAuth integrations and risky scope combinations |
+| **Microsoft Entra ID Protection** (Defensive) | Azure AD OAuth monitoring | Detects anomalous OAuth app consent, risky sign-ins, and device code phishing patterns |
+
+---
+
+## §14. Summary: Core Principles
+
+### The Fundamental Property
+
+OAuth's entire mutation space emerges from a single architectural reality: **OAuth is a delegation protocol that separates the party that authenticates (the user) from the party that consumes the authorization (the client), mediated by bearer credentials that traverse the browser**. This three-party architecture — with the browser as an untrusted transport layer — creates inherent trust boundaries that every attack in this taxonomy exploits in some form.
+
+The authorization code, access token, and refresh token are all bearer credentials: whoever possesses them can use them. Unlike passwords (which prove knowledge) or certificates (which prove possession of a private key), OAuth tokens carry no intrinsic binding to their intended holder. PKCE, DPoP, and sender-constrained tokens are mitigations for this fundamental design property, not solutions to it.
+
+### Why Incremental Fixes Fail
+
+Each generation of OAuth security improvements addresses specific attack vectors while the underlying attack surface shifts. PKCE prevented code interception but didn't stop code injection via open redirects. Deprecating implicit flow addressed token exposure in fragments but didn't eliminate token leakage via XSS or postMessage. Strict redirect URI validation prevented trivial redirects but opened the door to increasingly creative chaining attacks through open redirectors, Referer leakage, and proxy pages.
+
+The 2024-2025 wave of device code phishing attacks illustrates this perfectly: the attack exploits no software vulnerability — it leverages the protocol's designed behavior where user authentication is intentionally separated from the requesting device. Similarly, the 2025 audience injection attacks demonstrate that even signature-based client authentication (the strongest client authentication method) carries fundamental ambiguity when clients interact with multiple authorization servers.
+
+### The Structural Solution
+
+A truly structural solution would require three properties that current OAuth deployments largely lack: **(1) sender-constrained tokens** (DPoP, mTLS-bound tokens) that cryptographically bind tokens to their intended holder, **(2) universal PKCE + issuer verification** (now mandated in OAuth 2.1 / RFC 9700) that prevents code interception and mix-up attacks, and **(3) continuous authorization evaluation** that moves beyond one-time consent to real-time policy enforcement over token usage, scope consumption, and behavioral anomalies. Until all three are ubiquitous, the taxonomy above will continue to grow.
+
+---
+
+*This document was created for defensive security research and vulnerability understanding purposes.*
 
 ---
 
 ## References
 
-- RFC 6749: The OAuth 2.0 Authorization Framework
-- RFC 6750: The OAuth 2.0 Authorization Framework: Bearer Token Usage
-- RFC 7009: OAuth 2.0 Token Revocation
-- RFC 7519: JSON Web Token (JWT) — see [JWT Taxonomy](../jwt/jwt.md)
-- RFC 7591: OAuth 2.0 Dynamic Client Registration Protocol
-- RFC 7636: Proof Key for Code Exchange (PKCE)
-- RFC 8628: OAuth 2.0 Device Authorization Grant
-- RFC 8693: OAuth 2.0 Token Exchange
-- RFC 8705: OAuth 2.0 Mutual-TLS Client Authentication and Certificate-Bound Access Tokens
-- RFC 9126: OAuth 2.0 Pushed Authorization Requests (PAR)
-- RFC 9449: OAuth 2.0 Demonstrating Proof of Possession (DPoP)
-- RFC 9700: Best Current Practice for OAuth 2.0 Security
-- OAuth 2.1 Draft Specification (draft-ietf-oauth-v2-1)
-- OpenID Connect Core 1.0
-- OpenID Connect Discovery 1.0
-- Doyensec, "Common OAuth Vulnerabilities" (2025): https://blog.doyensec.com/2025/01/30/oauth-common-vulnerabilities.html
-- Proofpoint, "Access Granted: Phishing with Device Code Authorization" (2025): https://www.proofpoint.com/us/blog/threat-insight/access-granted-phishing-device-code-authorization-account-takeover
-- Unit 42, "OH-MY-DC: OIDC Misconfigurations in CI/CD" (DEF CON 32, 2024): https://unit42.paloaltonetworks.com/oidc-misconfigurations-in-ci-cd/
-- PortSwigger Web Security Academy, "OAuth 2.0 Authentication Vulnerabilities": https://portswigger.net/web-security/oauth
-- ZeroPath, "CVE-2025-54576: OAuth2-Proxy Authentication Bypass" (2025): https://zeropath.com/blog/cve-2025-54576-oauth2-proxy-auth-bypass
-- Amla Labs, "When OAuth Becomes a Weapon: CVE-2025-6514" (2025): https://amlalabs.com/blog/oauth-cve-2025-6514/
-- Omegapoint, "Account Takeover in Authentik: CVE-2024-52289" (2024): https://securityblog.omegapoint.se/en/writeup-authentik-cve-2024-52289/
-- Praetorian, "Attacking and Defending OAuth 2.0" (2024): https://www.praetorian.com/blog/attacking-and-defending-oauth-2/
-
----
-
-*This document was created for defensive security research and vulnerability understanding purposes.*
+- Doyensec, "Common OAuth Vulnerabilities," January 2025 — https://blog.doyensec.com/2025/01/30/oauth-common-vulnerabilities.html
+- PortSwigger, "Hidden OAuth Attack Vectors" — https://portswigger.net/research/hidden-oauth-attack-vectors
+- PortSwigger, "OAuth 2.0 Authentication Vulnerabilities" — https://portswigger.net/web-security/oauth
+- Luo et al., "Universal Cross-app Attacks: Exploiting and Securing OAuth 2.0 in Integration Platforms," USENIX Security '25 — https://www.usenix.org/conference/usenixsecurity25/presentation/luo-kaixuan
+- Küsters & Würtele, "Audience Injection Attacks: A New Class of Attacks on Web-Based Authorization and Authentication Standards," 2025 — https://eprint.iacr.org/2025/629
+- IETF, "Updates to OAuth 2.0 Security Best Current Practice" — https://datatracker.ietf.org/doc/draft-wuertele-oauth-security-topics-update/
+- IETF, "OAuth 2.0 Security Best Current Practice" — https://www.ietf.org/archive/id/draft-ietf-oauth-security-topics-22.html
+- Obsidian Security, "The New Attack Surface: OAuth Token Abuse" — https://www.obsidiansecurity.com/blog/the-new-attack-surface-oauth-token-abuse
+- Obsidian Security, "From Well-Known to Well-Pwned: Common Vulnerabilities in AI Agents" — https://www.obsidiansecurity.com/blog/from-well-known-to-well-pwned-common-vulnerabilities-in-ai-agents
+- Semperis, "A New App Consent Attack: Hidden Consent Grant" — https://www.semperis.com/blog/app-consent-attack-hidden-consent-grant/
+- Amla Labs, "When OAuth Becomes a Weapon: Lessons from CVE-2025-6514" — https://amlalabs.com/blog/oauth-cve-2025-6514/
+- Proofpoint, "Access Granted: Phishing with Device Code Authorization" — https://www.proofpoint.com/us/blog/threat-insight/access-granted-phishing-device-code-authorization-account-takeover
+- Unit42, "Trusted Connections, Hidden Risks: Token Management in the Third-Party Supply Chain" — https://unit42.paloaltonetworks.com/third-party-supply-chain-token-management/
+- Push Security, "Dangerous OAuth Scopes in Third-Party Integrations" — https://pushsecurity.com/blog/the-risky-terrain-of-oauth-scopes-in-third-party
+- Praetorian, "Attacking and Defending OAuth 2.0" — https://www.praetorian.com/blog/attacking-and-defending-oauth-2/
+- WorkOS, "Defending OAuth: Common Attacks and How to Prevent Them" — https://workos.com/blog/oauth-common-attacks-and-how-to-prevent-them
+- HackTricks, "OAuth to Account Takeover" — https://book.hacktricks.xyz/pentesting-web/oauth-to-account-takeover
+- OWASP, "OAuth 2.0 Protocol Cheatsheet" — https://cheatsheetseries.owasp.org/cheatsheets/OAuth2_Cheat_Sheet.html
