@@ -17,6 +17,8 @@ This taxonomy organizes the entire JWT attack surface along three orthogonal axe
 | **Validation Gap** | A required check (claim, parameter, constraint) is missing or incomplete |
 | **Injection** | Attacker-controlled data reaches an unintended interpreter (SQL, filesystem, URL) |
 | **Cryptographic Flaw** | Mathematical or implementation weakness in the signing/verification algorithm |
+| **Type Confusion** | The verifier processes the token as a different type (JWS vs. JWE) than intended |
+| **Resource Exhaustion** | Attacker-controlled parameters force excessive computation before authentication |
 | **Lifecycle Abuse** | Exploiting the stateless nature of JWTs or time-based assumptions |
 
 **Axis 3 — Attack Scenario (Mapping):** The real-world impact context — authentication bypass, privilege escalation, account takeover, cross-service relay, SSRF, RCE, DoS, or data exfiltration. These are mapped in the Attack Scenario Mapping section (§8).
@@ -158,6 +160,21 @@ Over 340 known weak JWT secrets have been cataloged. The attack is entirely offl
 | **Bleichenbacher padding oracle** | Exploit PKCS#1 v1.5 padding validation differences in RSA decryption (relevant for JWE) | Server uses RSA with PKCS#1 v1.5 and leaks padding validity |
 | **e=1 or degenerate exponent** | Use an RSA key with public exponent `e=1`, making any message its own signature | Library doesn't validate RSA key parameters |
 
+### §3-4. PBES2 Key Derivation Abuse (Billion Hashes Attack)
+
+JWE supports password-based encryption via PBES2 (RFC 7518 §4.8), where a Content Encryption Key (CEK) is derived from a password using PBKDF2 iterations. The iteration count is specified in the `p2c` (PBES2 Count) header parameter — which is attacker-controlled and processed *before* any authentication or validity check.
+
+| Subtype | Mechanism | Key Condition |
+|---|---|---|
+| **Excessive iteration count** | Set `p2c` to the maximum 32-bit integer value (2,147,483,647); the server must complete all PBKDF2 iterations to derive the CEK before it can determine whether the token is valid. A single malicious token can consume minutes to hours of CPU time. The attack is entirely unauthenticated — no valid credentials or prior tokens are required. | Library supports PBES2 key encryption algorithms (`PBES2-HS256+A128KW`, `PBES2-HS384+A192KW`, `PBES2-HS512+A256KW`) and does not enforce a maximum `p2c` value (CVE-2023-51775, CVE-2023-49290) |
+| **Amplified batch DoS** | Send multiple JWE tokens with high `p2c` values in parallel, multiplying the CPU exhaustion across worker threads/processes | Server processes JWE tokens from unauthenticated sources; no rate limiting on token validation |
+
+**Affected libraries and fixes:**
+- **jose4j** (Java): vulnerable before 0.9.4 (CVE-2023-51775)
+- **go-jose** (Go): fixed in v3.0.1 (CVE-2023-49290)
+- **jose2go** (Go): fixed in v1.6.0
+- **josekit-rs** (Rust): fixed in v0.8.5
+
 ---
 
 ## §4. Payload Claim Manipulation
@@ -272,9 +289,13 @@ Attacks exploiting fundamental properties of the JWT/JOSE specification or its i
 
 ### §7-1. JWS/JWE Confusion
 
+JWS (signed) and JWE (encrypted) share the same compact serialization format — dot-separated Base64URL segments — and RFC 7519 explicitly allows JWTs to be either signed or encrypted. Libraries that provide a unified `decode()` interface handling both formats without enforcing which type is expected create a rich attack surface where the boundary between signing and encryption operations collapses.
+
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
-| **Encrypted↔signed confusion** | Submit a JWS token where the server expects JWE, or vice versa, exploiting different parsing paths | Server doesn't enforce the expected token type |
+| **Sign/Encrypt confusion (public key forgery)** | Attacker acquires the public RSA/EC key (e.g., via OIDC `/.well-known/jwks.json`), then crafts a JWE token encrypted with that public key. When the server's unified `decode()` processes this JWE, it decrypts using its private key and accepts the attacker-controlled payload as a valid JWT — the attacker sets arbitrary claims without needing the signing private key. The attack fundamentally subverts the security model: JWS verification proves authenticity (only the private key holder can sign), but JWE decryption only proves confidentiality (anyone with the public key can encrypt). By submitting a JWE where a JWS is expected, the attacker converts a "proof of identity" check into a "can you read this?" check — which anyone with the public key can pass. | Library accepts both JWS and JWE via a single decode path; application uses asymmetric signing (RS*/PS*/ES*); attacker can obtain the public key; no explicit token type (JWS vs. JWE) enforcement (CVE-2022-39174, CVE-2022-3102, CVE-2023-51774) |
+| **Polyglot token** | A single token is constructed to be valid under multiple parsing interpretations across different JWT libraries. Since JWS (3 dot-separated segments) and JWE (5 dot-separated segments) share similar compact serialization, and libraries differ in how they detect and route token types, a carefully crafted token can cause one library to validate it as a legitimate JWS while another processes it as a JWE — allowing complete token forgery in multi-library architectures (e.g., gateway validates JWS, backend processes JWE). The JWE payload, encrypted key, IV, and authentication tag fields can be set to arbitrary byte sequences of appropriate length, giving the attacker freedom to construct such ambiguous tokens. | Multi-component architecture using different JWT libraries for validation vs. consumption; libraries auto-detect token type from structure rather than enforcing it explicitly |
+| **Encrypted↔signed type confusion** | Submit a JWS token where the server expects JWE, or vice versa, exploiting different parsing paths and validation logic applied to each type | Server doesn't enforce the expected token type via explicit type check or `typ` header validation |
 | **Nested JWT abuse** | Exploit double-encoding or double-processing when the server handles nested JWTs (JWS inside JWE) | Server processes nested tokens without proper depth/type checking |
 
 ### §7-2. Base64 Encoding Exploits
@@ -313,7 +334,8 @@ Attacks exploiting fundamental properties of the JWT/JOSE specification or its i
 | **Cross-Tenant Access** | Multi-tenant SaaS / cloud platform | §4-2 (tenant ID manipulation) + §4-4 (ALBEAST) |
 | **SSRF** | Server fetches remote resources from JWT headers | §2-2 (`jku` injection) + §2-4 (`x5u` injection) |
 | **Remote Code Execution** | Unsafe deserialization or command injection | §2-1 (`kid` command injection) + §2-5 (`cty` deserialization) |
-| **Denial of Service** | Resource-constrained server | §3-2 (invalid curve) + §7-3 (memory exhaustion) |
+| **Denial of Service** | Resource-constrained server | §3-2 (invalid curve) + §3-4 (PBES2 billion hashes) + §7-3 (memory exhaustion) |
+| **Token Forgery via Type Confusion** | Asymmetric signing with public key exposure (OIDC) | §7-1 (sign/encrypt confusion, polyglot token) |
 | **Persistent Impersonation (IoT)** | IoT devices with factory-stage physical access | §4-3 (Back to the Future) |
 | **WAF/Gateway Bypass** | Security appliance in front of application | §7-2 (encoding tricks) + §1-1 (case variants) |
 
@@ -330,6 +352,11 @@ Attacks exploiting fundamental properties of the JWT/JOSE specification or its i
 | §4-1 (Issuer array injection) | CVE-2025-30144 (fast-jwt) | Issuer validation bypass. Arrays accepted for `iss` claim, mixing legitimate and malicious issuers. |
 | §7-3 (Memory exhaustion) | CVE-2025-27144 (Go JOSE) | DoS. Malformed JWTs with excessive periods cause exponential memory consumption. |
 | §2-3 (Key ID matching) | CVE-2025-24976 (Distribution registry) | Key injection. `kid` matched but actual key material not verified against trusted store. |
+| §7-1 (Sign/encrypt confusion) | CVE-2022-39174 (authlib/Python) | Authentication bypass. Public key used for JWS verification exploited to forge JWE tokens via unified decode() interface. |
+| §7-1 (Sign/encrypt confusion) | CVE-2022-3102 (jwcrypto/Python) | Authentication bypass. Same sign/encrypt confusion vector as CVE-2022-39174. |
+| §7-1 (Sign/encrypt confusion) | CVE-2023-51774 (json-jwt/Ruby) | Identity check bypass. Ruby json-jwt gem (< 1.16.6, < 1.15.3.1) vulnerable to sign/encrypt confusion allowing arbitrary claim forgery. |
+| §3-4 (PBES2 billion hashes) | CVE-2023-51775 (jose4j/Java) | DoS. Unbounded `p2c` parameter allows CPU exhaustion via 2^31 PBKDF2 iterations. Fixed in jose4j 0.9.4. |
+| §3-4 (PBES2 billion hashes) | CVE-2023-49290 (go-jose/Go) | DoS. Same PBES2 `p2c` exploitation. Fixed in go-jose v3.0.1. |
 | §5-1 / §6-3 (Token leakage) | Grafana Bug Bounty | JWT tokens in query parameters leaked to backend data sources via proxied requests. |
 | §6-3 (Replay / revocation) | HackerOne #3120790 (WakaTime) | Session replay. Logged-out tokens remain valid, enabling persistent access. |
 | §1-2 (Algorithm confusion) | CVE-2025-4692 (cloud platform) | Authentication bypass via algorithm confusion in cloud service. |
@@ -373,7 +400,7 @@ Attacks exploiting fundamental properties of the JWT/JOSE specification or its i
 
 **Incremental fixes fail because the attack surface is combinatorial.** Fixing `alg: none` doesn't prevent algorithm confusion. Fixing algorithm confusion doesn't prevent `kid` injection. Fixing `kid` injection doesn't prevent `jku` SSRF. Each mutation target (§1–§7) is independently exploitable, and combinations create novel attack chains (e.g., `jku` bypass + algorithm confusion + claim manipulation). Libraries must implement a "deny-by-default" posture across *all* header parameters simultaneously, which many fail to do — evidenced by recurring CVEs across different libraries year after year (2015 through 2025).
 
-**The structural solution requires three architectural principles:** (1) **Server-side algorithm pinning** — never read the algorithm from the token; configure it at the application level. (2) **Closed key resolution** — never fetch, embed, or dynamically resolve keys from token headers; use a pre-configured, immutable key store. (3) **Stateful lifecycle management** — accept that purely stateless JWTs cannot support revocation, replay prevention, or session binding; augment with server-side state (token blacklists, refresh token rotation, `jti` tracking) for any use case requiring these properties. The 2025 "Back to the Future" attack on IoT underscores that even the RFC 7519 specification itself has protocol-level gaps (missing nonce requirements) that no library can fix without deviating from the standard.
+**The structural solution requires four architectural principles:** (1) **Server-side algorithm pinning** — never read the algorithm from the token; configure it at the application level. (2) **Closed key resolution** — never fetch, embed, or dynamically resolve keys from token headers; use a pre-configured, immutable key store. (3) **Explicit token type enforcement** — always enforce whether JWS or JWE is expected; never use a unified decode() interface that auto-detects token type. The sign/encrypt confusion and polyglot token attacks (§7-1) demonstrate that collapsing signing and encryption into a single code path converts a proof-of-authenticity check into a mere decryption check, which anyone with the public key can pass. (4) **Stateful lifecycle management** — accept that purely stateless JWTs cannot support revocation, replay prevention, or session binding; augment with server-side state (token blacklists, refresh token rotation, `jti` tracking) for any use case requiring these properties. The 2025 "Back to the Future" attack on IoT and the PBES2 billion hashes DoS (§3-4) both underscore that even the RFC specifications themselves have protocol-level gaps — missing nonce requirements and unbounded computation parameters — that no library can fix without deviating from the standard.
 
 ---
 
@@ -398,3 +425,5 @@ Attacks exploiting fundamental properties of the JWT/JOSE specification or its i
 - Akamai: Analyzing Broken User Authentication Threats to JWT — https://www.akamai.com/blog/security-research/owasp-authentication-threats-for-json-web-token
 - JFrog: CVE-2022-21449 "Psychic Signatures" Analysis — https://jfrog.com/blog/cve-2022-21449-psychic-signatures-analyzing-the-new-java-crypto-vulnerability/
 - Traceable AI: JWTs Under the Microscope — https://www.traceable.ai/blog-post/jwts-under-the-microscope-how-attackers-exploit-authentication-and-authorization-weaknesses
+- Tom Tervoort (Secura): Three New Attacks Against JSON Web Tokens (BlackHat US 2023) — https://i.blackhat.com/BH-US-23/Presentations/US-23-Tervoort-Three-New-Attacks-Against-JSON-Web-Tokens.pdf
+- Trail of Bits: Out of the kernel, into the tokens — https://blog.trailofbits.com/2024/03/08/out-of-the-kernel-into-the-tokens/
