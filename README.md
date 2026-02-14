@@ -116,16 +116,41 @@ Each topic is a deeply structured Markdown reference document covering the full 
 
 ---
 
-## Purpose — A Knowledge Base for AI Agents and Security Tooling
+## Purpose — An Intermediate Representation for Security Knowledge
 
-This repository is designed to serve as a **machine-readable security knowledge base**. The structured, generalized taxonomy format makes it a natural foundation for:
+In a compiler, source code is transformed into an **Intermediate Representation (IR)** before being compiled into machine code for any target architecture. The Map serves the same role for security knowledge:
 
-- **AI Security Agents** — LLM-based agents can consume these taxonomies to reason about vulnerability classes, generate test cases, and guide penetration testing workflows with structured domain knowledge rather than ad-hoc prompting.
+```
+Security Research (papers, CVEs, writeups, conference talks)
+        |
+        v
+    The Map (IR) — structured mutation taxonomy
+        |
+        v
+  Burp Suite plugin / Nuclei template / WAF rule / bchecks / DAST scanner / AI agent
+```
+
+Raw security research — scattered across academic papers, blog posts, conference talks, and bug bounty reports — is valuable but not directly actionable. The Map compiles this knowledge into a **structured, machine-readable intermediate form** where every mutation variant is classified by what is mutated, why it works, and where it applies. From this IR, any number of output formats can be generated:
+
+| Input (IR) | Output |
+|---|---|
+| `jwt/jwt.md` § Algorithm Confusion | Burp Scanner check for `alg` header manipulation |
+| `cookie/cookie.md` § Cookie Sandwich | Nuclei template detecting RFC 2109 parsing quirks |
+| `xss/xss.md` § Encoding Differentials | WAF rule set covering context-specific bypass variants |
+| `ssrf/ssrf.md` § IP Representation | bchecks collection for SSRF filter bypass mutations |
+| `smuggling/...` § CL.TE / TE.CL | DAST scanner test cases for HTTP desync |
+| Any taxonomy document | AI agent context for automated penetration testing |
+
+Each row in each taxonomy table is simultaneously a **test case** (offensive), a **detection signature** (defensive), and a **fuzzer seed** (discovery). Structure the knowledge once, compile it to any target.
+
+### What this enables
+
+- **AI Security Agents** — LLM-based agents consume these taxonomies as structured domain knowledge to reason about vulnerability classes, generate test cases, and guide penetration testing workflows — replacing ad-hoc prompting with systematic mutation coverage.
+- **Security Tooling Pipeline** — Feed a taxonomy document into Claude Code and generate Burp Suite extensions, Nuclei templates, Semgrep rules, WAF configurations, or bchecks — each mutation variant maps directly to a concrete check.
 - **Taxonomy & Classification** — A unified structural framework for organizing vulnerability research that goes beyond surface-level categorization (e.g., OWASP Top 10) into mutation-level granularity.
-- **Detection Rule Generation** — The mutation-target / discrepancy-type structure maps directly to detection logic. Each mutation variant can be translated into WAF rules, SIEM signatures, or DAST scanner checks.
 - **Fuzzer Seed Generation** — Mutation catalogs provide systematic seed corpora for fuzzers. Instead of random mutations, fuzzers can target specific structural variations documented in each taxonomy.
 - **Security Research** — A reference framework for researchers to identify gaps in existing coverage, discover unexplored mutation combinations, and build on prior work systematically.
-- **Automated Vulnerability Scanning** — Scanner plugins can enumerate test cases directly from the taxonomy structure, ensuring comprehensive coverage of known mutation types.
+- **Novel Variant Discovery** — Because the taxonomy is organized by mutation axes rather than known payloads, it enables reasoning about **unexplored combinations** — mutations that should theoretically work but haven't been documented yet.
 
 ## How it was built
 
