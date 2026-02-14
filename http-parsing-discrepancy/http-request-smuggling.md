@@ -130,6 +130,16 @@ Mismatches between H2 frame-level length and the CL/TE headers that survive (or 
 
 H2→1.1 downgrading is inherently *more dangerous* than HTTP/1.1-only chains because the H2 binary framing introduces a fourth length interpretation, expanding the mismatch combinatorics. AWS ALB's H2.0 vulnerability was patched within 5 days of report.
 
+Beyond header-level mismatches, **frame sequence anomalies** during H2→H1 conversion produce additional attack classes. FRAMESHIFTER (USENIX Security 2022) systematically explored these via grammar-based H2 frame fuzzing across 12 reverse proxy technologies and CDNs, discovering:
+
+| Attack Class | Mechanism |
+|---|---|
+| **Request Blackholing** | Malformed H2 frame sequences cause the proxy to silently drop requests during conversion — the origin never receives them |
+| **Query-of-Death** | Specific H2 frame patterns trigger fatal errors in the conversion layer, crashing the proxy process |
+| **Conversion-induced Smuggling** | Frame sequence mutations (inserting syntactically valid but unexpected frame types, reordering DATA/HEADERS/CONTINUATION frames) produce HTTP/1.1 output that disagrees with the original H2 semantics |
+
+These attacks exploit a fundamentally different surface than §2-3's header-level mutations: the H2 frame *sequence grammar* itself, rather than individual header values carried within frames.
+
 
 
 ### §1-4. Timing-Based Desync
@@ -282,6 +292,8 @@ Mutations that exploit **protocol behaviors outside message grammar** — TCP co
 | **Cross-protocol smuggling** | Residual body bytes reinterpreted as HTTP/2 frames. CVE-2022-41721 (Go `MaxBytesHandler`) |
 | **Service mesh sidecar bypass** | Envoy and similar sidecar proxies failing to sanitize headers before forwarding to upstream services. CVE-2024-23326 (Envoy Request Tunneling) |
 | **Inter-runtime leniency divergence** | Within the same cluster, Go (accepts bare LF, CVE-2025-22871), Node.js (strict), Python (lenient) — differing parser leniency between microservice runtimes is the root of intra-cluster desync |
+| **Response desync** | Parsing discrepancies in *response* processing (not just requests): proxy and origin disagree on where a response body ends, causing the proxy to misalign the response queue. HDHunter (USENIX Security 2025) systematically identified response framing mismatches alongside request-side desync |
+| **CGI response parsing divergence** | HTTP servers and CGI/FastCGI backends parse CGI response headers differently — disagreements on header termination, status line format, and content-length semantics in CGI output create a secondary desync surface between the web server and its CGI processor |
 
 
 
@@ -293,20 +305,77 @@ Mutations that exploit **protocol behaviors outside message grammar** — TCP co
 
 
 
-Micro-level differences in how individual servers and proxies implement HTTP parsing relative to the RFC. These underlie all mutations in §1–§6 and are systematically discoverable via coverage-guided differential fuzzing.
+Micro-level differences in how individual servers and proxies implement HTTP parsing relative to the RFC. These underlie all mutations in §1–§6 and are systematically discoverable via differential fuzzing. Six major research efforts (T-Reqs, FRAMESHIFTER, HTTP Garden, HDiff, Gudifu, HDHunter) have collectively mapped this divergence surface across 50+ server/proxy implementations.
+
+
+
+### §7-1. Line Termination and Whitespace Divergence
+
+
+
+| Technique | Description | Confirmed Exploitable Pairs |
+|---|---|---|
+| **Bare LF (`\n` without `\r`)** | Using LF-only line endings — acceptance/rejection varies per server. Node.js accepts bare CR as chunk line terminator; Go accepts bare LF (CVE-2025-22871) | Node.js → ATS/Akamai/Google Cloud (HTTP Garden); Go → strict proxies |
+| **Bare CR (`\r` without `\n`)** | Python's `http.server` and Google Cloud load balancer accept bare CR as header delimiters, enabling header injection when paired with strict proxies | Python/Google Cloud → strict origin (HTTP Garden) |
+| **Request-line whitespace** | Extra spaces or tabs in `GET /path HTTP/1.1` — some parsers accept arbitrary whitespace between method, URI, and version; others reject. T-Reqs demonstrated request-line mutations causing body parsing discrepancies | T-Reqs: multiple proxy-origin pairs |
+| **Empty header values** | `Header-Name:` (no value) — some implementations merge with previous header | — |
+| **Special characters in header names** | Underscores (`_`), dots (`.`), spaces — Nginx defaults to `underscores_in_headers off` | — |
+
+
+
+### §7-2. Integer and Length Parsing Divergence
+
+
+
+| Technique | Description | Confirmed Exploitable Pairs |
+|---|---|---|
+| **Leading zeros / Octal interpretation** | `Content-Length: 010` — LiteSpeed interprets as octal (8), most others as decimal (10). This two-byte discrepancy is sufficient for smuggling | LiteSpeed → non-normalizing proxies (HTTP Garden) |
+| **Hex prefix and signs** | `0x` prefix, `+42`, `-1` in CL and chunk sizes — extract-leading-digits vs reject-entirely policies diverge | T-Reqs: multiple pairs |
+| **Integer overflow** | Extremely large CL values wrapping around in 32-bit vs 64-bit implementations | — |
+| **Chunk size parsing** | Non-standard characters after hex digits in chunk-size field — semicolon (extension), space, other characters handled inconsistently | HTTP Garden, T-Reqs |
+
+
+
+### §7-3. Request-Line and Method Divergence
+
+
+
+T-Reqs (CCS 2021) was the first to systematically demonstrate that **mutations in all parts of a request** — not just CL/TE headers — can cause body parsing discrepancies leading to smuggling.
 
 
 
 | Technique | Description |
 |---|---|
-| **Bare LF (`\n` without `\r`)** | Using LF-only line endings — acceptance/rejection varies per server |
-| **Integer parsing differences** | `0x` prefix, leading zeros, `±` signs, overflow handling in CL and chunk sizes |
-| **Unknown method handling** | How servers determine body presence for non-standard methods (e.g., `CATS`) |
-| **HTTP version string** | Acceptance/rejection and behavioral changes for `HTTP/1.2`, `HTTP/0.9`, etc. |
-| **Empty header values** | `Header-Name:` (no value) — some implementations merge with previous header |
-| **Special characters in header names** | Underscores (`_`), dots (`.`), spaces — Nginx defaults to `underscores_in_headers off` |
-| **Trailer handling** | Injecting forbidden headers (CL, TE) in chunked encoding trailers |
-| **Request-line whitespace** | Extra spaces or tabs in `GET /path HTTP/1.1` |
+| **Unknown method handling** | How servers determine body presence for non-standard methods (e.g., `CATS`). Some assume body-present, others assume body-absent — creating framing mismatch without any CL/TE manipulation |
+| **HTTP version string** | Acceptance/rejection and behavioral changes for `HTTP/1.2`, `HTTP/0.9`, `HTTP/2.0` in HTTP/1.1 request lines — some servers downgrade behavior, others reject |
+| **Method-body association** | Certain methods (GET, HEAD, DELETE) have ambiguous body semantics per RFC. Proxy may forward body; origin may ignore it (CL.0 variant) |
+| **Request-line field mutations** | Manipulating SP/CRLF placement within the request line, URI-encoding of method or version string — T-Reqs found multiple proxy-origin pairs where these mutations alone triggered smuggling |
+
+
+
+### §7-4. Semantic Gap Attacks
+
+
+
+HDiff (DSN 2022, Best Paper Runner-Up) introduced a *specification-driven* approach: using NLP to extract MUST/SHOULD/MAY rules from RFC documents, then generating test cases targeting rule boundaries. This revealed three categories of semantic gap attack across 10 HTTP implementations:
+
+
+
+| Gap Type | Description | Example |
+|---|---|---|
+| **Interpretation gap** | Same header/field parsed to different semantic values by two implementations | CL with leading zeros: octal vs decimal |
+| **Prioritization gap** | When conflicting information exists (duplicate headers, CL+TE), implementations apply different priority rules | First-wins vs last-wins for duplicate CL; TE-takes-precedence vs CL-takes-precedence |
+| **Tolerance gap** | Implementations differ on whether to accept, normalize, or reject malformed input | Obsolete line folding accepted by some, rejected by others; bare LF/CR handling |
+
+HDiff discovered 14 vulnerabilities and 29 affected server pairs across Apache, Tomcat, Weblogic, and IIS, resulting in **7 CVEs**. The key insight is that RFC language ambiguity (SHOULD vs MUST, undefined edge cases) is itself a *systematic source* of parser divergence — not just implementation bugs.
+
+
+
+### §7-5. Trailer handling
+
+| Technique | Description |
+|---|---|
+| **Forbidden headers in trailers** | Injecting CL, TE, Host, or other forbidden headers in chunked encoding trailers — some servers process them, overriding earlier header values |
 
 
 
@@ -347,6 +416,7 @@ How the mutations above are **weaponized** under specific architectural conditio
 | **Microservice Internal Desync** | Service mesh (Envoy/Istio) + heterogeneous runtimes (Go/Node/Python) with differing parser leniency | §6 + §7; manifests even on internal networks |
 | **Cross-Protocol TLS Desync (Opossum)** | MITM + server supporting both implicit and opportunistic TLS → permanent response stream desync | §6 (TLS Upgrade / Opossum); affects SMTP, FTP beyond HTTP |
 | **Cache Poisoning → C2 Side Channel** | CL.0 desync poisons CDN's 3xx redirect into global cache; Location header repurposed as covert C2 channel | §1-2 (CL.0) + §3 (path) + CDN cache |
+| **Response Desync / CGI Desync** | Proxy and origin disagree on response body boundaries or CGI output parsing → response queue misalignment, response forgery, response stealing | §6 (response desync, CGI divergence) + §7 |
 
 
 
@@ -373,6 +443,10 @@ How the mutations above are **weaponized** under specific architectural conditio
 | §6 (sidecar bypass) | CVE-2024-23326 (Envoy Proxy) | Service mesh sidecar forwards unsanitized headers to upstream |
 | §1-2 (CL.0) + §3 (path) + global cache poisoning | 2025 research | CL.0 desync poisons 3xx redirects in Akamai/Azure/Oracle CDN global cache; Location header used as C2 channel |
 | §6 (pipelining) | CVE-2023-25950 (HAProxy 2.6/2.7) | HTX parser incorrectly merges pipelined requests |
+| §7 (request-line + header divergence) | CVE-2023-25725 (HAProxy) | Critical. Discovered by Gudifu graybox fuzzing — request parsing discrepancy enables smuggling |
+| §7 (header parsing divergence) | CVE-2023-33934 (Apache Traffic Server) | Critical. Discovered by Gudifu — proxy-origin parsing discrepancy enables access control and cache poisoning |
+| §7-4 (semantic gap) | 7 CVEs (Apache, Tomcat, Weblogic, IIS) | HDiff specification-driven testing: interpretation, prioritization, and tolerance gaps across 29 server pairs |
+| §7 + §6 (request + response + CGI parsing) | 9 CVEs (multiple vendors) | HDHunter gray-box testing: request desync, response forgery, response stealing, response ordering issues |
 
 
 
@@ -673,17 +747,33 @@ Host: vulnerable.com\r\n
 
 
 
+### Research Fuzzers (Systematic Discovery)
+
+| Tool | Target | Core Technique | Venue / Year |
+|---|---|---|---|
+| **T-Reqs** (open source) | Proxy-origin pairs (HTTP/1.1) | Grammar-based differential fuzzer; first systematic exploration of HRS. Mutates *all* request components (request line, headers, body) — not just CL/TE. Tested 10 server technologies in pairwise combinations | CCS 2021 |
+| **FRAMESHIFTER** (open source) | H2→H1 conversion in proxies/CDNs | Grammar-based HTTP/2 frame sequence fuzzer with content and sequence mutations. Discovers Request Blackholing, Query-of-Death, conversion-induced smuggling across 12 reverse proxy technologies | USENIX Security 2022 |
+| **HDiff** (open source) | Origin server semantic gaps | Semi-automatic: NLP extracts MUST/SHOULD rules from RFCs → generates targeted test cases → differential testing across 10 HTTP implementations. Specification-driven rather than grammar-driven | DSN 2022 |
+| **HTTP Garden** (open source) | Origin server parsers (30 servers, 13 proxies) | Coverage-guided differential fuzzing of HTTP/1.1 *request streams* (not individual requests). Interactive REPL for discrepancy exploration. Found 122 discrepancies, 39 exploitable | DEF CON 31 / 2024 |
+| **Gudifu** (open source) | Proxy parsers (graybox) | Graybox differential fuzzing — uses coverage feedback from proxy internals to guide mutation across full HTTP request space. Found CVE-2023-33934 (ATS, critical) and CVE-2023-25725 (HAProxy, critical) | RAID 2024 |
+| **HDHunter** | Servers (requests + responses + CGI) | Gray-box coverage-directed differential testing. First tool to systematically discover *response* and *CGI response* parsing discrepancies alongside request desync. 9 CVEs assigned | USENIX Security 2025 |
+
+### Offensive / Exploitation Tools
+
 | Tool | Target | Core Technique |
 |---|---|---|
 | **HTTP Request Smuggler v3.0** (Burp extension) | Server-side + H2 + CSD + 0.CL | Primitive-level parser discrepancy detection; bypasses fingerprint-based defenses |
-| **HTTP Garden** (open source) | Origin server parsers | Coverage-guided differential fuzzing with REPL; mutates all request stream components |
-| **Gudifu** | Proxies | Graybox differential fuzzing across full HTTP request space |
 | **smuggler.py** | Server-side HRS | CL.TE, TE.CL, TE.TE + mutation mode |
 | **smugchunks** (open source) | Chunk extension HRS | Automated TERM.EXT, EXT.TERM, TERM.SPILL, SPILL.TERM detection |
 | **h2cSmuggler** | H2C tunneling | Clear-text HTTP/2 upgrade automation |
 | **Turbo Intruder** (Burp extension) | Timing / race-based | Pause-based desync, 0.CL exploit scripts, race conditions |
-| **HTTP-Normalizer** (defensive) | Inbound request normalization | Enforces RFC-strict compliance; blocks non-conforming requests |
-| **HTTP Desync Guardian** (AWS, defensive) | Inbound request classification | Risk-grades requests and blocks suspicious patterns |
+
+### Defensive Tools
+
+| Tool | Target | Core Technique |
+|---|---|---|
+| **HTTP-Normalizer** | Inbound request normalization | Enforces RFC-strict compliance; blocks non-conforming requests |
+| **HTTP Desync Guardian** (AWS) | Inbound request classification | Risk-grades requests and blocks suspicious patterns |
 
 
 
@@ -702,6 +792,8 @@ All HTTP mutations ultimately stem from **one fact**: HTTP/1.1 is text-based, of
 Three developments defined 2025. First, **chunk extensions emerged as an independent attack surface**. A feature "nobody uses" enables TERM.EXT / EXT.TERM / SPILL mutations that achieve smuggling without any CL-vs-TE confusion (CVE-2025-55315, CVSS 9.9). Second, **the attack surface expanded into the TLS layer**. The Opossum Attack exploits a protocol design weakness — the coexistence of implicit and opportunistic TLS — to achieve permanent desync without any implementation bug. Third, **desync began to be repurposed as attack infrastructure**: CL.0 global cache poisoning weaponized the Location header of 3xx redirects as a covert C2 side channel.
 
 
+
+The vulnerability discovery methodology has itself undergone a paradigm shift. Manual payload crafting (2005–2019) gave way to systematic differential fuzzing: T-Reqs (2021) introduced grammar-based fuzzing across all request components, FRAMESHIFTER (2022) extended this to H2 frame sequences, HDiff (2022) added specification-driven test generation via NLP on RFCs, HTTP Garden (2023–2024) brought coverage-guided stream-level fuzzing to 30+ origin servers, Gudifu (2024) applied graybox coverage to proxy internals, and HDHunter (2025) expanded the scope to response and CGI parsing. Each generation discovered vulnerability classes invisible to previous approaches — confirming that the divergence surface is far larger than any manual enumeration can cover.
 
 Six years of individual patches and regex-based defenses block only **known mutation fingerprints** without resolving the fundamental parser divergence. Structural solutions require three concurrent efforts: upstream HTTP/2 adoption (eliminating framing mismatch), opportunistic TLS deprecation (eliminating TLS-layer desync), and RFC-strict normalization proxies (eliminating structure and body mismatch). From a detection perspective, the necessary shift is from exploit-pattern matching to identifying **parser-primitive-level discrepancies themselves**.
 
@@ -724,10 +816,18 @@ Six years of individual patches and regex-based defenses block only **known muta
 - James Kettle — *HTTP/2: The Sequel is Always Scarier* (Black Hat USA 2021). H2.CL, H2.TE, H2.0 downgrade attacks and H2 CRLF injection.
 - James Kettle — *Browser-Powered Desync Attacks* (Black Hat USA 2022). Client-Side Desync (CSD), Pause-based desync, CL.0.
 
-### 2023–2025 Research
+### Systematic Fuzzing Research
+
+- Bahruz Jabiyev, Steven Sprecher, Kaan Onarlioglu, Engin Kirda — *T-Reqs: HTTP Request Smuggling with Differential Fuzzing* (ACM CCS 2021). First systematic exploration of HRS; grammar-based fuzzer demonstrating that request-line and header mutations beyond CL/TE can cause smuggling. GitHub: `bahruzjabiyev/t-reqs`.
+- Bahruz Jabiyev, Steven Sprecher, Anthony Gavazzi, Tommaso Innocenti, Kaan Onarlioglu, Engin Kirda — *FRAMESHIFTER: Security Implications of HTTP/2-to-HTTP/1 Conversion Anomalies* (USENIX Security 2022). Grammar-based H2 frame sequence fuzzer; discovered Request Blackholing, Query-of-Death, and conversion-induced smuggling across 12 proxy/CDN technologies. GitHub: `bahruzjabiyev/frameshifter`.
+- Kaiwen Shen, Jianjun Chen et al. — *HDiff: A Semi-automatic Framework for Discovering Semantic Gap Attack in HTTP Implementations* (DSN 2022, Best Paper Runner-Up). NLP-driven specification rule extraction + differential testing; 14 vulnerabilities, 7 CVEs across Apache, Tomcat, Weblogic, IIS. GitHub: `mo-xiaoxi/HDiff`.
+- Ben Kallus, Prashant Anantharaman, Michael E. Locasto, Sean W. Smith — *The HTTP Garden: Discovering Parsing Vulnerabilities in HTTP/1.1 Implementations by Differential Fuzzing of Request Streams* (DEF CON 31 / 2024). Coverage-guided stream-level differential fuzzing across 30 origin servers and 13 proxies; 122 discrepancies, 39 exploitable. GitHub: `narfindustries/http-garden`.
+- Bahruz Jabiyev, Anthony Gavazzi, Kaan Onarlioglu, Engin Kirda — *Gudifu: Guided Differential Fuzzing for HTTP Request Parsing Discrepancies* (RAID 2024). Graybox coverage-directed fuzzing of proxy internals; CVE-2023-33934 (ATS), CVE-2023-25725 (HAProxy). GitHub: `bahruzjabiyev/gudifu-fuzzer`.
+- Keran Mu, Jianjun Chen, Jianwei Zhuge, Qi Li, Haixin Duan, Nick Feamster — *The Silent Danger in HTTP: Identifying HTTP Desync Vulnerabilities with Gray-box Testing* (USENIX Security 2025). Gray-box coverage-directed differential testing extending desync discovery to HTTP responses and CGI responses; 9 CVEs.
+
+### 2023–2025 Research (Other)
 
 - James Kettle — *Smashing the State Machine: The True Potential of Web Race Conditions* (Black Hat USA 2023). Timing-based desync and single-packet attacks.
-- Ben Kallus — *HTTP Garden* (DEF CON 31 / 2023). Coverage-guided differential fuzzing for HTTP parser discrepancies. GitHub: `narfindustries/http-garden`.
 - Yuki Osaki — *0.CL Desync with Early Response Gadgets* (2025). 0.CL exploitation at scale against Akamai, Cloudflare, Netlify. $200K+ bounties.
 - Jonathan Thyssens — *TERM.EXT / EXT.TERM / TERM.SPILL / SPILL.TERM: Chunk Extension Smuggling* (2025). Novel smuggling class without CL-vs-TE confusion. `smugchunks` tool.
 - Dennis Brinkrolf — *Opossum Attack: Cross-Protocol TLS Desync* (2025). Permanent desync via implicit + opportunistic TLS coexistence. 3M+ hosts affected.
@@ -742,16 +842,21 @@ Six years of individual patches and regex-based defenses block only **known muta
 | CVE-2025-32094 | Akamai CDN | 0.CL + CL whitespace obfuscation + obsolete line folding. Tens of millions of sites |
 | CVE-2025-22871 | Go net/http | Bare LF acceptance as line terminator → microservice desync |
 | CVE-2024-23326 | Envoy Proxy | Service mesh sidecar request tunneling |
+| CVE-2023-33934 | Apache Traffic Server | Critical. Parsing discrepancy enabling access control bypass and cache poisoning (Gudifu) |
 | CVE-2023-25950 | HAProxy 2.6/2.7 | HTX parser incorrectly merges pipelined requests |
+| CVE-2023-25725 | HAProxy | Critical. Request parsing discrepancy enabling smuggling (Gudifu) |
 | CVE-2022-41721 | Go net/http (MaxBytesHandler) | Cross-protocol smuggling: residual bytes reinterpreted as H2 frames |
 
 ### Tools
 
 | Tool | URL / Source |
 |---|---|
-| HTTP Request Smuggler v3.0 | Burp Suite BApp Store (PortSwigger) |
+| T-Reqs | `https://github.com/bahruzjabiyev/t-reqs` |
+| FRAMESHIFTER | `https://github.com/bahruzjabiyev/frameshifter` |
+| HDiff | `https://github.com/mo-xiaoxi/HDiff` |
 | HTTP Garden | `https://github.com/narfindustries/http-garden` |
-| Gudifu | Graybox differential fuzzer for proxies |
+| Gudifu | `https://github.com/bahruzjabiyev/gudifu-fuzzer` |
+| HTTP Request Smuggler v3.0 | Burp Suite BApp Store (PortSwigger) |
 | smuggler.py | `https://github.com/defparam/smuggler` |
 | smugchunks | Chunk extension smuggling scanner |
 | h2cSmuggler | `https://github.com/BishopFox/h2csmuggler` |
