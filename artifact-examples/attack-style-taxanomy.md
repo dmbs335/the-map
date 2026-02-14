@@ -36,12 +36,12 @@
 | **RC1** | Injection — Data/Control Plane Confusion | Input/output separation | 13 classes | [sql-injection], [xss], [ssti], [xxe], [command-injection], ... |
 | **RC2** | Parser & Processing Differential | Consistent interpretation | 12 classes | [http-request-smuggling], [url-confusion], [unicode], [hpp], ... |
 | **RC3** | Authentication & Credential Integrity Failure | Identity verification | 9 classes | [jwt], [saml], [oauth], [ato], [cookie], ... |
-| **RC4** | Access Control & Authorization Gap | Authorization enforcement | 6 classes | [idor-bola], [mass-assignment], [cors-misconfiguration], ... |
+| **RC4** | Access Control & Authorization Gap | Authorization enforcement | 5 classes | [idor-bola], [mass-assignment], [cors-misconfiguration], ... |
 | **RC5** | State, Workflow & Concurrency Violation | State integrity | 6 classes | [state-machine-violation], [web-race-condition], [csrf], [business-logic-vuln], ... |
 | **RC6** | Unsafe Deserialization & Object Reconstruction | Data/code separation | 8 classes | [deserialization], ... |
 | **RC7** | Unvalidated Resource Reference | Reference validation | 6 classes | [ssrf], [open-redirect], [file-upload], [rmi], [jdbc-attack], ... |
 | **RC8** | Trust Boundary & Isolation Failure | Trust verification | 8 classes | [implicit-trust-boundary], [secondary-context-attack], [dns-web-security], [dependency-confusion], ... |
-| **RC9** | Information Leakage & Side-Channel | Information minimization | 7 classes | [web-timing-attack], [web-fingerprinting], [web-cache-poisoning-and-deception], ... |
+| **RC9** | Information Leakage & Side-Channel | Information minimization | 8 classes | [web-timing-attack], [web-fingerprinting], [web-cache-poisoning-and-deception], ... |
 | — | Cross-Cutting: Security Control Evasion | Defense completeness | 7 classes | [waf-bypass], [cookie], [ui-redressing], ... |
 | — | Cross-Cutting: Reconnaissance & Methodology | — | 4 classes | [web-fingerprinting], [web-fuzzing], [recon], [sam-curry] |
 
@@ -747,6 +747,7 @@
 | [web-fuzzing](../web-fuzzing/web-fuzzing.md) | **RM2** | — | RM2 |
 | [recon](../recon/) | **RM3** | — | RM3 |
 | [sam-curry](../sam-curry/sam-curry.md) | **RM4** | — | RM4 |
+| [ctf-exotic-tricks](../ctf-exotic-tricks/ctf-exotic-tricks.md) | RC1, RC2, RC3 | RC8 (sandbox escape), RC9 (crypto oracle) | Language type abuse, PHP filter chains, sandbox escape, crypto primitive abuse, regex exploitation |
 | [spring](../spring/spring.md) | RC1, RC4, RC6, RC7 | RC9 | Framework-specific |
 | [asp-dot-net](../asp-dot-net/asp-dot-net.md) | RC2, RC6, RC1 | RC4 | Framework-specific |
 
