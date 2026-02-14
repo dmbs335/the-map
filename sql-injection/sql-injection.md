@@ -77,7 +77,7 @@ Terminating the original query with a semicolon (`;`) and executing entirely new
 | **OS Command Execution (MSSQL)** | Enabling and executing `xp_cmdshell` | `'; EXEC xp_cmdshell 'whoami'--` |
 | **File Write (MySQL)** | Creating webshell via `INTO OUTFILE` | `'; SELECT '<?php system($_GET["c"]);?>' INTO OUTFILE '/var/www/shell.php'--` |
 
-> **DBMS Constraints**: MySQL does not natively support stacked queries, but they are possible through `mysqli_multi_query()` or specific PDO configurations. PostgreSQL and MSSQL support them by default. Oracle does not support them.
+> **DBMS Constraints**: The MySQL server engine and wire protocol support stacked queries, but client libraries restrict them by default. PHP's `mysqli_query()` only allows a single query; stacked queries can be enabled via `mysqli_multi_query()` or PDO's `PDO::ATTR_EMULATE_PREPARES` setting. Protocol-level activation is also possible via the `CLIENT_MULTI_STATEMENTS` flag. PostgreSQL and MSSQL support stacked queries by default. Oracle does not support them.
 
 ### §1-4. Subquery & Conditional Expressions
 
@@ -472,7 +472,7 @@ Injection caused by **implementation bugs** in the string escape functions thems
 | §8-1 (Protocol Smuggling) | CVE-2024-27304 (pgx PostgreSQL driver) | Arbitrary SQL execution in Prepared Statement environments. Auth bypass, data exfil, RCE |
 | §8-3 (UTF-8 Escape Flaw) | CVE-2025-1094 (PostgreSQL libpq) | CVSS 8.1. SQL injection possible even with escaped input. Chained with BeyondTrust CVE-2024-12356 |
 | §8-1 (Driver Vulnerability) | CVE-2024-1597 (PostgreSQL JDBC driver) | SQL injection when preferQueryMode=simple. CVSS 9.8 |
-| §3-3 + §1-3 (MSSQL RCE) | CVE-2025-25257 (Fortinet FortiWeb) | CVSS 9.6. Unauth SQLi → SELECT INTO OUTFILE → Python RCE. PoC published |
+| §3-3 + §1-3 (MySQL RCE) | CVE-2025-25257 (Fortinet FortiWeb) | CVSS 9.6. Unauth SQLi → SELECT INTO OUTFILE → Python RCE. PoC published |
 | §1-2 + §6-2 (UNION + INSERT) | CVE-2024-36412 (SuiteCRM) | Unauthenticated full DB access. Critical rating |
 | §1-3 (Stacked Queries) | CVE-2024-45387 (Apache Traffic Control) | CVSS 9.9. Privileged user arbitrary SQL execution via PUT request |
 | §7-2 (JSON SQL WAF Bypass) | Claroty Team82 Research (2022) | Bypassed Palo Alto, AWS, Cloudflare, F5, Imperva WAFs |

@@ -60,7 +60,7 @@ The deserialization attack requires a compatible gadget chain in the target appl
 | Gadget Chain | Library Dependency | Capability |
 |---|---|---|
 | **CommonsCollections** | Apache Commons Collections 3.x/4.x | Arbitrary command execution |
-| **CommonsBeansutils** | Apache Commons BeanUtils | Arbitrary command execution |
+| **CommonsBeanutils** | Apache Commons BeanUtils | Arbitrary command execution |
 | **C3P0** | C3P0 connection pool | JNDI lookup / remote class loading |
 | **Fastjson** | Alibaba Fastjson | Arbitrary command execution |
 | **URLDNS** | JDK built-in | DNS lookup (detection/verification) |
@@ -380,7 +380,7 @@ When applications construct JDBC URLs from user input, attackers can inject addi
 |---|---|---|
 | §8-1 (PreferQueryMode=SIMPLE SQLi) | CVE-2024-1597 (PostgreSQL JDBC) | CVSS 10.0. Full SQL injection bypassing parameterized queries |
 | §8-2 (Redshift Metadata API SQLi) | CVE-2024-12744 (Amazon Redshift JDBC) | Privilege escalation via metadata API injection |
-| §2-1 + §2-2 (Class Instantiation) | CVE-2022-21724 (PostgreSQL JDBC) | CVSS 8.5. RCE via socketFactory/sslfactory/authPlugin class loading |
+| §2-1 + §2-2 (Class Instantiation) | CVE-2022-21724 (PostgreSQL JDBC) | CVSS 9.8. RCE via socketFactory/sslfactory/authPlugin class loading |
 | §3-1 (H2 INIT RUNSCRIPT) | CVE-2022-23221 (H2 Database) | RCE via JDBC URL INIT parameter |
 | §3-4 (H2 Case Sensitivity Bypass) | CVE-2025-32966 (H2 Database) | Bypass of CVE-2022-23221 patch via case variation |
 | §5-1 (DB2 JNDI clientReroute) | CVE-2023-27867 (IBM DB2 JDBC) | CVSS 6.3. RCE via JNDI injection |

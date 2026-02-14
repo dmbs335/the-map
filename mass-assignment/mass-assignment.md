@@ -1,364 +1,419 @@
-# Mass Assignment / Autobinding Mutation & Variation Taxonomy
+# Mass Assignment / Data Binding Mutation Taxonomy
 
 ---
 
 ## Classification Structure
 
-Mass assignment (also called autobinding, overposting, or object injection depending on the framework) is a vulnerability class that arises when web frameworks automatically bind user-supplied HTTP parameters to internal object properties without adequate filtering. The fundamental premise is simple: if a framework maps `request.parameter("X")` → `object.setX(value)` for *all* supplied parameters, any property accessible through the binding mechanism becomes attacker-controllable — including properties the developer never intended to expose.
+Mass assignment is a class of vulnerabilities that arises when an application automatically binds user-controlled input to internal object properties without adequate restriction. The term originates from web frameworks that map HTTP parameters directly to model attributes — but the underlying problem is far more general. Wherever a system accepts structured input and uses it to populate an object graph, the risk of over-binding exists: the attacker supplies properties the developer never intended to be externally settable.
 
-This taxonomy organizes the attack surface along three axes:
+This taxonomy organizes the full mutation space along three axes. **Axis 1 (Binding Target)** classifies techniques by *what structural component* of the object graph the attacker reaches. This is the primary organizational axis. **Axis 2 (Bypass Mechanism)** describes *how* the attacker circumvents existing protections — denylist gaps, allowlist misconfigurations, property chain traversals, format differentials. **Axis 3 (Impact Scenario)** maps techniques to the *consequences* achieved: privilege escalation, remote code execution, data tampering, or authentication bypass.
 
-**Axis 1 — Mutation Target (WHAT is injected)**: The structural category of the property or field being manipulated. This is the primary organizational axis, forming the main body of the document.
+The critical insight that connects "classical" mass assignment (overwriting `isAdmin`) to catastrophic outcomes like RCE is **nested property traversal**. When binding mechanisms follow object graphs recursively, a request parameter like `class.module.classLoader.resources.context.parent.pipeline.first.pattern` does not merely set a flat field — it navigates deep into the runtime's internal object structure. This realization, central to research on data binding insecurity in frameworks like Spring, Grails, and Struts, reframes mass assignment not as a simple input validation bug but as an **object graph navigation primitive** with a severity spectrum from attribute tampering to full system compromise.
 
-**Axis 2 — Binding Mechanism (HOW it binds)**: The cross-cutting dimension describing which framework binding pathway enables the injection. Each mutation target may be exploitable through one or more binding mechanisms.
+### Axis 2 Summary: Bypass Mechanism Types
 
-| Binding Mechanism | Description | Primary Frameworks |
-|---|---|---|
-| **Form/Query Parameter Binding** | HTTP form fields or query params mapped to object setters | Spring MVC, ASP.NET MVC, Rails |
-| **JSON/XML Body Binding** | Deserialized request body mapped to object properties | All REST API frameworks |
-| **ORM Active Record Pattern** | Object-relational mapper auto-persists all set properties | Rails ActiveRecord, Laravel Eloquent, Sequelize |
-| **GraphQL Mutation Binding** | Mutation input types bound to resolver objects | GraphQL servers (Apollo, Hasura, etc.) |
-| **gRPC/Protobuf Field Binding** | Protobuf message fields bound to handler objects | gRPC service implementations |
-| **Property Chain Traversal** | Dot-notation navigates nested object graph (e.g., `class.module.classLoader`) | Spring MVC, Java Beans |
-| **Prototype/Constructor Pollution** | `__proto__` or `constructor.prototype` injection pollutes object hierarchy | Node.js (Express, Mongoose, Lodash merge) |
+| Type | Description |
+|------|-------------|
+| **Denylist Gap** | Protection enumerates known-dangerous properties but misses new paths (e.g., JDK9 `module` property bypassing `class.classLoader` block) |
+| **Allowlist Misconfiguration** | Allowlist exists but is overly permissive, incomplete, or defaults to open |
+| **Property Chain Traversal** | Intermediate objects create alternative navigation paths to blocked targets |
+| **Format/Encoding Differential** | Different content types (JSON nesting, dot notation, bracket syntax) are parsed differently by binding logic |
+| **Schema/Introspection Exposure** | API schema or introspection reveals internal field names, enabling targeted over-binding |
+| **Language Metaclass Access** | Language-level metaprogramming features (`__proto__`, `constructor`, `getClass()`) provide universal entry points |
 
-**Axis 3 — Impact Scenario (WHERE it's weaponized)**: The architectural context determining the severity of exploitation. See §8 for the full mapping.
+### Fundamental Mechanism
 
----
+Every data binding implementation shares a common pattern:
 
-## §1. Privilege & Role Escalation Properties
-
-The most classic and impactful category of mass assignment — injecting values into authorization-controlling fields to elevate the attacker's access level.
-
-### §1-1. Boolean Administrative Flags
-
-The simplest and most frequently exploited pattern. The target object contains a boolean property controlling administrative status, and the attacker includes it in a creation or update request.
-
-| Subtype | Mechanism | Key Condition |
-|---|---|---|
-| **isAdmin / is_admin injection** | Attacker adds `isAdmin=true` or `"is_admin": true` to registration/update request | Admin flag exists as a direct model property without binding restriction |
-| **isSuperUser / superuser injection** | Same pattern targeting superuser-level flags | Framework uses superuser concept (Django, custom RBAC) |
-| **isActivated / is_verified injection** | Bypasses email verification or account activation by setting `email_verified=true` | Verification status stored as model boolean |
-| **isApproved injection** | Skips manual approval workflow by directly setting approval flag | Applications with admin-gated user approval |
-
-**Example payload (JSON body):**
-```json
-POST /api/v1/users/register
-{
-  "username": "attacker",
-  "password": "s3cret",
-  "email": "attacker@evil.com",
-  "isAdmin": true,
-  "email_verified": true
-}
+```
+HTTP Request Parameters → Parser → Property Resolver → Object Graph Setter
 ```
 
-### §1-2. Role/Permission String and Enum Fields
-
-Rather than a boolean flag, the application uses a string or enum `role` field. The attacker overwrites it with a higher-privilege value.
-
-| Subtype | Mechanism | Key Condition |
-|---|---|---|
-| **Role string overwrite** | `"role": "admin"` or `"role": "superadmin"` injected into user creation/update | Role stored as plain string on user model |
-| **Permission array injection** | `"permissions": ["read","write","admin"]` appended to request | Permissions stored as array/list on user model |
-| **Group/team assignment** | `"group_id": 1` (admin group) injected | Group membership determined by foreign key on user model |
-| **Multi-tenancy tenant escalation** | `"tenant_id": "target_org"` forces user into another organization | Tenant isolation relies on model-level tenant_id |
-
-### §1-3. Account State Manipulation
-
-Fields controlling account lifecycle that grant indirect privilege through state transitions.
-
-| Subtype | Mechanism | Key Condition |
-|---|---|---|
-| **Account status override** | `"status": "active"` on a suspended/banned account update | Status field writable via binding |
-| **Trial/subscription tier escalation** | `"plan": "enterprise"` or `"subscription_tier": 3` | Billing tier stored on user or org model |
-| **Rate limit / quota bypass** | `"api_calls_remaining": 999999` or `"quota_limit": -1` | Quota tracked as model property |
-| **Feature flag manipulation** | `"features": {"beta_access": true, "premium": true}` | Feature toggles stored as user-level properties |
+The vulnerability surface exists at each transition: the parser may interpret format-specific constructs (JSON nesting, dot-notation expansion); the property resolver may follow object references recursively; and the setter may not validate whether the target property should be externally writable. When frameworks prioritize developer convenience over security defaults — making all properties bindable unless explicitly restricted — the entire object graph becomes the attack surface.
 
 ---
 
-## §2. Object Identity & Ownership Manipulation
+## §1. Direct Property Overwrite
 
-Attacks targeting the identity of the object itself — changing WHO owns it, WHICH record is affected, or HOW objects relate to each other.
+The simplest and most common form of mass assignment: the attacker includes additional parameters in a request that map directly to model attributes not intended for external modification. No property chain traversal is needed — the binding mechanism sets flat fields on the target object.
 
-### §2-1. Primary Key / ID Injection
+### §1-1. Role and Privilege Field Injection
 
-Injecting or overwriting the object's primary key to target another record.
-
-| Subtype | Mechanism | Key Condition |
-|---|---|---|
-| **ID overwrite on creation** | `"id": 1` injected into POST to overwrite existing record (e.g., admin user) | ORM accepts client-supplied ID without auto-generation enforcement |
-| **ID substitution on update** | Changing `"id"` in PUT/PATCH body to modify a different user's record | Server trusts body ID over URL path ID |
-| **UUID collision** | Supplying a known UUID to claim another user's record | UUID not validated against authenticated user |
-| **Numeric overflow ID** | Submitting `"id": 1e99999` or `"id": 2147483647` to cause integer overflow | Backend language converts to float/overflow, disrupting DB operations |
-
-### §2-2. Foreign Key & Relationship Manipulation
-
-Modifying foreign keys to reassign object ownership or association.
+The attacker adds parameters corresponding to authorization-related fields that the application's forms do not expose but the model accepts.
 
 | Subtype | Mechanism | Key Condition |
-|---|---|---|
-| **user_id / owner_id reassignment** | `"user_id": 3` changes which user owns the resource | Foreign key included in model binding scope |
-| **org_id / team_id hijack** | `"organization_id": "target_org"` moves resource across org boundary | Multi-tenant association via FK |
-| **Parent object reassignment** | `"parent_id": 42` or `"category_id": 1` alters object hierarchy | Hierarchical models with bindable FK |
-| **Polymorphic association abuse** | `"commentable_type": "Admin", "commentable_id": 1` changes associated type | Rails-style polymorphic associations with exposed type field |
+|---------|-----------|---------------|
+| **Role field injection** | Adding `role=admin` or `is_admin=true` to a registration/update request | Model attribute for role is bindable; no allowlist restricts it |
+| **Permission flag override** | Setting boolean permission flags (`can_delete=true`, `is_verified=true`) via extra parameters | Flag fields exist on the model and are not excluded from binding |
+| **Account status manipulation** | Modifying `status=active`, `email_verified=true`, `banned=false` to bypass account lifecycle controls | Status fields are writable through the binding layer |
+| **Tier/plan escalation** | Setting `subscription_tier=enterprise` or `quota=unlimited` on pricing-sensitive objects | Commercial attributes are part of the same model bound to user input |
 
-### §2-3. Token & Credential Overwrite
+This is the "textbook" mass assignment scenario and remains the most frequently reported variant in bug bounty programs. The GitHub mass assignment incident (2012) — where a researcher escalated privileges on any GitHub repository by injecting a `public_key` parameter — demonstrated its real-world severity. The OWASP API Security Top 10 (2023 edition) merged this category with Excessive Data Exposure under **API3:2023 Broken Object Property Level Authorization (BOPLA)**, recognizing that both stem from inadequate per-property access control.
 
-Directly modifying authentication-related fields to hijack accounts.
+### §1-2. Financial and Business Logic Field Tampering
+
+Beyond privilege escalation, direct property overwrite targets fields with monetary or business logic significance.
 
 | Subtype | Mechanism | Key Condition |
-|---|---|---|
-| **Password hash overwrite** | `"password_digest": "attacker_hash"` directly sets stored credential | Password hash field exposed to binding |
-| **Reset token overwrite** | Injecting `"reset_token": "attacker_controlled_value"` during profile update | Reset token stored as model attribute without binding protection |
-| **API key overwrite** | `"api_key": "known_value"` replaces victim's API key | API key field writable via mass assignment |
-| **OAuth token injection** | `"access_token"` or `"refresh_token"` fields set via binding | Token fields stored directly on user model |
+|---------|-----------|---------------|
+| **Price/amount override** | Setting `price=0`, `discount=100`, `total=0.01` on order/transaction objects | Financial fields are on the same model as user-editable cart data |
+| **Quantity manipulation** | Modifying `quantity`, `limit`, or `credits` fields beyond allowed bounds | Numeric constraints are enforced only at the UI layer |
+| **Timestamp injection** | Setting `created_at`, `updated_at`, or `expires_at` to manipulate record ordering or extend validity | Timestamp fields are auto-generated but still bindable |
+| **Foreign key reassignment** | Changing `user_id`, `owner_id`, or `organization_id` to associate objects with different entities | Relationship keys are part of the bound model and not restricted |
+
+Foreign key reassignment is particularly impactful because it can turn a mass assignment into an IDOR — the attacker doesn't just modify their own record, they reassign ownership or access to objects belonging to other users.
+
+### §1-3. Internal State and Metadata Injection
+
+Targets attributes that control application-internal behavior rather than user-facing features.
+
+| Subtype | Mechanism | Key Condition |
+|---------|-----------|---------------|
+| **Soft-delete flag reset** | Setting `deleted=false` or `deleted_at=null` to resurrect deleted records | Soft-delete implementation uses a bindable model attribute |
+| **Workflow state override** | Forcing `state=approved`, `review_status=completed` to skip approval flows | State machine transitions are not enforced independently of the model |
+| **Feature flag injection** | Setting `beta_features=true`, `experimental=enabled` on user preference objects | Feature flags are stored as user-level attributes and are bindable |
+| **Audit field manipulation** | Overwriting `last_login`, `login_count`, `modified_by` to falsify audit trails | Audit fields are auto-populated but the binding layer doesn't exclude them |
 
 ---
 
-## §3. Financial & Business Logic Properties
+## §2. Nested Property Traversal
 
-Properties controlling monetary values, transactions, and business-critical calculations.
+This is where mass assignment transcends simple field overwriting and becomes an **object graph navigation attack**. When a data binding mechanism resolves property paths recursively — interpreting `a.b.c` as "get property `b` from object `a`, then set property `c` on that" — the attacker can traverse arbitrarily deep into the application's runtime object graph.
 
-### §3-1. Price & Amount Manipulation
+The severity escalation is dramatic. Direct property overwrite (§1) is constrained to fields on the immediately bound object. Nested property traversal reaches *any reachable object* in the graph, including framework internals, classloaders, and runtime configuration. Research on data binding insecurity across Java web frameworks (Spring, Grails, Struts) demonstrated that this mechanism is the structural root of binding-to-RCE escalation — the path from `user.name=Alice` to `class.module.classLoader.resources.context.parent.pipeline.first.pattern=%{webshell}` is one of depth, not kind.
 
-| Subtype | Mechanism | Key Condition |
-|---|---|---|
-| **Price override** | `"price": 0.01` on order creation sets item price to near-zero | Price stored on order line item model |
-| **Discount injection** | `"discount": 100` or `"discount_percentage": 99.9` | Discount field exists on order/cart model |
-| **Balance/credit injection** | `"balance": 999999` or `"credits": 10000` directly sets account funds | Balance tracked as user model property |
-| **Currency manipulation** | `"currency": "KRW"` combined with amount in USD-scale numbers | Currency code on transaction model |
+### §2-1. Java Bean Property Chain Navigation
 
-### §3-2. Transaction State Manipulation
+Java's introspection model exposes `getClass()` on every object via `java.lang.Object`. From `getClass()`, the entire type hierarchy becomes navigable through property accessors. Data binding implementations that follow these chains without restriction expose the full runtime object graph.
 
 | Subtype | Mechanism | Key Condition |
-|---|---|---|
-| **Order status forgery** | `"status": "returned"` on a delivered order to fraudulently claim refund | Order status writable via binding |
-| **Payment status bypass** | `"payment_status": "paid"` or `"is_paid": true` without actual payment | Payment flag on order model |
-| **Shipping address swap post-payment** | Modifying delivery address after payment to redirect goods | Address field remains writable after order confirmation |
-| **Quantity manipulation** | `"quantity": -1` to trigger negative pricing or refund | Quantity field without server-side validation |
+|---------|-----------|---------------|
+| **Direct classLoader access** | `class.classLoader.*` — navigating from any object's `getClass()` to the ClassLoader | Pre-JDK9 environments without denylist, or denylist gaps |
+| **Module-based classLoader bypass** | `class.module.classLoader.*` — using JDK9+ `java.lang.Module` as an intermediate hop to bypass `class.classLoader` denylists | JDK 9+ runtime; denylist blocks `class.classLoader` but not `class.module.classLoader` (CVE-2022-22965) |
+| **ProtectionDomain traversal** | `class.protectionDomain.*` — accessing security policy and code source information | ProtectionDomain not included in the binding denylist |
+| **Nested POJO graph navigation** | `address.city.region.country.*` — following relationships across associated domain objects | Framework resolves nested property paths recursively without depth limit |
 
----
+The **module-based classLoader bypass** is the canonical example of why denylist approaches fail for nested property traversal. Spring Framework blocked `class.classLoader` after CVE-2010-1622, but when JDK 9 introduced `java.lang.Module` with its own `getClassLoader()` method, `class.module.classLoader` provided an alternative path to the same target. The denylist was structurally unable to anticipate this: it blocked a specific property path, not the *capability* of reaching the ClassLoader. The fix in Spring 5.3.18+ moved to an allowlist approach, restricting `Class` property descriptor access rather than enumerating forbidden paths.
 
-## §4. Temporal & Lifecycle Properties
+### §2-2. ClassLoader Exploitation Primitives
 
-Fields controlling timestamps, deadlines, and object lifecycle that can be abused through mass assignment.
-
-### §4-1. Timestamp Manipulation
+Once an attacker reaches the ClassLoader through property chain navigation, multiple exploitation primitives become available depending on the application server and runtime configuration.
 
 | Subtype | Mechanism | Key Condition |
-|---|---|---|
-| **created_at / updated_at forgery** | Backdating or future-dating records for audit manipulation | ORM timestamps not protected from binding |
-| **Expiration extension** | `"expires_at": "2099-12-31"` extends trial, license, or session lifetime | Expiry tracked as model field |
-| **Cooldown/lockout bypass** | `"locked_until": "2000-01-01"` clears account lockout | Lockout timestamp stored on user model |
-| **Scheduling manipulation** | `"publish_at"` or `"scheduled_for"` altered to bypass review periods | Content scheduling via model timestamp |
+|---------|-----------|---------------|
+| **Tomcat AccessLogValve manipulation** | `classLoader.resources.context.parent.pipeline.first.*` — reconfiguring Tomcat's access log to write a JSP webshell: setting `pattern` to shell code, `suffix` to `.jsp`, `directory` to `webapps/ROOT` | Apache Tomcat; WAR deployment; writable webroot |
+| **URLClassLoader resource injection** | Modifying classpath entries or resource URLs through ClassLoader properties to load remote classes | ClassLoader exposes mutable URL/path properties |
+| **GroovyClassLoader code compilation** | Grails/Groovy environments expose `GroovyClassLoader` which can compile and execute arbitrary Groovy code from property values | Groovy-based framework; ClassLoader is GroovyClassLoader subtype (CVE-2022-35912) |
+| **Thread context ClassLoader swap** | Replacing the thread's context ClassLoader to influence class resolution for subsequent operations | Thread-local ClassLoader is settable through the property chain |
 
-### §4-2. Counter & Sequence Manipulation
+The Tomcat AccessLogValve primitive works through four coordinated property assignments:
 
-| Subtype | Mechanism | Key Condition |
-|---|---|---|
-| **Login attempt counter reset** | `"failed_attempts": 0` clears brute-force protection | Counter stored on user model |
-| **Version/revision override** | `"version": 999` or `"revision"` field manipulation | Optimistic locking field writable |
-| **Sequence number injection** | Manipulating auto-increment or ordering fields | Sort order or sequence stored as model property |
-
----
-
-## §5. Property Chain & Object Graph Traversal
-
-The most dangerous category — exploiting the framework's ability to navigate nested properties via dot-notation or nested parameter syntax to reach objects far beyond the intended binding target.
-
-### §5-1. Java Class Loader Access (Spring4Shell Pattern)
-
-The landmark exploitation of property chaining in Spring MVC that culminated in CVE-2022-22965 (Spring4Shell, CVSS 9.8). When Java Beans binding processes a parameter like `class.module.classLoader.X`, it traverses: `getClass()` → `getModule()` → `getClassLoader()` → arbitrary classloader properties.
-
-| Subtype | Mechanism | Key Condition |
-|---|---|---|
-| **ClassLoader property manipulation** | `class.module.classLoader.resources.context.parent.pipeline.first.*` modifies Tomcat AccessLogValve | Spring MVC + JDK 9+ + Tomcat WAR deployment |
-| **Web shell via log manipulation** | Chaining classloader → Tomcat pipeline → AccessLogValve to write JSP web shell | Tomcat write access to webapps/ROOT |
-| **Environment variable access** | Property chains reaching `System.getenv()` or environment configuration | Framework exposes environment through object graph |
-
-**Exploit payload (HTTP parameters):**
 ```
-class.module.classLoader.resources.context.parent.pipeline.first.pattern=%25%7Bc2%7Di
+class.module.classLoader.resources.context.parent.pipeline.first.pattern=%{shell_code}i
 class.module.classLoader.resources.context.parent.pipeline.first.suffix=.jsp
 class.module.classLoader.resources.context.parent.pipeline.first.directory=webapps/ROOT
-class.module.classLoader.resources.context.parent.pipeline.first.prefix=tomcatwar
-class.module.classLoader.resources.context.parent.pipeline.first.fileDateFormat=
+class.module.classLoader.resources.context.parent.pipeline.first.prefix=shell
 ```
 
-### §5-2. Nested Object Property Injection
+This reconfigures Tomcat's access logging to write a JSP file containing attacker-controlled content to the web-accessible root directory. The attacker then requests the generated JSP to execute arbitrary commands. Notably, the Grails variant (CVE-2022-35912) achieved ClassLoader access even on Java 8, because Grails uses its own data binding implementation independent of Spring's denylist — demonstrating that the vulnerability class is **framework-structural**, not tied to any single runtime version.
 
-Exploiting frameworks that support nested parameter binding (e.g., `user.address.city`, `user[profile][bio]`).
+### §2-3. Expression Language and Evaluation Chains
 
-| Subtype | Mechanism | Key Condition |
-|---|---|---|
-| **Deep nested property write** | `user.profile.internal_notes=malicious` writes to associated objects | Framework supports automatic nested binding |
-| **Association creation via nesting** | `user[roles_attributes][0][name]=admin` creates associated role record | Rails accepts_nested_attributes_for without strict filtering |
-| **Cross-entity traversal** | `order.customer.credit_limit=999999` navigates relationships | ORM eagerly resolves relationship chains during binding |
-
-### §5-3. Prototype & Constructor Pollution (JavaScript)
-
-In Node.js ecosystems, the mass assignment vector merges with prototype pollution when user-supplied JSON is unsafely merged into objects.
+Some frameworks bind parameters through expression languages (OGNL, SpEL, MVEL) that provide even richer object graph navigation than simple property resolution.
 
 | Subtype | Mechanism | Key Condition |
-|---|---|---|
-| **__proto__ injection** | `{"__proto__": {"isAdmin": true}}` pollutes Object.prototype | Unsafe recursive merge (lodash.merge, deep-extend) |
-| **constructor.prototype injection** | `{"constructor": {"prototype": {"role": "admin"}}}` | Object.assign or for...in loop triggers setter |
-| **Mongoose schema pollution** | Prototype pollution through Schema.prototype.add() recursion | Mongoose ≤ vulnerable versions, CVE-2023-3696 |
-| **Template engine RCE via pollution** | Polluted prototype triggers code execution in EJS/Pug/Handlebars rendering | Express + EJS with polluted `outputFunctionName` or `client` |
+|---------|-----------|---------------|
+| **OGNL static method access** | Struts2 `ParametersInterceptor` evaluating `@java.lang.Runtime@getRuntime().exec(cmd)` through OGNL parameter expressions | Struts2 with insufficient OGNL sandbox; `allowStaticMethodAccess=true` |
+| **OGNL classLoader navigation** | `class.classLoader` through OGNL property resolution in Struts2 parameter binding (S2-020, CVE-2014-0094) | `class` parameter not excluded from `ParametersInterceptor` |
+| **SpEL injection via binding** | Spring Expression Language evaluation triggered during data binding when `@Value` or similar annotations process bound values | Binding values flow into SpEL evaluation contexts |
+| **Double evaluation** | Parameter value is resolved once by the binder, then the result is re-evaluated as an expression (S2-045, S2-061, CVE-2020-17530) | Error messages or intermediate values containing user input are re-parsed |
+
+In Struts2, the `ParametersInterceptor` was the critical boundary between HTTP parameters and OGNL evaluation. Vulnerabilities S2-003, S2-005, S2-009, S2-016, S2-020, and S2-021 represent a decade-long series of bypasses against successive restrictions on what parameter names and values could be evaluated. S2-020 specifically added `^class\\..*` to `excludeParams` — the Struts equivalent of Spring's denylist for `class.classLoader` — but like Spring's approach, this proved insufficient against creative property chain navigation.
 
 ---
 
-## §6. Data Type & Format Confusion
+## §3. Framework-Specific Binding Mechanism Exploitation
 
-Exploiting mismatches between expected and supplied data types to bypass validation or trigger unexpected behavior.
+Each web framework implements data binding with distinct internal mechanisms, creating framework-specific attack surfaces. This section covers how the binding implementation itself — not the property graph it navigates — introduces vulnerabilities.
 
-### §6-1. Type Coercion Attacks
+### §3-1. Spring Framework Binding Internals
 
-| Subtype | Mechanism | Key Condition |
-|---|---|---|
-| **Boolean-to-string confusion** | Sending `"isAdmin": "true"` (string) or `"isAdmin": 1` (integer) to bypass type-specific checks | Loose type comparison in validation (PHP `==`, JS truthy) |
-| **Array where scalar expected** | `"email": ["victim@x.com", "attacker@y.com"]` associates multiple values | Framework/ORM accepts array without type enforcement |
-| **Nested object where string expected** | `"name": {"toString": "admin"}` triggers object method invocation | Language-level type coercion |
-| **Numeric string injection** | `"role": "0"` or `"role": "1"` in enum-mapped fields | Role stored as integer but accepted as string |
-
-### §6-2. Encoding & Format Bypass
+Spring's `DataBinder` and `BeanWrapperImpl` use Java Bean introspection (`java.beans.Introspector`) to discover settable properties. The `CachedIntrospectionResults` class caches `PropertyDescriptor` objects, and any property with a public setter becomes bindable unless explicitly excluded.
 
 | Subtype | Mechanism | Key Condition |
-|---|---|---|
-| **Content-Type switching** | Sending form data as `application/json` or vice versa to reach different binding code paths | Framework uses different binders per content type |
-| **Multipart boundary manipulation** | Injecting additional fields via multipart form boundaries | File upload endpoints with additional field binding |
-| **XML entity injection via binding** | Using XML body binding to inject fields with XXE payload | Framework accepts `application/xml` for model binding |
-| **Parameter name encoding** | URL-encoding or Unicode variants of field names (`is%41dmin`) | Binding mechanism decodes before matching |
+|---------|-----------|---------------|
+| **Implicit @ModelAttribute binding** | Handler method parameters of non-simple types without explicit annotations are resolved as `@ModelAttribute`, triggering full data binding | Spring MVC controller with POJO parameter; developer unaware of implicit binding |
+| **setDisallowedFields bypass** | `@InitBinder` with `setDisallowedFields("role")` blocks exact match but not nested paths like `role.name` or encoded variants | Denylist configured at the field name level, not the property path level |
+| **WebDataBinder type coercion** | Spring's type conversion system (ConversionService) transforms string parameters into complex types, expanding the reachable type graph | Custom converters registered; enum/type parameters trigger object instantiation |
+| **Multipart binding expansion** | File upload parameters (`MultipartFile`) bound alongside regular parameters; metadata fields (`originalFilename`, `contentType`) may overwrite model attributes | Multipart request handler binding all parameters to a single model |
 
----
+The Spring fix for CVE-2022-22965 fundamentally changed `CachedIntrospectionResults` to use an allowlist approach: property descriptors on `Class` objects are now restricted to `name` and `customBooleanEditor` only, regardless of the actual accessor methods available. This architectural shift from "block known-bad" to "allow known-good" represents the framework's acknowledgment that the denylist strategy was structurally unsound. However, the fix is **framework-level** — custom `PropertyEditor` registrations or `ConversionService` configurations that create new property paths are not covered by the core fix.
 
-## §7. Framework Protection Bypass Techniques
+### §3-2. Grails Data Binding
 
-Techniques specifically designed to circumvent mass assignment protections that frameworks have implemented.
-
-### §7-1. Allowlist/Blocklist Evasion
+Grails implements its own data binding layer independent of Spring's `BeanWrapperImpl`, using Groovy's metaprogramming capabilities. This means Spring's denylists do not protect Grails applications.
 
 | Subtype | Mechanism | Key Condition |
-|---|---|---|
-| **Case sensitivity bypass** | `"IsAdmin"` vs `"isAdmin"` vs `"isadmin"` — different casing to evade string-match blocklists | Case-insensitive DB column but case-sensitive filter |
-| **Alternative field naming** | `"admin"`, `"is_admin"`, `"isAdmin"`, `"user_type"` — trying synonyms | Blocklist misses alias or alternate column name |
-| **Underscore/camelCase mismatch** | `"is_admin"` passes filter that blocks `"isAdmin"` | Framework normalizes naming convention after filtering |
-| **attr_protected bypass (Rails < 3.2)** | Known bypass of the blocklist approach in older Rails versions | Using attr_protected instead of attr_accessible |
+|---------|-----------|---------------|
+| **GroovyObject metaClass binding** | Groovy objects expose `metaClass` as a property, providing access to method dispatch and class mutation | Grails data binding without `metaClass` exclusion |
+| **Command object auto-binding** | Grails command objects bind all request parameters by default; `bindable` constraints are opt-in | Developer uses command objects without explicit binding constraints |
+| **Domain class constructor binding** | `new DomainClass(params)` binds all parameters to the domain instance | Constructor-based binding in Grails controllers; no `bindable` constraint |
+| **bindData selective bypass** | `bindData(obj, params, [include: [...]])` allowlist can be misconfigured or bypassed through nested property syntax | Allowlist includes a parent property but the attacker navigates through it |
 
-### §7-2. Binding Pathway Bypass
+CVE-2022-35912 affected Grails versions from 3.3.10 onward and critically did not require JDK 9+ — unlike Spring4Shell. This proved that the vulnerability class is inherent to the data binding *pattern*, not to a specific JDK API. The fix restricted ClassLoader-related property access in Grails' own binding code, but the underlying architecture — where binding defaults to open — remains.
 
-| Subtype | Mechanism | Key Condition |
-|---|---|---|
-| **create_with / where bypass (Rails)** | `.where()` or `.create_with()` bypasses Strong Parameters entirely | Developer uses query builder methods instead of `.create()` |
-| **:without_protection flag** | Explicitly disabling mass assignment protection in method call | Developer convenience shortcut left in production code |
-| **TryUpdateModel whitelist gap (ASP.NET)** | [Bind] attribute sets excluded fields to null/default instead of leaving unchanged | Edit scenario where null-reset causes logic error |
-| **JSON deserializer bypass** | `@RequestBody` uses Jackson/GSON which ignores Spring's `@InitBinder` restrictions | Different binding pipeline for JSON vs form parameters |
-| **Unprotected endpoints** | Some endpoints bypass the protection middleware entirely | Developer inconsistency across controllers |
+### §3-3. Struts2 Parameter Interception
 
-### §7-3. ORM-Level Bypasses
+Struts2 processes request parameters through an interceptor stack, with `ParametersInterceptor` converting HTTP parameters into OGNL expressions evaluated against the action's value stack.
 
 | Subtype | Mechanism | Key Condition |
-|---|---|---|
-| **Raw query fallback** | Using `Model.update_all()` or raw SQL that bypasses ORM mass-assignment guards | Developer uses bulk operations for performance |
-| **$guarded override (Laravel)** | Setting `$guarded = []` (empty array) disables all protection | Developer misunderstanding: empty guarded ≠ fully guarded |
-| **Fillable wildcard** | `$fillable = ['*']` or `Model::unguard()` globally disables protection | Seeder/migration code accidentally left in production |
-| **Nested attributes bypass** | Modifying child records through parent's `accepts_nested_attributes_for` | Nested attributes not independently filtered |
+|---------|-----------|---------------|
+| **excludeParams regex bypass** | The `excludeParams` regex in `struts-default.xml` can be bypassed through Unicode encoding, parameter name manipulation, or regex edge cases | Regex pattern doesn't cover all encoding variants of the blocked pattern |
+| **Prefixed parameter OGNL injection** | Parameters with framework-recognized prefixes (`action:`, `redirect:`, `redirectAction:`) are evaluated as OGNL expressions | Struts2 < 2.3.15; prefixed parameter processing enabled |
+| **Value stack navigation** | OGNL can navigate the entire Struts2 value stack, accessing not just the action but also session, application, and servlet context objects | OGNL sandbox insufficient or bypassed |
+| **Sandbox escape via OgnlContext** | Manipulating `_memberAccess` or `#context` to weaken OGNL sandbox restrictions before executing dangerous methods | Struts2 OGNL sandbox active but escape possible |
+
+The history of Struts2 parameter binding vulnerabilities (S2-001 through S2-066) is essentially a chronicle of the OGNL sandbox being repeatedly bypassed. Each fix restricted specific evaluation paths, and each subsequent vulnerability found new ones. This mirrors the Spring/Grails pattern of denylist escalation, but in Struts2 the binding mechanism is *inherently* an expression evaluator, making the attack surface fundamentally larger.
+
+### §3-4. Ruby on Rails Strong Parameters
+
+Rails introduced `strong_parameters` (Rails 4+) as a response to the 2012 GitHub mass assignment incident. Before this, `attr_accessible` / `attr_protected` model-level declarations were the only protection, and they were off by default.
+
+| Subtype | Mechanism | Key Condition |
+|---------|-----------|---------------|
+| **permit! wildcard** | `params.permit!` allows all parameters, completely bypassing strong parameters | Developer uses `permit!` for convenience, often in admin controllers |
+| **Nested attributes accept** | `accepts_nested_attributes_for` combined with `permit` on the parent object can expose nested model attributes | Nested attributes configured; permit list includes the association |
+| **Hash parameter injection** | Permit list includes a hash parameter (`permit(:settings)`) without restricting its keys, allowing arbitrary key-value injection | Hash-type attributes with unconstrained permits |
+| **Type coercion bypass** | Sending a parameter as a different type (array vs. string, hash vs. scalar) to bypass type-specific permit checks | Type checking in permit is lenient or absent |
+
+### §3-5. Django and DRF Serializer Binding
+
+Django's `ModelForm` and Django REST Framework's `ModelSerializer` control field exposure through `fields` / `exclude` declarations.
+
+| Subtype | Mechanism | Key Condition |
+|---------|-----------|---------------|
+| **fields = '__all__' exposure** | Using `fields = '__all__'` on a ModelForm or ModelSerializer exposes every model field to binding | Developer uses `__all__` shortcut; model has sensitive fields |
+| **exclude list gap** | `exclude = ['password']` blocks specific fields but any newly added model field is automatically exposed | Model evolves with new sensitive fields; exclude list is not updated |
+| **Serializer inheritance override** | Child serializer inherits field declarations from parent but adds or overrides fields, inadvertently exposing parent's restricted fields | Complex serializer inheritance hierarchies |
+| **Writable nested serializer** | `WritableNestedSerializer` with `create`/`update` methods that process nested data without validating which fields are writable | DRF nested serializer without explicit field-level `read_only` |
+
+### §3-6. Laravel Eloquent Mass Assignment
+
+Laravel uses `$fillable` (allowlist) and `$guarded` (denylist) model properties to control mass assignment.
+
+| Subtype | Mechanism | Key Condition |
+|---------|-----------|---------------|
+| **Empty $guarded array** | Setting `$guarded = []` disables mass assignment protection entirely | Developer explicitly unguards the model |
+| **JSON column nesting bypass** | JSON column expressions (`settings->theme`) bypass guarded checks in certain Laravel versions | Laravel < 6.18.35 / 7.x < 7.24.0; JSON column nesting in request |
+| **forceFill / forceCreate abuse** | Methods that explicitly bypass fillable/guarded checks used with user-controlled data | Developer passes `$request->all()` to `forceFill()` |
+| **$fillable over-inclusion** | Allowlist includes fields that should not be user-writable (e.g., `user_id`, `role_type`) | Manual `$fillable` declaration includes sensitive attributes |
 
 ---
 
-## §8. Attack Scenario Mapping (Axis 3)
+## §4. Format and Encoding Differentials
 
-| Scenario | Architecture | Primary Mutation Categories | Typical Impact |
-|---|---|---|---|
-| **Privilege Escalation** | Any app with role-based access | §1-1, §1-2 | Admin access, full system control |
-| **Account Takeover** | User management APIs | §2-3, §1-3 | Credential/token overwrite, session hijack |
-| **Horizontal Data Access** | Multi-tenant SaaS | §2-1, §2-2, §1-2 | Cross-tenant data breach |
-| **Financial Fraud** | E-commerce, fintech APIs | §3-1, §3-2 | Price manipulation, fraudulent refunds |
-| **Remote Code Execution** | Spring MVC on Tomcat (JDK 9+) | §5-1 | Web shell, full server compromise |
-| **Prototype Pollution → RCE** | Node.js with template engines | §5-3 | Server-side template injection → RCE |
-| **Verification Bypass** | Registration / onboarding flows | §1-1 (email_verified), §4-1 | Unverified account gains full access |
-| **Audit Trail Manipulation** | Compliance-sensitive applications | §4-1, §4-2 | Tampered timestamps, false records |
-| **Denial of Service** | Any application | §2-1 (numeric overflow), §4-2 | Application crash, data corruption |
-| **Business Logic Bypass** | Workflow-driven applications | §1-3, §3-2, §4-1 | Skipped approval, bypassed cooldowns |
+The format in which binding data is submitted — URL-encoded form data, JSON, XML, multipart — affects how the binding mechanism parses and resolves property paths. Differentials between expected and actual formats create bypass opportunities.
 
----
+### §4-1. JSON Structure Exploitation
 
-## §9. CVE / Real-World Incident Mapping
+JSON's native support for nesting, arrays, and type diversity (string, number, boolean, null, object, array) creates binding behaviors that differ from flat form parameters.
 
-| Mutation Category | CVE / Incident | Product | Impact |
-|---|---|---|---|
-| §5-1 (ClassLoader chain) | **CVE-2022-22965** (Spring4Shell) | Spring Framework (JDK 9+, Tomcat WAR) | CVSS 9.8 — RCE via web shell. Mirai botnet weaponized. |
-| §1-2 (Role escalation) | **GitHub 2012 Incident** | GitHub (Rails) | Egor Homakov uploaded SSH key to Rails org, committed to master. Catalyzed Rails' `strong_parameters`. |
-| §1-1 (Admin flag) | **CVE-2024-40531** | Langflow < 1.0.13 | Privilege escalation to super admin via `/api/v1/users` mass assignment. |
-| §1-1 + §7-2 | **CVE-2024-** (AnythingLLM) | mintplex-labs/anything-llm | Manager → Admin escalation via unfiltered system preferences endpoint. |
-| §1-1 + §7-3 | **CVE-2025-2304** | Camaleon CMS < 2.9.1 | `permit!` (allow-all) in UsersController enabled full privilege escalation. |
-| §5-3 (Prototype pollution) | **CVE-2023-3696** | Mongoose (Node.js) | Prototype pollution via `findByIdAndUpdate()` → RCE in Express+EJS apps. |
-| §5-3 (Prototype pollution) | **SNYK-JS-MONGOOSE-1086688** | Mongoose Schema | Schema.prototype.add() recursive pollution. |
-| §7-3 ($guarded bypass) | **GHSA-rj3w-99gc-8j58** | Laravel (historical) | Insufficient sanitization allowed bypass of guarded column protection. |
-| §3-2 (Order status) | **crAPI Lab** | OWASP crAPI | Marking delivered items as "returned" for fraudulent refunds. |
+| Subtype | Mechanism | Key Condition |
+|---------|-----------|---------------|
+| **Deep nesting for property traversal** | `{"class": {"module": {"classLoader": {...}}}}` — JSON nesting directly maps to nested property paths without needing dot-notation parsing | Framework binds JSON body to object graph; nested keys become property chains |
+| **Type confusion via JSON types** | Sending `{"admin": true}` (boolean) vs `admin=true` (string) — JSON preserves type information that may bypass string-based validation | Binding layer respects JSON types; validation checks string values only |
+| **Array index injection** | `{"users[0].role": "admin"}` — injecting indexed property access to modify collection elements | Framework supports array index notation in JSON binding |
+| **Null injection** | `{"field": null}` — setting fields to null to bypass "not empty" validation while still triggering the setter | Null values are processed by the binder; validation checks for presence, not null |
 
----
+### §4-2. Content-Type Switching
 
-## §10. Detection & Testing Tools
+Submitting data with an unexpected `Content-Type` may cause the framework to use a different parser, producing different binding behavior for the same logical parameters.
 
-| Tool | Type | Target Scope | Core Technique |
-|---|---|---|---|
-| **Burp Suite Param Miner** | Offensive (Burp Extension) | REST/JSON APIs | Automatic guessing of up to 65,536 hidden JSON parameters per request. Custom wordlists tunable to discovered schemas. |
-| **RestTestGen** | Research (Open Source) | RESTful APIs (OpenAPI spec) | Black-box mass assignment detection via OpenAPI spec clustering. Groups operations, identifies read-only fields, generates exploit sequences. (ICSE 2023) |
-| **CATS** | Offensive/Fuzzer (Open Source) | REST APIs (OpenAPI/Swagger) | Automated negative testing including field injection and type confusion. Zero-code configuration. |
-| **Brakeman** | Defensive (SAST) | Ruby on Rails | Static analysis detecting missing `attr_accessible`, unprotected models, and `permit!` usage. |
-| **APIFuzzer** | Offensive (Open Source) | REST APIs (OpenAPI/Swagger) | Fuzz testing from API spec without coding. Mutates parameters and injects unexpected fields. |
-| **RESTler** | Offensive (Microsoft, Open Source) | RESTful APIs | Stateful API fuzzing understanding inter-request dependencies. Finds complex bugs across API call sequences. |
-| **Arjun / msarjun** | Offensive (Open Source) | HTTP endpoints | Mass-scale hidden parameter discovery via brute-force with optimized heuristics. |
-| **Snyk / Dependabot** | Defensive (SCA) | Dependencies | Detects known vulnerable framework versions with mass assignment CVEs. |
-| **OWASP ZAP** | Offensive (Open Source) | Web applications | Active scanning with parameter injection rules including mass assignment checks. |
+| Subtype | Mechanism | Key Condition |
+|---------|-----------|---------------|
+| **Form-to-JSON switch** | Sending `Content-Type: application/json` to an endpoint that normally receives form data; JSON parser may resolve nested properties differently | Framework falls back to or additionally processes JSON body |
+| **XML entity expansion** | Submitting XML body with entity references that expand into property names or values not visible in the raw parameter inspection | XML body binding enabled; entity expansion not disabled |
+| **Multipart field injection** | Adding non-file fields to a multipart request that are bound alongside file upload metadata | Multipart binding processes all parts, not just file parts |
+
+### §4-3. Parameter Name Encoding
+
+Encoding property names using URL encoding, Unicode, or framework-specific syntax to bypass pattern-based restrictions.
+
+| Subtype | Mechanism | Key Condition |
+|---------|-----------|---------------|
+| **URL encoding of property separators** | `class%2Emodule%2EclassLoader` — URL-encoding the dot separator to bypass regex-based denylist patterns | Denylist regex matches literal dot but framework decodes before resolution |
+| **Unicode normalization bypass** | Using Unicode equivalents of ASCII characters in property names | Framework normalizes Unicode after denylist check but before property resolution |
+| **Bracket notation substitution** | `class[module][classLoader]` — using bracket syntax instead of dot notation | Framework supports both notations but denylist only covers one |
 
 ---
 
-## §11. Framework-Specific Protection Reference
+## §5. API Schema and Type System Exposure
 
-| Framework | Vulnerability Name | Allowlist Approach | Blocklist Approach | Recommended Approach |
-|---|---|---|---|---|
-| **Spring MVC** | Autobinding | `@InitBinder` + `setAllowedFields()` | `setDisallowedFields()` | DTOs + `@InitBinder` allowlist |
-| **ASP.NET MVC/Core** | Overposting | `[Bind(Include="...")]`, `TryUpdateModel` with property list | `[Bind(Exclude="...")]` | View Models / DTOs |
-| **Ruby on Rails** | Mass Assignment | `strong_parameters` — `params.require(:user).permit(:name, :email)` | *(deprecated: `attr_protected`)* | Strong Parameters (default since Rails 4) |
-| **Laravel (PHP)** | Mass Assignment | `$fillable` array on model | `$guarded` array on model | `$fillable` + `validated()` from Form Requests |
-| **Django** | *(Less common)* | `ModelForm` with explicit `fields` | `ModelForm` with `exclude` | Explicit `fields` in serializers/forms |
-| **Node.js / Express** | Mass Assignment | `_.pick(req.body, ['field1', 'field2'])` | Mongoose `protect: true` plugin | Schema validation (Joi, Zod) + explicit field picking |
-| **GraphQL** | Mutation Injection | Strict input types, field-level resolvers | — | Separate Input types from internal models |
-| **gRPC / Protobuf** | Field Injection | Explicit field validation in handlers | — | Input validation on every RPC handler |
+Modern API architectures (GraphQL, OpenAPI/Swagger, gRPC) expose type information that enables targeted mass assignment attacks. Unlike traditional web forms where the attacker must guess hidden fields, schema-exposing APIs provide a complete map of the object graph.
+
+### §5-1. GraphQL Introspection-Guided Mass Assignment
+
+GraphQL's introspection system returns the complete type schema, including every field on every type — writable or not. This makes mass assignment discovery trivial.
+
+| Subtype | Mechanism | Key Condition |
+|---------|-----------|---------------|
+| **Mutation field injection** | Introspection reveals fields on a mutation's input type (e.g., `role`, `isAdmin`) that are not exposed in the client application's UI | Introspection enabled in production; mutation input types include sensitive fields |
+| **Schema-guided field enumeration** | Using `__schema` query to discover all types and fields, then systematically testing each writable field for over-binding | Introspection returns full schema without access control |
+| **Nested input type traversal** | GraphQL input types with nested object fields allow deep property assignment in a single mutation | Input type definitions include nested objects with sensitive fields |
+| **Subscription-based field leak** | Subscribing to events that return types with more fields than the corresponding query/mutation, revealing bindable field names | Subscription resolvers return full objects without field-level filtering |
+
+### §5-2. OpenAPI / Swagger Schema Exposure
+
+OpenAPI specifications explicitly document request body schemas, including properties, types, and constraints.
+
+| Subtype | Mechanism | Key Condition |
+|---------|-----------|---------------|
+| **Schema definition enumeration** | Reading the OpenAPI spec to find all writable properties on request models, including those not used by the official client | OpenAPI spec is publicly accessible (e.g., `/swagger.json`) |
+| **readOnly property binding** | Schema marks a property as `readOnly` (informational hint) but the server-side binding does not enforce it | OpenAPI `readOnly` is a documentation-level constraint, not enforced at the binding layer |
+| **additionalProperties: true** | Schema allows arbitrary additional properties, meaning the server binding accepts any key-value pair | Default `additionalProperties: true` in OpenAPI; no server-side enforcement |
+
+### §5-3. gRPC / Protocol Buffer Field Discovery
+
+Protocol buffer definitions expose field numbers and types. While gRPC is binary, schema reflection or `.proto` file leakage enables field discovery.
+
+| Subtype | Mechanism | Key Condition |
+|---------|-----------|---------------|
+| **Reflection-based field enumeration** | gRPC server reflection enabled; attacker enumerates all message fields including internal ones | Server reflection not disabled in production |
+| **Unknown field passthrough** | Protobuf3's handling of unknown fields allows setting properties on newer message versions that the server's binding layer processes | Server processes proto3 messages with unknown fields forwarded to internal services |
 
 ---
 
-## §12. Summary: Core Principles
+## §6. Language-Level Metaclass Exploitation
 
-**The Fundamental Property.** Mass assignment vulnerabilities exist because of a design tension at the heart of modern web frameworks: the same convenience feature that eliminates boilerplate (automatic binding of HTTP parameters to object properties) creates an implicit trust boundary violation. The framework treats all incoming parameters as equally trustworthy, while the application's security model requires differential trust — some properties are user-modifiable, others are system-controlled. Every framework that implements auto-binding must resolve this tension, and every resolution introduces its own bypass surface.
+Some mass assignment vectors exploit language-level metaprogramming features rather than framework-specific binding logic. These affect any framework built on the language, because the metaclass access is intrinsic to the language's object model.
 
-**Why Incremental Fixes Fail.** The history of mass assignment — from Rails' `attr_protected` (bypassed) to `attr_accessible` (opt-in but missed) to `strong_parameters` (controller-level, different code path bypasses via `.where`/`.create_with`) — demonstrates that each layer of defense addresses only the binding pathway it controls. The vulnerability resurfaces whenever data reaches the ORM through an unprotected channel: raw queries, bulk operations, nested attributes, alternative content types, or entirely separate binding pipelines (Jackson vs. Spring's `@InitBinder`). The OWASP API Security Top 10 2023 recognized this systemic nature by merging the former API6:2019 (Mass Assignment) with API3:2019 (Excessive Data Exposure) into the unified **API3:2023 — Broken Object Property Level Authorization (BOPLA)**, acknowledging that both reading and writing unintended properties share the same root cause.
+### §6-1. JavaScript Prototype Pollution
 
-**The Structural Solution.** The only robust defense is architectural separation: never bind user input directly to domain/persistence models. Instead, use explicitly defined Data Transfer Objects (DTOs), Input Types, or Form Objects as an intermediate layer where only intended fields exist. This eliminates the guessing game of allowlists and blocklists entirely — if the DTO doesn't have an `isAdmin` property, it cannot be bound regardless of what the attacker sends. Combined with schema validation at the API boundary (JSON Schema, OpenAPI spec, Joi/Zod validators, GraphQL strict input types), this approach makes mass assignment structurally impossible rather than relying on developers to remember protection annotations on every endpoint.
+JavaScript's prototype-based inheritance means every object delegates to a prototype chain. Properties set on `Object.prototype` propagate to *all* objects in the runtime. When binding mechanisms process property names like `__proto__`, `constructor.prototype`, or `constructor`, they can pollute the global prototype chain.
+
+| Subtype | Mechanism | Key Condition |
+|---------|-----------|---------------|
+| **`__proto__` direct assignment** | `{"__proto__": {"isAdmin": true}}` — recursive merge functions follow `__proto__` as a regular key, setting properties on `Object.prototype` | Merge/assign utility does not skip `__proto__` key; e.g., `lodash.merge`, `hoek.merge` before fixes |
+| **`constructor.prototype` traversal** | `{"constructor": {"prototype": {"isAdmin": true}}}` — traversing through `constructor` to reach the prototype | `__proto__` is blocked but `constructor.prototype` is not |
+| **Object.assign with tainted source** | `Object.assign(target, userInput)` where `userInput` contains `__proto__` — native `Object.assign` does not copy `__proto__` but custom implementations may | Custom merge/deep-copy functions that iterate `Object.keys()` including inherited properties |
+| **ORM query operator injection** | `{"where": {"role": {"$ne": "admin"}}}` — when binding feeds into NoSQL query operators (Mongoose, Sequelize), prototype pollution can inject query logic | Binding layer passes user object directly to ORM query builder |
+
+Prototype pollution is JavaScript's structural equivalent of Java's `class.classLoader` traversal — both exploit language-level metaclass access to reach objects beyond the intended binding scope. The parallel is exact: `__proto__` navigates the prototype chain just as `class.module.classLoader` navigates the Java type hierarchy.
+
+### §6-2. Python Attribute Access
+
+Python's `__class__`, `__dict__`, `__init__`, and `__subclasses__()` provide reflection and metaclass access similar to Java's `getClass()`.
+
+| Subtype | Mechanism | Key Condition |
+|---------|-----------|---------------|
+| **`__class__` traversal** | `obj.__class__.__init__.__globals__` — navigating from any object to its class's global namespace | Template engine or binding mechanism evaluates attribute paths without restriction |
+| **`__dict__` direct manipulation** | Accessing `__dict__` to read or modify instance attributes including "private" (name-mangled) ones | Framework exposes `__dict__` through property resolution |
+| **MRO exploitation** | Using `__mro__` (Method Resolution Order) to navigate the class hierarchy and find useful classes/methods | Python SSTI chains that traverse `__mro__` to reach `os.system` or `subprocess` |
+
+### §6-3. Ruby Metaprogramming
+
+Ruby's open class model and `method_missing` delegation create additional binding attack surfaces.
+
+| Subtype | Mechanism | Key Condition |
+|---------|-----------|---------------|
+| **`send` method invocation** | If binding logic uses `obj.send(param_name, param_value)`, arbitrary methods can be called | Custom binding implementation uses `send` without restriction |
+| **`instance_variable_set` access** | Direct instance variable manipulation bypassing attribute accessor controls | Binding mechanism or developer code uses `instance_variable_set` with user input |
+
+---
+
+## §7. ORM and Persistence Layer Interaction
+
+Mass assignment does not always stop at the application object — when bound objects are persisted, the ORM layer may process additional properties that affect database-level behavior.
+
+### §7-1. Relation and Association Manipulation
+
+| Subtype | Mechanism | Key Condition |
+|---------|-----------|---------------|
+| **Foreign key reassignment** | Binding a different `user_id` or `account_id` to associate a record with another entity | FK field is bindable; no ownership validation at the persistence layer |
+| **Polymorphic type override** | Changing `type` on a polymorphic association (e.g., `commentable_type=Admin`) to associate with a different model | STI or polymorphic association type field is mass-assignable |
+| **Nested association creation** | `user[posts_attributes][0][published]=true` — creating or modifying associated records through nested binding | `accepts_nested_attributes_for` (Rails) or equivalent without `reject_if` guards |
+| **Join table injection** | Adding entries to many-to-many join tables by binding association IDs (`role_ids=[1,2,3]`) | Association proxy allows ID-based assignment; no access control on the association |
+
+### §7-2. Query and Scope Injection
+
+| Subtype | Mechanism | Key Condition |
+|---------|-----------|---------------|
+| **Default scope override** | Binding parameters that modify query scopes or default ordering, potentially revealing hidden records | ORM scope parameters are bindable or configurable through request input |
+| **Soft-delete bypass** | Setting `deleted_at=null` to make soft-deleted records appear in queries, or vice versa | Soft-delete field is mass-assignable; default scope filters on this field |
+
+---
+
+## Attack Scenario Mapping (Axis 3)
+
+| Scenario | Architecture | Primary Mutation Categories |
+|----------|-------------|---------------------------|
+| **Privilege Escalation** | Any web application with role-based access | §1-1 + §5-1 (field discovery + role injection) |
+| **Remote Code Execution** | Java frameworks (Spring, Grails, Struts) with ClassLoader-accessible binding | §2-1 + §2-2 + §2-3 (property chain → ClassLoader → exploitation primitive) |
+| **Data Tampering** | E-commerce, SaaS, financial applications | §1-2 + §7-1 (financial field + relationship manipulation) |
+| **Authentication Bypass** | APIs with schema exposure | §1-3 + §5 (internal state + schema-guided enumeration) |
+| **Prototype Pollution → XSS/RCE** | Node.js applications with merge-based binding | §6-1 (prototype chain pollution → template override or child_process injection) |
+| **Arbitrary File Write** | Java frameworks on Tomcat | §2-2 (AccessLogValve manipulation to write webshell) |
+| **Denial of Service** | Any binding framework with deep nesting | §2-1 + §4-1 (recursive property resolution with deep nesting causing stack overflow or resource exhaustion) |
+| **Audit Trail Falsification** | Applications with bindable audit metadata | §1-3 (timestamp/author field manipulation) |
+
+---
+
+## CVE / Bounty Mapping (2010–2025)
+
+| Mutation Combination | CVE / Case | Impact |
+|---------------------|-----------|--------|
+| §2-1 (direct classLoader) | CVE-2010-1622 (Spring Framework) | RCE via `class.classLoader` property traversal; first data binding → RCE demonstration |
+| §3-3 (OGNL class access) + §2-3 | CVE-2014-0094 / S2-020 (Struts2) | ClassLoader manipulation through `ParametersInterceptor` OGNL evaluation |
+| §2-1 (module bypass) + §2-2 (AccessLogValve) | CVE-2022-22965 / Spring4Shell (Spring Framework) | Critical RCE; `class.module.classLoader` bypasses JDK9+ denylist; CVSS 9.8 |
+| §3-2 (Grails binding) + §2-2 (classLoader) | CVE-2022-35912 (Grails Framework) | Critical RCE via Grails-specific data binding; affects Java 8+; CVSS 9.8 |
+| §3-6 (JSON nesting bypass) | Laravel `$guarded` bypass (pre-6.18.35 / 7.x pre-7.24.0) | Mass assignment via JSON column nesting expressions bypassing `$guarded` (note: CVE-2020-10914/10915 are Veeam ONE Agent vulnerabilities, unrelated to Laravel) |
+| §1-1 (role injection) | GitHub 2012 Incident | Public key injection on arbitrary repos; demonstrated mass assignment severity |
+| §6-1 (`__proto__`) | CVE-2018-3721 (lodash) | Prototype pollution via `lodash.merge`; affects all downstream applications |
+| §6-1 (`__proto__`) | CVE-2019-10744 (lodash) | Prototype pollution in `lodash.defaultsDeep`; CVSS 9.1 |
+| §6-1 (constructor.prototype) | CVE-2024-21529 (dset) | Prototype pollution via improper sanitization in `dset` package |
+| §2-3 (OGNL double eval) | CVE-2020-17530 / S2-061 (Struts2) | Double OGNL evaluation leading to RCE; OGNL sandbox bypass |
+| §2-3 (OGNL injection) | CVE-2023-22527 (Confluence) | OGNL injection in Atlassian Confluence template injection leading to RCE |
+| §2-1 + §2-2 (DIVER findings) | 81 vulnerabilities (Spring + Grails) | ISSTA 2024: automated discovery of 81 data binding vulnerabilities; 3 new CVEs assigned |
+
+---
+
+## Detection Tools
+
+| Tool | Target Scope | Core Technique |
+|------|-------------|---------------|
+| **DIVER** (Research) | Spring, Grails data binding | Nested Property Graph extraction + bind-site instrumentation + property-aware fuzzing; discovered 81 vulnerabilities |
+| **Burp Suite Pro** (Commercial) | General web applications | Param Miner extension for hidden parameter discovery; active scan checks for mass assignment |
+| **Arjun** (Open Source) | REST APIs | HTTP parameter brute-forcing using large wordlists to discover hidden bindable parameters |
+| **Param Miner** (Burp Extension) | Web applications | Automated hidden parameter discovery through response differential analysis |
+| **InQL** (Burp Extension) | GraphQL APIs | Introspection query automation; mutation field enumeration; batch testing |
+| **graphql-voyager** (Open Source) | GraphQL APIs | Visual schema exploration for identifying mutation input types with sensitive fields |
+| **Nuclei** (Open Source) | Multi-framework | Template-based scanning including Spring4Shell, Struts OGNL, and mass assignment checks |
+| **mass-assignment-check** (npm) | Node.js/Express | Static analysis for detecting unprotected object spread/assign in route handlers |
+| **Brakeman** (Open Source) | Ruby on Rails | Static analysis detecting `permit!`, missing strong parameters, and `attr_accessible` gaps |
+| **Semgrep** (Open Source) | Multi-language | Rule-based static analysis with community rules for mass assignment patterns across frameworks |
+
+---
+
+## Summary: Core Principles
+
+Mass assignment is not a single vulnerability — it is a **structural consequence** of automatic data binding, a design pattern adopted by virtually every modern web framework. The fundamental property that makes the entire mutation space possible is the **impedance mismatch between binding convenience and access control granularity**: frameworks default to binding all properties for developer productivity, while security requires per-property, per-context access decisions.
+
+The escalation from simple field overwrite to remote code execution is a matter of object graph depth. Research across Java web frameworks (Spring, Grails, Struts) demonstrated a unified threat model: *any* data binding implementation that resolves nested property paths without restriction, combined with a language runtime that exposes metaclass information (Java's `getClass()`, JavaScript's `__proto__`, Python's `__class__`), creates a path from user-controlled HTTP parameters to runtime-internal objects. The CVE history — from CVE-2010-1622 through Spring4Shell (CVE-2022-22965) to CVE-2022-35912 — is a twelve-year case study in the failure of incremental denylist patching against a structurally open attack surface.
+
+Incremental fixes fail because the attack surface is defined by the **reachable object graph**, which evolves with every runtime update (JDK 9's `Module`), every framework plugin, and every application model change. A denylist that blocks `class.classLoader` becomes obsolete when `class.module.classLoader` appears; a regex that blocks `^class\\..*` becomes obsolete when bracket notation or URL encoding is supported. The structural solution requires inverting the default: binding must be **closed by default** (explicit allowlisting of bindable properties per endpoint), combined with **depth-limited** property resolution that prevents traversal beyond the immediately bound object. Frameworks that have adopted this approach — Rails' strong parameters, Spring's post-5.3.18 `CachedIntrospectionResults` allowlist, Django's explicit `fields` declarations — represent the architectural direction, but the legacy of "bind everything" defaults means that mass assignment will remain a productive vulnerability class for years to come.
 
 ---
 
 *This document was created for defensive security research and vulnerability understanding purposes.*
 
----
-
 ## References
 
-- OWASP Mass Assignment Cheat Sheet — https://cheatsheetseries.owasp.org/cheatsheets/Mass_Assignment_Cheat_Sheet.html
-- OWASP API Security Top 10 2023 (API3:2023 BOPLA) — https://owasp.org/API-Security/editions/2023/en/0xa3-broken-object-property-level-authorization/
-- Corradini, Pasqua, Ceccato — "Automated Black-box Testing of Mass Assignment Vulnerabilities in RESTful APIs" (ICSE 2023) — https://arxiv.org/abs/2301.01261
-- CVE-2022-22965 (Spring4Shell) — https://nvd.nist.gov/vuln/detail/CVE-2022-22965
-- CVE-2025-2304 (Camaleon CMS) — https://vulert.com/vuln-db/CVE-2025-2304
-- CVE-2024-40531 (Langflow) — https://nvd.nist.gov/vuln/detail/cve-2024-40531
-- GitHub 2012 Mass Assignment Incident — https://www.infoq.com/news/2012/03/GitHub-Compromised/
-- PortSwigger Web Security Academy: Mass Assignment Lab — https://portswigger.net/web-security/api-testing/lab-exploiting-mass-assignment-vulnerability
-- Spring Mass Assignment Cheat Sheet (0xn3va) — https://0xn3va.gitbook.io/cheat-sheets/framework/spring/mass-assignment
-- DeepStrike: Mass Assignment Techniques — https://deepstrike.io/blog/mass-assignment-techniques
-- Cobalt: API Security 101 Mass Assignment — https://www.cobalt.io/blog/mass-assignment-apis-exploitation-in-the-wild
-- RestTestGen (Black-box MA Testing Framework) — https://github.com/SeUniVr/RestTestGen
-- Brakeman Scanner (Rails SAST) — https://brakemanscanner.org/docs/warning_types/mass_assignment/
-- Rails Strong Parameters — https://github.com/rails/strong_parameters
-- Mongoose Prototype Pollution Disclosure — https://thecodebarbarian.com/mongoose-prototype-pollution-vulnerability-disclosure.html
+- CVE-2022-22965 (Spring4Shell) — NVD, Spring Security Advisory
+- CVE-2022-35912 (Grails RCE) — GitHub Security Advisory GHSA-6rh6-x8ww-9h97
+- CVE-2010-1622 (Spring ClassLoader) — NVD
+- CVE-2014-0094 / S2-020 (Struts2 ClassLoader) — Apache Struts Security Bulletins
+- CVE-2020-17530 / S2-061 (Struts2 OGNL) — Apache Struts Security Bulletins
+- OWASP API Security Top 10 2023 — API3:2023 Broken Object Property Level Authorization
+- OWASP Mass Assignment Cheat Sheet
+- ISSTA 2024: "Automated Data Binding Vulnerability Detection for Java Web Frameworks via Nested Property Graph" — Yan et al.
+- BlackHat EU 2022: "DataBinding2Shell: Novel Pathways to RCE via Web Frameworks" — Haowen Mu, Biao He (Ant Security FG Lab)

@@ -4,7 +4,7 @@
 
 ## Classification Structure
 
-HTTP Parameter Pollution (HPP) exploits the fundamental absence of a standardized specification for how HTTP parameters with duplicate names should be handled. RFC 3986 defines URI syntax and RFC 7230–7235 define HTTP message semantics, but **neither prescribes behavior when multiple parameters share the same name**. This specification gap means every web technology — servers, frameworks, proxies, WAFs — implements its own parsing logic, creating a rich attack surface wherever two or more components process the same request.
+HTTP Parameter Pollution (HPP) exploits the fundamental absence of a standardized specification for how HTTP parameters with duplicate names should be handled. RFC 3986 defines URI syntax and RFC 9110–9112 (formerly RFC 7230–7235) define HTTP message semantics, but **neither prescribes behavior when multiple parameters share the same name**. This specification gap means every web technology — servers, frameworks, proxies, WAFs — implements its own parsing logic, creating a rich attack surface wherever two or more components process the same request.
 
 This taxonomy organizes the entire HPP mutation space along three axes:
 
@@ -207,7 +207,7 @@ HTTP headers themselves can be polluted, particularly headers that carry paramet
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **Duplicate Header Injection** | Sending duplicate HTTP headers (e.g., two `Host` headers, two `Content-Type` headers). Proxies and backends may use different occurrences. | RFC 7230 §3.2.2: recipients may handle duplicate headers differently unless the field is defined as a comma-separated list |
+| **Duplicate Header Injection** | Sending duplicate HTTP headers (e.g., two `Host` headers, two `Content-Type` headers). Proxies and backends may use different occurrences. | RFC 9110 §5.3 (formerly RFC 7230 §3.2.2): recipients may handle duplicate headers differently unless the field is defined as a comma-separated list |
 | **Content-Type Confusion** | Sending both `Content-Type: application/x-www-form-urlencoded` and `Content-Type: application/json`. Proxy parses body as form data; backend parses as JSON (or vice versa). | Differential Content-Type processing in pipeline |
 | **X-Forwarded-For Pollution** | Injecting duplicate or crafted `X-Forwarded-For` headers to manipulate IP-based access controls or rate limiting. | Application trusts `X-Forwarded-For` without proxy-chain validation |
 
@@ -319,7 +319,6 @@ Using HPP not as the primary attack, but as an evasion technique to deliver othe
 | Mutation Combination | CVE / Case | Impact / Bounty |
 |---------------------|-----------|----------------|
 | §1-1 + §8-3 (WAF bypass via concatenation) | Ethiack WAF Research (2025) — 17 WAF configurations tested | 70.6% bypass rate with complex HPP payloads. AWS WAF Managed Rules, Cyber Security Cloud, F5 rule sets fully bypassed. Only Google Cloud Armor (ModSecurity), Azure WAF (DRS 2.1), and open-appsec blocked all manual payloads. |
-| §1-1 (Client-side reflected HPP) | CVE-2025-59977 (Juniper Junos Space) | Medium severity. Reflected client-side HPP in web interface. |
 | §1-1 (Client-side reflected HPP) | CVE-2021-0269 (Juniper Junos OS J-Web) | Client-side HPP in J-Web management interface. |
 | §1-3 + §3-2 (Encoding differential) | CVE-2025-7783 (form-data library < 2.5.4, 3.0.0–3.0.3, 4.0.0–4.0.3) | Critical (CVSS 9.4). Insufficiently random values in form-data boundary generation enables HPP. High confidentiality and integrity impact. |
 | §8-2 (OTP hijacking) | Multiple bug bounty reports (2023–2025) | Account takeover via duplicated email parameter in password reset flows. OTP generated for victim, sent to attacker. |

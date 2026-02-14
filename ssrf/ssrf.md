@@ -385,7 +385,7 @@ All cloud providers use `169.254.169.254` as the metadata endpoint. This IP can 
 | §5-1 | **CVE-2024-22329** (WebSphere) | SSRF via improper URL validation in traditional WAS |
 | §3-2 + §5-1 | **CVE-2024-38472** (Apache httpd) | UNC SSRF on Windows via mod_rewrite. $4,920 bounty |
 | §7-1 + §3-2 | **CVE-2024-40898** (Apache httpd) | SSRF through mod_rewrite in server/vhost context. $4,263 bounty |
-| §5-3 | **CVE-2023-27592** (urllib3) | Backslash confusion: `http://example.com\\@169.254.169.254/` |
+| §5-3 | **CVE-2023-27592** (Miniflux) | Backslash confusion: `http://example.com\\@169.254.169.254/` |
 | §6-1 + §8-2 | **Azure DevOps SSRF (2024)** | DNS rebinding to metadata API. $5,000 Microsoft bounty |
 | §8-1 + §1 | **Capital One breach (2019)** | AWS metadata exfiltration via SSRF. $80M+ in damages. Landmark case |
 | §7-1 + §8-1 | **Shopify SSRF (HackerOne)** | 303 redirect bypass to cloud metadata. Significant bounty |

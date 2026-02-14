@@ -171,7 +171,7 @@ JWE supports password-based encryption via PBES2 (RFC 7518 §4.8), where a Conte
 
 **Affected libraries and fixes:**
 - **jose4j** (Java): vulnerable before 0.9.4 (CVE-2023-51775)
-- **go-jose** (Go): fixed in v3.0.1 (CVE-2023-49290)
+- **go-jose** (Go): fixed in v3.0.2 (CVE-2023-49290)
 - **jose2go** (Go): fixed in v1.6.0
 - **josekit-rs** (Rust): fixed in v0.8.5
 
@@ -356,10 +356,10 @@ JWS (signed) and JWE (encrypted) share the same compact serialization format —
 | §7-1 (Sign/encrypt confusion) | CVE-2022-3102 (jwcrypto/Python) | Authentication bypass. Same sign/encrypt confusion vector as CVE-2022-39174. |
 | §7-1 (Sign/encrypt confusion) | CVE-2023-51774 (json-jwt/Ruby) | Identity check bypass. Ruby json-jwt gem (< 1.16.6, < 1.15.3.1) vulnerable to sign/encrypt confusion allowing arbitrary claim forgery. |
 | §3-4 (PBES2 billion hashes) | CVE-2023-51775 (jose4j/Java) | DoS. Unbounded `p2c` parameter allows CPU exhaustion via 2^31 PBKDF2 iterations. Fixed in jose4j 0.9.4. |
-| §3-4 (PBES2 billion hashes) | CVE-2023-49290 (go-jose/Go) | DoS. Same PBES2 `p2c` exploitation. Fixed in go-jose v3.0.1. |
+| §3-4 (PBES2 billion hashes) | CVE-2023-49290 (go-jose/Go) | DoS. Same PBES2 `p2c` exploitation. Fixed in go-jose v3.0.2. |
 | §5-1 / §6-3 (Token leakage) | Grafana Bug Bounty | JWT tokens in query parameters leaked to backend data sources via proxied requests. |
 | §6-3 (Replay / revocation) | HackerOne #3120790 (WakaTime) | Session replay. Logged-out tokens remain valid, enabling persistent access. |
-| §1-2 (Algorithm confusion) | CVE-2025-4692 (cloud platform) | Authentication bypass via algorithm confusion in cloud service. |
+| §3-3 (Privilege escalation) | CVE-2025-4692 (ABUP Cloud Update Platform) | CVSS 6.8. Privilege escalation via maliciously crafted JWT in IoT cloud update service. |
 
 ---
 

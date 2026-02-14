@@ -359,12 +359,12 @@ The deployment architecture of modern applications creates authorization gaps at
 |---------------------|-----------|----------------|
 | §1-1 + §4-1 (Sequential ID + REST sub-resource) | CVE-2024-1313 (Grafana) | Dashboard snapshot access by unauthenticated users in Grafana (20M+ users). Patch in v10.4.1 |
 | §1-1 + §5-3 (Sequential ID + multi-tenant) | CVE-2024-46528 (KubeSphere v3.4.1/v4.1.1) | Low-privileged users access sensitive Kubernetes cluster resources across tenants |
-| §4-1 + §5-1 (REST endpoint + horizontal access) | CVE-2023-3285 through CVE-2023-3290 (Easy!Appointments) | 15 BOLA vulnerabilities, 7 scoring CVSS 9.9. Full patient/appointment data access |
+| §4-1 + §5-1 (REST endpoint + horizontal access) | CVE-2023-3285 through CVE-2023-3290 (Easy!Appointments) | 6 BOLA vulnerabilities in this CVE range. Full patient/appointment data access |
 | §4-1 + §8-1 (REST + microservice trust) | CVE-2024-22278 (Harbor) | BOLA in cloud-native container registry; unauthorized access to container images and repositories |
 | §1-1 + §2-1 (Sequential ID + path param) | CVE-2024-56404 (One Identity Manager 9.x) | Identity management system IDOR; access to identity records across the enterprise |
 | §2-3 + §5-2 (Body param + mass assignment) | CVE-2024-1626 (Lunary AI) | IDOR in AI platform allowing unauthorized data access |
 | §1-1 + §5-1 (Numeric ID + horizontal) | CVE-2024-55471 (Oqtane Framework) | IDOR allowing cross-user data access in .NET CMS framework |
-| §1-2 + §2-1 (UUID + path param) | CVE-2025-40658 | IDOR via UUID manipulation in API endpoint |
+| §1-1 + §2-1 (Numeric param + path param) | CVE-2025-40658 (DM Corporative CMS < 2025.01) | CVSS 7.5. IDOR in admin panel via `option` parameter manipulation in `/administer/selectionnode/framesSelection.asp`. |
 | §1-1 + §6-1 (Enumerable ID + direct feedback) | HackerOne #PayPal | $10,500. IDOR to add secondary users in PayPal business account management |
 | §6-2 + §3-1 (Blind IDOR + method bypass) | HackerOne #various | $12,500. IDOR allowing deletion of licenses/certifications from other users' profiles |
 | §5-3 + §8-3 (Cross-tenant + cloud) | Growatt Solar IoT (2025) | BOLA in solar inverter API allowed hackers to take control of IoT devices across organizations |

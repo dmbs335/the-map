@@ -462,7 +462,7 @@ The structural answer is **Zero Trust Architecture** applied not just at the net
 ## References
 
 - CWE-501: Trust Boundary Violation — https://cwe.mitre.org/data/definitions/501.html
-- OWASP Top 10:2025 A06 Insecure Design — https://owasp.org/Top10/2025/A06_2025-Insecure_Design/
+- OWASP Top 10:2021 A04 Insecure Design — https://owasp.org/Top10/A04_2021-Insecure_Design/
 - PortSwigger Web Security Academy — https://portswigger.net/web-security
 - PortSwigger Top 10 Web Hacking Techniques 2024 — https://portswigger.net/research/top-10-web-hacking-techniques-of-2024
 - HackTricks — https://book.hacktricks.xyz/

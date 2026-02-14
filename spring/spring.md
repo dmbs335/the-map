@@ -8,7 +8,7 @@ A comprehensive, generalized taxonomy of attack vectors, vulnerability classes, 
 
 This taxonomy organizes the Spring attack surface along three orthogonal axes:
 
-**Axis 1 — Attack Surface (Structural Target):** The specific Spring component, mechanism, or architectural layer being targeted. This is the primary organizational axis, defining the 10 top-level categories (§1–§10) of the document. Each category represents a distinct structural aspect of the Spring ecosystem that can be mutated or abused.
+**Axis 1 — Attack Surface (Structural Target):** The specific Spring component, mechanism, or architectural layer being targeted. This is the primary organizational axis, defining the 11 top-level categories (§1–§11) of the document. Each category represents a distinct structural aspect of the Spring ecosystem that can be mutated or abused.
 
 **Axis 2 — Exploitation Mechanism (How the Attack Works):** The cross-cutting technique or principle that enables the attack. Multiple categories may share the same exploitation mechanism. These mechanisms are:
 
@@ -76,7 +76,7 @@ When applications attempt to filter SpEL expressions, multiple bypass techniques
 | **ASCII code construction** | Building restricted strings character-by-character using `(char)` casts: `((char)105).toString()` | Character-level denylist only | RCE |
 | **Reflection chain substitution** | Replacing denylisted classes (e.g., `ReflectionUtils`) with functionally equivalent classes from transitive dependencies | Application classpath contains alternative reflection utilities | RCE |
 | **String concatenation bypass** | Splitting restricted method/class names across concatenated strings to evade pattern matching | Regex-based input filtering | RCE |
-| **Nested expression evaluation** | Using expression preprocessing (`__${...}__::`) to force evaluation before outer context checks | Thymeleaf SpEL preprocessing enabled | RCE |
+| **Nested expression evaluation** | Using expression preprocessing (`__${...}__::.x`) to force evaluation before outer context checks | Thymeleaf SpEL preprocessing enabled | RCE |
 
 ---
 
@@ -352,8 +352,8 @@ Attacks exploiting Spring's HTTP parameter parsing behavior.
 
 | Subtype | Mechanism | Key Condition | Impact |
 |---------|-----------|---------------|--------|
-| **HTTP Parameter Pollution** | Submitting duplicate parameter names; Tomcat uses first occurrence, other containers may differ | Spring behind reverse proxy with different parameter precedence | AUTHZ, M7 |
-| **Content-Type confusion** | Sending JSON body with `application/x-www-form-urlencoded` Content-Type or vice versa to bypass type-specific validation | Inconsistent content-type handling in controller | M7 |
+| **HTTP Parameter Pollution** | Submitting duplicate parameter names; Tomcat uses first occurrence, other containers may differ | Spring behind reverse proxy with different parameter precedence | AUTHZ |
+| **Content-Type confusion** | Sending JSON body with `application/x-www-form-urlencoded` Content-Type or vice versa to bypass type-specific validation | Inconsistent content-type handling in controller | AUTHZ |
 
 ---
 
@@ -465,7 +465,7 @@ Attacks exploiting Spring's multipart file handling and resource serving mechani
 | §4-1 (Double encoding) | CVE-2024-38816 | 2024 | Path traversal in functional web frameworks |
 | §4-1 (Double encoding) | CVE-2024-38819 | 2024 | Path traversal in WebMvc.fn/WebFlux.fn static resources |
 | §4-2 (Un-normalized URL) | CVE-2024-38821 | 2024 | WebFlux static resource authorization bypass |
-| §6-2 (SnakeYAML) | CVE-2024-37084 | 2024 | RCE via SnakeYAML deserialization in Spring Cloud Data Flow |
+| §6-2 (Package upload) | CVE-2024-37084 | 2024 | RCE via arbitrary package upload/deployment in Spring Cloud Data Flow Skipper server |
 | §7-1 (Annotation detection) | CVE-2025-41248 | 2025 | Authorization bypass via generic type annotation detection |
 | §7-1 (Annotation detection) | CVE-2025-41249 | 2025 | Authorization bypass in Spring Framework method security |
 | §8-2 (STOMP ordering) | CVE-2025-41254 | 2025 | STOMP frame ordering bypass for unauthorized messages |

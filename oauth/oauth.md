@@ -365,12 +365,12 @@ The MCP protocol's adoption of OAuth (2025) introduces new attack surface in AI 
 | §9-3 (LDAP injection via WebFinger) | CVE in ForgeRock OpenAM | Password hash extraction via character-by-character LDAP wildcard injection |
 | §8-3 (Device code phishing) | Storm-2372 / ShinyHunters campaigns (2024-2025) | Enterprise-wide compromise of Google, Qantas, and dozens of major organizations. MFA bypass |
 | §7-2 (Supply chain token compromise) | UNC6395/Drift-Salesforce (2025) | Single stolen OAuth token provided access to 700+ customer Salesforce instances |
-| §2-1 (PKCE downgrade) | OAuth 2.1 / RFC 9700 (2026) | PKCE now mandatory for all clients; non-PKCE flows formally deprecated |
+| §2-1 (PKCE downgrade) | OAuth 2.1 / RFC 9700 (2025) | PKCE now mandatory for all clients; non-PKCE flows formally deprecated |
 | §4-2 (Audience injection) | Disclosed to IETF OAuth WG (Jan 2025) | New attack class affecting OAuth 2.0, OIDC, FAPI, CIBA, and multiple extensions. Coordinated multi-standard fix effort |
 | §10-1 (Cross-app attacks) | USENIX Security '25 | 11 of 18 major integration platforms vulnerable to COAT; 5 to CORF. Microsoft, Google, Amazon affected |
 | §1-1 (Redirect URI validation bypass) | Multiple HackerOne reports | Numerous $X,XXX+ bounties for redirect_uri bypasses across major platforms |
-| CVE-2025-54576 | OAuth2-Proxy auth bypass | Authentication bypass in OAuth2-Proxy; fixed in v7.11.0 |
-| CVE-2024-4985 | GitHub Enterprise Server | Authentication bypass via SAML/OAuth in GitHub Enterprise Server |
+| §9-1 (Proxy auth bypass) | CVE-2025-54576 (OAuth2-Proxy) | Authentication bypass in OAuth2-Proxy; fixed in v7.11.0 |
+| §8-3 (SAML/OAuth bypass) | CVE-2024-4985 (GitHub Enterprise Server) | Authentication bypass via SAML/OAuth in GitHub Enterprise Server |
 
 ---
 

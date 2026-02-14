@@ -280,7 +280,7 @@ Misrouting through misconfigured proxy rules — the routing logic itself is the
 
 | Mutation Combination | CVE / Case | Impact / Bounty |
 |---|---|---|
-| §1-1 + §4-1 (double decode + dot-segment) | CVE-2025-0108 (Palo Alto PAN-OS) | CVSS 10.0. Full authentication bypass on firewall management interface via Nginx→Apache path confusion |
+| §1-1 + §4-1 (double decode + dot-segment) | CVE-2025-0108 (Palo Alto PAN-OS) | CVSS 9.1. Authentication bypass on firewall management interface via Nginx→Apache path confusion |
 | §7-3 + smuggled body (cache poisoning) | CVE-2025-4366 (Cloudflare Pingora) | High severity. Request smuggling on cache hits; leaks visitor URLs to attacker via 301 redirect chain |
 | §7-2 (annotation injection) | CVE-2025-1974 (Kubernetes ingress-nginx) | CVSS 9.8. Unauthenticated RCE → cluster takeover. 43% of cloud environments vulnerable |
 | §7-2 (annotation injection) | CVE-2025-1097, CVE-2025-1098, CVE-2025-24514 (Kubernetes ingress-nginx) | Arbitrary Nginx config injection via annotation fields |

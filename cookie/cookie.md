@@ -31,7 +31,7 @@ The `SameSite` attribute restricts cross-site cookie transmission to mitigate CS
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
-| **Lax+POST Two-Minute Window** | Chrome allows `SameSite=Lax` cookies on cross-site POST requests for 2 minutes after cookie creation, to avoid breaking OAuth flows. An attacker triggers a fresh login/OAuth flow, then exploits the grace window. | Cookie was set < 120 seconds ago; Chrome-specific behavior |
+| **Lax+POST Two-Minute Window** | Chrome allows cross-site POST requests for **cookies without an explicit SameSite attribute** (implicitly treated as Lax-by-default) for 2 minutes after cookie creation. This grace window does not apply to cookies where the server explicitly sets `SameSite=Lax`. Attackers can exploit this window by triggering a new login/OAuth flow. | Cookie without explicit SameSite attribute (implicit Lax); within 120 seconds of creation; Chrome only |
 | **Top-Level GET Navigation** | `SameSite=Lax` permits cookies on top-level navigations using safe methods (GET). Attackers trigger state-changing GET endpoints via `<a>` clicks, `window.open()`, or redirects. | Application performs state-changing operations on GET requests |
 | **HTTP Method Override** | Frameworks (Symfony, Rails, Laravel) support `_method` parameters that override the HTTP verb server-side. A GET request with `?_method=POST` is treated as POST by the server while the browser considers it a GET, sending Lax cookies. | Framework method override enabled; no server-side SameSite enforcement |
 | **Same-Site Cross-Origin** | `SameSite` compares *sites* (eTLD+1), not *origins*. A compromised or attacker-controlled sibling subdomain (`evil.example.com`) can issue same-site requests to `app.example.com` with full cookie access. | Attacker controls any subdomain of the same registrable domain |
@@ -83,7 +83,7 @@ RFC 2109/2965 defined cookie features (quoted values, `$Version`, `$Path`, `$Dom
 |---|---|---|
 | **$Version Phantom Cookie** | A cookie named `$Version` (settable by JavaScript since browsers don't recognize it as special) triggers RFC 2109 parsing mode in Tomcat/Jetty. This changes how all subsequent cookies in the header are parsed — enabling cookie sandwich attacks (§1-2) and WAF bypasses (§2-3). | Java-based backend (Tomcat ≤10.0.x, Jetty); attacker can set cookies via JavaScript |
 | **Comma-Separated Cookie Injection** | RFC 2109 permits commas as cookie separators. In legacy mode, a single cookie value containing a comma can be split into multiple cookies. `Cookie: $Version=1; a="x, injected=payload"` may yield cookies `a=x` and `injected=payload`. | Legacy parsing mode active; server splits on comma |
-| **Quoted-String Escape Sequences** | RFC 2109 allows characters within quoted cookie values to be encoded as octal escape sequences (`\NNN`). WAFs and proxies typically don't decode these, enabling payload obfuscation: `Cookie: $Version=1; name="\074script\076"`. | Legacy parsing mode; WAF does not decode RFC 2109 quoted strings |
+| **Quoted-String Escape Sequences** | RFC 2109's `quoted-string` only defines `quoted-pair` (`\` + single character); octal escapes (`\NNN`) are not part of the RFC standard. However, some Java servers (Tomcat, Jetty) non-standardly interpret octal escapes, enabling WAF bypass: `Cookie: $Version=1; name="\074script\076"`. | Non-standard parsing in Java servers; WAF cannot handle server-specific quoted-string interpretation |
 
 ### §2-2. Quoted-Value Parsing Differentials
 
@@ -146,7 +146,7 @@ Attacks targeting the semantic content of cookie values rather than the cookie p
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
 | **Insufficient Entropy / Predictable Tokens** | Session IDs generated with weak PRNGs, sequential counters, or predictable seeds. Attackers enumerate or predict valid session tokens. | Weak PRNG; time-based seed; short token length |
-| **JWT Cookie Vulnerabilities** | JWTs stored in cookies inherit all JWT attack vectors: `alg: none` bypass, HMAC/RSA confusion (CVE-2022-23529), key brute-forcing, claim manipulation. Misconfigured `decode()` vs `verify()` calls skip signature verification entirely. | JWT in cookie; weak secret; algorithm confusion; missing verification |
+| **JWT Cookie Vulnerabilities** | JWTs stored in cookies inherit all JWT attack vectors: `alg: none` bypass, HMAC/RSA algorithm confusion, key brute-forcing, claim manipulation. CVE-2022-23529 is a key object injection vulnerability in the `jsonwebtoken` library where a malicious object with a crafted `toString()` can be passed as the key (separate from HMAC/RSA confusion). Misconfigured `decode()` vs `verify()` calls skip signature verification entirely. | JWT in cookie; weak secret; algorithm confusion; missing verification |
 | **Cookie Value Tampering** | Application stores plaintext state in cookies (user role, price, preferences) without integrity protection. Attacker modifies the value directly. | No HMAC/signature on cookie value; trust of client-supplied data |
 
 ### §4-3. Cookie Injection via Adjacent Vectors

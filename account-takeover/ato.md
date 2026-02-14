@@ -331,7 +331,7 @@ Passwordless authentication creates a new attack surface.
 | §7-1 (Stored XSS + IDOR) | Label Studio GHSA-2mq9 | Full ATO. Stored XSS + IDOR chain via custom_hotkeys field |
 | §1-3 (Mass Assignment) | Shopify Privilege Escalation | Unrestricted admin account creation. Role parameter manipulation in registration |
 | §1-2 (Invalid Email Registration) | HackerOne Signup Process | $3,750. Account creation with invalid emails containing special characters (%) |
-| §2-2 (Host Header Poisoning) | CVE-2024-5910 (Palo Alto Expedition) | Critical. Missing authentication leading to admin ATO |
+| §6-1 (Missing Authentication) | CVE-2024-5910 (Palo Alto Expedition) | CVSS 9.3. Missing authentication for critical function → admin ATO (this is a missing-authentication vulnerability, not Host Header Poisoning) |
 | §3-3 (JWT None Algorithm) | CVE-2025-6023 (Grafana) | High. Incomplete fix → path traversal + open redirect → Full ATO |
 | §3-3 + §4-2 (Session + MFA) | CVE-2025-1723 (ADSelfService Plus) | Session mismanagement enabling unauthorized access to user enrollment data when MFA not enabled |
 | §7-1 (Self-XSS → ATO) | Facebook Self-XSS Payments | $62,500. Self-XSS in payment flow chained to Full ATO |

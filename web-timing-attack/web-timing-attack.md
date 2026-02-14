@@ -445,6 +445,8 @@ Incremental defenses fail because timing leakage emerges at every layer of the s
 
 *This document was created for defensive security research and vulnerability understanding purposes.*
 
+---
+
 ## References
 
 - PortSwigger Research, "Listen to the whispers: web timing attacks that actually work" (Black Hat USA 2024) — https://portswigger.net/research/listen-to-the-whispers-web-timing-attacks-that-actually-work

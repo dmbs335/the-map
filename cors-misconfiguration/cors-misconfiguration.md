@@ -392,7 +392,7 @@ Protocols adjacent to HTTP that bypass or are not governed by CORS, enabling cro
 
 ---
 
-## §10. Attack Scenario Mapping (Axis 3)
+## §11. Attack Scenario Mapping (Axis 3)
 
 | Scenario | Architecture / Conditions | Primary Mutation Categories |
 |----------|--------------------------|----------------------------|
@@ -469,10 +469,6 @@ Protocols adjacent to HTTP that bypass or are not governed by CORS, enabling cro
 
 ---
 
-*This document was created for defensive security research and vulnerability understanding purposes.*
-
----
-
 ## References
 
 - PortSwigger, "Exploiting CORS misconfigurations for Bitcoins and bounties" — https://portswigger.net/research/exploiting-cors-misconfigurations-for-bitcoins-and-bounties
@@ -489,3 +485,7 @@ Protocols adjacent to HTTP that bypass or are not governed by CORS, enabling cro
 - Mozilla MDN, "Cross-Origin Resource Sharing (CORS)" — https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CORS
 - PortSwigger Web Security Academy, "CORS" — https://portswigger.net/web-security/cors
 - OWASP, "Testing Cross Origin Resource Sharing" — https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/11-Client-side_Testing/07-Testing_Cross_Origin_Resource_Sharing
+
+---
+
+*This document was created for defensive security research and vulnerability understanding purposes.*

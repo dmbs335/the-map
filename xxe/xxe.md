@@ -429,7 +429,7 @@ XXE alone rarely achieves remote code execution, but it serves as a powerful pri
 | **XXE → PHP filter chain (CVE-2024-2961)** | XXE + iconv filter chain bug → arbitrary file write → RCE | PHP (patched in PHP 8.x) |
 | **XXE → credential theft → admin access → RCE** | Read config files containing credentials → authenticate as admin → upload webshell | Any platform |
 | **XXE → SSRF → internal service exploit** | XXE triggers SSRF to vulnerable internal service | Any platform with vulnerable internal services |
-| **Nested deserialization → XXE (CVE-2024-34102)** | Deserialization of crafted object triggers XML parsing with XXE | Magento/Adobe Commerce (Java/.NET) |
+| **Nested deserialization → XXE (CVE-2024-34102)** | Deserialization of crafted object triggers XML parsing with XXE | Magento/Adobe Commerce (PHP) |
 
 ---
 

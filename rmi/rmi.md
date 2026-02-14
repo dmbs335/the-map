@@ -281,7 +281,7 @@ Reconnaissance is a prerequisite for most RMI attacks. This category covers tech
 | §5-1 + §5-2 | **CVE-2024-28213** (nGrinder) | RCE via insecure deserialization in RMI communication; part of a chain of 6 CVEs |
 | §6-1 (Codebase) | **CVE-2011-3556** (Oracle JDK) | Classic RMI codebase exploitation; the vulnerability that led to `useCodebaseOnly=true` becoming default |
 | §3-3 (Spring RMI) | **CVE-2016-1000027** (Spring Framework) | Deserialization RCE via `HttpInvokerServiceExporter`; Spring eventually deprecated all RMI remoting |
-| §4-1 (MLet) | **CVE-2018-8016** (Multiple JMX) | Unauthenticated RCE via JMX MLet loading on multiple products |
+| §4-1 (MLet) | **CVE-2018-8016** (Apache Cassandra) | Unauthenticated local JMX access allowing code execution via default configuration |
 
 ---
 

@@ -129,7 +129,7 @@ Using reflection to access restricted methods or circumvent sandboxing.
 
 ### §3-2. ClassLoader Manipulation
 
-Bypassing OGNL 1.5.1+ restrictions that block `ClassLoader.loadClass()`.
+Bypassing OGNL 3.x+ restrictions that block `ClassLoader.loadClass()`.
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|

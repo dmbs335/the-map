@@ -56,7 +56,7 @@ The Backend-for-Frontend pattern aggregates multiple internal APIs behind a sing
 | **Double-encoding traversal** | Sending `%252e%252e%252f` so the proxy decodes once (to `%2e%2e%2f`) and the backend decodes again (to `../`) | Proxy and backend perform URL decoding at different pipeline stages |
 | **Null-byte truncation** | Appending `%00` after a traversal path to truncate extension checks or suffix matching | Legacy backends (PHP, older Java) that pass paths through C-string APIs |
 
-The Starbucks `/bff/proxy/` vulnerability is the canonical example: traversal from a parameterized endpoint reached an internal Microsoft Graph instance exposing ~100 million customer records ($16,000 bounty).
+The Starbucks `/bff/proxy/` vulnerability is the canonical example: traversal from a parameterized endpoint reached an internal Microsoft Graph instance exposing ~100 million customer records ($4,000 bounty).
 
 ### §1-2. API Gateway Route Escape
 
@@ -134,7 +134,7 @@ Different programming languages implement different URL RFCs. NodeJS follows WHA
 | **Extra-slash authority confusion** | `http:///evil-host/` — parsers disagree on whether the empty authority means localhost or the next segment is the authority | Parser treats triple-slash as empty authority + path vs. scheme + authority |
 | **Encoded-dot path confusion** | `http://host/%2e%2e/secret` — validator sees a literal `%2e%2e` path segment; backend decodes it as `../` | Validation occurs before URL decoding; request execution occurs after |
 
-The Log4Shell patch bypass (CVE-2021-45046) exploited exactly this pattern: two URL parsers in the JNDI lookup chain disagreed on fragment handling, allowing the patched validation to be circumvented.
+The Log4Shell patch bypass (CVE-2021-45046) exploited an incomplete fix in the initial patch: in non-default configurations (PatternLayout using Thread Context Map/MDC data), the `allowedLdapHosts`/`allowedLdapClasses` restrictions could be bypassed to perform JNDI lookups. This was a configuration-level bypass, not a URL parser differential.
 
 ### §3-2. HTTP Server Semantic Confusion
 
@@ -285,7 +285,7 @@ Unlike the real-time proxy-based attacks above, these mutations involve **storin
 
 | Mutation Combination | CVE / Case | Impact / Bounty |
 |---|---|---|
-| §1-1 + §4-1 (BFF traversal + trust collapse) | Starbucks BFF proxy (2020) | ~100M customer records exposed. $16,000 bounty |
+| §1-1 + §4-1 (BFF traversal + trust collapse) | Starbucks BFF proxy (2020) | ~100M customer records exposed. $4,000 bounty |
 | §3-2 (Apache filename confusion) | CVE-2024-38472 (Apache httpd 2.4.59) | Windows UNC SSRF via `r->filename` confusion |
 | §3-2 (Apache handler confusion) | CVE-2024-39573 (Apache httpd) | `mod_rewrite` proxy handler substitution → SSRF |
 | §3-2 (Apache handler confusion) | CVE-2024-38476 (Apache httpd) | Malicious backend output → code execution |
@@ -294,7 +294,7 @@ Unlike the real-time proxy-based attacks above, these mutations involve **storin
 | §1-2 + §3-3 (Nginx proxy_pass traversal) | ChatGPT SSRF/ATO (2024) | Full account takeover via `/public/../secret-endpoint` pattern |
 | §5-1 (Cloud confused deputy) | AWS-2022-009 (AppSync) | Cross-tenant IAM role assumption via case-sensitivity bypass |
 | §5-1 (Cloud confused deputy) | Amazon DataZone (2024) | Cross-account role association by unauthorized project members |
-| §3-1 (URL parser differential) | CVE-2021-45046 (Log4Shell bypass) | JNDI URL parser fragment handling → RCE |
+| §3-1 (Configuration-level bypass) | CVE-2021-45046 (Log4Shell bypass) | Incomplete patch bypass via non-default MDC/Thread Context Map configurations → RCE |
 | §6-1 (Cache path confusion) | ChatGPT Web Cache Deception (2024) | Account takeover via cached dynamic responses |
 | §1-2 (API gateway traversal) | Azure API Management (2024) | SSRF + path traversal in CORS/hosting proxies |
 | §3-3 (Spring path normalization) | CVE-2024-38819 (Spring Framework) | Directory traversal via functional web framework static resource handling |
@@ -345,10 +345,6 @@ Each fix addresses a specific encoding bypass, a specific normalization inconsis
 
 ---
 
-*This document was created for defensive security research and vulnerability understanding purposes.*
-
----
-
 ## References
 
 - Sam Curry, "Attacking Secondary Contexts in Web Applications," Kernelcon 2020 — [InfoconDB](https://infocondb.org/con/kernelcon/kernelcon-2020/attacking-secondary-contexts-in-web-applications)
@@ -367,3 +363,7 @@ Each fix addresses a specific encoding bypass, a specific normalization inconsis
 - Praetorian, "AWS IAM Assume Role Vulnerabilities Found in Many Top Vendors" — [praetorian.com](https://www.praetorian.com/blog/aws-iam-assume-role-vulnerabilities/)
 - InstaTunnel, "The Sidecar Siphon: Exploiting Identity Leaks in Service Mesh Architectures" — [instatunnel.my](https://instatunnel.my/blog/the-sidecar-siphon-exploiting-identity-leaks-in-service-mesh-architectures)
 - Zayl Security, "Confused Deputy Problem — How to Hack Cloud Integrations" — [zayl.dk](https://zayl.dk/posts/01-confused-deputy/)
+
+---
+
+*This document was created for defensive security research and vulnerability understanding purposes.*

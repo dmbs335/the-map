@@ -19,7 +19,7 @@ The mutation space of JNDI injection is organized along three orthogonal axes:
 | Protocol | Object Types Supported | Remote Codebase | Restriction Version | Key Property |
 |----------|----------------------|-----------------|--------------------|----|
 | **RMI** | Serialized, Reference | Yes (pre-8u121) | JDK 7u21+ / 8u121+ | `java.rmi.server.useCodebaseOnly` |
-| **LDAP** | Serialized, Reference, Attributes | Yes (pre-8u191) | JDK 6u141 / 7u131 / 8u121+ (codebase), 8u191 (full) | `com.sun.jndi.ldap.object.trustURLCodebase` |
+| **LDAP** | Serialized, Reference, Attributes | Yes (pre-8u191) | JDK 6u211 / 7u201 / 8u191 / 11.0.1+ | `com.sun.jndi.ldap.object.trustURLCodebase` |
 | **DNS** | Limited (exfiltration only) | N/A | None | N/A |
 | **CORBA/IIOP** | Serialized, IOR | Yes | Security Manager dependent | N/A |
 
@@ -218,7 +218,7 @@ User-controlled input passed directly as argument to `InitialContext.lookup()`, 
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **REST API parameter to lookup()** | Unvalidated user input from HTTP request reaches JNDI lookup (e.g., IBM ODM CVE-2024-22319) | Application passes user input to JNDI without validation |
+| **REST API parameter to lookup()** | Unvalidated user input from HTTP request reaches JNDI lookup (e.g., IBM ODM CVE-2024-22319 — classified as SSRF but chainable to RCE via JNDI injection) | Application passes user input to JNDI without validation |
 | **JDBC URL parameter injection** | User-controlled JDBC connection string parameters processed by DataSource initialization | Application allows user-supplied JDBC URLs |
 | **JMX/MBean attribute injection** | JMX operations that perform JNDI lookups with user-supplied names | JMX exposed; MBean operations accept external input |
 
@@ -343,7 +343,7 @@ Beyond code execution, JNDI injection (particularly via Log4Shell) enables data 
 | §5-1 (recursive lookup) | **CVE-2021-45105** (Log4j 2.16.0) | CVSS 5.9. DoS via uncontrolled recursion in lookup evaluation |
 | §5-1 (config lookup) | **CVE-2021-44832** (Log4j 2.17.0) | CVSS 6.6. RCE via JDBC Appender with attacker-controlled config |
 | §5-4 (IIOP + JNDI) | **CVE-2020-2551** (WebLogic) | Unauthenticated RCE via IIOP protocol JNDI lookup |
-| §5-4 (T3 + JNDI) | **CVE-2021-35617** (WebLogic) | RCE via T3/IIOP protocol JNDI exploitation |
+| §5-4 (T3 + JNDI) | **CVE-2021-2394** (WebLogic) | RCE via T3 protocol deserialization (note: CVE-2021-35617 is a separate WebLogic Console component vulnerability) |
 | §5-4 (OpaqueReference) | **CVE-2024-20931** (WebLogic) | Bypass of CVE-2023-21839 patch via `OpaqueReference.getReferent()` re-triggering JNDI |
 | §5-2 (REST API) | **CVE-2024-22319** (IBM ODM) | Unauthenticated RCE via JNDI injection in unprotected REST API |
 | §5-2 (JDBC URL) | **CVE-2024-49194** (Databricks JDBC) | CVSS 7.3. Command injection via `krbJAASFile` JDBC URL parameter |
