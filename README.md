@@ -17,102 +17,121 @@ Each topic is a deeply structured Markdown reference document covering the full 
 
 ## Topics
 
-### Injection
+### 01. Injection
 | Category | Description |
 |---|---|
-| [**SQL Injection**](sql-injection/) | SQL injection mutation vectors and filter bypass taxonomy |
-| [**NoSQL Injection**](nosql/) | NoSQL injection operators, syntax variations, and blind extraction |
-| [**Command Injection**](command-injection/) | OS command injection chaining, filter evasion, and shell-specific mutations |
-| [**XSS**](xss/) | Cross-Site Scripting context-dependent payloads and filter bypass |
-| [**SSTI**](ssti/) | Server-Side Template Injection across template engines |
-| [**EL Injection**](el-injection/) | Expression Language injection in Java EE / Spring ecosystems |
-| [**XXE**](xxe/) | XML External Entity injection, OOB exfiltration, and parser differentials |
-| [**LDAP / XPath Injection**](ldap-xpath/) | LDAP and XPath query injection mutation taxonomy |
-| [**Prototype Pollution**](prototype-pollution/) | JavaScript prototype chain pollution vectors and gadget chains |
-| [**GraphQL**](graphql/) | GraphQL introspection abuse, batching attacks, and injection vectors |
+| [**SQL Injection**](01-injection/sql-injection/sql-injection.md) | SQL injection mutation vectors and filter bypass taxonomy |
+| [**NoSQL Injection**](01-injection/nosql/nosql-injection.md) | NoSQL injection operators, syntax variations, and blind extraction |
+| [**Command Injection**](01-injection/command-injection/command-injection.md) | OS command injection chaining, filter evasion, and shell-specific mutations |
+| [**XSS**](01-injection/xss/xss.md) | Cross-Site Scripting context-dependent payloads and filter bypass |
+| [**SSTI**](01-injection/ssti/ssti.md) | Server-Side Template Injection across template engines |
+| [**EL Injection**](01-injection/el-injection/el-injection.md) | Expression Language injection in Java EE / Spring ecosystems |
+| [**XXE**](01-injection/xxe/xxe.md) | XML External Entity injection, OOB exfiltration, and parser differentials |
+| [**LDAP / XPath Injection**](01-injection/ldap-xpath/ldap-xpath.md) | LDAP and XPath query injection mutation taxonomy |
+| [**Prototype Pollution**](01-injection/prototype-pollution/prototype-pollution.md) | JavaScript prototype chain pollution vectors and gadget chains |
+| [**GraphQL**](01-injection/graphql/graphql.md) | GraphQL introspection abuse, batching attacks, and injection vectors |
 
-### Authentication & Authorization
+### 02. Authentication & Authorization
 | Category | Description |
 |---|---|
-| [**Authentication Bypass & SSO**](authentication-bypass-and-sso/) | Single Sign-On and authentication bypass patterns |
-| [**OAuth**](oauth/) | OAuth 2.0 flow exploitation and token theft patterns |
-| [**JWT**](jwt/) | JSON Web Token algorithm confusion, key injection, and claim abuse |
-| [**SAML**](saml/) | SAML assertion forgery, signature wrapping, and parser differentials |
-| [**Cookie**](cookie/) | Cookie security bypass, scope confusion, and injection techniques |
-| [**CSRF**](csrf/) | Cross-Site Request Forgery token bypass and SameSite evasion |
-| [**CORS Misconfiguration**](cors-misconfiguration/) | Cross-Origin Resource Sharing misconfig exploitation patterns |
-| [**IDOR / BOLA**](idor-bola/) | Broken Object Level Authorization and reference manipulation |
-| [**Account Takeover**](account-takeover/) | Authentication bypass chains and account recovery exploitation |
-| [**Mass Assignment**](mass-assignment/) | Parameter binding abuse and hidden field injection |
+| [**Authentication Bypass & SSO**](02-auth/authentication-bypass-and-sso/authentication-bypass-and-sso.md) | Single Sign-On and authentication bypass patterns |
+| [**OAuth**](02-auth/oauth/oauth.md) | OAuth 2.0 flow exploitation and token theft patterns |
+| [**JWT**](02-auth/jwt/jwt.md) | JSON Web Token algorithm confusion, key injection, and claim abuse |
+| [**SAML**](02-auth/saml/saml.md) | SAML assertion forgery, signature wrapping, and parser differentials |
+| [**Cookie**](02-auth/cookie/cookie.md) | Cookie security bypass, scope confusion, and injection techniques |
+| [**CSRF**](02-auth/csrf/csrf.md) | Cross-Site Request Forgery token bypass and SameSite evasion |
+| [**CORS Misconfiguration**](02-auth/cors-misconfiguration/cors-misconfiguration.md) | Cross-Origin Resource Sharing misconfig exploitation patterns |
+| [**IDOR / BOLA**](02-auth/idor-bola/idor-bola.md) | Broken Object Level Authorization and reference manipulation |
+| [**Account Takeover**](02-auth/account-takeover/account-takeover.md) | Authentication bypass chains and account recovery exploitation |
+| [**Mass Assignment**](02-auth/mass-assignment/mass-assignment.md) | Parameter binding abuse and hidden field injection |
 
-### HTTP & Protocol Layer
+### 03. HTTP & Protocol Layer
 | Category | Description |
 |---|---|
-| [**HTTP Request Smuggling**](http-parsing-discrepancy/) | HTTP parsing discrepancies, desync attacks, and CL/TE mutations |
-| [**HTTP Header**](http-header/) | HTTP header injection, smuggling, and semantic abuse |
-| [**HTTP Parameter Pollution**](http-parameter-pollution/) | Parameter parsing discrepancy across backends and frameworks |
-| [**Reverse Proxy Misrouting**](http-parsing-discrepancy/) | Proxy path confusion, hop-by-hop abuse, and routing attacks |
-| [**Protocol-Level WAF Bypass**](http-parsing-discrepancy/) | HTTP protocol-layer WAF evasion techniques |
-| [**HTTP Censorship Bypass**](http-parsing-discrepancy/) | Censorship infrastructure bypass via protocol-level mutations |
-| [**WebSocket**](websocket/) | WebSocket handshake abuse, hijacking, and cross-site attacks |
-| [**DNS Web Security**](dns-web-security/) | DNS rebinding, subdomain takeover, and resolver abuse |
+| [**HTTP Request Smuggling**](03-http-protocol/http-parsing-discrepancy/http-request-smuggling.md) | HTTP parsing discrepancies, desync attacks, and CL/TE mutations |
+| [**HTTP Header**](03-http-protocol/http-header/http-header.md) | HTTP header injection, smuggling, and semantic abuse |
+| [**HTTP Parameter Pollution**](03-http-protocol/http-parameter-pollution/http-parameter-pollution.md) | Parameter parsing discrepancy across backends and frameworks |
+| [**WebSocket**](03-http-protocol/websocket/websocket.md) | WebSocket handshake abuse, hijacking, and cross-site attacks |
+| [**gRPC / tRPC**](03-http-protocol/grpc-and-trpc/grpc-and-trpc.md) | gRPC and tRPC protocol exploitation and security patterns |
+| [**DNS Web Security**](03-http-protocol/dns-web-security/dns-web-security.md) | DNS rebinding, subdomain takeover, and resolver abuse |
 
-### Server-Side Attacks
+### 04. Server-Side Attacks
 | Category | Description |
 |---|---|
-| [**SSRF**](ssrf/) | Server-Side Request Forgery bypass taxonomy and cloud metadata exploitation |
-| [**File Upload**](file-upload/) | File upload restriction bypass mutations and content-type confusion |
-| [**Deserialization**](deserialization/) | Deserialization gadget chains, format-specific attacks, and bypass taxonomy |
-| [**JNDI Injection**](jndi-injection/) | JNDI lookup exploitation (Log4Shell class) and remote class loading |
-| [**RMI**](rmi/) | Java Remote Method Invocation attack surface and registry abuse |
-| [**JDBC Attack**](jdbc-attack/) | JDBC connection string injection and driver-specific exploitation |
-| [**JAAS Attack**](jaas-attack/) | Java Authentication & Authorization Service bypass patterns |
-| [**Email Smuggling**](email/) | Email header injection, SMTP smuggling, and parser abuse |
+| [**SSRF**](04-server-side/ssrf/ssrf.md) | Server-Side Request Forgery bypass taxonomy and cloud metadata exploitation |
+| [**Path Traversal**](04-server-side/path-traversal/path-traversal.md) | Directory traversal, path normalization bypass, and file access attacks |
+| [**File Upload**](04-server-side/file-upload/file-upload.md) | File upload restriction bypass mutations and content-type confusion |
+| [**Deserialization**](04-server-side/deserialization/deserialization.md) | Deserialization gadget chains, format-specific attacks, and bypass taxonomy |
+| [**JNDI Injection**](04-server-side/jndi-injection/jndi-injection.md) | JNDI lookup exploitation (Log4Shell class) and remote class loading |
+| [**RMI**](04-server-side/rmi/rmi.md) | Java Remote Method Invocation attack surface and registry abuse |
+| [**JDBC Attack**](04-server-side/jdbc-attack/jdbc-attack.md) | JDBC connection string injection and driver-specific exploitation |
+| [**JAAS Attack**](04-server-side/jaas-attack/jaas-attack.md) | Java Authentication & Authorization Service bypass patterns |
+| [**Email Smuggling**](04-server-side/email/email-smuggling-and-parser-abuse.md) | Email header injection, SMTP smuggling, and parser abuse |
 
-### Client-Side & UI
+### 05. Client-Side & UI
 | Category | Description |
 |---|---|
-| [**UI Redressing**](ui-redressing/) | Clickjacking, drag-and-drop hijacking, and UI deception techniques |
-| [**Open Redirect**](open-redirect/) | URL redirect bypass techniques and chaining with other vulns |
-| [**Secondary Context Attack**](secondary-context-attack/) | Cross-context injection and inter-component trust abuse |
+| [**UI Redressing**](05-client-side/ui-redressing/ui-redressing.md) | Clickjacking, drag-and-drop hijacking, and UI deception techniques |
+| [**Open Redirect**](05-client-side/open-redirect/open-redirect.md) | URL redirect bypass techniques and chaining with other vulns |
+| [**Secondary Context Attack**](05-client-side/secondary-context-attack/secondary-context-attack.md) | Cross-context injection and inter-component trust abuse |
+| [**Client-Side Web Security**](05-client-side/client-side-web-security/client-side-web-security.md) | Client-side security vulnerabilities and exploitation patterns |
+| [**Browser Security Model**](05-client-side/browser-security-model/browser-security-model.md) | Browser security model bypass and same-origin policy violations |
+| [**Browser Extension Security**](05-client-side/browser-extension-security/browser-extension-security.md) | Browser extension vulnerabilities and attack surface |
+| [**Service Worker**](05-client-side/service-worker/service-worker.md) | Service Worker security issues and exploitation techniques |
+| [**XS-Leak**](05-client-side/xs-leak/xs-leak.md) | Cross-site leak attacks and timing side-channels |
 
-### Encoding & Parser Differential
+### 06. Encoding & Parser Differential
 | Category | Description |
 |---|---|
-| [**URL Confusion**](url-confusion/) | URL parser inconsistency attacks and normalization differentials |
-| [**Unicode**](unicode/) | Unicode normalization, case mapping, encoding attacks, and visual spoofing |
-| [**ZIP Archive**](zip-archive/) | Archive parsing differentials, path traversal, and Zip Slip exploitation |
+| [**URL Confusion**](06-encoding-parser/url-confusion/url-confusion.md) | URL parser inconsistency attacks and normalization differentials |
+| [**Unicode**](06-encoding-parser/unicode/unicode.md) | Unicode normalization, case mapping, encoding attacks, and visual spoofing |
+| [**ZIP Archive**](06-encoding-parser/zip-archive/zip-archive.md) | Archive parsing differentials, path traversal, and Zip Slip exploitation |
 
-### Application Logic
+### 07. Application Logic
 | Category | Description |
 |---|---|
-| [**Business Logic Vulnerabilities**](business-logic-bug/) | Application logic flaw patterns and state manipulation |
-| [**State Machine Violation**](state-machine-violation/) | Workflow state bypass and process order manipulation |
-| [**Web Race Condition**](web-race-condition/) | Concurrency exploitation, TOCTOU attacks, and limit-overrun |
-| [**Web Timing Attack**](web-timing-attack/) | Timing side-channels for enumeration and state inference |
-| [**Implicit Trust Boundary**](implicit-trust-boundary/) | Undocumented trust relationships and boundary crossing attacks |
+| [**Business Logic Vulnerabilities**](07-application-logic/business-logic-bug/business-logic-bug.md) | Application logic flaw patterns and state manipulation |
+| [**State Machine Violation**](07-application-logic/state-machine-violation/state-machine-violation.md) | Workflow state bypass and process order manipulation |
+| [**Web Race Condition**](07-application-logic/web-race-condition/web-race-condition.md) | Concurrency exploitation, TOCTOU attacks, and limit-overrun |
+| [**Web Timing Attack**](07-application-logic/web-timing-attack/web-timing-attack.md) | Timing side-channels for enumeration and state inference |
+| [**Implicit Trust Boundary**](07-application-logic/implicit-trust-boundary/implicit-trust-boundary.md) | Undocumented trust relationships and boundary crossing attacks |
 
-### Infrastructure & Supply Chain
+### 08. Infrastructure & Supply Chain
 | Category | Description |
 |---|---|
-| [**Dependency Confusion**](dependency-confusion/) | Package manager namespace attacks and supply chain injection |
-| [**Web Cache Poisoning & Deception**](web-cache-poisoning-and-deception/) | Cache key manipulation, unkeyed input abuse, and cache deception |
-| [**WAF Bypass (Payload-Level)**](waf-bypass/) | Payload-level WAF evasion — encoding, chunking, and format tricks |
+| [**Dependency Confusion**](08-infrastructure/dependency-confusion/dependency-confusion.md) | Package manager namespace attacks and supply chain injection |
+| [**Web Cache Poisoning & Deception**](08-infrastructure/web-cache-poisoning-and-deception/web-cache-poisoning-and-deception.md) | Cache key manipulation, unkeyed input abuse, and cache deception |
+| [**WAF Bypass (Payload-Level)**](08-infrastructure/waf-bypass/waf-bypass.md) | Payload-level WAF evasion — encoding, chunking, and format tricks |
+| [**CI/CD Pipeline Security**](08-infrastructure/ci-cd-pipeline-security/ci-cd-pipeline-security.md) | CI/CD pipeline vulnerabilities and supply chain attacks |
+| [**API Inventory Management**](08-infrastructure/api-inventory-management/api-inventory-management.md) | API discovery, shadow APIs, and inventory management security |
 
-### Framework-Specific
+### 09. Framework-Specific
 | Category | Description |
 |---|---|
-| [**Spring**](spring/) | Spring Framework-specific attack surface and misconfiguration |
-| [**ASP.NET**](asp-dot-net/) | ASP.NET specific vulnerabilities and exploitation patterns |
+| [**Spring**](09-frameworks/spring/spring.md) | Spring Framework-specific attack surface and misconfiguration |
+| [**ASP.NET**](09-frameworks/asp-dot-net/asp-dot-net.md) | ASP.NET specific vulnerabilities and exploitation patterns |
 
-### Recon & Methodology
+### 10. Recon & Methodology
 | Category | Description |
 |---|---|
-| [**Web Fingerprinting**](web-fingerprinting/) | Server and application fingerprinting techniques |
-| [**Web Fuzzing**](web-fuzzing/) | Web fuzzing strategies, wordlist generation, and parameter discovery |
-| [**Hidden Parameter Discovery**](recon/) | Undocumented parameter and endpoint enumeration |
-| [**Sam Curry Style Bugs**](sam-curry/) | Real-world business logic and API misconfig case studies |
-| [**Attack Style Taxonomy**](application-example/) | Cross-vulnerability attack pattern classification |
+| [**Web Fingerprinting**](10-recon-methodology/web-fingerprinting/web-fingerprinting.md) | Server and application fingerprinting techniques |
+| [**Web Fuzzing**](10-recon-methodology/web-fuzzing/web-fuzzing.md) | Web fuzzing strategies, wordlist generation, and parameter discovery |
+| [**Hidden Parameter Discovery**](10-recon-methodology/recon/recon.md) | Undocumented parameter and endpoint enumeration |
+| [**CTF Exotic Tricks**](10-recon-methodology/ctf-exotic-tricks/ctf-exotic-tricks.md) | Unconventional exploitation techniques from CTF competitions |
+
+### 11. Security Researchers
+| Researcher | Focus Areas |
+|---|---|
+| [**Sam Curry**](11-researchers/sam-curry/sam-curry.md) | Real-world business logic and API misconfig case studies |
+| [**Orange Tsai**](11-researchers/orange-tsai/orange-tsai.md) | Advanced web exploitation and novel attack chains |
+| [**Frans Rosén**](11-researchers/frans-rosen/frans-rosen.md) | Browser security and innovative client-side attacks |
+| [**LiveOverflow**](11-researchers/liveoverflow/liveoverflow.md) | Security research insights and exploitation techniques |
+| [**Soroush Dalili**](11-researchers/soroush-dalili/soroush-dalili.md) | IIS exploitation and web application security research |
+
+### Artifact Examples
+| Category | Description |
+|---|---|
+| [**Artifact Examples**](artifact-examples/) | Generated security tooling examples and proof-of-concepts (directory index) |
 
 ---
 
@@ -160,11 +179,22 @@ Every document in this repository was researched and synthesized using **Claude 
 
 ```
 the-map/
-  +-- <vulnerability-class>/
-       +-- <topic>.md          # Full mutation taxonomy document
+  ├── 01-injection/              # Injection attacks (SQL, NoSQL, XSS, etc.)
+  ├── 02-auth/                   # Authentication & Authorization
+  ├── 03-http-protocol/          # HTTP & Protocol Layer attacks
+  ├── 04-server-side/            # Server-side vulnerabilities
+  ├── 05-client-side/            # Client-side & Browser attacks
+  ├── 06-encoding-parser/        # Encoding & Parser differentials
+  ├── 07-application-logic/      # Business logic vulnerabilities
+  ├── 08-infrastructure/         # Infrastructure & Supply Chain
+  ├── 09-frameworks/             # Framework-specific vulnerabilities
+  ├── 10-recon-methodology/      # Reconnaissance & Methodology
+  ├── 11-researchers/            # Security researcher case studies
+  ├── artifact-examples/         # Generated tooling examples
+  └── README.md
 ```
 
-Each `.md` file follows a consistent three-axis classification:
+Each category contains related vulnerability classes, with each `.md` file following a consistent three-axis classification:
 1. **Axis 1 — Mutation Target**: What structural component is manipulated
 2. **Axis 2 — Discrepancy Type**: What mismatch or bypass the mutation creates
 3. **Axis 3 — Attack Scenario**: Real-world exploitation context mapping
