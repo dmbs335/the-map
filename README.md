@@ -9,7 +9,7 @@ A structured, comprehensive vulnerability mutation taxonomy collection for secur
 
 ## What is this?
 
-**The Map** is a **security knowledge base** that systematically classifies 80+ web vulnerability classes across 12 categories. Unlike conventional cheatsheets or CVE lists, each topic is organized by **structural mutation criteria** — what is mutated, what discrepancy it creates, and where it is weaponized.
+**The Map** is a **security knowledge base** that systematically classifies 90+ web vulnerability classes across 12 categories. Unlike conventional cheatsheets or CVE lists, each topic is organized by **structural mutation criteria** — what is mutated, what discrepancy it creates, and where it is weaponized.
 
 Each topic is a deeply structured Markdown reference document covering the full attack surface of a vulnerability class through a three-axis taxonomy (Mutation Target, Discrepancy/Bypass Type, Attack Scenario).
 
@@ -48,6 +48,7 @@ Each topic is a deeply structured Markdown reference document covering the full 
 | [**IDOR / BOLA**](02-auth/idor-bola.md) | Broken Object Level Authorization and reference manipulation |
 | [**Account Takeover**](02-auth/account-takeover.md) | Authentication bypass chains and account recovery exploitation |
 | [**Mass Assignment**](02-auth/mass-assignment.md) | Parameter binding abuse and hidden field injection |
+| [**Cryptographic Implementation Vulnerabilities**](02-auth/cryptographic-implementation-vulnerabilities.md) | Web-context cryptographic implementation flaws and bypass patterns |
 
 ### 03. HTTP & Protocol Layer
 | Category | Description |
@@ -74,6 +75,8 @@ Each topic is a deeply structured Markdown reference document covering the full 
 | [**JDBC Attack**](04-server-side/jdbc-attack.md) | JDBC connection string injection and driver-specific exploitation |
 | [**JAAS Attack**](04-server-side/jaas-attack.md) | Java Authentication & Authorization Service bypass patterns |
 | [**Email Smuggling**](04-server-side/email-smuggling-and-parser-abuse.md) | Email header injection, SMTP smuggling, and parser abuse |
+| [**File Download**](04-server-side/file-download.md) | Arbitrary file download, forced download, and file access control bypass |
+| [**Arbitrary File Write → RCE**](04-server-side/arbitrary-file-write-to-rce.md) | Cross-platform arbitrary file write to RCE chain taxonomy |
 | [**Document & Media Processing RCE**](04-server-side/document-media-processing-library-rce.md) | Document/media processing library exploitation (ImageMagick, Ghostscript, etc.) |
 | [**JMX Attack**](04-server-side/jmx-attack.md) | Java Management Extensions attack surface and MBean abuse |
 

