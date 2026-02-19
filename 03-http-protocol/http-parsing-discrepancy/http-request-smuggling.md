@@ -189,6 +189,8 @@ Mismatches between the H2 binary frame length and the CL/TE headers that survive
 
 These attacks exploit the H2 *frame sequence grammar* rather than individual header values carried within frames (cf. §4 for header-level H2 mutations).
 
+**Single-Packet H2 Tunneling.** The single-packet attack technique (originally developed for web race conditions) can be combined with H2→H1 downgrade desync to achieve high-reliability request tunneling. By coalescing multiple smuggled requests into a single TCP packet via HTTP/2 stream multiplexing, the attacker eliminates timing jitter between the front-end's H2 parsing and the back-end's H1 parsing — making desync-powered request tunneling as reliable as local exploitation. This synergy between race condition delivery mechanics and protocol-level desync converts theoretical H2 tunneling attacks into practical exploitation primitives.
+
 **Payload — H2.CL:**
 
 ```
@@ -832,6 +834,7 @@ Six years of individual patches and regex-based defenses block only **known muta
 - Jeppe Bonde Weikop — *Funky Chunks: Abusing Ambiguous Chunk Line Terminators for Request Smuggling* (2025). Novel chunk extension smuggling class: TERM.EXT, EXT.TERM, TERM.SPILL, SPILL.TERM. Smuggling without CL-vs-TE confusion. Google ALB ($15K×2), Imperva ($600). `smugchunks` scanner tool. *Funky Chunks Addendum* (2025.10): TERM.TRAIL, TRAIL.TERM, two-byte terminator overread. Google ALB ($13,337). Blog: `w4ke.info`.
 - Robert Merget, Nurullah Erinola, Marcel Maehren, Lukas Knittel, Sven Hebrok, Marcus Brinkmann, Juraj Somorovsky, Jörg Schwenk — *Opossum Attack: Cross-Protocol TLS Desync* (2025). Permanent desync via implicit + opportunistic TLS coexistence. 3M+ hosts affected. CVE-2025-49812 (Apache ≤2.4.63). Affects HTTP, SMTP, FTP, POP3, LMTP, NNTP. Bypasses ALPACA countermeasures. Site: `opossum-attack.com`.
 - Cache Poisoning → C2 Side Channel research (2025). CL.0 desync weaponized for covert C2 via CDN global cache Location header poisoning. Targets: Akamai, Azure, Oracle CDN; `.mil`, `.gov`, `.cn` domains. Blog: `malicious.group`.
+- assured.se — *The Single-Packet Shovel: Digging for Desync-Powered Request Tunnelling* (2025). Combining single-packet parallelization with HTTP/2 downgrade for reliable request tunneling exploitation.
 
 ### CVEs
 

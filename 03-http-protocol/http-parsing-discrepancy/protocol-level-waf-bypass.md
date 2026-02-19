@@ -312,7 +312,7 @@ Protocol-level bypasses are transport-agnostic — once a bypass channel is esta
 |---|---|---|
 | §1-4 (Chunk Extension Abuse) | CVE-2025-55315 (ASP.NET Core) | CVSS 9.9. HTTP request smuggling via chunk extensions. Microsoft's highest-severity ASP.NET Core CVE |
 | §9-1 (Origin IP Exposure) | BreakingWAF (Zafran, 2025) | Affects 40%+ of CDN/WAF-protected sites including JPMorganChase, Visa, Intel |
-| §5-1 (Path Normalization) + §5-1 (Percent-Encoded Query Delimiter) | CVE-2024-1019 (ModSecurity 3.0.0–3.0.11) | CVSS 8.6. URL path payload hidden from WAF path rules via percent-encoded `?` |
+| §5-1 (Path Normalization / Percent-Encoded Query Delimiter) | CVE-2024-1019 (ModSecurity 3.0.0–3.0.11) | CVSS 8.6. URL path payload hidden from WAF path rules via percent-encoded `?` |
 | §2-1 (Framework Header) + §9-2 (Alternate Endpoint) | CVE-2025-29927 (Next.js middleware bypass) | Authorization middleware bypass via `x-middleware-subrequest` header |
 | §4-2 (Multipart/Boundary) + §4-1 (Content-Type Confusion) | WAFFLED (ACSAC 2025) | 1,207 bypasses across AWS WAF, Azure, Cloud Armor, Cloudflare, ModSecurity |
 | §8-2 (H2C Smuggling) | Azure WAF H2C Bypass (Assetnote) | Global WAF bypass via HTTP/2 cleartext upgrade |

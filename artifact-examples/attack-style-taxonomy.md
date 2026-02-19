@@ -764,7 +764,7 @@
 | **Data Exfiltration** | SQLi, XXE, XSS | Cache deception | Token theft | IDOR mass access | — | Deser→file read | SSRF→metadata | Cross-tenant | Timing, XS-Leaks |
 | **Privilege Escalation** | — | Path confusion ACL bypass | JWT claim, OAuth scope | Primary impact | State skip→admin | — | — | Confused deputy | — |
 | **Account Takeover** | XSS→cookie steal | — | Primary impact | — | CSRF→email change | — | Open redirect→token | SSO linking | — |
-| **Denial of Service** | — | Smuggling→desync | PBES2 DoS | — | Cart bombing | Zip bomb, ReDoS | — | — | — |
+| **Denial of Service** | ReDoS | Smuggling→desync | PBES2 DoS | — | Cart bombing | Zip bomb | — | — | — |
 | **Financial Fraud** | — | — | — | — | Primary impact | — | — | — | — |
 | **Lateral Movement** | — | Smuggling→hijack | SSO token relay | Cross-tenant IDOR | — | — | SSRF→internal | Primary impact | — |
 
