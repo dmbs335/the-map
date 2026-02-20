@@ -1,0 +1,63 @@
+metadata:
+    language: v2-beta
+    name: "CDN and Edge Layer Identification"
+    description: "Identifies CDN/edge providers from provider-specific response headers. Taxonomy: §5-4 CDN Identification."
+    author: "the-map"
+    tags: "fingerprinting", "cdn", "passive", "recon"
+
+given response then
+    if {latest.response.headers} matches "(?i)CF-RAY:" then
+        report issue:
+            severity: info
+            confidence: certain
+            detail: `Cloudflare CDN detected via CF-RAY header. The CF-RAY value includes the Cloudflare POP identifier, revealing geographic edge location. Additional Cloudflare headers to examine: cf-cache-status, cf-request-id, cf-edge-ip.`
+            remediation: "Informational. Ensure the origin server IP is not exposed via DNS history, subdomains, or error pages. Use Cloudflare's IP access rules to restrict origin access."
+    end if
+
+    if {latest.response.headers} matches "(?i)X-Amz-Cf-Id:" then
+        report issue:
+            severity: info
+            confidence: certain
+            detail: `Amazon CloudFront CDN detected via X-Amz-Cf-Id header. AWS infrastructure is in use.`
+            remediation: "Informational. Ensure CloudFront is configured with proper origin access control. Restrict direct origin access to CloudFront IPs only."
+    end if
+
+    if {latest.response.headers} matches "(?i)X-Cache:.*HIT|X-Served-By:.*cache-" then
+        report issue:
+            severity: info
+            confidence: firm
+            detail: `Varnish/Fastly CDN cache layer detected via X-Cache or X-Served-By headers. Cache behavior may be exploitable for web cache poisoning or cache deception attacks.`
+            remediation: "Review cache key configuration. Ensure sensitive responses include appropriate Cache-Control: no-store headers."
+    end if
+
+    if {latest.response.headers} matches "(?i)(X-CDN:\s*Akamai|X-Akamai-|Akamai-)" then
+        report issue:
+            severity: info
+            confidence: certain
+            detail: `Akamai CDN detected via Akamai-specific response headers. Akamai's edge platform is in the request path.`
+            remediation: "Informational. Ensure Akamai configuration restricts access to origin servers and implements proper cache policies."
+    end if
+
+    if {latest.response.headers} matches "(?i)Via:\s*.*\d\.\d\s+(varnish|vegur|cloudfront|squid|BIG-IP)" then
+        report issue:
+            severity: info
+            confidence: firm
+            detail: `Intermediate proxy or CDN identified via Via header. The Via header reveals the proxy/CDN software and potentially version information for each hop in the request path.`
+            remediation: "Configure the edge/proxy layer to strip or sanitize the Via header before returning to clients."
+    end if
+
+    if {latest.response.headers} matches "(?i)X-Vercel-Id:" then
+        report issue:
+            severity: info
+            confidence: certain
+            detail: `Vercel platform detected via X-Vercel-Id header. This indicates a Next.js or serverless deployment on Vercel's edge network.`
+            remediation: "Informational. Review Vercel middleware configuration for authorization bypass patterns (CVE-2025-29927)."
+    end if
+
+    if {latest.response.headers} matches "(?i)X-Netlify-" then
+        report issue:
+            severity: info
+            confidence: certain
+            detail: `Netlify platform detected via X-Netlify headers.`
+            remediation: "Informational. Review Netlify function and redirect configurations for security implications."
+    end if

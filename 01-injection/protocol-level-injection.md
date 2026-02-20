@@ -461,6 +461,8 @@ The fundamental tension is that protocol simplicity enables injection: Redis's i
 - Simon Willison: "SQL Injection Isn't Dead: Smuggling Queries at the Protocol Level" — https://simonwillison.net/2024/Aug/12/smuggling-queries-at-the-protocol-level/
 - su18: "JDBC Connection URL Attack" — https://su18.org/post/jdbc-connection-url-attack/
 - Code Intelligence: "New Vulnerability in MySQL JDBC Driver: RCE and Unauthorized DB Access" — https://www.code-intelligence.com/blog/cve-jdbc-mysql-driver-rce-unauthorized-read-write-access
+- SonarSource: "Zimbra Email — Stealing Clear-Text Credentials via Memcache injection" (2022) — Memcache CRLF injection in Zimbra enabling credential theft
+- Doyhenard: "Exploiting Inter-Process Communication in SAP's HTTP Server" (Black Hat USA 2022) — SAP ICM shared memory IPC exploitation
 
 ---
 

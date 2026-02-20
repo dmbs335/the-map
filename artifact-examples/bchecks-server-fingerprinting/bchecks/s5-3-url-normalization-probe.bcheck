@@ -1,0 +1,41 @@
+metadata:
+    language: v2-beta
+    name: "URL Normalization Fingerprinting"
+    description: "Probes server URL normalization behavior to identify HTTP parser implementation. Taxonomy: §5-3 URL Normalization."
+    author: "the-map"
+    tags: "fingerprinting", "server", "active", "recon"
+
+given request then
+    send request called dotdotCheck:
+        replacing path: "/themap-test/../"
+
+    send request called backslashCheck:
+        replacing path: "/themap-test\\"
+
+    send request called doubleSlashCheck:
+        replacing path: "//themap-test//"
+
+    if {doubleSlashCheck.response.status_code} is "200" then
+        report issue:
+            severity: info
+            confidence: firm
+            detail: `The server accepts double slashes (//) in the URL path without rejecting or normalizing them. This can enable path confusion between different layers in a multi-layer architecture and may bypass path-based access controls.`
+            remediation: "Normalize double slashes at the reverse proxy layer. Reject or collapse duplicate path separators."
+    end if
+
+    if {dotdotCheck.response.status_code} is "200" and
+       {backslashCheck.response.status_code} is "200" then
+        report issue:
+            severity: info
+            confidence: firm
+            detail: `The server normalizes path traversal sequences (../) and backslashes in URLs, indicating a specific URL parser implementation. This normalization behavior can be used to fingerprint the server and may enable path confusion attacks in multi-layer architectures.`
+            remediation: "Ensure consistent URL normalization across all layers (CDN, reverse proxy, application server). Block malformed URL patterns at the edge."
+    end if
+
+    if {backslashCheck.response.status_code} is "200" then
+        report issue:
+            severity: info
+            confidence: firm
+            detail: `The server accepts backslash (\) as a path separator, converting it to forward slash. This is characteristic of IIS/Windows servers or certain application frameworks, and can be exploited for path confusion.`
+            remediation: "Reject URLs containing backslashes at the reverse proxy or WAF layer."
+    end if

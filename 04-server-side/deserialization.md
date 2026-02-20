@@ -382,6 +382,14 @@ Modern systems deploy deserialization filters (JEP 290, allowlists, WAF rules, s
 | **Chunked/Fragmented Delivery** | Splitting serialized payload across multiple HTTP chunks or requests to evade single-request inspection | WAF that doesn't reassemble chunked transfers before inspection |
 | **Parameter Pollution** | Sending the serialized payload in a parameter name or location that the WAF doesn't inspect (e.g., cookie vs. body, query parameter vs. header) | WAF with incomplete parameter coverage |
 
+### §7-4. .NET SerializationBinder Bypass
+
+| Subtype | Mechanism | Key Condition |
+|---|---|---|
+| **Nested Generic Type Resolution** | Inner types within generic containers (e.g., `List<T>`, `Dictionary<K,V>`) are resolved by the runtime without passing through the `SerializationBinder.BindToType()` check, allowing dangerous types to be instantiated as generic type arguments | Custom `SerializationBinder` with incomplete generic type inspection |
+| **Interface-Based Type Loading** | Requesting deserialization of an interface type that the binder permits, which the runtime resolves to a concrete implementation containing dangerous behavior (e.g., `ICollection` → `SortedSet` with comparison gadget) | Binder allowlists interfaces without restricting concrete implementations |
+| **Assembly-Qualified Name Manipulation** | Exploiting case differences, version number wildcards, or partial assembly names that bypass string-matching binder implementations while the .NET runtime still resolves to the intended dangerous type | Binder performs string comparison on assembly-qualified names without canonicalization |
+
 ---
 
 ## §8. Language and Platform-Specific Attack Vectors
@@ -395,6 +403,8 @@ Modern systems deploy deserialization filters (JEP 290, allowlists, WAF rules, s
 | **JNDI Injection Gadgets** | Gadgets that trigger JNDI lookups (`JdbcRowSetImpl`, `JMXConnector`) to attacker-controlled naming services, enabling remote class loading | JNDI enabled; network egress to attacker server; Java version allowing remote classloading |
 | **Spring Framework Gadgets** | Spring-specific deserialization vectors through `MethodInvokeTypeProvider`, `ObjectFactoryDelegatingInvocationHandler`, and Spring Expression Language (SpEL) injection via deserialized data | Spring Framework on classpath |
 | **RMI/IIOP Transport** | Java Remote Method Invocation and CORBA IIOP natively use Java serialization for parameter passing, making RMI endpoints inherent deserialization sinks | Exposed RMI/IIOP endpoint accepting remote connections |
+| **Lucee CFML Deserialization** | Lucee (open-source CFML engine on JVM) exposes Java deserialization sinks via expression language parsing and internal object marshalling — standard Java gadget chains apply through the underlying JVM runtime, demonstrated against Apple infrastructure | Lucee CFML server processing untrusted input; Java gadget libraries on classpath |
+| **Ignition SCADA Jython Chain** | Inductive Automation's Ignition gateway processes XML-serialized Java objects. A modified Jython gadget chain uses `PyFunction`/`PyCode` classes to achieve RCE through the embedded Python runtime, bypassing standard Java deserialization filters (CVE-2023-50220) | Ignition SCADA gateway with Jython on classpath; XML deserialization endpoint accessible |
 
 **Payload — ysoserial CommonsCollections5 (Java 8+):**
 ```bash
@@ -466,6 +476,9 @@ phpggc Symfony/RCE4 exec "whoami" -b
 | **JSON.NET $type Injection** | `TypeNameHandling` settings other than `None` enable `$type` property to control deserialized type, allowing instantiation of dangerous types like `ObjectDataProvider` | `TypeNameHandling != None` in Newtonsoft.Json configuration |
 | **Hardened Environment Gadget Discovery** | Systematic discovery of novel gadget chains in .NET environments where BinaryFormatter is banned and formatters are restricted to allowlisted types. Techniques include abusing `DataContractResolver` for type resolution, discovering sinks in non-standard assemblies (WPF, WCF, SharePoint), and constructing chains through `ISerializable` callbacks that bypass type allowlists | Hardened .NET environment using DataContractSerializer/JSON.NET with type restrictions; non-obvious gadget assemblies loaded |
 | **DataSetSurrogateSelector Bypass** | Type-confusion attack defeating `DataSetSurrogateSelector` allowlist via generic-wrapper instantiation, reaching `TemplateParser` for deserializing gadget activation (Top 10 Web Hacking 2025 nomination) | Specific .NET framework configuration with DataSet processing |
+| **PowerShell CLIXML Rehydration** | PowerShell serializes objects to CLIXML format for remoting and persistence. During deserialization via `Import-Clixml` or remote session data handling, attacker-crafted CLIXML specifies arbitrary .NET types through `<Obj>` elements with `<TN>` type descriptors, instantiating dangerous classes — `CimInstance` rehydration allows property injection into WMI objects, and user-defined `PSObject` types can target `ObjectDataProvider` sinks for RCE | PowerShell remoting endpoint or CLIXML import from untrusted source; no type allowlist enforced on deserialization |
+| **.NET Remoting over HTTP** | .NET Remoting endpoints (`.rem`, `.soap` extensions) accept `BinaryFormatter`/`SoapFormatter`-serialized objects via HTTP POST. `TypeFilterLevel.Low` restricts instantiable types, but XAML-based bypass uses `XamlReader.Load()` to create privileged objects (`ObjectDataProvider`, `ResourceDictionary`) outside the remoting type filter's scope — converting a filtered deserialization sink into an unfiltered XAML parsing sink | Exposed .NET Remoting endpoint over HTTP; `TypeFilterLevel.Low` bypassed via XAML parsing (Code White, 2024) |
+| **Exchange PowerShell Remoting** | Exchange Management Shell uses PowerShell remoting with custom type deserialization. `MultiValuedProperty<T>` generic type's deserialization logic resolves arbitrary inner types, bypassing type restrictions enforced on the remoting session — enabling gadget chain instantiation through generic type parameter manipulation | Exchange server with PowerShell remoting endpoint; post-ProxyNotShell mitigation environment |
 
 ### §8-5. Ruby Ecosystem
 
@@ -475,6 +488,7 @@ phpggc Symfony/RCE4 exec "whoami" -b
 | **YAML.load Exploitation** | `YAML.load()` (vs. `YAML.safe_load()`) processes arbitrary Ruby type tags, enabling object instantiation and command execution via `Gem::Installer`, `ERB`, or `Gem::Requirement` gadgets | `YAML.load()` on untrusted YAML data |
 | **Active Record Serialized Columns** | Rails Active Record columns configured with `serialize` use YAML by default; if attacker can influence column content, deserialization triggers arbitrary object instantiation (CVE-2022-32224) | Active Record `serialize` with YAML on attacker-influenced data |
 | **RubyGems Package Deserialization** | RubyGems historically used `YAML.load()` for gemspec parsing, enabling RCE through malicious gem metadata (CVE-2017-0903) | Older RubyGems versions processing untrusted gems |
+| **Gem::SafeMarshal Bypass** | Ruby's `Gem::SafeMarshal` wrapper restricts `Marshal.load()` to a subset of safe types. The `Date` class, permitted by SafeMarshal, serves as a deserialization primitive — its `marshal_load` method accepts attacker-controlled data that, combined with downstream processing of the reconstituted object, enables escape from the safe-deserialization sandbox to achieve RCE | Application or RubyGems package manager using `Gem::SafeMarshal` for untrusted input |
 
 ### §8-6. JavaScript/Node.js Ecosystem
 
@@ -579,7 +593,8 @@ class SleepyPickle:
 | **Filter/WAF Bypass** | Hardened endpoint with deserialization filters or network-level inspection | §6 + §7 + §1-2 |
 | **Framework-Specific Exploitation** | Application using specific framework with known gadgets (Spring, Laravel, Rails, React RSC) | §8 + §1-1 + §3 |
 | **Session/State Manipulation** | Application storing session state in serialized format (PHP sessions, ViewState, JWT) | §4-3 + §2-2 + §8 |
-| **Prompt Injection → Deserialization** | AI agent steered into generating crafted output that is then serialized/deserialized (LangGrinch pattern) | §9-2 + §5-2 |
+| **Prompt Injection → Deserialization** | AI agent steered into generating crafted output that is then serialized/deserialization (LangGrinch pattern) | §9-2 + §5-2 |
+| **Multi-Stage Exchange Exploitation (OWASSRF)** | Microsoft Exchange Server with post-ProxyShell/ProxyNotShell mitigations | §8-4 (Exchange PowerShell Remoting) + external SSRF | OWA endpoint SSRF (CVE-2022-41080) bypasses ProxyNotShell SSRF mitigations → reaches PowerShell remoting backend → `MultiValuedProperty<T>` generic type deserialization (CVE-2022-41082) → RCE. Extended by TabShell (CVE-2024-49040) with email-based trigger. |
 
 ---
 
@@ -597,6 +612,8 @@ class SleepyPickle:
 | §9-1 (Keras safe_mode bypass) | Keras config.json tampering | RCE even with safe_mode=True via model archive manipulation |
 | §4-3 + §8-6 (Next.js Flight Protocol) | CVE-2025-66478 (Next.js, duplicate of CVE-2025-55182) | Rejected as duplicate; same React Flight protocol flaw |
 | §8-4 (DataSet type-confusion) | .NET DataSetSurrogateSelector bypass (Top 10 2025 nomination) | Pre-auth RCE via type-confusion → TemplateParser gadget chain |
+| §8-4 (Exchange PowerShell Remoting) | CVE-2022-41080 + CVE-2022-41082 (Microsoft Exchange "OWASSRF") | Pre-auth RCE chain: OWA endpoint SSRF bypasses ProxyNotShell mitigations → PowerShell remoting → generic type deserialization → RCE. Exploited in Play ransomware campaigns (2022). |
+| §8-4 (Exchange PowerShell Remoting) | CVE-2024-49040 (Microsoft Exchange "TabShell") | Exchange email smuggling → PowerShell remoting deserialization → RCE. Extends OWASSRF chain with email-based initial access vector. |
 
 ---
 
@@ -685,7 +702,11 @@ The only robust defense is to **eliminate the conflation of data and behavior**:
 
 **[CVE-2022-40609]** IBM SDK Java Technology Edition — JEP 290 Bypass via ORB Deserialization. CVSS 8.1. [[IBM Bulletin]](https://www.ibm.com/support/pages/security-bulletin-cve-2022-40609-affects-ibm-sdk-java-technology-edition)
 
+**[CVE-2023-50220]** Inductive Automation Ignition — XML Deserialization RCE via Modified Jython Gadget Chain. CVSS 8.8. [[NVD]](https://nvd.nist.gov/vuln/detail/CVE-2023-50220)
+
 **[CVE-2022-32224]** Rails Active Record Serialized Columns — RCE via YAML Deserialization. CVSS 9.8. [[Rails Advisory]](https://discuss.rubyonrails.org/t/cve-2022-32224-possible-rce-escalation-bug-with-serialized-columns-in-active-record/81017) [[GitHub Advisory]](https://github.com/advisories/GHSA-3hhc-qp5v-9p2j)
+
+**[CVE-2019-18935]** Telerik UI for ASP.NET AJAX RadAsyncUpload — Insecure Deserialization RCE via `RadAsyncUpload` handler. CVSS 9.8. [[NVD]](https://nvd.nist.gov/vuln/detail/CVE-2019-18935)
 
 **[CVE-2017-0903]** RubyGems Unsafe Object Deserialization via YAML. [[RubyGems Blog]](https://blog.rubygems.org/2017/10/09/unsafe-object-deserialization-vulnerability.html)
 
@@ -726,4 +747,8 @@ The only robust defense is to **eliminate the conflation of data and behavior**:
 **[A3]** Cisco Talos. "Breaking the Jar: Hardening Pickle File Scanners with Structure-Aware Fuzzing." [[Blog]](https://blogs.cisco.com/ai/hardening-pickle-file-scanners)
 
 **[A4]** Hugging Face. "Pickle Scanning." [[Documentation]](https://huggingface.co/docs/hub/security-pickle)
+
+**[A5]** CodeWhite. "Bypassing .NET Serialization Binders" (2022). Systematic techniques for bypassing `SerializationBinder` implementations in .NET deserialization defenses. [[Blog]](https://codewhitesec.blogspot.com/2022/06/bypassing-dotnet-serialization-binders.html)
+
+**[A6]** Viettel Cybersecurity. "The OWASSRF + TabShell Exploit Chain" (2022/2024). Multi-stage Microsoft Exchange exploitation: OWASSRF (CVE-2022-41080 + CVE-2022-41082) and TabShell (CVE-2024-49040). [[Blog]](https://blog.viettelcybersecurity.com/tabshell-owassrf/)
 

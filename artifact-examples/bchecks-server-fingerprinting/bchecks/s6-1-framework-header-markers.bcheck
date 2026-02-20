@@ -1,0 +1,39 @@
+metadata:
+    language: v2-beta
+    name: "Framework-Specific Header Detection"
+    description: "Detects web framework identity from technology-specific response headers. Taxonomy: §6-1 HTTP Header Technology Markers."
+    author: "the-map"
+    tags: "fingerprinting", "framework", "passive", "recon"
+
+given response then
+    if {latest.response.headers} matches "(?i)(X-Drupal-Cache|X-Drupal-Dynamic-Cache|X-Generator:\s*Drupal)" then
+        report issue:
+            severity: info
+            confidence: certain
+            detail: `Drupal CMS detected via framework-specific response headers. An attacker can target known Drupal vulnerabilities (Drupalgeddon, SA-CORE series).`
+            remediation: "Remove or suppress Drupal-specific headers via middleware or reverse proxy configuration."
+    end if
+
+    if {latest.response.headers} matches "(?i)(X-WordPress-|X-Pingback:.*xmlrpc\.php|Link:.*wp-json)" then
+        report issue:
+            severity: info
+            confidence: certain
+            detail: `WordPress detected via framework-specific response headers. An attacker can target WordPress core, plugin, and theme vulnerabilities.`
+            remediation: "Remove WordPress-specific headers. Disable XML-RPC if not needed. Consider removing the REST API link header."
+    end if
+
+    if {latest.response.headers} matches "(?i)X-Magento-(Vary|Cache-Control|Tags)" then
+        report issue:
+            severity: info
+            confidence: certain
+            detail: `Magento e-commerce platform detected via X-Magento headers. High-value target for payment card skimming attacks (CVE-2024-34102 CosmicSting, CVE-2024-20720).`
+            remediation: "Strip Magento-specific headers at the reverse proxy layer. Ensure Magento is patched against known RCE vulnerabilities."
+    end if
+
+    if {latest.response.headers} matches "(?i)X-Shopify-Stage" then
+        report issue:
+            severity: info
+            confidence: certain
+            detail: `Shopify platform detected via X-Shopify-Stage header.`
+            remediation: "This is a managed platform header. Review Shopify app permissions and third-party integrations for security risks."
+    end if

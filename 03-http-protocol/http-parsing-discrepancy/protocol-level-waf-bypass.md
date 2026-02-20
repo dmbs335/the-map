@@ -10,7 +10,7 @@ This taxonomy covers **protocol-level WAF bypass techniques** — mutations that
 
 ### Organizational Axes
 
-**Axis 1 — Protocol Component (Primary Structure):** *What protocol-layer element is being manipulated?* This axis defines the top-level sections (§1–§9). Categories range from HTTP message framing (request smuggling) through header/method manipulation, content-type parsing, URL normalization, and parameter handling, to protocol upgrades and architectural network-level bypasses.
+**Axis 1 — Protocol Component (Primary Structure):** *What protocol-layer element is being manipulated?* This axis defines the top-level sections (§1–§9). Categories range from HTTP message framing (request smuggling) through header/method manipulation, content-type parsing, URL normalization, and parameter handling, to protocol upgrades, TLS/SSL layer manipulation, and architectural network-level bypasses.
 
 **Axis 2 — Discrepancy Type (Cross-Cutting):** *What kind of mismatch between the WAF and the backend does the manipulation exploit?*
 
@@ -207,6 +207,7 @@ Mutations that exploit which input channels the WAF inspects and how duplicate/d
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
 | **Cookie Injection** | Place payloads in cookie values. Some WAFs do not fully inspect cookie contents or have reduced rule sets for cookies. | Backend reflects or processes cookie values |
+| **$Version Cookie Attribute Abuse** | RFC 2109 defines `$Version`, `$Path`, and `$Domain` as cookie attributes. Prepending `$Version=1` forces compliant parsers into quoted-string mode where values like `sessionid="<payload>"` are valid. WAFs using strict RFC 6265 parsing ignore or reject the `$Version` prefix entirely, while lenient backends (Java Servlet, older ASP.NET) parse the quoted-string values and reflect or process the embedded payload unfiltered. | Backend uses RFC 2109–aware cookie parser; WAF uses RFC 6265 strict parsing that ignores `$Version` |
 | **Header-Based Payload Delivery** | Inject payloads via `Referer`, `User-Agent`, `X-Forwarded-Host`, or custom headers. WAF rules typically focus on URL, query, and body parameters. | Backend uses header values in SQL, templates, or logs |
 | **File Upload Content** | Embed payloads within uploaded file content (SVG with JavaScript, CSV with formulas, XML with XXE). WAFs may not deeply parse uploaded file contents. | Backend processes uploaded file content |
 | **WebSocket Messages** | After an initial HTTP upgrade handshake, subsequent WebSocket frames may not pass through the WAF's HTTP inspection engine. | WAF does not inspect WebSocket frame payloads |
@@ -286,6 +287,19 @@ Bypasses that avoid the WAF entirely by reaching the origin server through alter
 | **TOR / VPN / Cloud Function Egress** | Route requests through TOR, VPN services, or serverless function IP ranges (AWS Lambda, GCP Cloud Functions) that have clean reputations. | WAF uses IP-based blocklists |
 | **Geographic IP Selection** | Use IP addresses from geographic regions that the WAF is configured to allow, bypassing geo-blocking rules. | WAF has geography-based allow/deny rules |
 
+### §9-4. TLS/SSL Layer Evasion
+
+Bypasses that exploit the TLS layer sitting between the TCP connection and the HTTP request. Cloud and reverse-proxy WAFs typically terminate TLS, decrypt the traffic, inspect the plaintext HTTP, and then re-encrypt toward the origin. Manipulating TLS negotiation parameters or bypassing TLS termination entirely causes the WAF to never see the plaintext request.
+
+| Subtype | Mechanism | Key Condition |
+|---|---|---|
+| **Cipher Suite Mismatch** | Negotiate a cipher suite that the WAF's TLS termination proxy cannot decrypt or does not support, but that the origin server does. The WAF passes the opaque TLS session through without inspection (TLS passthrough / fail-open). | WAF is configured for TLS passthrough on unsupported cipher suites; origin supports the negotiated cipher |
+| **TLS Version Downgrade** | Force negotiation of a TLS version (e.g., TLS 1.0, SSLv3) that the WAF's inspection engine does not handle. Some WAFs only inspect TLS 1.2+ traffic and pass older versions uninspected. | WAF does not inspect legacy TLS versions; origin still accepts them |
+| **ClientHello Fragmentation** | Split the TLS ClientHello message across multiple TCP segments. Some WAFs that perform TLS-level inspection fail to reassemble fragmented handshake messages, causing the connection to bypass inspection or the WAF to fall back to passthrough mode. | WAF does not reassemble fragmented TLS handshake records |
+| **SNI Mismatch / Absence** | Omit the Server Name Indication (SNI) extension or set it to a different hostname than the actual target. WAFs that route TLS inspection based on SNI may not apply the correct rule set or may skip inspection entirely for unrecognized hostnames. | WAF uses SNI for TLS routing and rule selection |
+| **Direct-to-Origin HTTPS** | After discovering the origin IP (§9-1), connect directly to the origin over HTTPS, completing the TLS handshake with the origin server. The WAF's TLS termination point is never involved, so no HTTP inspection occurs. Unlike plain HTTP direct-to-origin, this works even when the origin requires HTTPS. | Origin IP is known; origin accepts TLS connections from non-WAF IPs |
+| **Client Certificate (mTLS) Absence Exploitation** | When the WAF enforces mutual TLS but the origin does not (or vice versa), an attacker can skip the WAF by connecting directly to the origin without presenting a client certificate, or can bypass mTLS enforcement through the WAF by using an alternative endpoint that does not require it. | mTLS enforcement is inconsistent between WAF and origin |
+
 ---
 
 ## §10. Attack Scenario Mapping
@@ -298,7 +312,7 @@ Protocol-level bypasses are transport-agnostic — once a bypass channel is esta
 | **Cache Poisoning** | §1 (smuggling for desync) + §2-2 (header manipulation) + §5-1 (path confusion) |
 | **Request Routing Hijack** | §1 (smuggling) + §2-1 (Host/Authority header injection) + §5-1 (path normalization) |
 | **WAF Denial of Service** | §7 (processing limits) + §1-4 (chunk manipulation) + §9-3 (IP flooding) |
-| **Full WAF Bypass (Any Payload)** | §8-2 (H2C smuggling) + §9-1 (origin IP) + §8-3 (WebSocket tunnel) |
+| **Full WAF Bypass (Any Payload)** | §8-2 (H2C smuggling) + §9-1 (origin IP) + §8-3 (WebSocket tunnel) + §9-4 (TLS layer evasion) |
 | **Internal Service Access** | §9-2 (SSRF) + §8-3 (CONNECT tunneling) + §1 (smuggling to internal routes) |
 | **SQL/XSS/RCE Delivery** | §4-2 (multipart evasion) + §6-1 (HPP) + §6-2 (alternate input channels) + §4-1 (content-type confusion) |
 | **Path Traversal / LFI** | §5-1 (path normalization) + §6-1 (cross-location pollution) + §2-2 (header injection) |
@@ -330,6 +344,7 @@ Protocol-level bypasses are transport-agnostic — once a bypass channel is esta
 |---|---|---|
 | **WAFFLED** (Fuzzer) | Multipart/Content-Type parsing discrepancies across AWS, Azure, Cloud Armor, Cloudflare, ModSecurity | Content-type-specific fuzzing: mutates boundaries, charsets, namespaces, multipart structure |
 | **WAFManis** (Framework) | Protocol-level WAF evasion testing | Systematic mutation of HTTP protocol features (headers, methods, encoding) |
+| **Break the Wall from Bottom** (Jianjun Chen et al.) | Automated HTTP parsing discrepancy discovery | Differential testing framework that systematically discovers protocol-level WAF evasion by fuzzing HTTP request structure (method, path, headers, chunked encoding, content-type boundaries) and comparing parsing behavior between WAF/CDN frontends and backend servers. Identifies framing disagreements and normalization mismatches that enable request smuggling and rule bypass at scale |
 | **Burp Suite — Request Smuggler** | HTTP/1.1 and HTTP/2 request smuggling detection | CL.TE, TE.CL, H2.CL, H2.TE desync testing |
 | **Burp Suite — Param Miner** | Hidden parameter and header discovery | Discovers backend-processed headers the WAF doesn't inspect |
 | **h2cSmuggler** (Bishop Fox) | H2C upgrade bypass testing | Automates HTTP/2 cleartext upgrade attack through reverse proxies |
@@ -360,15 +375,16 @@ Protocol-level WAF bypasses are structurally more powerful than payload-level by
 
 ### The Parsing Asymmetry Problem
 
-The fundamental challenge is that WAFs must **parse HTTP messages identically** to the backend — but they are **not the backend**. Every difference in how message boundaries are determined (§1), how headers are parsed (§2), how content types are interpreted (§4), how paths are normalized (§5), how parameters are extracted (§6), and how protocol upgrades are handled (§8) becomes a bypass vector. The 2025 WAFFLED research demonstrated this comprehensively: by fuzzing only protocol-level elements (boundaries, charsets, namespaces) while keeping payloads constant, researchers found 1,207 bypasses across five major WAF vendors.
+The fundamental challenge is that WAFs must **parse HTTP messages identically** to the backend — but they are **not the backend**. Every difference in how message boundaries are determined (§1), how headers are parsed (§2), how content types are interpreted (§4), how paths are normalized (§5), how parameters are extracted (§6), how protocol upgrades are handled (§8), and how the TLS layer is negotiated (§9-4) becomes a bypass vector. The 2025 WAFFLED research demonstrated this comprehensively: by fuzzing only protocol-level elements (boundaries, charsets, namespaces) while keeping payloads constant, researchers found 1,207 bypasses across five major WAF vendors.
 
 ### Structural Defenses
 
 1. **Strict RFC-compliant request normalization** at the edge (HTTP Normalizer), rejecting malformed or ambiguous requests before they reach the WAF or backend.
 2. **End-to-end HTTP/2** without downgrade, eliminating the HTTP/1.1 text-based ambiguities that enable request smuggling.
 3. **Origin network isolation**: firewall rules ensuring the origin server only accepts traffic from WAF provider IP ranges.
-4. **Elimination of early-response gadgets** that enable 0.CL desync attacks.
-5. **Defense-in-depth**: application-layer security (parameterized queries, output encoding, input validation) as the primary defense, with the WAF as a supplementary probabilistic filter.
+4. **TLS termination enforcement**: disable TLS passthrough/fail-open, restrict origin to modern TLS versions only, and ensure all cipher suites are inspectable by the WAF.
+5. **Elimination of early-response gadgets** that enable 0.CL desync attacks.
+6. **Defense-in-depth**: application-layer security (parameterized queries, output encoding, input validation) as the primary defense, with the WAF as a supplementary probabilistic filter.
 
 ---
 
@@ -383,6 +399,7 @@ The fundamental challenge is that WAFs must **parse HTTP messages identically** 
 - HTTP Request Smuggling Using Chunk Extensions — CVE-2025-55315 (F5 DevCentral) — https://community.f5.com/kb/security-insights/http-request-smuggling-using-chunk-extensions-cve-2025-55315/344118
 - Breaking Down Multipart Parsers: File Upload Validation Bypass (SicuraNext) — https://blog.sicuranext.com/breaking-down-multipart-parsers-validation-bypass/
 - When WAFs Go Awry: Common Detection & Evasion Techniques (MDSec, 2024) — https://www.mdsec.co.uk/2024/10/when-wafs-go-awry-common-detection-evasion-techniques-for-web-application-firewalls/
+- 0x09AL: Bypassing Web-Application Firewalls by Abusing SSL/TLS (2018) — https://0x09al.github.io/waf/bypass/ssl/2018/07/02/web-application-firewall-bypass.html
 - Awesome-WAF (0xInfection, GitHub) — https://github.com/0xInfection/Awesome-WAF
 - 2026 WAF Security Test: Key Findings (Check Point) — https://blog.checkpoint.com/securing-the-cloud/waf-security-test-results-2026-why-prevention-first-matters-more-than-ever
 - Miggo Research: More than Half of Public Vulnerabilities Bypass Leading WAFs (2025) — https://www.helpnetsecurity.com/2025/12/18/miggo-research-waf-vulnerability-bypass/

@@ -1,0 +1,38 @@
+metadata:
+    language: v2-beta
+    name: "Status Code Differential Fingerprinting"
+    description: "Sends edge-case requests to fingerprint server by error handling behavior. Taxonomy: §5-2 Status Code Selection."
+    author: "the-map"
+    tags: "fingerprinting", "server", "active", "recon"
+
+given request then
+    send request called longUrl:
+        replacing path: "/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+
+    if {longUrl.response.status_code} is "414" then
+        report issue:
+            severity: info
+            confidence: firm
+            detail: `The server returns HTTP 414 (URI Too Long) for oversized URLs. The specific threshold and response format help distinguish server implementations. Apache returns 414 at 8KB by default, nginx at 4KB, IIS at 16KB.`
+            remediation: "Informational. Server-specific URL length limits aid in fingerprinting."
+    end if
+
+    send request called invalidMethod:
+        method: "THEMAP"
+        replacing path: "/"
+
+    if {invalidMethod.response.status_code} is "501" then
+        report issue:
+            severity: info
+            confidence: firm
+            detail: `The server returns 501 (Not Implemented) for unknown HTTP methods. This is characteristic of Apache HTTPD. nginx typically returns 405, and IIS returns 501 with a different error format.`
+            remediation: "Informational. Different servers handle invalid methods differently, aiding fingerprinting."
+    end if
+
+    if {invalidMethod.response.status_code} is "405" then
+        report issue:
+            severity: info
+            confidence: firm
+            detail: `The server returns 405 (Method Not Allowed) for unknown HTTP methods. This is characteristic of nginx, Express, and many application frameworks. The response headers (Allow list) provide additional fingerprinting data.`
+            remediation: "Informational."
+    end if

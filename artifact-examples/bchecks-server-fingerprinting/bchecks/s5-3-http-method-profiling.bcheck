@@ -1,0 +1,32 @@
+metadata:
+    language: v2-beta
+    name: "HTTP Method Support Profiling"
+    description: "Probes TRACE and OPTIONS methods to fingerprint server behavior and detect dangerous methods. Taxonomy: §5-3 Method Support Profiling."
+    author: "the-map"
+    tags: "fingerprinting", "server", "active", "recon"
+
+given request then
+    send request called traceCheck:
+        method: "TRACE"
+        replacing path: "/"
+
+    if {traceCheck.response.status_code} is "200" and
+       {traceCheck.response.body} matches "(?i)TRACE\s+/" then
+        report issue:
+            severity: medium
+            confidence: certain
+            detail: `The server supports the TRACE HTTP method and echoes the request back in the response body. This can enable Cross-Site Tracing (XST) attacks to steal credentials from HttpOnly cookies, and aids in server fingerprinting through the echoed header ordering.`
+            remediation: "Disable TRACE method. Apache: TraceEnable Off. nginx: Return 405 for TRACE. IIS: Disable in Request Filtering."
+    end if
+
+    send request called optionsCheck:
+        method: "OPTIONS"
+        replacing path: "/"
+
+    if {optionsCheck.response.headers} matches "(?i)Allow:\s*(.*)" then
+        report issue:
+            severity: info
+            confidence: certain
+            detail: `The server responds to OPTIONS requests with an Allow header listing supported HTTP methods. The specific set of allowed methods and their order fingerprints the server software.`
+            remediation: "Restrict OPTIONS response to only necessary methods. Block OPTIONS at the edge if not required for CORS preflight."
+    end if

@@ -235,6 +235,7 @@ Multi-step attacks that chain Actuator endpoints to achieve RCE.
 | **SnakeYAML deserialization** | Chain: `/actuator/env` sets `spring.cloud.bootstrap.location` to malicious YAML URL → `/actuator/refresh` triggers SnakeYAML deserialization | Spring Cloud + SnakeYAML < 2.0, env + refresh endpoints exposed | RCE |
 | **Eureka XStream deserialization** | Chain: `/actuator/env` sets `eureka.client.serviceUrl.defaultZone` to malicious server → `/actuator/refresh` triggers XStream deserialization | Spring Cloud Netflix Eureka client on classpath | RCE |
 | **Logback JNDI via Jolokia** | Jolokia endpoint triggers Logback's `JMXConfigurator` to reload logging config from external URL containing JNDI references | Jolokia + Logback, JNDI not restricted | RCE |
+| **Logback JoranConfigurator RCE** | Chain: `/actuator/env` sets `logging.config` property to attacker-controlled URL → `/actuator/restart` triggers Spring Boot to reinitialize the logging system, invoking Logback's `JoranConfigurator` to load the external XML configuration. The malicious Logback XML achieves RCE through `<insertFromJNDI>` elements, `<receiver>` with arbitrary class instantiation, or Janino `<evaluator>` expression evaluation — without requiring Jolokia on the classpath | Spring Boot with Logback (default), env + restart Actuator endpoints exposed; does not require Jolokia (srcincite research) | RCE |
 
 ### §5-3. Actuator Path Discovery & Bypass
 
@@ -563,6 +564,7 @@ The fundamental mitigation requires moving from **denylist-based security** (blo
 - Acunetix Research — Thymeleaf SSTI exploitation
 - SonicWall Threat Intelligence — CVE-2024-37084 analysis
 - Various HeroDevs, SentinelOne, Miggo vulnerability advisories (2024–2025)
+- wya.pl: "SpEL Casting and Evil Beans" (2022) — Systematic exploitation of Spring Bean access (`@beanName`) as gadget chains for SpEL injection
 
 ---
 

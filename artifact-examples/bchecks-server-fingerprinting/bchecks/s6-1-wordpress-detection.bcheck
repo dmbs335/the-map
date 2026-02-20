@@ -1,0 +1,43 @@
+metadata:
+    language: v2-beta
+    name: "WordPress CMS Detection"
+    description: "Actively probes for WordPress-specific paths and files. Taxonomy: §6-1 Default File and Directory Structure."
+    author: "the-map"
+    tags: "fingerprinting", "wordpress", "cms", "active", "recon"
+
+given request then
+    send request called wpLogin:
+        replacing path: "/wp-login.php"
+
+    if {wpLogin.response.status_code} is "200" and
+       {wpLogin.response.body} matches "(?i)(wp-login|wordpress)" then
+        report issue:
+            severity: info
+            confidence: certain
+            detail: `WordPress CMS detected via accessible wp-login.php. The login page is publicly accessible, enabling brute-force attacks against user accounts. Check for: xmlrpc.php (amplified brute-force), wp-json/wp/v2/users (user enumeration), readme.html (version disclosure).`
+            remediation: "Restrict access to wp-login.php by IP. Implement rate limiting. Disable XML-RPC if not needed. Remove readme.html."
+    end if
+
+    send request called wpReadme:
+        replacing path: "/readme.html"
+
+    if {wpReadme.response.status_code} is "200" and
+       {wpReadme.response.body} matches "(?i)(wordpress|Version\s*[\d.]+)" then
+        report issue:
+            severity: low
+            confidence: certain
+            detail: `WordPress readme.html is publicly accessible and discloses the WordPress version number. This allows targeted exploitation of version-specific vulnerabilities.`
+            remediation: "Delete readme.html from the WordPress root or block access via server configuration."
+    end if
+
+    send request called wpUsers:
+        replacing path: "/wp-json/wp/v2/users"
+
+    if {wpUsers.response.status_code} is "200" and
+       {wpUsers.response.body} matches "\"slug\":" then
+        report issue:
+            severity: low
+            confidence: certain
+            detail: `WordPress REST API user enumeration endpoint is publicly accessible. This exposes usernames that can be used for brute-force login attacks.`
+            remediation: "Disable the users endpoint or require authentication via a security plugin or custom REST API filter."
+    end if

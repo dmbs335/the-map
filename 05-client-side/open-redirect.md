@@ -368,6 +368,7 @@ Techniques that chain open redirects with other functionality to amplify impact 
 | **Same-domain chaining** | Chain multiple same-domain redirects to reach external target | `/redirect1?url=/redirect2?url=evil.com` | Each hop validates "same domain" but final hop exits |
 | **Cross-domain chain** | Redirect through multiple trusted domains | `trusted-a.com/redir→trusted-b.com/redir→evil.com` | Each domain only validates previous hop |
 | **Redirect loop as SSRF** | Recursive redirect chains exhaust server resources or bypass filters | Internal redirect loop that eventually resolves externally | Server follows redirects server-side without loop detection |
+| **Cross-service ecosystem chain** | Chain open redirects across services sharing an identity provider to escalate scope; each service trusts the redirect from its sibling | YouTube open redirect → Google Docs OAuth consent → Drive file access grant via clickjacking overlay | Services share OAuth token context; scope not re-validated on cross-service redirect boundary |
 
 ### §9-2. OAuth/SSO Token Theft
 
@@ -394,6 +395,7 @@ Techniques that chain open redirects with other functionality to amplify impact 
 | **SameSite cookie bypass** | JavaScript redirect triggers top-level navigation | Open redirect creates top-level request bypassing SameSite=Lax | Redirect occurs as top-level navigation, not cross-site embed |
 | **Reflected XSS amplification** | Open redirect cached → reflected becomes stored | Cache poisoning + open redirect → persistent phishing | §7-3 — cached redirect serves malicious content |
 | **CSRF via GET redirect** | Open redirect forces authenticated GET with side effects | `/redirect?url=https://app.com/delete-account` | Application performs state-changing action on GET |
+| **Desktop/Electron app RCE via custom scheme** | Open redirect navigates to a custom URI scheme (`customapp://`, `electron://`, `vscode://`) registered by a desktop or Electron application; the application's protocol handler processes the attacker-controlled URL, potentially executing commands or loading arbitrary content | `https://app.com/redirect?url=customapp://exec?cmd=calc` — Hangouts Chat Electron app executed code via custom protocol handler redirect | Desktop/Electron app registers custom URI scheme; protocol handler does not validate redirect origin |
 
 ### §9-5. Phishing and Social Engineering
 

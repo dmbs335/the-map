@@ -218,6 +218,7 @@ Many common document formats are ZIP archives containing XML files. Injecting XX
 | **RSS/Atom feeds** | Syndication feeds | Feed parsers that process user-submitted feed URLs |
 | **SAML** | Security Assertion Markup Language | SAML assertions and responses are XML; XXE in SAML can bypass authentication |
 | **XMPP** | Extensible Messaging and Presence Protocol | Chat protocol using XML streams |
+| **EPP (Extensible Provisioning Protocol)** | EPP (RFC 5730) / XML over TLS | EPP is an XML-native protocol for domain registration between registrars and registries. XXE in EPP server implementations enables local file disclosure and unauthorized domain zone manipulation — demonstrated via CoCCA Registry Software compromise affecting ccTLD infrastructure |
 
 ### §4-3. Content-Type Confusion
 
@@ -325,6 +326,7 @@ Java has the broadest XML processing ecosystem and, historically, the most permi
 | **`LIBXML_NOENT` flag** | Explicitly enables entity substitution — re-introduces XXE even in PHP 8.0+ |
 | **`simplexml_load_string()` with options** | Passing `LIBXML_NOENT` as option makes it vulnerable |
 | **PHP stream wrappers** | `php://filter`, `expect://`, `phar://`, `data://` available via libxml2's I/O handlers (§3-4) |
+| **`LIBXML_NONET` bypass (double-parse)** | `LIBXML_NONET` suppresses network access but not parameter-entity expansion at parse time; in parse–sanitize–re-parse flows, entities referencing `php://filter` chains expand during the first pass before the flag takes effect, enabling local file reads in hardened configurations |
 
 ### §6-3. .NET XML Parsers
 
@@ -488,6 +490,7 @@ This section consolidates bypass techniques from across the taxonomy, organized 
 | **File Upload XXE** | Application accepts DOCX/XLSX/SVG/PDF uploads | §4-1 + §1-1 |
 | **API XXE** | REST/SOAP endpoint accepting XML | §4-2 + §4-3 |
 | **WAF-Evaded XXE** | WAF-protected application | §5-1 + §5-3 + §8 |
+| **XXE via Request Smuggling** | WAF-fronted application with HTTP desync vulnerability | §4-2 + §8 — smuggled request body delivers XXE payload past WAF XML inspection to backend parser |
 | **XXE to RCE** | PHP or Java application with exploitable chain | §3-4/§3-5 + §7-5 |
 | **Denial of Service** | Any application parsing XML | §7-1 |
 
@@ -504,6 +507,7 @@ This section consolidates bypass techniques from across the taxonomy, organized 
 | §1-1 + §6-1 (Java) | CVE-2024-45072 — IBM WebSphere Application Server | Privileged user XXE; sensitive information exposure, memory consumption. |
 | §1-1 + §3-2 + §6-1 | CVE-2024-22354 — IBM WebSphere Application Server Liberty | XXE with SSRF capability; remote attacker can expose sensitive information. |
 | §4-1 (XLSX) + §1-1 | CVE-2025-49493 — Akamai CloudTest | XXE via uploaded XML test configuration; fixed by disabling DTD processing entirely. |
+| §4-2 (EPP XXE) | CoCCA Registry Software EPP XXE (2023) | Local file disclosure + ccTLD zone manipulation via XXE in domain registration protocol |
 
 ---
 

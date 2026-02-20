@@ -155,6 +155,7 @@ Impact: SSH private keys recoverable from public Git signing history
 | **Weak RSA Key Generation** | Keys generated with insufficient entropy, shared prime factors across devices (common in IoT/embedded), or degenerate parameters (e.g., `e=1`). Factorable.net found 0.2% of TLS RSA public keys shared prime factors. | Low-entropy PRNG at key generation time. Mass-produced devices with identical firmware generating keys at first boot. |
 | **RSA Short Key Length** | RSA keys below 2048 bits are factorizable with moderate resources. 1024-bit keys are within reach of well-funded attackers. 512-bit keys (FREAK/export-grade) are trivially factorizable on consumer hardware. | Legacy systems or misconfigured servers offering short RSA keys. FREAK: forcing export-grade 512-bit RSA. |
 | **Coppersmith's Attack on Short Padding** | When RSA encryption uses short or predictable padding (or the message is partially known), lattice-based techniques recover the plaintext from a single ciphertext. Applicable when the unknown portion of the message is less than `n^(1/e)` bits. | Short or predictable padding. High public exponent `e` with small unknown message portion. |
+| **Public Key Encryption as Token Authentication (Confidentiality ≠ Authenticity)** | OIDC/OAuth implementations that encrypt refresh tokens or session tokens using RSA public keys retrievable from public JWKS endpoints (`.well-known/jwks.json`). Since the public key is available to anyone, any party can encrypt arbitrary token payloads that the server will successfully decrypt and accept — the server confuses "I can decrypt this" with "this is authentic." The attacker extracts the public RSA key, constructs a token with forged claims (user identity, scopes, expiration), encrypts it with the public key, and submits it to the token endpoint. The server decrypts successfully, trusts the claims, and issues valid access tokens for the victim's account | RSA public key used for token encryption is publicly accessible (JWKS endpoint). Token integrity relies solely on encryption (no separate signature or MAC). Token structure/schema is predictable or documented. (See `oauth.md` for OAuth-specific context.) |
 
 ### §2-3. Ed25519 Implementation Flaws
 
@@ -566,6 +567,7 @@ The only durable approach is **raising the abstraction level**: developers shoul
 - fast-jwt Advisory. CVE-2025-30144 (Issuer claim bypass).
 - Proofpoint / IOActive. "Authentication Downgrade Attacks: MFA Bypass." 2025.
 - MystenLabs. "ed25519-unsafe-libs: Vulnerable Ed25519 Implementations." GitHub.
+- Emil Lerner: "A story of leaking uninitialized memory from Fastly" (2022) — CDN infrastructure uninitialized memory disclosure (Heartbleed-pattern vulnerability in Fastly edge servers)
 
 ---
 

@@ -81,6 +81,7 @@ Goes beyond static wordlists by constructing path candidates dynamically.
 | **Pattern-based path inference** | Infers undiscovered paths from discovered patterns (e.g., `/api/v1/users` → `/api/v2/users`, `/api/v1/admin`) | API versioning or consistent naming scheme |
 | **JavaScript-extracted endpoint discovery** | Parses JavaScript files to extract hardcoded API endpoints, paths, and route definitions | SPA/modern web apps that define routes in client-side JavaScript |
 | **Sitemap/robots.txt-seeded fuzzing** | Uses entries from `robots.txt` and `sitemap.xml` as seed paths for further fuzzing | Disallowed paths reveal sensitive areas to target |
+| **Domain-name-derived backup discovery** | Generates wordlists by applying systematic transformations to the target domain name (extensions, prefixes, suffixes, archive formats) to discover forgotten backup files, database dumps, and configuration exports | Web server serves static files from document root; backup files created with domain-derived naming conventions |
 
 ---
 
@@ -563,6 +564,7 @@ Targets WebSocket connections that maintain persistent, bidirectional communicat
 | **QuicDraw** (Go) | HTTP/3 racing/fuzzing | QUIC stream multiplexing for race conditions and protocol fuzzing |
 | **Nuclei** (Go) | Template-based scanning | YAML-defined vulnerability checks with community templates |
 | **CeWL** (Ruby) | Custom wordlist generation | Target-specific wordlist creation via web crawling |
+| **fuzzuli** (Go) | Backup file discovery | Domain-name-based wordlist generation with systematic naming convention transformations |
 
 ### Defensive Tools
 

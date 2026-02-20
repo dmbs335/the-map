@@ -100,6 +100,7 @@ Source control systems (Git, SVN, Mercurial) manage code versioning. Attackers t
 | **Submodule Poisoning** | Point Git submodules to attacker-controlled repositories | Submodules updated without review |
 | **`.git` Directory Exploitation** | Manipulate Git metadata to hide malicious commits or bypass controls | Direct filesystem access to `.git` |
 | **Signed Commit Spoofing** | Forge commit signatures to appear as trusted maintainers | GPG key compromise or validation bypass |
+| **Cross Fork Object Reference (CFOR)** | Accessing commits from deleted forks, private repositories, and deleted repositories through GitHub's shared object storage — fork networks share a common object pool, so git objects remain accessible via direct SHA-1 reference on any remaining fork | Fork network with shared git object storage; attacker knows or discovers commit SHA-1 |
 
 ### §2-3. Pull Request and Review Bypass
 

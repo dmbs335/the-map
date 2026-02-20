@@ -342,6 +342,7 @@ Misrouting through misconfigured proxy rules — the routing logic itself is the
 - Envoy Proxy Security Advisories: GHSA-xcx5-93pw-jw2w, GHSA-4987-27fx-x6cf, GHSA-r222-74fw-jqr9, GHSA-ffhv-fvxq-r6mf
 - Invicti: *SSRF Vulnerabilities Caused by SNI Proxy Misconfigurations*
 - Joshua Rogers: *proxy_pass: Nginx's Dangerous URL Normalization of Paths*, 2024
+- Positive Technologies: "Jetty Features for Hacking Web Apps" (2022) — Systematic catalog of Jetty-specific attack surface: path parameter confusion, cookie parser differentials, request smuggling vectors
 
 ---
 

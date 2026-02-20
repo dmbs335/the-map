@@ -1,0 +1,76 @@
+metadata:
+    language: v2-beta
+    name: "Default Error Page Server Fingerprinting"
+    description: "Probes for default error pages that reveal server software identity. Taxonomy: §5-2 Default Error Page Analysis."
+    author: "the-map"
+    tags: "fingerprinting", "server", "active", "recon"
+
+given request then
+    send request called check:
+        replacing path: "/themap-nonexistent-path-8f3a2b1c"
+
+    if {check.response.status_code} is "404" then
+        if {check.response.body} matches "(?i)<address>Apache/[\d.]+" then
+            report issue:
+                severity: low
+                confidence: certain
+                detail: `Apache HTTPD identified via default 404 error page signature. The default error page includes the Apache version in an <address> tag.`
+                remediation: "Configure custom error pages: ErrorDocument 404 /custom-404.html. Set ServerSignature Off."
+        end if
+
+        if {check.response.body} matches "(?i)<center>nginx" then
+            report issue:
+                severity: low
+                confidence: certain
+                detail: `nginx identified via default 404 error page format. The default nginx error page uses a distinctive <center>nginx</center> pattern.`
+                remediation: "Configure custom error pages: error_page 404 /custom-404.html. Set server_tokens off."
+        end if
+
+        if {check.response.body} matches "(?i)(Microsoft-IIS|IIS[\s/][\d.]+)" then
+            report issue:
+                severity: low
+                confidence: certain
+                detail: `Microsoft IIS identified via default error page content.`
+                remediation: "Configure custom error pages in IIS Manager or web.config <httpErrors> section."
+        end if
+
+        if {check.response.body} matches "(?i)(Tomcat|Apache Tomcat)" then
+            report issue:
+                severity: low
+                confidence: certain
+                detail: `Apache Tomcat identified via default error page. May expose exact version and internal paths.`
+                remediation: "Configure custom error pages in web.xml <error-page> elements. Disable Tomcat's default error reporting."
+        end if
+
+        if {check.response.body} matches "(?i)(Whitelabel Error Page|\"status\":404|Spring Boot)" then
+            report issue:
+                severity: info
+                confidence: firm
+                detail: `Spring Boot detected via Whitelabel Error Page or JSON error response. Indicates Java + Spring stack.`
+                remediation: "Configure custom error handling: implement ErrorController or configure server.error.whitelabel.enabled=false."
+        end if
+
+        if {check.response.body} matches "(?i)(Django|You're seeing this error because you have DEBUG = True)" then
+            report issue:
+                severity: high
+                confidence: certain
+                detail: `Django DEBUG mode detected! The Django debug page exposes settings, environment variables, installed apps, SQL queries, and full stack traces. This may leak database credentials, secret keys, and internal paths.`
+                remediation: "Set DEBUG = False in settings.py for production. Configure ALLOWED_HOSTS and proper error pages."
+        end if
+
+        if {check.response.body} matches "(?i)(Werkzeug|Traceback \(most recent call last\))" then
+            report issue:
+                severity: high
+                confidence: firm
+                detail: `Python Werkzeug debugger or unhandled exception traceback detected. The Werkzeug debugger provides an interactive Python console (RCE) if the debugger PIN is not set.`
+                remediation: "Disable Werkzeug debugger in production. Set FLASK_DEBUG=0. Use proper WSGI server (gunicorn, uWSGI)."
+        end if
+
+        if {check.response.body} matches "(?i)(Laravel|Symfony\\|Ignition|The Mix manifest does not exist)" then
+            report issue:
+                severity: low
+                confidence: firm
+                detail: `Laravel/Symfony PHP framework detected via error page patterns. May indicate debug mode exposure.`
+                remediation: "Set APP_DEBUG=false in .env for production. Configure custom error views."
+        end if
+    end if

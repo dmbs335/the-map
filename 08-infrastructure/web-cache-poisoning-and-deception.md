@@ -143,6 +143,7 @@ Unkeyed header mutations exploit headers that **influence the origin server's re
 | **X-Host / X-Forwarded-Server** | Same mechanism via alternative forwarding headers; some frameworks check multiple host-related headers in priority order | Framework falls back to non-standard host headers |
 | **X-Original-URL / X-Rewrite-URL** | Origin uses these headers to override the request path entirely; attacker can make a cacheable URL return the response for a different path | IIS/ASP.NET or specific reverse proxy configurations |
 | **Duplicate Host header** | Two `Host` headers with different values — cache keys on one, origin routes on another | Proxy and origin disagree on which Host header to use |
+| **CDN-internal debug/pragma header** | CDN-specific internal headers (e.g., Akamai `Pragma: akamai-x-cache-on`, debug headers) are unkeyed and can alter origin or edge behavior — causing error responses, debug output, or altered content that gets cached. When the CDN's cache hierarchy propagates poisoned responses from a shared mid-tier cache to all edge nodes, a single poisoned request achieves **global** cache poisoning across every edge PoP simultaneously | CDN with unkeyed internal/debug headers; hierarchical cache architecture where edge nodes pull from shared parent cache (Tediosi, 2022 — all Akamai edge nodes poisoned via single request) |
 
 ### §3-2. Resource Import Poisoning
 
@@ -438,6 +439,8 @@ Each fix addresses a specific mutation — stripping one header, blocking one de
 - PortSwigger Web Security Academy — *Web Cache Deception*: https://portswigger.net/web-security/web-cache-deception
 - Hackmanit — *Web Cache Vulnerability Scanner*: https://github.com/Hackmanit/Web-Cache-Vulnerability-Scanner
 - HCache Research Tool: https://github.com/phantomnothingness/HCache
+- Jacopo Tediosi — *Worldwide Server-side Cache Poisoning on All Akamai Edge Nodes* (2022): https://medium.com/@jacopotediosi/worldwide-server-side-cache-poisoning-on-all-akamai-edge-nodes-50k-bounty-earned-f97d80f3922b
+- nokline — *Caching the Un-cacheables — Abusing URL Parser Confusions (Web Cache Exploitation at Scale)* (2022): https://nokline.github.io/bugbounty/2022/09/02/Glassdoor-Cache-Poisoning.html
 
 ---
 

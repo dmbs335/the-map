@@ -1,0 +1,15 @@
+metadata:
+    language: v2-beta
+    name: "Server Banner Extraction"
+    description: "Detects web server software and version from the Server header. Taxonomy: §5-1 HTTP Response Header Analysis."
+    author: "the-map"
+    tags: "fingerprinting", "server", "passive", "recon"
+
+given response then
+    if {latest.response.headers} matches "Server:\s*(Apache|nginx|Microsoft-IIS|LiteSpeed|Caddy|OpenResty|Cloudflare|AmazonS3|Kestrel|Jetty|Tomcat|Gunicorn|Werkzeug|Cowboy|Tengine|lighttpd|Cherokee|Hiawatha|H2O|Varnish)[/\s\-]?[\d.]*" then
+        report issue:
+            severity: info
+            confidence: certain
+            detail: `The server discloses its software identity via the Server response header. This enables targeted exploit selection against known vulnerabilities in the identified server software and version.`
+            remediation: "Remove or obfuscate the Server header. For Apache: ServerTokens Prod. For nginx: server_tokens off. For IIS: Use URL Rewrite to remove the header."
+    end if

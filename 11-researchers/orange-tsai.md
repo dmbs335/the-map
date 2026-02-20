@@ -854,6 +854,10 @@ Orange Tsai's genius is recognizing that these aren't bugs to be patched—they'
 - **worst.fit** - WorstFit vulnerability database
 - **Apache HTTP Server** - [Official Project](https://httpd.apache.org/)
 
+### Additional Research (Not Yet Fully Cataloged)
+
+- **"Let's Dance in the Cache — Destabilizing Hash Table on Microsoft IIS"** (Black Hat USA 2022) — IIS output cache hash table collision → cache poisoning
+
 ---
 
 **Document Metadata**

@@ -474,6 +474,7 @@ This section maps injection techniques to exploitation scenarios based on data e
 | §2-1 (argument injection in AI agents) | Multiple (2025) | AI coding agents (MCP-based) | Argument injection in AI tool-calling flows enables arbitrary code execution on developer machines. |
 | §1 + §7-1 (glob CLI exec) | CVE-2025-64756 | glob CLI (npm) | Command injection via `--cmd` flag when processing files with malicious names. |
 | §7-5 (BatBadBut Windows escaping bypass) | CVE-2024-24576 / CERT VU#123335 | Rust std, Node.js, PHP, Haskell + others | Critical RCE (CVSS 10.0). Array-based "safe" APIs invoke cmd.exe for .bat/.cmd, defeating backslash-based argument escaping. |
+| §1 + §7-1 (cloud infrastructure CLI) | CVE-2024-50603 | Aviatrix Controller | Unauthenticated RCE via `cloud_type` parameter injection in cloud gateway management API. CVSS 10.0. Actively exploited in the wild. |
 
 ---
 

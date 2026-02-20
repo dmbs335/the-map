@@ -1,0 +1,31 @@
+metadata:
+    language: v2-beta
+    name: "Python Framework Detection"
+    description: "Detects Python web frameworks (Django, Flask, FastAPI, Tornado) from response headers and cookies. Taxonomy: §6-1."
+    author: "the-map"
+    tags: "fingerprinting", "python", "passive", "recon"
+
+given response then
+    if {latest.response.headers} matches "(?i)(X-Powered-By:\s*(Django|Flask|FastAPI|Tornado|Gunicorn|uWSGI|Sanic)|Server:\s*(Werkzeug|gunicorn|uvicorn|Daphne|Hypercorn|TornadoServer))" then
+        report issue:
+            severity: info
+            confidence: certain
+            detail: `Python web framework detected via response headers. Django: check for debug mode exposure, SSTI. Flask: check for debug console, Jinja2 SSTI. FastAPI: check for /docs and /openapi.json exposure.`
+            remediation: "Remove technology-identifying headers. Disable debug mode in production. Strip Server header via reverse proxy."
+    end if
+
+    if {latest.response.headers} matches "(?i)Set-Cookie:.*csrftoken=" then
+        report issue:
+            severity: info
+            confidence: certain
+            detail: `Django framework detected via default CSRF cookie name 'csrftoken'. This reveals the backend technology for targeted attacks.`
+            remediation: "Change the default CSRF cookie name via Django CSRF_COOKIE_NAME setting."
+    end if
+
+    if {latest.response.headers} matches "(?i)Set-Cookie:.*sessionid=" then
+        report issue:
+            severity: info
+            confidence: firm
+            detail: `Potential Django framework detected via default session cookie name 'sessionid'.`
+            remediation: "Change the default session cookie name via Django SESSION_COOKIE_NAME setting."
+    end if

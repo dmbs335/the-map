@@ -1,0 +1,31 @@
+metadata:
+    language: v2-beta
+    name: "Header Value Formatting Fingerprint"
+    description: "Detects server identity from header value formatting patterns (ETag, Date, Content-Type). Taxonomy: §5-1 Header Value Formatting."
+    author: "the-map"
+    tags: "fingerprinting", "server", "passive", "recon"
+
+given response then
+    if {latest.response.headers} matches "ETag:\s*\"[0-9a-f]+-[0-9a-f]+-[0-9a-f]+\"" then
+        report issue:
+            severity: info
+            confidence: firm
+            detail: `Apache HTTPD detected via ETag format. Apache generates ETags in the format "inode-size-mtime" (three hexadecimal segments), which differs from nginx (simple hex), IIS (Etag with specific timestamp format), and others. The inode component may also leak filesystem metadata.`
+            remediation: "Configure ETag format: FileETag MTime Size (remove inode). Or strip ETags entirely if not needed for caching."
+    end if
+
+    if {latest.response.headers} matches "ETag:\s*W/\"[0-9a-f]{1,8}-" then
+        report issue:
+            severity: info
+            confidence: firm
+            detail: `Weak ETag format detected that may indicate a specific server or framework. The ETag generation pattern is a secondary fingerprinting signal.`
+            remediation: "Informational. Consider using opaque ETag values that don't reveal internal state."
+    end if
+
+    if {latest.response.headers} matches "(?i)X-Request-Id:\s*[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}" then
+        report issue:
+            severity: info
+            confidence: firm
+            detail: `UUID-format X-Request-Id header detected. The UUID version (v1 with timestamp vs v4 random) and format can identify the framework and request tracing library (e.g., Rails, Express middleware, Spring).`
+            remediation: "Informational. Ensure request IDs don't leak internal timing or node information (avoid UUID v1)."
+    end if

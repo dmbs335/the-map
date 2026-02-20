@@ -294,6 +294,7 @@ Gadgets discovered in the Node.js and Deno runtime source code itself (not in th
 | **Privilege Escalation (31 gadgets in Node.js)** | Polluted properties modify permission checks, file system access controls, or network configurations | Runtime version with unpatched gadgets |
 | **Path Traversal (13 gadgets in Node.js)** | File path resolution reads polluted components | File operations without explicit path normalization |
 | **Deno Runtime Gadgets (67 gadgets)** | Despite Deno's permission-based security model, gadgets exist in internal APIs that bypass resource restrictions when permissions are granted | Deno application with relevant permissions granted |
+| **Undefined-oriented Programming (UoP)** | A systematic methodology for discovering prototype pollution gadgets by identifying code paths that read properties whose values are `undefined` under normal execution. Since `Object.prototype` pollution only affects property lookups that would otherwise return `undefined`, UoP precisely maps all such "undefined property sinks" in a codebase and traces them to security-sensitive operations. This converts gadget discovery from manual code review into a scalable analysis problem, revealing gadgets invisible to traditional taint analysis because the polluted property has no explicit source in the application code | Any JavaScript runtime; methodology applied to Node.js and major npm packages to discover previously unknown gadgets (Yinzhi Cao et al., USENIX 2024) |
 
 ### §5-4. `require()` and Module Resolution Gadgets
 
@@ -499,3 +500,4 @@ Techniques for identifying prototype pollution without causing denial of service
 - Sonar Research: "Remote Code Execution via Prototype Pollution in Blitz.js"
 - YesWeHack: "Probing the Server-Side: Detecting and Exploiting Prototype Pollution"
 - Cobalt: "A Pentester's Guide to Prototype Pollution Attacks"
+- jerkeby.se: "What is prototype poisoning? Prototype bugs explained" (2022) — Prototype pollution vulnerability classification and exploitation taxonomy

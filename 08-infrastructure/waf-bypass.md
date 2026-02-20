@@ -129,6 +129,17 @@ Mutations that exploit the gap between what the WAF's rules recognize as malicio
 | **Heredoc / Herestring** | Feed commands through heredoc syntax | `cat <<< $(whoami)`, `python3 << 'EOF'\nimport os\nos.system('id')\nEOF` | WAF does not model heredoc syntax |
 | **PowerShell Obfuscation** | Use PowerShell-specific evasion | `-enc` (Base64 encoded command), `Invoke-Expression`, string reversal, tick insertion (`` `w`h`o`a`m`i ``) | WAF does not cover PowerShell syntax |
 
+### §2-4. Browser Behavior Exploitation (Zero-Day WAF Evasion)
+
+Exploiting undocumented, novel, or recently introduced browser behaviors that WAF signatures have not yet been updated to handle. Unlike encoding or syntax alternatives (which exploit known interpreter features), these attacks leverage zero-day browser parsing quirks or newly shipped DOM APIs that fall entirely outside the WAF's detection model.
+
+| Subtype | Mechanism | Example | Key Condition |
+|---|---|---|---|
+| **Novel DOM API sink** | Newly introduced browser APIs (`setHTMLUnsafe()`, Sanitizer API, Declarative Shadow DOM) create execution paths unknown to WAF rule sets | `<template shadowrootmode="open"><script>alert(1)</script></template>` — declarative shadow DOM attaches and executes script without matching any existing WAF signature | WAF rules do not cover recently shipped DOM APIs |
+| **Browser parser recovery quirk** | Browser-specific HTML error recovery behavior produces executable DOM structures from seemingly inert input; each browser's recovery algorithm differs | Tag sequences that trigger specific parser state transitions (foreign content entry, table foster parenting) producing event handlers from fragments that appear textual | WAF models HTML parsing differently from the target browser's error recovery algorithm |
+| **CSS-triggered script execution** | Novel CSS features (`content-visibility`, `scroll-timeline`, `@container`) interact with DOM events to trigger JavaScript execution through non-obvious paths | `<div oncontentvisibilityautostatechange=alert(1) style="content-visibility:auto">` fires without user interaction via a 2025-era CSS property | WAF does not track CSS property-to-DOM-event interaction paths |
+| **Protocol handler / URL parsing quirk** | Browser-specific protocol handlers (`web+*:`, `blob:`, custom schemes) or URL parsing edge cases create execution contexts unrecognized by WAF pattern matching | URL scheme construction via encoding tricks or whitespace insertion that browsers resolve but WAFs cannot decode | WAF URL parsing does not match browser's URL resolution algorithm |
+
 ---
 
 ## §3. Detection Engine Exploitation
@@ -275,6 +286,7 @@ ML-based WAFs shift the problem from rule completeness to training data complete
 - 2026 WAF Security Test: Key Findings (Check Point) — https://blog.checkpoint.com/securing-the-cloud/waf-security-test-results-2026-why-prevention-first-matters-more-than-ever
 - Miggo Research: More than Half of Public Vulnerabilities Bypass Leading WAFs (2025) — https://www.helpnetsecurity.com/2025/12/18/miggo-research-waf-vulnerability-bypass/
 - WAFFLED: Exploiting Parsing Discrepancies to Bypass Web Application Firewalls (ACSAC 2025) — https://arxiv.org/html/2503.10846v1
+- terjanq: "WAF bypasses via 0days" (2022) — Novel browser behavior exploitation for WAF evasion using zero-day techniques
 
 ---
 

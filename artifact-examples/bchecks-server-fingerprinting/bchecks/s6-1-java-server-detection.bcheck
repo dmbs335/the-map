@@ -1,0 +1,31 @@
+metadata:
+    language: v2-beta
+    name: "Java Application Server Detection"
+    description: "Detects Java application servers (Tomcat, Jetty, WildFly, WebLogic, WebSphere) from response headers. Taxonomy: §5-1 + §6-1."
+    author: "the-map"
+    tags: "fingerprinting", "java", "passive", "recon"
+
+given response then
+    if {latest.response.headers} matches "(?i)Server:\s*(Apache-Coyote|Apache Tomcat)" then
+        report issue:
+            severity: info
+            confidence: certain
+            detail: `Apache Tomcat application server detected. Target for Java deserialization attacks, JSP upload vulnerabilities, and manager interface brute-force.`
+            remediation: "Configure Tomcat server.xml: <Connector server='WebServer' /> to suppress the default banner."
+    end if
+
+    if {latest.response.headers} matches "(?i)Server:\s*(Jetty|Eclipse Jetty)" then
+        report issue:
+            severity: info
+            confidence: certain
+            detail: `Eclipse Jetty server detected. Check for known Jetty vulnerabilities including path traversal and HTTP/2 issues.`
+            remediation: "Configure Jetty to suppress the Server header via HttpConfiguration.setSendServerVersion(false)."
+    end if
+
+    if {latest.response.headers} matches "(?i)(X-Powered-By:\s*(Servlet|JSP)|Server:\s*(WildFly|JBoss|WebLogic|WebSphere|GlassFish|Payara))" then
+        report issue:
+            severity: info
+            confidence: certain
+            detail: `Java EE / Jakarta EE application server detected. High-value target for JNDI injection (Log4Shell pattern), Java deserialization, and EL injection attacks.`
+            remediation: "Strip technology-identifying headers at the reverse proxy layer. Ensure the application server and all dependencies are patched."
+    end if

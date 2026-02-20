@@ -463,6 +463,8 @@ Critical: Account takeover via subdomain → OAuth flow hijacking
 | NahamCon EU | 2022 | RCE on Apple Through Hot Jar Swapping |
 | THREAT CON | 2022 | Security Research Keynote |
 
+**2018 "Attacking Modern Web Technologies" Key Techniques**: The OWASP AppSec EU 2018 presentation introduced three attack patterns that became foundational to Rosén's later OAuth Dirty Dancing research (§3-1): (1) **postMessage listener exploitation** — systematically discovering weak `postMessage` handlers on error pages, callback endpoints, and analytics iframes that leak `location.href` or DOM content to any requesting origin; (2) **third-party JavaScript widget abuse** — weaponizing chat widgets, analytics SDKs, and social login embeds as URL extraction gadgets (expanded in §5-4); (3) **modern framework client-side routing exploitation** — abusing React/Angular SPA routing to trigger unintended state transitions and token exposure via fragment/hash manipulation.
+
 ### §7-4. Bug Bounty Statistics
 
 **Career Earnings**: $500,000+ (publicly disclosed)

@@ -1,0 +1,27 @@
+metadata:
+    language: v2-beta
+    name: "Missing Security Headers Fingerprint"
+    description: "Identifies technology stack and security posture through absence of security headers. Taxonomy: §5-1 + §6-3."
+    author: "the-map"
+    tags: "fingerprinting", "security-headers", "passive", "recon"
+
+given response then
+    if not({latest.response.headers} matches "(?i)Strict-Transport-Security:") and
+       not({latest.response.headers} matches "(?i)X-Content-Type-Options:") and
+       not({latest.response.headers} matches "(?i)X-Frame-Options:") then
+        report issue:
+            severity: low
+            confidence: firm
+            detail: `The response is missing standard security headers (HSTS, X-Content-Type-Options, X-Frame-Options). The absence of these headers suggests the application lacks a security header middleware, which is common in default/unhardened deployments. This aids fingerprinting by indicating the maturity and configuration level of the deployment.`
+            remediation: "Implement security headers via middleware. Express: use helmet. Django: SecurityMiddleware. Spring: Spring Security default headers. nginx: add_header directives."
+    end if
+
+    if {latest.response.headers} matches "(?i)Content-Security-Policy:" then
+        if {latest.response.headers} matches "(?i)Content-Security-Policy:.*'unsafe-inline'" then
+            report issue:
+                severity: info
+                confidence: certain
+                detail: `CSP with 'unsafe-inline' detected. The CSP policy allows inline scripts, significantly reducing XSS protection. The specific CSP directives can fingerprint the framework and its default security configuration.`
+                remediation: "Remove 'unsafe-inline' from script-src. Use nonces or hashes for necessary inline scripts."
+        end if
+    end if

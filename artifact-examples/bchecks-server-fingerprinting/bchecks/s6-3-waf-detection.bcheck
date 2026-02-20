@@ -1,0 +1,68 @@
+metadata:
+    language: v2-beta
+    name: "WAF and Security Layer Detection"
+    description: "Detects WAF presence by sending benign attack patterns and analyzing block responses. Taxonomy: §6-3 WAF Signature Detection."
+    author: "the-map"
+    tags: "fingerprinting", "waf", "active", "recon"
+
+given request then
+    send request called wafProbe:
+        replacing path: "/?themap_test=%3Cscript%3Ealert(1)%3C%2Fscript%3E"
+
+    if {wafProbe.response.status_code} is "403" then
+        if {wafProbe.response.body} matches "(?i)(cloudflare|attention required|ray id)" then
+            report issue:
+                severity: info
+                confidence: certain
+                detail: `Cloudflare WAF detected. The request was blocked with a Cloudflare-specific block page. WAF bypass techniques specific to Cloudflare may apply.`
+                remediation: "Informational. Ensure WAF rules are regularly updated and the origin server is not directly accessible."
+        end if
+
+        if {wafProbe.response.body} matches "(?i)(akamai|access denied.*reference)" then
+            report issue:
+                severity: info
+                confidence: certain
+                detail: `Akamai WAF/Kona Site Defender detected via block page signature.`
+                remediation: "Informational. Verify Akamai WAF rule configuration covers OWASP Top 10."
+        end if
+
+        if {wafProbe.response.body} matches "(?i)(mod_security|modsecurity|NAXSI)" then
+            report issue:
+                severity: info
+                confidence: certain
+                detail: `ModSecurity or NAXSI WAF detected. Open-source WAF in use. The specific ruleset (CRS version) affects bypass difficulty.`
+                remediation: "Ensure ModSecurity CRS is up-to-date. Review paranoia level configuration."
+        end if
+
+        if {wafProbe.response.body} matches "(?i)(imperva|incapsula)" then
+            report issue:
+                severity: info
+                confidence: certain
+                detail: `Imperva/Incapsula WAF detected via block page content.`
+                remediation: "Informational. Review Imperva rule policies and ensure origin is not directly accessible."
+        end if
+
+        if {wafProbe.response.body} matches "(?i)(aws[- ]waf|awselb|request blocked)" then
+            report issue:
+                severity: info
+                confidence: firm
+                detail: `AWS WAF detected. The application uses AWS WAF for request filtering.`
+                remediation: "Informational. Review AWS WAF rule groups and ensure rate limiting is configured."
+        end if
+    end if
+
+    if {wafProbe.response.status_code} is "406" then
+        report issue:
+            severity: info
+            confidence: firm
+            detail: `A WAF or security filter returned HTTP 406 (Not Acceptable) for an attack payload. Some WAFs use 406 instead of 403 for blocked requests.`
+            remediation: "WAF is present. Review the WAF configuration and test for bypass vectors."
+    end if
+
+    if {wafProbe.response.status_code} is "429" then
+        report issue:
+            severity: info
+            confidence: firm
+            detail: `Rate limiting detected (HTTP 429). The application or WAF enforces request rate limits.`
+            remediation: "Informational. Rate limiting is a security control. Verify it applies to all sensitive endpoints."
+    end if

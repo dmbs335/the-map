@@ -1,0 +1,55 @@
+metadata:
+    language: v2-beta
+    name: "API Documentation Exposure"
+    description: "Probes for publicly accessible API documentation endpoints (Swagger, OpenAPI, GraphQL). Taxonomy: §6-2 + §6-1."
+    author: "the-map"
+    tags: "fingerprinting", "api", "active", "recon"
+
+given request then
+    send request called swagger:
+        replacing path: "/swagger-ui.html"
+
+    if {swagger.response.status_code} is "200" and
+       {swagger.response.body} matches "(?i)(swagger|api-docs)" then
+        report issue:
+            severity: medium
+            confidence: certain
+            detail: `Swagger UI is publicly accessible. This exposes the complete API specification including all endpoints, parameters, data models, and authentication schemes. An attacker can discover undocumented or admin-only endpoints.`
+            remediation: "Restrict Swagger UI to internal networks only. Require authentication. Disable in production builds."
+    end if
+
+    send request called openapi:
+        replacing path: "/api-docs"
+
+    if {openapi.response.status_code} is "200" and
+       {openapi.response.body} matches "(?i)(openapi|swagger|\"paths\")" then
+        report issue:
+            severity: medium
+            confidence: certain
+            detail: `OpenAPI/Swagger JSON specification is publicly accessible at /api-docs. This provides a complete API blueprint for an attacker.`
+            remediation: "Remove or restrict access to the OpenAPI specification endpoint in production."
+    end if
+
+    send request called openapiV3:
+        replacing path: "/v3/api-docs"
+
+    if {openapiV3.response.status_code} is "200" and
+       {openapiV3.response.body} matches "(?i)(openapi|\"paths\")" then
+        report issue:
+            severity: medium
+            confidence: certain
+            detail: `Spring Boot OpenAPI v3 specification is publicly accessible. This is the default SpringDoc endpoint that exposes the complete API specification.`
+            remediation: "Configure springdoc.api-docs.enabled=false in production or restrict access via Spring Security."
+    end if
+
+    send request called fastApiDocs:
+        replacing path: "/docs"
+
+    if {fastApiDocs.response.status_code} is "200" and
+       {fastApiDocs.response.body} matches "(?i)(swagger-ui|FastAPI)" then
+        report issue:
+            severity: medium
+            confidence: certain
+            detail: `FastAPI automatic documentation (Swagger UI) is publicly accessible at /docs. The /openapi.json endpoint also exposes the full API specification.`
+            remediation: "Disable docs in production: app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)."
+    end if

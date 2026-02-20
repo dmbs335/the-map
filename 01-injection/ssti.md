@@ -314,6 +314,7 @@ Template engine identification is a critical prerequisite for exploitation. Diff
 | **Filter/function availability** | Test engine-specific filters: `|attr`, `?api`, `|sort`, `|map` | Filter existence narrows engine identity |
 | **Comment syntax testing** | Test comment delimiters: `{# #}`, `<%-- --%>`, `{{!-- --}}` | Comment rendering behavior |
 | **DNS/time-based blind detection** | Use `sleep()`, DNS lookups, or HTTP callbacks for blind SSTI | Out-of-band signals confirm template evaluation |
+| **Error-based reflection exfiltration** | Deliberately trigger a runtime error whose error message or stack trace incorporates the target data — e.g., forcing a type error by concatenating secret data with an incompatible type (`{{ secret_var + [] }}`), or causing a NameError/UndefinedError where the variable name itself carries exfiltrated content. The reflected error message in the HTTP response carries the extracted data without requiring out-of-band channels | Template engine returns verbose error messages to the client or writes them to accessible logs; expression evaluation within error context (vladko312 "Blind SSTI" research, 2025) |
 
 ---
 

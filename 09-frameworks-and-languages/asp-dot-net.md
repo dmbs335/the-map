@@ -303,6 +303,12 @@ The Razor View Engine resolves views through a deterministic search hierarchy. C
 | **SOAP Envelope XXE** | WCF services processing raw SOAP XML may be vulnerable if the XML reader configuration permits DTD processing, allowing XXE payloads embedded in SOAP envelopes. | E5, E6 | WCF service with permissive XML reader settings. |
 | **SVG/DOCX/XLSX XXE** | Applications processing XML-based file formats (SVG images, Office Open XML documents) via .NET XML parsers inherit the same XXE vulnerabilities when entity resolution is enabled. | E5 | File upload + XML parsing with entity resolution. |
 
+### §9-3. XAMLX / Workflow Foundation Endpoints
+
+| Subtype | Mechanism | Effect | Key Condition |
+|---------|-----------|--------|---------------|
+| **XAMLX Endpoint Deserialization** | .NET Workflow Foundation (WF) exposes `.xamlx` files as WCF service endpoints that accept SOAP requests. XAML deserialization during workflow activity instantiation resolves attacker-specified types — `ObjectDataProvider` and `XamlReader` gadgets enable arbitrary code execution via crafted SOAP payloads targeting the workflow endpoint | E1 | `.xamlx` handler mapped in IIS; Workflow Foundation enabled; no type restrictions on XAML deserialization |
+
 ---
 
 ## §10. Configuration & Information Disclosure
@@ -478,6 +484,7 @@ Until legacy ASP.NET Framework deployments are fully retired and applications co
 - Andrew Lock: "Understanding the worst .NET vulnerability ever: request smuggling and CVE-2025-55315"
 - OWASP: DotNet Security Cheat Sheet
 - guardrailsio/awesome-dotnet-security: Curated .NET security resource collection
+- Viettel Cybersecurity: "Deep understand ASPX file handling and some related attack vectors" (2022) — ASPX file processing exploitation and IIS handler mapping attack methodology
 
 ---
 

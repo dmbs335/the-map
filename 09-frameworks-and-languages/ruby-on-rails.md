@@ -391,6 +391,7 @@ Rack is the interface layer between Ruby web frameworks and web servers. Rails a
 | **CRLF Log Injection** | Rack allows carriage return / line feed characters in log output, enabling injection of fake log entries to hide attacks or create false audit trails | Rack < 2.2.13 / 3.0.14 / 3.1.12 (CVE-2025-25184) |
 | **HTTP Header Log Manipulation** | Crafted HTTP headers can manipulate log data through Rack's logging middleware, corrupting audit trails | Rack < patched versions (CVE-2025-27111) |
 | **Rack Session Cookie Injection** | Rack's session middleware may accept session cookies from subdomains or different paths, enabling session fixation through subdomain control | Shared domain with attacker-controlled subdomain |
+| **Debug Middleware RCE (ShowExceptions)** | `Rack::ShowExceptions` and Sinatra's `ShowExceptions` middleware render interactive debug pages on unhandled exceptions, including an embedded IRB/Pry console that executes arbitrary Ruby code submitted via POST. When debug middleware is accidentally left enabled in production, any request triggering an exception exposes the interactive console, enabling direct RCE without authentication (analogous to Python Werkzeug's debug console) | Debug middleware enabled in production (`Rack::ShowExceptions`, `BetterErrors`, Sinatra `show_exceptions` setting) |
 
 ### §9-2. Middleware Ordering Vulnerabilities
 
@@ -434,6 +435,19 @@ Rails applications frequently make outbound HTTP requests for webhooks, URL prev
 
 ---
 
+## §12. Native Extension Memory Safety
+
+Ruby's C extensions and built-in methods implemented in C operate outside Ruby's memory-safe runtime, introducing memory corruption and information disclosure risks at the native code level.
+
+### §12-1. Array#pack / String#unpack Vulnerabilities
+
+| Subtype | Mechanism | Key Condition |
+|---------|-----------|---------------|
+| **Signedness wrap in pack directives** | `Array#pack` with format directives that specify a length can trigger a signedness wrap when the length value overflows from a large positive integer to a negative value at the C level. The negative length bypasses bounds checking, causing an out-of-bounds read from heap memory — disclosing adjacent heap contents (strings, object references, internal state) in the packed output | User-controlled length or count parameter reaching `Array#pack` format string; Ruby MRI (C implementation) (nastystereo.com "Ruby Array Pack Bleed" research, 2025) |
+| **Unpack buffer overread** | `String#unpack` with mismatched format directives reads beyond the source string's allocated buffer, disclosing heap-adjacent memory in the unpacked values | Attacker-controlled format string or length in `unpack`; input string shorter than expected by format |
+
+---
+
 ## Attack Scenario Mapping (Axis 3)
 
 | Scenario | Architecture | Primary Mutation Categories |
@@ -451,6 +465,7 @@ Rails applications frequently make outbound HTTP requests for webhooks, URL prev
 | **DoS via WebSocket** | Action Cable with Puma, slow client attacks | §10-1 |
 | **SSRF to Cloud Metadata** | Webhook, URL preview, image fetch features | §11-1 |
 | **Privilege Escalation via Class Pollution** | Configuration merging, flexible data structures | §2-3 |
+| **Heap Information Disclosure** | User-controlled input reaching Array#pack/String#unpack format directives | §12-1 |
 
 ---
 
@@ -482,6 +497,7 @@ Rails applications frequently make outbound HTTP requests for webhooks, URL prev
 | §1-1 (Gem::SafeMarshal Escape) | Dec 2024 (SafeMarshal Bypass) | Escape from Gem::SafeMarshal protections, subsequently patched |
 | §2-2 (_json Parameter Juggling) | _json Juggling Attack (2024) | Authorization bypass via dual interpretation of `_json` parameter in Rails JSON request parsing |
 | §1-5 (Bootsnap Cache Poisoning) | Bootsnap Compile Cache RCE (2024) | File write → RCE escalation via Bootsnap compile cache overwrite. Affects Rails ≥ 5.2 with default Bootsnap |
+| §12-1 (Array#pack Memory Bleed) | Ruby Array Pack Bleed (nastystereo.com, 2025) | Heap memory disclosure via signedness wrap in Array#pack format directives. Ruby MRI |
 
 ---
 

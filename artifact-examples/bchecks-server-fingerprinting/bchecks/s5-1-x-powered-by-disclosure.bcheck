@@ -1,0 +1,15 @@
+metadata:
+    language: v2-beta
+    name: "X-Powered-By Technology Disclosure"
+    description: "Detects technology stack disclosure via X-Powered-By header. Taxonomy: §5-1 Default Header Presence."
+    author: "the-map"
+    tags: "fingerprinting", "server", "passive", "recon"
+
+given response then
+    if {latest.response.headers} matches "(?i)X-Powered-By:" then
+        report issue:
+            severity: low
+            confidence: certain
+            detail: `The X-Powered-By header reveals the server-side technology (e.g., PHP, ASP.NET, Express, Next.js). This aids an attacker in selecting framework-specific exploits and attack vectors.`
+            remediation: "Remove the X-Powered-By header. PHP: expose_php = Off in php.ini. Express: app.disable('x-powered-by'). ASP.NET: Remove via web.config customHeaders."
+    end if

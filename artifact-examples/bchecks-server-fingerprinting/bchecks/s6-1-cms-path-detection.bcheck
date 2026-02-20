@@ -1,0 +1,57 @@
+metadata:
+    language: v2-beta
+    name: "CMS and Framework Default Path Detection"
+    description: "Probes for default admin/config paths of popular CMS platforms. Taxonomy: §6-1 Default File and Directory Structure."
+    author: "the-map"
+    tags: "fingerprinting", "cms", "active", "recon"
+
+given request then
+    send request called joomlaAdmin:
+        replacing path: "/administrator/"
+
+    if {joomlaAdmin.response.status_code} is "200" and
+       {joomlaAdmin.response.body} matches "(?i)(joomla|com_login)" then
+        report issue:
+            severity: info
+            confidence: certain
+            detail: `Joomla CMS detected via accessible /administrator/ login page.`
+            remediation: "Restrict admin path access by IP. Use Joomla admin URL obfuscation plugins."
+    end if
+
+    send request called drupalChangelog:
+        replacing path: "/CHANGELOG.txt"
+
+    if {drupalChangelog.response.status_code} is "200" and
+       {drupalChangelog.response.body} matches "(?i)Drupal\s+[\d.]+" then
+        report issue:
+            severity: low
+            confidence: certain
+            detail: `Drupal CMS detected and version disclosed via accessible CHANGELOG.txt. An attacker can identify the exact Drupal version for targeted exploitation (SA-CORE advisories).`
+            remediation: "Block access to CHANGELOG.txt, INSTALL.txt, UPDATE.txt via server configuration."
+    end if
+
+    send request called laravelPublic:
+        replacing path: "/.env"
+
+    if {laravelPublic.response.status_code} is "200" and
+       {laravelPublic.response.body} matches "(APP_KEY|DB_PASSWORD|APP_DEBUG)" then
+        report issue:
+            severity: high
+            confidence: certain
+            detail: `Laravel .env file is publicly accessible! This file contains database credentials, application keys, API secrets, and debug settings. Complete application compromise is possible.`
+            remediation: "Ensure the web root points to Laravel's /public directory. Block access to .env via server configuration. Rotate all exposed credentials immediately."
+    end if
+
+    send request called nextjsCheck:
+        replacing path: "/_next/data/"
+
+    if {nextjsCheck.response.status_code} is "200" or
+       {nextjsCheck.response.status_code} is "404" then
+        if {nextjsCheck.response.headers} matches "(?i)x-nextjs" then
+            report issue:
+                severity: info
+                confidence: certain
+                detail: `Next.js framework detected via /_next/data/ path and X-NextJS headers.`
+                remediation: "Informational. Review Next.js middleware authorization (CVE-2025-29927 pattern)."
+        end if
+    end if

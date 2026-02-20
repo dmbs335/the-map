@@ -1,0 +1,31 @@
+metadata:
+    language: v2-beta
+    name: "HTML/Response Version Information Leak"
+    description: "Detects technology version disclosure in HTML meta tags, comments, and response bodies. Taxonomy: §6-2 Comment and Metadata Mining + §6-1 HTML Meta Tag."
+    author: "the-map"
+    tags: "fingerprinting", "version", "passive", "recon"
+
+given response then
+    if {latest.response.body} matches "(?i)<meta[^>]*name=[\"']generator[\"'][^>]*content=[\"']([^\"']+)[\"']" then
+        report issue:
+            severity: info
+            confidence: certain
+            detail: `The HTML generator meta tag discloses the CMS/framework and potentially its version (e.g., WordPress 6.5, Drupal 10, Hugo). This allows targeted exploitation of version-specific vulnerabilities.`
+            remediation: "Remove the generator meta tag. WordPress: add_filter('the_generator', '__return_empty_string'). Drupal: unset in theme template."
+    end if
+
+    if {latest.response.body} matches "(?i)<!--.*?(v[\d.]+|version[\s:]*[\d.]+|build[\s:]*[\d.]+).*?-->" then
+        report issue:
+            severity: info
+            confidence: firm
+            detail: `HTML comments contain version or build information. Developers often leave version metadata in comments that aid in fingerprinting.`
+            remediation: "Strip HTML comments from production output. Configure the build pipeline to remove comments during minification."
+    end if
+
+    if {latest.response.body} matches "(?i)(Powered by|Built with|Running on)\s+<a[^>]*>[^<]+" then
+        report issue:
+            severity: info
+            confidence: firm
+            detail: `The page contains a 'Powered by' or 'Built with' attribution that reveals the technology stack.`
+            remediation: "Remove technology attribution from public-facing pages or footer templates."
+    end if

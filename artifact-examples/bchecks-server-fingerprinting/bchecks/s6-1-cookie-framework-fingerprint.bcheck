@@ -1,0 +1,63 @@
+metadata:
+    language: v2-beta
+    name: "Cookie-Based Framework Fingerprinting"
+    description: "Identifies backend framework from default session/CSRF cookie names. Taxonomy: §6-1 Cookie Name Patterns."
+    author: "the-map"
+    tags: "fingerprinting", "cookie", "passive", "recon"
+
+given response then
+    if {latest.response.headers} matches "(?i)Set-Cookie:\s*PHPSESSID=" then
+        report issue:
+            severity: info
+            confidence: certain
+            detail: `PHP detected via default PHPSESSID session cookie. Target for PHP-specific attacks: type juggling, deserialization, LFI/RFI, file upload bypass.`
+            remediation: "Change session.name in php.ini to a non-default value."
+    end if
+
+    if {latest.response.headers} matches "(?i)Set-Cookie:\s*JSESSIONID=" then
+        report issue:
+            severity: info
+            confidence: certain
+            detail: `Java Servlet container detected via JSESSIONID cookie. Target for Java deserialization, EL injection, JSP-specific attacks.`
+            remediation: "Rename the session cookie via web.xml <session-config><cookie-config><name> or application server configuration."
+    end if
+
+    if {latest.response.headers} matches "(?i)Set-Cookie:\s*ASP\.NET_SessionId=" then
+        report issue:
+            severity: info
+            confidence: certain
+            detail: `ASP.NET detected via default session cookie name. Target for ViewState deserialization, parameter binding attacks.`
+            remediation: "Rename the session cookie in web.config: <sessionState cookieName='custom_name' />."
+    end if
+
+    if {latest.response.headers} matches "(?i)Set-Cookie:\s*laravel_session=" then
+        report issue:
+            severity: info
+            confidence: certain
+            detail: `Laravel (PHP) framework detected via default session cookie. Target for mass assignment, debug mode RCE (Ignition), SSTI.`
+            remediation: "Change SESSION_COOKIE in .env or config/session.php."
+    end if
+
+    if {latest.response.headers} matches "(?i)Set-Cookie:\s*_rails_session=" then
+        report issue:
+            severity: info
+            confidence: certain
+            detail: `Ruby on Rails detected via default session cookie. Target for deserialization (CVE-2013-0156 pattern), mass assignment, SSTI.`
+            remediation: "Configure a custom session cookie name in config/initializers/session_store.rb."
+    end if
+
+    if {latest.response.headers} matches "(?i)Set-Cookie:\s*connect\.sid=" then
+        report issue:
+            severity: info
+            confidence: certain
+            detail: `Express.js (Node.js) detected via default express-session cookie name. Target for prototype pollution, SSRF, SSTI (Pug/EJS).`
+            remediation: "Set a custom cookie name in express-session configuration: { name: 'custom_sid' }."
+    end if
+
+    if {latest.response.headers} matches "(?i)Set-Cookie:\s*__cf_bm=" then
+        report issue:
+            severity: info
+            confidence: certain
+            detail: `Cloudflare Bot Management detected via __cf_bm cookie. The application uses Cloudflare for bot protection.`
+            remediation: "Informational finding. Cloudflare bot management is a security control, not a vulnerability."
+    end if

@@ -1,0 +1,47 @@
+metadata:
+    language: v2-beta
+    name: "Node.js Framework Detection"
+    description: "Detects Node.js frameworks (Express, Koa, Fastify, NestJS, Next.js) from response patterns. Taxonomy: §6-1."
+    author: "the-map"
+    tags: "fingerprinting", "nodejs", "passive", "recon"
+
+given response then
+    if {latest.response.headers} matches "(?i)X-Powered-By:\s*Express" then
+        report issue:
+            severity: low
+            confidence: certain
+            detail: `Express.js (Node.js) framework detected via X-Powered-By header. Express is the default value when app.disable('x-powered-by') is not called. Target for: prototype pollution, SSRF, template injection (EJS/Pug/Handlebars), path traversal.`
+            remediation: "app.disable('x-powered-by') in Express configuration. Use helmet middleware for security headers."
+    end if
+
+    if {latest.response.headers} matches "(?i)X-Powered-By:\s*Next\.js" then
+        report issue:
+            severity: info
+            confidence: certain
+            detail: `Next.js framework detected via X-Powered-By header. Check for: middleware authorization bypass (CVE-2025-29927), SSRF via getServerSideProps, API route exposure at /api/*.`
+            remediation: "Set poweredByHeader: false in next.config.js. Review middleware auth patterns."
+    end if
+
+    if {latest.response.headers} matches "(?i)X-Powered-By:\s*Nuxt" then
+        report issue:
+            severity: info
+            confidence: certain
+            detail: `Nuxt.js (Vue SSR framework) detected via X-Powered-By header.`
+            remediation: "Disable the X-Powered-By header in Nuxt configuration."
+    end if
+
+    if {latest.response.body} matches "window\\.__NEXT_DATA__" then
+        report issue:
+            severity: info
+            confidence: certain
+            detail: `Next.js framework detected via __NEXT_DATA__ global variable in page source. This JSON object may contain server-side props, build IDs, and routing information useful for further reconnaissance.`
+            remediation: "Review getServerSideProps and getStaticProps to ensure no sensitive data is passed to the client."
+    end if
+
+    if {latest.response.body} matches "window\\.__NUXT__" then
+        report issue:
+            severity: info
+            confidence: certain
+            detail: `Nuxt.js framework detected via __NUXT__ global variable. Contains serialized server state that may include sensitive data.`
+            remediation: "Review Nuxt asyncData and fetch hooks for sensitive data exposure."
+    end if

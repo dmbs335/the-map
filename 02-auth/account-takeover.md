@@ -86,6 +86,7 @@ Password reset is the **most frequent entry point** for ATO. Vulnerabilities ari
 | **Short Token / Low Entropy** | Token length is short (e.g., 4-6 digit numbers), making brute-force feasible | Insufficient token entropy + inadequate rate limiting | D3 |
 | **Token Reuse Across Users** | Reset tokens generated in the same time window are identical across different users | No per-user unique seed in token generation | D3 |
 | **UUID v1 Token** | UUID v1 (timestamp + MAC address based) used as reset token, making it predictable | UUID v1 used instead of CSPRNG-based UUID v4 | D3 |
+| **Shell PRNG Token** | Token generated via Bash `$RANDOM` (15-bit, range 0–32767) seeded by PID, reducing brute-force to ~32K attempts | Reset flow in shell scripts; `$RANDOM` or similar non-CSPRNG used | D3 |
 
 ### §2-2. Token Delivery / Leakage
 
@@ -252,6 +253,7 @@ Not ATO on their own, but XSS and CSRF serve as **core building blocks of ATO ch
 | **Self-XSS + Login CSRF** | Login CSRF forces the victim to log into the attacker's account, then Self-XSS on the settings page executes in the victim's browser → steals the victim's real session/data | Self-XSS + no CSRF protection on login endpoint | D7 |
 | **XSS → OAuth Token Theft** | Steal OAuth access tokens or refresh tokens from localStorage/sessionStorage via XSS | OAuth tokens stored in JavaScript-accessible storage | D7 |
 | **Zero-Click XSS ATO** | XSS in an external script or embedded component auto-executes without user interaction to achieve ATO — in the Meta CAPI Gateway case, combined with CORS whitelist to enable Facebook ATO | XSS in auto-loaded scripts + CORS misconfiguration | D7 |
+| **XSS → Cross-Subdomain Cookie Bridge** | XSS on a subdomain exfiltrates cookies scoped to the parent domain (e.g., `.yelp.com`), enabling session hijack on a sibling subdomain's application where those cookies authenticate — bridging XSS impact across subdomain boundaries | XSS on any subdomain + session cookies scoped to parent domain (`Domain=.example.com`) | D7 |
 
 ### §7-2. CSRF → ATO Chains
 

@@ -1,0 +1,40 @@
+metadata:
+    language: v2-beta
+    name: "RSS/Sitemap Version Disclosure"
+    description: "Probes RSS feeds and sitemaps for technology version information. Taxonomy: §6-2 RSS/Sitemap Version Exposure."
+    author: "the-map"
+    tags: "fingerprinting", "version", "active", "recon"
+
+given request then
+    send request called robotsTxt:
+        replacing path: "/robots.txt"
+
+    if {robotsTxt.response.status_code} is "200" then
+        if {robotsTxt.response.body} matches "(?i)(wp-admin|wp-includes|wp-content)" then
+            report issue:
+                severity: info
+                confidence: certain
+                detail: `robots.txt reveals WordPress directory structure. This confirms WordPress as the CMS even if other fingerprinting vectors are suppressed.`
+                remediation: "Review robots.txt entries. Remove unnecessary path disclosures that reveal the technology stack."
+        end if
+
+        if {robotsTxt.response.body} matches "(?i)(Sitemap:)" then
+            report issue:
+                severity: info
+                confidence: certain
+                detail: `robots.txt exposes sitemap URL. Sitemaps can reveal URL structure, content organization, and potentially internal endpoints.`
+                remediation: "Informational. Ensure the sitemap does not include admin or internal URLs."
+        end if
+    end if
+
+    send request called rssFeed:
+        replacing path: "/feed/"
+
+    if {rssFeed.response.status_code} is "200" and
+       {rssFeed.response.body} matches "(?i)<generator[^>]*>(WordPress|Drupal|Joomla|Ghost)[^<]*</generator>" then
+        report issue:
+            severity: info
+            confidence: certain
+            detail: `RSS/Atom feed generator tag discloses the CMS and version. This is a reliable fingerprinting vector that is often overlooked in hardening.`
+            remediation: "WordPress: remove_action('rss2_head', 'the_generator'). Other CMS: configure the RSS template to exclude generator metadata."
+    end if

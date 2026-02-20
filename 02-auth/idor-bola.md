@@ -413,6 +413,7 @@ The deployment architecture of modern applications creates authorization gaps at
 - Intigriti — Complete Guide to Exploiting Advanced IDOR Vulnerabilities: https://www.intigriti.com/blog/news/idor-a-complete-guide-to-exploiting-advanced-idor-vulnerabilities
 - Fortbridge — IDOR Exploitation via HPP Case Study: https://fortbridge.co.uk/research/idor-exploitation-via-hpp-api-hacking-case-study/
 - Escape.tech — IDOR in GraphQL: https://escape.tech/blog/idor-in-graphql/
+- Intruder: "In GUID We Trust" (2022) — Systematic analysis of UUID version predictability; UUIDv1 timestamp/MAC extraction, UUID cracking methodology
 
 ---
 

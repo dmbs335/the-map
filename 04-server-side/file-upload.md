@@ -91,6 +91,18 @@ Certain filenames have special meaning to the server or OS, enabling execution o
 | **Windows reserved names** | `CON`, `PRN`, `AUX`, `NUL`, `COM1`–`COM9`, `LPT1`–`LPT9` — uploading these can cause errors, hangs, or DoS | Windows filesystem |
 | **Command injection via filename** | Filenames like ``; sleep 10; .jpg`` or `$(whoami).jpg` — if the filename is passed unsanitized to a shell command (e.g., for image conversion), command injection results | Server-side processing that shells out with user-controlled filenames (§9) |
 
+### §1-7. Java Servlet Container-Specific Bypass
+
+Java servlet containers (Tomcat, Jetty, WildFly/JBoss, WebLogic) each implement multipart filename parsing and extension handling with subtle differences, creating a rich differential surface for upload filter bypass.
+
+| Subtype | Mechanism | Key Condition |
+|---|---|---|
+| **Multipart filename encoding differential** | Servlet containers differ in how they decode `filename` vs. `filename*=` (RFC 5987) in Content-Disposition. Tomcat prefers `filename*=` while others may ignore it — submitting a safe `filename="safe.jpg"` alongside a malicious `filename*=UTF-8''shell.jsp` causes the filter to check `.jpg` while Tomcat writes `.jsp` | Tomcat with RFC 5987 support; WAF/filter parsing only `filename` |
+| **Path separator in filename** | `Content-Disposition: form-data; name="file"; filename="path/shell.jsp"` — some containers strip the directory component (returning `shell.jsp`), others preserve it. Commons FileUpload strips by default; `Part.getSubmittedFileName()` (Servlet 3.1+) may preserve the full path | Discrepancy between validation library's path extraction and container's storage behavior |
+| **Null byte in multipart filename** | Older servlet containers and Apache Commons FileUpload versions truncate filenames at null bytes: `shell.jsp%00.jpg` → validated as `.jpg`, stored as `shell.jsp` | Apache Commons FileUpload < 1.5; Java < 7u40 |
+| **Trailing dot/space on Windows deployment** | Java on Windows silently strips trailing dots and spaces during file write: `shell.jsp.` or `shell.jsp ` passes extension filters but is stored as `shell.jsp` | Java application on Windows; extension filter checks full string including trailing characters |
+| **Container-specific executable extensions** | Beyond standard `.jsp`/`.jspx`, containers recognize additional executable mappings: Tomcat processes `.jsf` (JSF), `.xhtml` (Facelets); JBoss/WildFly processes `.xhtml`, `.seam`; WebLogic processes `.do`, `.action` (Struts mappings) | Container-specific handler mappings not included in extension blacklist |
+
 ---
 
 ## §2. Content-Type & MIME Manipulation
@@ -286,6 +298,7 @@ The HTTP `multipart/form-data` encoding used for file uploads has its own parsin
 | **Boundary injection in Content-Type** | Manipulating the boundary string in the Content-Type header to create ambiguity about where parts begin and end — WAF sees one file, application sees another | WAF and application parse multipart boundaries differently |
 | **Duplicate boundaries** | Sending content with multiple valid boundary definitions; different parsers may select different boundaries | Parser differential between proxy/WAF and backend |
 | **Malformed boundary** | Using boundary strings with special characters, excessive length, or missing closing boundaries to confuse parsers | Lenient backend parser with strict WAF |
+| **Cross-parser parameter resolution differential** | Different multipart parsers (e.g., Apache Commons FileUpload, Spring StandardMultipartResolver, Werkzeug, Rack, PHP, Go `multipart.Reader`) disagree on how to handle repeated parameter names, mixed boundary formats, missing CRLF terminators, or conflicting Content-Disposition headers within the same request. The WAF/proxy parser resolves one set of parameter-to-value bindings while the backend parser resolves a different set — allowing an attacker to present benign content to the WAF while delivering malicious content (file or parameter value) to the application. Key differentials include: last-wins vs. first-wins for duplicate names, tolerance of `\n` vs. requiring `\r\n`, and boundary matching strictness (prefix match vs. exact match) | Multiple multipart parsers in the request path (WAF/proxy + backend framework); no canonical multipart normalization layer; parsers from different language ecosystems (Sicuranext, 2024) |
 
 ### §7-2. Content-Disposition Manipulation
 
@@ -491,6 +504,8 @@ The entire file upload attack surface emerges from a single architectural realit
 - Polyglot Files Research (arXiv): https://arxiv.org/html/2407.01529v1
 - ImageTragick: https://imagetragick.com/
 - Detectify — Bypassing Bucket Upload Policies: https://labs.detectify.com/writeups/bypassing-and-exploiting-bucket-upload-policies-and-signed-urls/
+- Synacktiv: "Persistent PHP payloads in PNGs: How to inject PHP code in an image — and have it survive image reprocessing" (2022) — PHP code in PNG IDAT chunks surviving GD library `imagecopyresampled()` server-side reprocessing
+- pyn3rd: "Arbitrary File Upload Tricks In Java" (2022) — Java servlet container tricks, encoding behaviors in filename handling, multipart parsing quirks
 
 ---
 

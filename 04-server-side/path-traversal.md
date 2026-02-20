@@ -536,7 +536,7 @@ The 2025 landscape demonstrates that path traversal remains a critical vulnerabi
 ### Academic & Conference Research
 - Kettle, James. "Gotta Cache 'Em All: Bending the Rules of Web Cache Exploitation." PortSwigger Research, 2024-2025. [https://portswigger.net/research/gotta-cache-em-all](https://portswigger.net/research/gotta-cache-em-all)
 - Backes, Michael, et al. "Large-Scale Analysis of Style Injection by Relative Path Overwrite." WWW 2018 Conference. [https://dl.acm.org/doi/10.1145/3178876.3186090](https://dl.acm.org/doi/10.1145/3178876.3186090)
-- "Cached and Confused: Web Cache Deception in the Wild." USENIX Security Symposium, 2020.
+- Mirheidari, Seyed Ali, et al. "Cached and Confused: Web Cache Deception in the Wild." USENIX Security Symposium, 2020. [https://www.usenix.org/conference/usenixsecurity20/presentation/mirheidari](https://www.usenix.org/conference/usenixsecurity20/presentation/mirheidari)
 
 ### CVE Disclosures & Security Advisories
 - CVE-2024-38819: Spring Framework Path Traversal. [https://github.com/advisories/GHSA-g5vr-rgqm-vf78](https://github.com/advisories/GHSA-g5vr-rgqm-vf78)
@@ -545,7 +545,8 @@ The 2025 landscape demonstrates that path traversal remains a critical vulnerabi
 - CVE-2024-43093: Android Unicode Normalization Path Traversal. [https://stack.watch/vuln/CVE-2024-43093/](https://stack.watch/vuln/CVE-2024-43093/)
 - CVE-2024-28698: CSLA.NET Null Byte Truncation. [https://www.intruder.io/research/path-traversal-and-code-execution-in-csla-net-cve-2024-28698](https://www.intruder.io/research/path-traversal-and-code-execution-in-csla-net-cve-2024-28698)
 - CVE-2024-1019: ModSecurity Path Confusion. [https://dayzerosec.com/vulns/2024/02/05/modsecurity-path-confusion-and-really-easy-bypass-on-v2-and-v3.html](https://dayzerosec.com/vulns/2024/02/05/modsecurity-path-confusion-and-really-easy-bypass-on-v2-and-v3.html)
-- CVE-2024-21518: OpenCart Zip Slip Vulnerability.
+- CVE-2024-21518: OpenCart Zip Slip Vulnerability. [https://github.com/advisories/GHSA-m7r8-2r98-vppj](https://github.com/advisories/GHSA-m7r8-2r98-vppj)
+- CVE-2025-52488: DNN (DotNetNuke) Unicode Normalization Path Traversal. U+FF0E (fullwidth full stop) and U+FF3C (fullwidth reverse solidus) bypass validation → NTLM hash disclosure via UNC path injection. [https://slcyber.io/research-center/abusing-windows-net-quirks-and-unicode-normalization-to-exploit-dnn-dotnetnuke/](https://slcyber.io/research-center/abusing-windows-net-quirks-and-unicode-normalization-to-exploit-dnn-dotnetnuke/)
 - CVE-2025-64446: Fortinet FortiWeb Authentication Bypass. [https://socprime.com/active-threats/cve-2025-64446/](https://socprime.com/active-threats/cve-2025-64446/)
 
 ### Practitioner Resources & Writeups
@@ -557,12 +558,13 @@ The 2025 landscape demonstrates that path traversal remains a critical vulnerabi
 - InstaTunnel: "Path Traversal 2.0: Escaping Containers and Reading /etc/passwd in 2025." [https://medium.com/@instatunnel/path-traversal-2-0-escaping-containers-and-reading-etc-passwd-in-2025-809a45ccfe6a](https://medium.com/@instatunnel/path-traversal-2-0-escaping-containers-and-reading-etc-passwd-in-2025-809a45ccfe6a)
 - Doyensec: "Bypassing File Upload Restrictions To Exploit Client-Side Path Traversal." [https://blog.doyensec.com/2025/01/09/cspt-file-upload.html](https://blog.doyensec.com/2025/01/09/cspt-file-upload.html)
 - Renwa: "Client Side Path Traversal (CSPT) Bug Bounty Reports and Techniques." [https://medium.com/@renwa/client-side-path-traversal-cspt-bug-bounty-reports-and-techniques-8ee6cd2e7ca1](https://medium.com/@renwa/client-side-path-traversal-cspt-bug-bounty-reports-and-techniques-8ee6cd2e7ca1)
+- mr-medi: "Practical client-side path-traversal attacks" (2022) — Original CSPT research establishing client-side path traversal as a distinct vulnerability class. [https://mr-medi.github.io/research/2022/11/04/practical-client-side-path-traversal-attacks.html](https://mr-medi.github.io/research/2022/11/04/practical-client-side-path-traversal-attacks.html)
 
 ### Tools & Repositories
 - DotDotPwn: Directory Traversal Fuzzer. [https://github.com/wireghoul/dotdotpwn](https://github.com/wireghoul/dotdotpwn)
 - slip: Malicious Archive Generator. [https://github.com/0xless/slip](https://github.com/0xless/slip)
 - Advanced Directory Traversal Payloads. [https://github.com/DeepakGhengat/ADVANCED-DIRECTORY-TRAVERSAL-PAYLOADS](https://github.com/DeepakGhengat/ADVANCED-DIRECTORY-TRAVERSAL-PAYLOADS)
-- Doyensec CSPTBurpExtension (referenced in research).
+- Doyensec CSPTBurpExtension. [https://github.com/doyensec/CSPTBurpExtension](https://github.com/doyensec/CSPTBurpExtension)
 
 ### Standards & Specifications
 - RFC 3629: UTF-8, a transformation format of ISO 10646 (strict UTF-8 validation).

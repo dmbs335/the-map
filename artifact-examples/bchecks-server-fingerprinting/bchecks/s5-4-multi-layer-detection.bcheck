@@ -1,0 +1,40 @@
+metadata:
+    language: v2-beta
+    name: "Multi-Layer Architecture Detection"
+    description: "Identifies multi-layer architecture (CDN/proxy/origin) through header analysis. Taxonomy: §5-4 Multi-Layer Architecture Fingerprinting."
+    author: "the-map"
+    tags: "fingerprinting", "architecture", "passive", "recon"
+
+given response then
+    if {latest.response.headers} matches "(?i)X-Cache:" and
+       {latest.response.headers} matches "(?i)Server:" then
+        report issue:
+            severity: info
+            confidence: firm
+            detail: `Multi-layer architecture detected: both a caching layer (X-Cache header) and an origin server (Server header) are identified. The combination of headers from different layers reveals the full architecture stack. Different layers may parse requests differently, enabling HTTP request smuggling or cache poisoning attacks.`
+            remediation: "Ensure consistent request parsing across all layers. Review cache key configuration. Test for HTTP request smuggling between layers."
+    end if
+
+    if {latest.response.headers} matches "(?i)X-Cache-Hits:" then
+        report issue:
+            severity: info
+            confidence: certain
+            detail: `Cache hit counter exposed via X-Cache-Hits header. This reveals caching behavior and can be used to: determine if responses are served from cache (web cache poisoning targeting), measure cache key granularity, and identify cache infrastructure.`
+            remediation: "Strip X-Cache-Hits headers at the edge layer before returning to clients."
+    end if
+
+    if {latest.response.headers} matches "(?i)X-Backend-Server:" then
+        report issue:
+            severity: low
+            confidence: certain
+            detail: `Internal backend server identifier exposed via X-Backend-Server header. This reveals the origin server hostname or IP behind the reverse proxy/load balancer, aiding in direct origin targeting.`
+            remediation: "Remove X-Backend-Server header from responses at the proxy layer."
+    end if
+
+    if {latest.response.headers} matches "(?i)X-Upstream:" then
+        report issue:
+            severity: low
+            confidence: certain
+            detail: `Upstream server identifier exposed via X-Upstream header. This reveals internal routing information.`
+            remediation: "Remove X-Upstream header from client-facing responses."
+    end if

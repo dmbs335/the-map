@@ -125,6 +125,7 @@ Hash tables are the foundational data structure of web applications — HTTP hea
 | **JSON key hash collision** | JSON payloads containing thousands of keys that collide in the server-side JSON parser's internal hash table. A ~1MB JSON body with 65,536 colliding keys can consume >60 seconds of CPU time | JSON-accepting API endpoints; server-side language with predictable string hashing |
 | **Cookie/header hash collision** | HTTP cookies and headers are typically stored in hash maps. Crafted cookie names or header names that collide degrade server-side request parsing | Servers parsing many cookies/headers into hash structures |
 | **QUIC connection ID hash collision** | QUIC server hash tables mapping connection IDs to state become O(n) per lookup when connection IDs are crafted to collide | CVE-2025-29908 (Netty QUIC); §2-3 cross-reference |
+| **IIS output cache hash table collision** | IIS stores cached HTTP responses in a hash table keyed on the request URL. Crafted URLs that produce hash collisions in the output cache destabilize lookup, causing the server to return incorrect cached responses for unrelated URLs — converting a HashDoS primitive into a **cache poisoning** vector where attacker-controlled content is served to victims requesting legitimate pages | Microsoft IIS with output caching enabled (Black Hat USA 2022, Orange Tsai) |
 
 ### §3-2. Sorting & Search Algorithm Exploitation
 
@@ -135,6 +136,7 @@ Algorithms with O(n²) worst-case complexity (quicksort, certain binary tree ope
 | **Quicksort worst-case triggering** | If a web application sorts user-provided data using a quicksort variant without randomized pivot selection, pre-sorted or reverse-sorted input triggers O(n²) behavior | Applications using naive quicksort on user-controlled arrays; rare in modern standard libraries but possible in custom implementations |
 | **Binary search tree degradation** | Inserting sorted keys into an unbalanced BST creates a degenerate linked list, degrading all operations from O(log n) to O(n) | Custom data structures using unbalanced BSTs; less common due to prevalence of balanced trees |
 | **Probabilistic data structure attacks** | Redis and similar systems use probabilistic data structures (HyperLogLog, Bloom filters, Count-Min Sketch). Research has identified 10 novel attacks exploiting implementation deviations that cause severe performance degradation | Redis PDS implementations; exposed Redis instances |
+| **Floating-point / number parser DoS** | Certain floating-point string representations (e.g., extremely long decimal expansions, subnormal numbers near `2.2250738585072012e-308`, or deeply nested scientific notation) trigger worst-case behavior in number parsing algorithms (`strtod`, `parseFloat`, `Double.parseDouble`), consuming disproportionate CPU per value. A single carefully crafted numeric string in a JSON field, query parameter, or form input can block a worker thread for seconds | Application parses user-supplied numeric strings without input length limiting before parse; language-specific parser implementations with worst-case edge cases |
 
 ---
 
@@ -261,6 +263,7 @@ Cache-Poisoned DoS exploits differences in how caching proxies (CDNs, reverse pr
 | **HTTP Method Override (HMO)** | The attacker sends a GET request with `X-HTTP-Method-Override: POST` or `X-HTTP-Method: DELETE`. The CDN caches based on the actual GET method, but the origin processes it as POST/DELETE and returns an error response | Origin framework supporting method override headers; CDN caching GET responses regardless of override headers |
 | **Next.js ISR/SSR cache poisoning** | Next.js applications using Incremental Static Regeneration or Server-Side Rendering, when deployed behind a CDN that caches HTTP 204 responses, can have their routes poisoned with empty 204 responses that replace valid content | CVE-2025-49826 (Next.js 15.1.0–15.1.8); CDN configured to cache 204 responses |
 | **Host header cache poisoning for DoS** | Injecting a nonexistent `Host` header value causes the origin to generate an error. If the cache uses the URL path (without Host) as the cache key, the error response is served for the legitimate Host | Cache key not including Host header; origin returning different responses for different Host values |
+| **Response Filter DoS (RFDoS)** | The attacker crafts requests that cause the origin server to include WAF-triggering patterns in its legitimate response body (e.g., injecting SQL-like syntax into reflected search results, user-generated content, or error messages). The WAF's response body inspection rules match these patterns as false positives and block or strip the legitimate response, denying content delivery to the requesting user. Unlike CPDoS, the response is not cached — each individual request triggers fresh WAF-mediated content blocking | WAF performs response body inspection with pattern-matching rules; attacker can influence response content via reflected input, stored user content, or manipulated query results |
 
 ### §7-2. CDN & Cache-Level DoS
 
@@ -451,6 +454,7 @@ The fundamental challenge is that cost estimation must be cheaper than the opera
 - Vaadata: "What is a Slow HTTP Attack? Types & Security Best Practices" — https://www.vaadata.com/blog/what-is-a-slow-http-attack-types-and-security-best-practices/
 - PortSwigger: "Top 10 Web Hacking Techniques of 2025" — https://portswigger.net/research/top-10-web-hacking-techniques-of-2025
 - Akamai: "DDoS Attack Trends in 2024 Signify That Sophistication Overshadows Size" — https://www.akamai.com/blog/security/ddos-attack-trends-2024-signify-sophistication-overshadows-size
+- Orange Tsai: "Let's Dance in the Cache — Destabilizing Hash Table on Microsoft IIS" (Black Hat USA 2022) — Hash table collision attacks weaponized against IIS output cache for cache poisoning
 
 ---
 

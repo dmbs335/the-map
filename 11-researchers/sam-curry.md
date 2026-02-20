@@ -630,6 +630,7 @@ As applications increasingly rely on microservices, BFF proxies, and third-party
 - [Abusing HTTP Path Normalization and Cache Poisoning to Steal Rocket League Accounts](https://samcurry.net/abusing-http-path-normalization-and-cache-poisoning-to-steal-rocket-league-accounts)
 - [Hacking the World Poker Tour: Inside ClubWPT Gold's Back Office](https://samcurry.net/hacking-clubwpt-gold)
 - [Web Hackers vs. The Auto Industry: Critical Vulnerabilities in Ferrari, BMW, Rolls Royce, Porsche, and More](https://samcurry.net/web-hackers-vs-the-auto-industry)
+- Exploiting Web3's Hidden Attack Surface: Universal XSS on Netlify's Next.js Library (2022) — UXSS in Next.js library affecting Web3 applications on Netlify
 
 ### Conference Presentations
 

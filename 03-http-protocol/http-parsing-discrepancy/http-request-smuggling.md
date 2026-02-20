@@ -720,6 +720,7 @@ Host: vulnerable.com\r\n
 | §1-2 (CL.0) + global cache poisoning + C2 | 2025 research | CL.0 desync poisons 3xx redirects in Akamai/Azure/Oracle CDN global cache; Location header used as covert C2 channel. Targets include `.mil`, `.gov`, `.cn` domains |
 | §6 (pipelining) | CVE-2023-25950 (HAProxy 2.6/2.7) | HTX parser incorrectly merges pipelined requests |
 | §8 (request-line + header divergence) | CVE-2023-25725 (HAProxy) | Critical. Empty header name (line without colon) parsing discrepancy; graybox fuzzing discovery |
+| §8 (integer overflow in CL parsing) | CVE-2021-40346 (HAProxy) | Critical (CVSS 8.6). Integer overflow in `htx_add_header()` / `htx_add_data()` causes Content-Length validation bypass; attacker-controlled request body boundary enables classic request smuggling |
 | §8 (header parsing divergence) | CVE-2023-33934 (Apache Traffic Server) | Critical. Proxy-origin parsing discrepancy enabling access control bypass and cache poisoning; graybox fuzzing discovery |
 | §8-3 (semantic gap) | 7 CVEs (Apache, Tomcat, Weblogic, IIS) | Specification-driven testing: interpretation, prioritization, and tolerance gaps across 29 server pairs |
 | §8-4 (request + response + CGI parsing) | 9 CVEs (multiple vendors) | Gray-box testing: request desync, response forgery, response stealing, response ordering issues |
@@ -800,6 +801,8 @@ All HTTP Request Smuggling mutations ultimately stem from **one fact**: HTTP/1.1
 
 Six years of individual patches and regex-based defenses block only **known mutation fingerprints** without resolving the fundamental parser divergence. The structural solution requires three concurrent efforts: (1) **upstream HTTP/2 adoption** — eliminating framing mismatch by removing text-based length interpretation entirely (but as of 2025, Cloudflare downgrades H2→H1 internally, and Nginx/Akamai/CloudFront/Fastly lack upstream H2 support); (2) **opportunistic TLS deprecation** — eliminating TLS-layer desync; and (3) **RFC-strict normalization proxies** — enforcing a single interpretation at the network edge before requests reach heterogeneous backends. From a detection perspective, the necessary shift is from exploit-pattern matching to identifying **parser-primitive-level discrepancies themselves** — the approach embodied in HTTP Request Smuggler v3.0's V-H/H-V probing methodology.
 
+**HTTP/3 and QUIC.** The transition to HTTP/3 (QUIC-based transport) introduces additional protocol-level attack surfaces not covered by the H1/H2 mutations documented above: H3→H1/H2 downgrade translation differentials, QPACK header compression attacks, 0-RTT early data replay and IP spoofing, QUIC transport-level memory corruption, and connection coalescing contamination. These are documented separately in the companion **HTTP/3 & QUIC Protocol-Level Smuggling** taxonomy.
+
 
 
 ---
@@ -817,6 +820,8 @@ Six years of individual patches and regex-based defenses block only **known muta
 - Linhart, Klein, Heled, Orrin — *HTTP Request Smuggling* (2005). The original whitepaper defining CL.TE and TE.CL attack classes.
 - James Kettle — *HTTP Desync Attacks: Smashing into the Cell Next Door* (DEF CON 27 / Black Hat USA 2019). Revived HRS research; demonstrated at scale against PayPal ($20K+$18.9K bounties), Red Hat, and others ($70K+ total); introduced HTTP Request Smuggler Burp extension. Worked on ~1/3 of the internet.
 - James Kettle — *HTTP/2: The Sequel is Always Scarier* (Black Hat USA 2021 / DEF CON 29). H2.CL, H2.TE, H2.0 downgrade attacks; H2 CRLF injection; pseudo-header manipulation. Netflix ($20K), Netlify (every hosted site), AWS ALB.
+- Emil Lerner — *HTTP Request Smuggling via Higher HTTP Versions* (PHDays 2021). Independent H2→H1 downgrade smuggling research; 564 technique combinations via systematic testing. Demonstrated H2 smuggling against Akamai, Cloudflare, and multiple CDNs. Released `http2smugl` detection tool. GitHub: `neex/http2smugl`.
+- Martin Doyhenard — *Response Smuggling: Pwning HTTP/1.1 Connections* (DEF CON 29, 2021). Systematic exploitation of HTTP/1.1 response queues via crafted request sequences; demonstrated session hijacking, DoS, and cross-user response capture through response pipeline desynchronization.
 - James Kettle — *Browser-Powered Desync Attacks: A New Frontier in HTTP Request Smuggling* (Black Hat USA 2022 / DEF CON 30). Client-Side Desync (CSD), Pause-based desync, CL.0. Compromised Amazon, Apache, Akamai, Varnish, web VPNs. Introduced browser connection pool poisoning and desync worms.
 - James Kettle — *HTTP/1.1 Must Die: The Desync Endgame* (Black Hat USA 2025 / DEF CON 33). 0.CL with Early Response Gadgets, double-desync (0.CL→CL.0 conversion), Expect-based desync (vanilla and obfuscated), V-H/H-V discrepancy detection methodology, HTTP Request Smuggler v3.0. $350K+ bounties across Akamai (CVE-2025-32094, ~$221K / 74 bounties / 65-day patch), Cloudflare (24M websites, $7K), Netlify, T-Mobile ($12K), GitLab ($7K), LastPass ($5K), EXNESS ($7.5K). All bounties donated to charity. Published `http1mustdie.com`.
 

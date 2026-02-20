@@ -72,6 +72,7 @@ Many ORMs provide methods that accept SQL fragments for specific query clauses, 
 | **Hibernate/JPA** | `createQuery("HQL string")`, `createQuery("JPQL string")` | Full HQL/JPQL | `setParameter()` binding |
 | **Doctrine** | `createQuery("DQL string")`, `$qb->where("DQL fragment")` | Full DQL / WHERE | `setParameter()` binding |
 | **GORM** | `db.Where("sql fragment")`, `db.Order("sql")` | WHERE, ORDER BY | `db.Where("col = ?", val)` |
+| **WordPress (wpdb)** | `$wpdb->prepare()` with `sprintf()`-style `%s`/`%d` format strings; double-call to `prepare()` allows format specifiers in user input to survive the first pass and be reinterpreted | WHERE, LIKE, all clauses | Single `prepare()` call only; `$wpdb->esc_like()` for LIKE values; validate no user-controlled format specifiers |
 
 **Example — Laravel Eloquent:**
 ```php
@@ -98,6 +99,41 @@ User.order(Arel.sql(params[:sort]))  # Still vulnerable if params not validated!
 # SAFE — allowlist
 User.order(sort_column => sort_direction) if ALLOWED_COLUMNS.include?(sort_column)
 ```
+
+**Example — WordPress (wpdb):**
+```php
+// VULNERABLE — double-call to prepare() creates format string injection
+$wpdb->prepare(
+    $wpdb->prepare("SELECT * FROM wp_posts WHERE title = %s", $user_input)
+);
+// If $user_input contains %s, it survives the inner prepare() and is interpreted
+// as a format specifier in the outer prepare() call
+
+// VULNERABLE — LIKE wildcard injection (% not escaped)
+$wpdb->prepare("SELECT * FROM wp_users WHERE name LIKE %s", '%admin%');
+// User-supplied % characters pass through as SQL wildcards
+
+// SAFE — single prepare() call with esc_like()
+$like = '%' . $wpdb->esc_like($user_input) . '%';
+$wpdb->prepare("SELECT * FROM wp_users WHERE name LIKE %s", $like);
+```
+
+**WordPress `vsprintf` Format Specifier Injection:**
+
+Beyond the double-call vulnerability, WordPress's `prepare()` is also vulnerable to **positional format specifier injection** (`%1$%s`). Since `prepare()` internally uses `vsprintf()`, attackers who control any portion of the SQL template string can inject format specifiers that reference other arguments by position, extracting or manipulating data across query boundaries.
+
+```php
+// VULNERABLE — user input reaches the query template (e.g., via plugin filter)
+$wpdb->prepare("SELECT * FROM wp_posts WHERE slug = %s AND category = '$user_input'", $safe_param);
+// If $user_input = "%1$%s" → vsprintf resolves it to the value of $safe_param
+// leaking the first argument's value into the category clause
+
+// VULNERABLE — sprintf-style width specifier causes query truncation
+// $user_input = "%1$c" (char conversion) or "%1$'0999999s" (padding) can produce
+// truncated/malformed SQL that changes query semantics
+```
+
+**Key pattern:** Any code path where user-controlled data enters the first argument of `$wpdb->prepare()` (the SQL template) — whether directly or through plugin hooks, shortcodes, or meta queries — creates a format string injection surface. This is distinct from parameterized value injection and survives even when all `%s` placeholders are properly used.
 
 ### §1-3. Stored Procedure / Function Call Injection
 

@@ -1,0 +1,31 @@
+metadata:
+    language: v2-beta
+    name: "Connection Management Fingerprinting"
+    description: "Analyzes Keep-Alive and Connection header behavior to fingerprint server. Taxonomy: §5-3 Connection Management."
+    author: "the-map"
+    tags: "fingerprinting", "server", "passive", "recon"
+
+given response then
+    if {latest.response.headers} matches "(?i)Keep-Alive:\s*timeout=\d+" then
+        report issue:
+            severity: info
+            confidence: firm
+            detail: `Keep-Alive header with timeout value detected. The specific timeout and max values are server-implementation-specific: Apache defaults to timeout=5,max=100, while other servers use different defaults. This aids in server software identification even when the Server header is removed.`
+            remediation: "Informational. Keep-Alive parameters are a secondary fingerprinting vector. Removing the Server header alone is insufficient to prevent fingerprinting."
+    end if
+
+    if {latest.response.headers} matches "(?i)X-Runtime:\s*[\d.]+" then
+        report issue:
+            severity: low
+            confidence: certain
+            detail: `X-Runtime header detected, disclosing server-side request processing time. This is characteristic of Ruby on Rails (Rack::Runtime middleware). The timing information can be used for: framework fingerprinting, timing-based attacks, and identifying expensive operations.`
+            remediation: "Rails: Remove Rack::Runtime middleware. config.middleware.delete Rack::Runtime."
+    end if
+
+    if {latest.response.headers} matches "(?i)X-Response-Time:\s*[\d.]+" then
+        report issue:
+            severity: info
+            confidence: firm
+            detail: `X-Response-Time header detected, disclosing server processing duration. Common in Express.js (response-time middleware) and other Node.js frameworks.`
+            remediation: "Remove response-time middleware from production. Express: remove app.use(responseTime())."
+    end if

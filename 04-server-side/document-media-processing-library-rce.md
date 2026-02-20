@@ -554,6 +554,7 @@ Effective defense against document and media processing RCE requires **architect
 - ImageTragick.com — ImageMagick CVE-2016-3714 Advisory
 - arxiv.org — Where the Polyglots Are: How Polyglot Files Enable Cyber Attack Chains (2024)
 - TU Braunschweig — Server-Side Browsers: Exploring the Web's Hidden Attack Surface
+- Emil Lerner — "HotPics 2021: The Current State of Server-Side Image Conversion Attacks" (ZeroNights X, 2021). Survey of ImageMagick, Ghostscript, Pillow exploitation including Ghostscript zero-day achieving bounties at Airbnb, Dropbox, and Yandex. https://www.slideshare.net/neexemil/hotpics-2021
 
 ---
 

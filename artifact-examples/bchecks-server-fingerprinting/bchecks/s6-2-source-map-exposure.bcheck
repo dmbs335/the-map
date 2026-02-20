@@ -1,0 +1,31 @@
+metadata:
+    language: v2-beta
+    name: "Source Map and Debug Artifact Exposure"
+    description: "Detects exposed source maps and debug artifacts that reveal source code. Taxonomy: §6-2 Comment and Metadata Mining."
+    author: "the-map"
+    tags: "fingerprinting", "sourcemap", "passive", "recon"
+
+given response then
+    if {latest.response.headers} matches "(?i)SourceMap:\s*" then
+        report issue:
+            severity: medium
+            confidence: certain
+            detail: `The server exposes a SourceMap header pointing to JavaScript/CSS source maps. Source maps contain the original, unminified source code including variable names, function logic, API endpoints, and potentially secrets or internal comments.`
+            remediation: "Remove SourceMap headers in production. Configure the build pipeline to not generate source maps for production, or host them on internal-only servers."
+    end if
+
+    if {latest.response.headers} matches "(?i)X-SourceMap:\s*" then
+        report issue:
+            severity: medium
+            confidence: certain
+            detail: `The server exposes source maps via the deprecated X-SourceMap header. Same risk as SourceMap header: full original source code disclosure.`
+            remediation: "Remove X-SourceMap headers in production. Remove .map files from public-facing servers."
+    end if
+
+    if {latest.response.body} matches "//[#@]\s*sourceMappingURL=\S+\.map" then
+        report issue:
+            severity: low
+            confidence: certain
+            detail: `JavaScript or CSS files contain sourceMappingURL comments pointing to .map files. If these map files are accessible, the original source code is exposed.`
+            remediation: "Remove sourceMappingURL comments from production assets. Block access to .map files via server configuration."
+    end if

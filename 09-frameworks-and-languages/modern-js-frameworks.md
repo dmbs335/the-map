@@ -138,6 +138,7 @@ The transition from server-rendered HTML to client-interactive application (hydr
 | **DOM Clobbering via Framework Gadgets** | Malicious HTML elements with crafted `id` or `name` attributes override global JavaScript variables. When framework code reads these variables (e.g., `document.currentScript`, `import.meta.url`), attackers control execution flow | Scriptless HTML injection + framework code that reads DOM properties |
 | **Search Parameter Script Injection** | SvelteKit's boot script includes unsanitized search parameters from `tracked` search params, enabling script injection through URL parameters | SvelteKit with tracked search params (CVE-2025-32388) |
 | **Error Template Injection** | SvelteKit's static `error.html` template contained unescaped placeholders, allowing content injection when error pages were served | SvelteKit < 2.8.3 (CVE-2024-53262) |
+| **Netlify Deployment UXSS via Next.js Routing** | Netlify's deployment infrastructure interacts with Next.js client-side routing to create a universal XSS condition. The Netlify-specific Next.js runtime library processes URLs in a way that allows attacker-controlled path segments to be rendered as executable script content across all pages served by the affected deployment, impacting Web3 applications built on the Netlify+Next.js stack | Netlify-hosted Next.js applications using the affected runtime library version (Sam Curry, 2022) |
 
 ---
 
@@ -226,6 +227,7 @@ An attacker manipulates request parameters to cause a malicious or corrupted res
 | **204 Response Cache Poisoning** | Crafting requests that cause Next.js to return HTTP 204 responses, which are then cached by CDNs configured to cache 204s, creates DoS conditions where valid pages return empty responses | Next.js 15.1.0–15.1.7 with ISR or CDN caching 204 responses (CVE-2025-49826) |
 | **RSC/HTML Format Confusion** | Page requests for HTML content receive RSC (Flight protocol) payloads instead, or vice versa. When cached, this serves incomprehensible data to browsers expecting HTML | Next.js App Router 15.3.0–15.3.2 (CVE-2025-32421) |
 | **Cache Deception via Data Headers** | Manipulating response data to include cache-control directives (`s-maxage`, `stale-while-revalidate`) through header injection causes CDNs to cache pages containing sensitive user data | Applications with cache-control headers derived from user-controllable values |
+| **Response Cache Batcher Race Condition** | Next.js response-cache batcher deduplicates concurrent requests to the same page by sharing a single Promise. Racing the batcher during the brief window between cache-miss detection and response storage causes transient `pageProps` from one user's SSR response to leak into another user's cached response — enabling cross-user data exposure and cache poisoning without any header injection | Next.js Pages Router with response-cache batcher enabled; concurrent requests during ISR revalidation window (zhero-web-sec "Eclipse on Next.js" research, 2025) |
 
 ### §6-2. Cache-Based XSS Amplification
 
@@ -339,6 +341,7 @@ Modern SPAs often rely on token-based authentication (JWTs in localStorage), whi
 | **Missing CSRF Protection on Server Actions** | Next.js server actions accept POST requests without built-in CSRF token validation. If the application uses cookies for authentication, cross-site requests can invoke server actions | Cookie-based auth + server actions without custom CSRF protection |
 | **SameSite=None Cookie Exploitation** | Applications setting `SameSite=None` for cross-subdomain compatibility expose all cookie-authenticated endpoints to CSRF | Cookies with SameSite=None |
 | **XSS-to-CSRF Escalation** | Once XSS is achieved (via any method in §3), attackers can read CSRF tokens from the DOM and forge requests, making CSRF protection irrelevant | Any exploitable XSS vulnerability + CSRF-token-protected endpoints |
+| **HTML-over-the-wire framework token leakage** | Frameworks like Turbo (Hotwire/Rails), htmx, Unpoly, Phoenix LiveView, and Laravel Livewire replace JSON APIs with server-rendered HTML fragments delivered via fetch. Cross-origin form submissions to these endpoints produce HTML responses containing CSRF tokens, session state, or `<turbo-stream>` DOM mutation instructions. The framework processes the response and injects it into the DOM — leaking tokens via attacker-injected `<link>`/`<img>` tags or executing declarative DOM mutations from untrusted HTML | Cookie-based auth + HTML-over-the-wire framework that processes HTML responses without origin validation (see `csrf.md` §6-3) |
 
 ### §9-4. Development Tooling Exploitation
 
@@ -381,6 +384,7 @@ Framework development tools run with elevated privileges and may be inadvertentl
 | §6-1 (Cache Poisoning) | CVE-2024-46982 (Next.js) | CVSS 7.5. SSR cache poisoning via internal headers. Affects 13.5.1–14.2.9 |
 | §6-1 (Cache Poisoning DoS) | CVE-2025-49826 (Next.js) | Cache poisoning via 204 responses. Affects 15.1.0–15.1.7 with ISR |
 | §6-1 (RSC Format Confusion) | CVE-2025-32421 (Next.js) | RSC/HTML format confusion cache poisoning. Affects App Router 15.3.0–15.3.2 |
+| §6-1 (Cache Batcher Race) | Eclipse on Next.js (zhero-web-sec, 2025) | Cross-user data exposure via response-cache batcher race condition during ISR revalidation |
 | §5-3 + §6-2 (Astro Header SSRF/XSS) | CVE-2025-61925 / CVE-2025-64525 (Astro) | CVSS 6.5. SSRF + cache poisoning XSS via x-forwarded-* headers. CVE-2025-64525 is a bypass of the CVE-2025-61925 fix |
 | §2-2 (Astro Adapter Bypass) | CVE-2025-58179 (Astro) | Cloudflare adapter domain restriction bypass. SSRF + XSS |
 | §7-1 (Astro Source Map Leak) | CVE-2024-56159 (Astro) | Server source code exposure via sourcemaps in SSR mode. Affects Astro 5.0.3–5.0.6 |
@@ -459,6 +463,7 @@ Framework development tools run with elevated privileges and may be inadvertentl
 - PortSwigger Research: Top 10 Web Hacking Techniques of 2025
 - Kodem: Security Issues in Popular Full-Stack Frameworks
 - Semgrep: A Technical Deep Dive into JavaScript Vulnerability Detection
+- Sam Curry: "Exploiting Web3's Hidden Attack Surface: Universal XSS on Netlify's Next.js Library" (2022) — UXSS affecting Web3 applications via Next.js library vulnerability on Netlify
 
 ---
 

@@ -116,6 +116,17 @@ Python package installation and building execute arbitrary code through multiple
 | **conftest.py Auto-Loading** | pytest auto-discovers and loads `conftest.py` files from the project root. These execute arbitrary Python code when tests are run. | Developer runs `pytest` on an untrusted project |
 | **setup.cfg/setup.py Metadata Injection** | Package metadata fields (entry_points, console_scripts) can be abused to install executables that shadow legitimate system tools. | Package installed globally or in active virtualenv |
 
+### §1-6. Static Site Generator Build-Time Execution
+
+Static site generators (Hugo, Jekyll, Gatsby, Next.js SSG mode) execute dynamic code during the build phase to render "static" output. When content sources are untrusted (CMS, user-submitted PRs, external data), build-time code execution becomes an attack surface.
+
+| Subtype | Mechanism | Key Condition |
+|---------|-----------|---------------|
+| **Hugo Shortcode/Template Injection** | Hugo templates and shortcodes execute Go template functions during build. Malicious content using `{{ }}` syntax in Markdown files can invoke `os/exec`, read files via `readFile`, or access environment variables via `getenv`. | Hugo site with user-contributed content; shortcodes accessible from content files |
+| **Jekyll Plugin/Liquid Injection** | Jekyll processes Liquid templates and loads Ruby plugins during build. A malicious `_plugins/*.rb` file or crafted Liquid tag executes arbitrary Ruby code on the build server. | Jekyll with plugins enabled (not `--safe` mode); untrusted content in `_plugins/` or Liquid templates |
+| **Gatsby Node API Exploitation** | Gatsby's `gatsby-node.js` executes during build to create pages, transform data, and source content. `sourceNodes` and `createPages` APIs run arbitrary Node.js code, and malicious source plugins can exfiltrate data or install backdoors during `gatsby build`. | Gatsby project with untrusted source plugins or `gatsby-node.js` modifications |
+| **Next.js getStaticProps/getStaticPaths Execution** | `getStaticProps` and `getStaticPaths` execute server-side at build time during `next build`. These functions can make arbitrary network requests, access the filesystem, and execute system commands — a malicious page component's data-fetching function runs during SSG with full Node.js capabilities. | Next.js project in SSG mode; untrusted page components with data-fetching functions |
+
 ---
 
 ## §2. Package Manager Lifecycle Hook Exploitation
@@ -377,6 +388,8 @@ Before the actual build tool runs, many projects use wrapper scripts or bootstra
 |---------|-----------|---------------|
 | **Trojanized Build Tool Distribution** | The XZ Utils backdoor (CVE-2024-3094) exemplifies this: the attacker compromised the build process of a widely-used compression library, injecting a backdoor that only manifested in distribution tarballs (not in the Git source). | Developer/distro builds from compromised tarball rather than from verified Git source |
 | **Build Tool Update Hijacking** | Compromise of the build tool's update mechanism (registry, CDN, DNS) to serve a malicious version. | Auto-update fetches from compromised source |
+| **Package Manager Repository Compromise (Homebrew Cask)** | Homebrew's official Cask tap auto-merged pull requests via CI without sufficient review. Attacker submits a PR modifying a popular cask formula to include a malicious `postflight` block, executing arbitrary code on all users running `brew upgrade`. (Ryotak, 2021) | Package manager with auto-merge CI on official formula/tap repositories |
+| **CDN Library Publishing Pipeline RCE (cdnjs)** | Cloudflare's cdnjs auto-publish pipeline cloned Git repositories and ran npm `post-install` scripts in an unsandboxed environment. Attacker publishes a crafted npm package with symlinks traversing to the pipeline's credential store, achieving RCE on cdnjs build servers — enabling modification of any library served to ~12.7% of all websites. (Ryotak, 2021) | CDN/registry with automated build pipeline that executes untrusted package scripts without sandboxing |
 | **S1ngularity/Nx Build System Compromise (August 2025)** | The Nx monorepo build system was compromised, injecting AI-powered malware into widely-used packages through the build system itself. | Developer uses compromised version of Nx build system |
 
 ### §9-3. Environment Variable & PATH Manipulation
@@ -419,6 +432,7 @@ Real-world exploitation chains mutations across multiple toolchain components.
 | §3-1 | **CVE-2023-45133** (Babel traverse RCE) | Compile-time RCE via crafted code triggering `path.evaluate()` in Babel. | 2023 |
 | §2-5 | **CVE-2023-29404, CVE-2023-29405** (Go cgo LDFLAGS) | Build-time RCE via unsanitized linker flags in cgo directives. | 2023 |
 | §2-5 | **CVE-2023-39320** (Go toolchain directive) | Arbitrary code execution via crafted `go.mod` toolchain directive. | 2023 |
+| §9-2 | **CVE-2023-42793** (JetBrains TeamCity) | CVSS 9.8. Authentication bypass via alternative path in request interceptor pre-processing; unauthenticated RCE on CI/CD server; actively exploited in the wild. | 2023 |
 | §2-5 | **CVE-2025-68119, CVE-2025-4674** (Go VCS command injection) | Code execution during `go get` / `go mod download` via VCS command injection. | 2025 |
 | §7-1 | **CVE-2025-54313** (eslint-config-prettier compromise) | 31M weekly downloads. Maintainer phished → malicious versions deployed → Windows RCE via `node-gyp.dll`. | 2025 |
 | §6-3 | **CVE-2025-61260** (OpenAI Codex CLI RCE) | Configuration file RCE on developer machines via malicious MCP server entries. | 2025 |
@@ -578,6 +592,7 @@ The 2024-2025 attack wave demonstrates a clear trend: **the developer's local en
 - TamperedChef Chrome Extension Campaign (GitLab Threat Intelligence, February 2025)
 - S1ngularity Nx Build System Compromise (August 2025)
 - eslint-config-prettier Hijacking (Snyk, Endor Labs, July 2025)
+- Assetnote: "Exploiting Static Site Generators: When Static Is Not Actually Static" (2022) — SSG build-time dynamic code execution attack surface (Hugo, Jekyll, Gatsby)
 
 ---
 

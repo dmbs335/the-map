@@ -114,6 +114,8 @@ Application-specific processing paths that produce timing signals based on busin
 | **Permission Check Chains** | Authorization checks that short-circuit on first denial vs. evaluating full permission chains | Complex RBAC with observable timing |
 | **File Existence Probing** | File-serving endpoints that check filesystem existence before reading produce different timing for existing vs. non-existing paths | No constant-time response for missing files |
 | **Payment Processing State** | Payment verification endpoints that contact external services for valid transactions but return immediately for invalid ones | External service call only on valid input |
+| **Temporal Seed Narrowing (Sandwich Attack)** | Attacker sends "bracket" requests immediately before and after triggering a security-sensitive operation that generates a time-seeded token (password reset, session ID, CSRF token). The bracket requests return server timestamps or predictable server-side values, narrowing the PRNG seed to the time window between the two brackets. Instead of brute-forcing the full seed space, the attacker searches only the narrowed window, reducing search complexity by orders of magnitude | Server uses time-based PRNG seed (e.g., `microtime()`, `Date.now()`, `System.currentTimeMillis()`) for security tokens; attacker can trigger token generation with controllable timing (aeth.cc) |
+| **MongoDB ObjectID Prediction** | MongoDB `ObjectId` contains a 4-byte timestamp, 5-byte random value (per-process), and 3-byte incrementing counter. The counter is predictable within a process — sandwich-style bounding requests before and after a target operation narrow the counter range, enabling enumeration of ObjectIDs generated in the bracketed window for token interception or object access | MongoDB ObjectID used as security-sensitive identifier (password reset token, session reference); attacker can trigger operations with controllable timing |
 
 ### §1-5. Server-Side Parameter and Injection Discovery
 
@@ -463,3 +465,4 @@ Incremental defenses fail because timing leakage emerges at every layer of the s
 - Flatt Security, "Beyond the Limit: Expanding Single-Packet Race Condition" (2024) — https://flatt.tech/research/posts/beyond-the-limit-expanding-single-packet-race-condition-with-first-sequence-sync/
 - CVE-2024-13176 (OpenSSL ECDSA timing) — https://www.sentinelone.com/vulnerability-database/cve-2024-13176/
 - CVE-2024-25191 (php-jwt timing) — https://www.cvedetails.com/cve/CVE-2024-25191/
+- SonarSource: "Disclosing information with a side-channel in Django" (2022) — Timing side-channel vulnerabilities in Django framework leaking sensitive data

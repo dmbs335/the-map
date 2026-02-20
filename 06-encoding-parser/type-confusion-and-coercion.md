@@ -484,6 +484,9 @@ Every language boundary is a potential type confusion point. Type systems are no
 | **Interface Type Assertion Panic** | `value.(ConcreteType)` panics if the actual type doesn't match; unrecovered panic in a server handler crashes the service (DoS) | Missing comma-ok pattern: `value, ok := iface.(Type)` |
 | **encoding/json Untyped Unmarshaling** | `json.Unmarshal` into `interface{}` produces `float64` for all numbers, `map[string]interface{}` for objects; downstream code asserting `int` gets `float64` | JSON unmarshaled into generic types without explicit struct targets |
 | **reflect Type Confusion** | `reflect.Value` operations on wrong type cause panics or return garbage; `reflect.ValueOf(ptr).Elem()` on non-pointer panics | Dynamic type manipulation without proper type checking |
+| **encoding/xml Namespace Handling Quirks** | Go's `encoding/xml` decoder handles XML namespaces inconsistently compared to standard XML parsers (libxml2, Java SAX/DOM) — it may silently ignore namespace prefixes, flatten namespace-qualified attributes, or accept malformed namespace declarations that strict parsers reject. When an XML security decision (SAML signature validation, SOAP routing) is made by a standard-compliant parser but the data is consumed by Go's `encoding/xml`, the discrepancy enables element injection or signature wrapping bypass | Go service validates or processes XML alongside another system using a different XML parser; namespace-sensitive security logic (Trail of Bits "Unexpected Security Footguns in Go's Parsers" research, 2025) |
+| **encoding/xml Directive Processing Differential** | Go's XML decoder processes `<!DOCTYPE>` and processing instructions differently from libxml2 or Java parsers. Payloads that would be rejected by standard XML parsers (e.g., certain entity declarations, nested DTD constructs) may be silently accepted by Go's decoder, or vice versa — creating bypass opportunities in systems that assume uniform XML parsing behavior | Go service receiving XML from external sources; assumption that Go's XML parser is "safe by default" due to lack of external entity support |
+| **encoding/json Duplicate Key Divergence** | Go's `json.Unmarshal` takes the **last** value when duplicate keys exist in a JSON object. This differs from Python (`json.loads` takes last), PHP (`json_decode` takes last), Ruby (takes last), but critically from some middleware or WAFs that may inspect the **first** value. An attacker includes `{"role":"user","role":"admin"}` — the WAF validates `"user"` while Go's handler processes `"admin"` | Multi-layer architecture where JSON is validated/inspected at one layer and consumed at another; duplicate keys in request body |
 
 ### §10-5. Wasm-JS Interop
 
@@ -612,6 +615,7 @@ True elimination of type confusion requires **end-to-end type provenance**: ever
 - JIT-Picking (CCS 2022): Differential fuzzing for JIT type confusion
 - V8 Blog: Sandbox architecture and type guard design
 - RFC 8259: JSON data interchange format (duplicate key semantics)
+- Jake Miller (Bishop Fox) — "An Exploration of JSON Interoperability Vulnerabilities" (2021). Survey of 49 JSON parsers across 10 languages; documented duplicate key handling divergences, number precision differences, key collision attacks, and permissive parsing discrepancies enabling cross-parser smuggling. https://bishopfox.com/blog/json-interoperability-vulnerabilities
 
 ---
 

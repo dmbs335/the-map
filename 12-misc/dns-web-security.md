@@ -67,6 +67,7 @@ Attacks where the attacker has network-level positioning to intercept and modify
 | **BGP route hijacking for DNS** | Announce more-specific BGP routes for DNS server IP prefixes, redirecting DNS traffic through attacker infrastructure | Attacker controls a BGP-speaking network; target DNS prefix lacks RPKI ROA or networks don't enforce ROV |
 | **Transparent proxy DNS interception** | Intercept DNS queries at the network level via transparent proxying, modifying responses before they reach the client | Network appliance performs DNS interception; client does not use DoH/DoT |
 | **ISP-level DNS poisoning** | Compromise or coerce ISP DNS infrastructure to serve manipulated responses for targeted domains | State-level actor or compromised ISP; used by APT groups like Evasive Panda (observed 2022-2024) |
+| **Censorship infrastructure collateral takeover** | Nation-state DNS censorship systems (e.g., China's Great Firewall) inject forged DNS responses replacing legitimate IPs with arbitrary addresses for censored domains. When the injected IP belongs to claimable cloud infrastructure (AWS, Azure, GCP), any domain whose resolution traverses the censorship system becomes vulnerable to subdomain takeover — the attacker provisions a service at the poisoned IP and serves arbitrary content for the victim domain. Affects domains globally when queries transit through poisoned resolvers, even if neither the domain owner nor the attacker is in the censoring jurisdiction | DNS resolution path crosses nation-state censorship infrastructure; poisoned IP is on claimable hosting infrastructure (Assetnote, "Subdomain Takeover — Insecurity through Censorship") |
 
 ---
 
@@ -302,6 +303,7 @@ Attacks targeting security mechanisms that rely on DNS records for authenticatio
 |---|---|---|
 | **DNS-01 challenge hijacking** | Temporarily control DNS for the target domain (via cache poisoning §1, BGP hijacking §4-4, or registrar compromise §4-1) during a CA's DNS-01 ACME challenge to issue fraudulent certificates | CA performs DNS-01 validation; attacker can manipulate DNS response during validation window |
 | **HTTP-01 challenge via DNS manipulation** | Redirect the target domain's DNS A record to the attacker's server during a CA's HTTP-01 challenge validation | CA performs single-vantage validation; attacker controls DNS resolution for the target domain |
+| **TLS-SNI-01/02 shared hosting exploitation** | On shared hosting where multiple domains share an IP, the ACME TLS-SNI-01 challenge validates domain ownership by checking a self-signed certificate on a specific SNI hostname (`<token>.acme.invalid`). An attacker on the same shared IP uploads a certificate matching the challenge SNI value, causing the CA to validate against the attacker's certificate instead of the legitimate domain owner's, enabling certificate issuance for arbitrary co-hosted domains | Shared hosting (multiple domains on same IP); CA uses TLS-SNI-01/02 validation; attacker has hosting account on same server (Let's Encrypt disabled TLS-SNI-01 in January 2018; TLS-SNI-02 never deployed) |
 | **BGP-assisted certificate misissuance** | Combine BGP route hijacking (§4-4) with CA domain validation to intercept validation traffic and respond with attacker-controlled proof of domain ownership | CA validates from limited network vantage points; BGP hijack routes validation traffic to attacker |
 | **Subdomain validation scope abuse** | Obtain certificates for a taken-over subdomain (§3) and use them to perform MitM attacks on traffic to that subdomain | Subdomain takeover successful; CA issues DV certificate for the taken-over hostname |
 
@@ -417,6 +419,8 @@ A comprehensive solution would require: (1) **universal cryptographic authentica
 - Palo Alto Networks Unit 42: Wildcard DNS abuse detection (29 billion records analyzed, March-September 2024)
 - ProjectDiscovery: "A Guide to DNS Takeovers: The Misunderstood Cousin of Subdomain Takeovers"
 - ZeroPath: CVE-2025-40778 and CVE-2025-40780 BIND 9 analysis
+- Positive Technologies: "Discovering Domains via a Time-Correlation Attack on Certificate Transparency" (2022) — Domain enumeration via temporal analysis of CT log issuance timestamps
+- SEC Consult: "Melting the DNS Iceberg: Taking over your infrastructure Kaminsky style" (2022) — Revisiting Kaminsky attacks against modern DNS implementations with novel mitigation bypass
 
 ---
 

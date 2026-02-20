@@ -167,7 +167,9 @@ Beyond stream wrappers, several PHP-specific mechanisms convert LFI to code exec
 |---------|-----------|---------------|
 | **Log Poisoning** | Inject PHP code into server logs (access log, error log, mail log) via User-Agent, Referer, or other logged fields; then include the log file | Log file path known and readable |
 | **Session File Inclusion** | Include PHP session files (`/tmp/sess_XXXXX`) after injecting PHP code into session data via `PHP_SESSION_UPLOAD_PROGRESS` or controllable session values | Session file path known; session data partially controllable |
-| **pearcmd.php Abuse** | Include `/usr/local/lib/php/pearcmd.php` which parses `$_SERVER['argv']` from query string, allowing arbitrary file creation via `config-create` or `install` commands | PEAR/PECL installed (common in Docker images) |
+| **pearcmd.php Abuse** | Include `/usr/local/lib/php/pearcmd.php` which parses `$_SERVER['argv']` from query string, allowing arbitrary file creation via `config-create` or `install` commands | PEAR/PECL installed (common in Docker images); `register_argc_argv=On` |
+| **register_argc_argv Path Manipulation** | When `register_argc_argv=On` (enabled by default in PHP CLI and many php.ini distributions including Docker images), PHP populates `$_SERVER['argv']` by parsing the query string on `=` and `+` delimiters. Any PHP script that reads `$_SERVER['argv']` — not just pearcmd.php — becomes exploitable via web requests. Attacker crafts query strings that inject arbitrary arguments into scripts designed for CLI execution but accessible via web (e.g., `?+-d+allow_url_include%3d1+-d+auto_prepend_file%3dphp://input`) | `register_argc_argv=On`; target PHP script reads `$_SERVER['argv']` or uses `getopt()`; script reachable via web request |
+| **Craft CMS register_argc_argv RCE** | Craft CMS exposes PHP initialization scripts (e.g., `index.php`, `queue/run`) that are accessible via web and invoke Yii console commands parsing `$_SERVER['argv']`. Attacker injects `-d` flags via query string to override PHP INI directives at runtime — enabling `allow_url_include` and setting `auto_prepend_file=php://input` — achieving unauthenticated RCE without file upload or shell access | Craft CMS installation; `register_argc_argv=On` (default); Craft entry script reachable via web |
 | **Temporary Upload File** | PHP creates temp files for uploads (`/tmp/phpXXXXXX`); race condition to include the temp file before it's deleted | Predictable temp path + race window |
 | **/proc/self/environ** | Include `/proc/self/environ` where User-Agent header is reflected, containing injected PHP code | Linux; `proc` filesystem accessible |
 | **phpinfo() + LFI Race** | phpinfo() displays temporary file paths for current uploads; race condition to include the file before cleanup | phpinfo() page accessible + LFI |
@@ -219,6 +221,7 @@ Functions that don't obviously execute code but can be weaponized to achieve it.
 | **auto_prepend_file / auto_append_file** | PHP configuration directives that include a specified file before/after every script execution; controllable via `.user.ini` or `.htaccess` | Attacker can upload `.user.ini` to web-accessible directory |
 | **.user.ini Injection** | Upload a `.user.ini` file setting `auto_prepend_file=uploaded_image.jpg` where the image contains embedded PHP code | File upload to directory with PHP handler; CGI/FastCGI mode |
 | **.htaccess Injection** | Upload `.htaccess` with `php_value auto_prepend_file /path/to/shell` or `AddType application/x-httpd-php .jpg` | Apache + mod_php; file upload capability |
+| **OPcache File Cache Overwrite** | When `opcache.file_cache` is configured, PHP stores compiled bytecode on disk. Attacker replaces a cached opcode file with a crafted binary payload; the next request to that script executes malicious bytecode, bypassing source-level webshell detection | `opcache.file_cache` enabled; attacker has arbitrary file write to cache directory |
 | **Environment Variable auto_prepend_file** | On PHP-CGI/FastCGI deployments where environment variables are controllable (e.g., via HTTP headers mapped to env vars), setting `PHP_VALUE=auto_prepend_file=php://input` causes PHP to execute the POST body before every script — achieving fileless RCE without any file write (CVE-2023-36845, Juniper J-Web) | PHP-CGI/FastCGI; environment variables settable via HTTP request; `allow_url_include` not required when using `php://input` via env var injection |
 
 ---
@@ -313,6 +316,7 @@ PHP's built-in validation and filtering functions contain design flaws and imple
 | **gethostbyname() Null Truncation** | `gethostbyname()` silently truncates hostnames at null bytes, creating SSRF opportunities | Hostname validation before DNS resolution |
 | **parse_url() vs. curl Differential** | `parse_url()` and `curl_exec()` parse URLs differently (different RFC compliance), enabling SSRF through parser differentials | URL validation via parse_url(), request via curl |
 | **Multibyte Encoding Exploits** | Incomplete multibyte sequences in Shift-JIS, GBK, and similar encodings can "eat" escape characters, bypassing security filters | Application using multibyte character sets |
+| **mbstring Function Inconsistency** | PHP's `mbstring` extension functions (`mb_strpos()`, `mb_substr()`, `mb_strtolower()`, `mb_ereg()`) interpret byte sequences differently than their single-byte counterparts (`strpos()`, `substr()`, `strtolower()`, `preg_match()`). When a security sanitizer uses mbstring-aware functions but subsequent processing uses single-byte functions (or vice versa), character boundary misalignment creates bypass opportunities — a multi-byte character partially consumed by one function causes remaining bytes to be reinterpreted, smuggling payloads past the sanitizer | Application mixes mbstring and standard string functions in security-critical code paths; input contains multi-byte encodings (UTF-8, Shift-JIS, EUC-JP, Big5) where encoding-aware and encoding-unaware processing are chained |
 
 ### §7-3. Path & Filename Validation
 
@@ -424,7 +428,7 @@ libxml2 >= 2.9.0 (shipped with PHP 8.0+) disables external entity loading by def
 | **Denial of Service** | XML bomb; regex catastrophic backtracking; hash collision; large array operations | §8-1 + §10-1 |
 | **Variable/State Corruption** | extract(); parse_str(); register_globals (legacy); query parser differential | §6-1 + §6-2 + §6-3 |
 | **Token/Session Prediction** | mt_rand() seed recovery; uniqid() prediction; session ID entropy leak | §9-1 |
-| **Webshell Deployment** | .user.ini upload + auto_prepend_file; PHAR polyglot upload; file write gadget chain | §2-4 + §4-4 |
+| **Webshell Deployment** | .user.ini upload + auto_prepend_file; PHAR polyglot upload; file write gadget chain; OPcache file cache overwrite | §2-4 + §4-4 |
 
 ---
 
@@ -511,6 +515,7 @@ True mitigation requires abandoning convenience in security-critical code: stric
 - Synacktiv PHP Filter Chain Oracle Exploit: https://github.com/synacktiv/php_filter_chains_oracle_exploit
 - Dangerous PHP Functions Reference: https://gist.github.com/mccabe615/b0907514d34b2de088c4996933ea1720
 - GreyNoise CVE-2024-4577 Mass Exploitation Report: https://www.greynoise.io/blog/mass-exploitation-critical-php-cgi-vulnerability-cve-2024-4577
+- Positive Technologies: "Exploiting Arbitrary Object Instantiations in PHP without Custom Classes" (2022) — Systematic exploitation of built-in PHP classes (`SplFileObject`, `SimpleXMLElement`, `GlobIterator`, `Imagick`, `ReflectionFunction`) via `new $class($arg)` patterns
 
 ---
 

@@ -1,0 +1,39 @@
+metadata:
+    language: v2-beta
+    name: "Frontend JavaScript Framework Detection"
+    description: "Detects frontend frameworks from response body patterns (React, Angular, Vue, Svelte). Taxonomy: §6-1 JavaScript Library Detection."
+    author: "the-map"
+    tags: "fingerprinting", "javascript", "passive", "recon"
+
+given response then
+    if {latest.response.body} matches "(?i)(react-root|__react|reactDOM|_reactRootContainer|data-reactroot)" then
+        report issue:
+            severity: info
+            confidence: firm
+            detail: `React.js frontend framework detected via DOM markers. React applications commonly use client-side routing and state management that may expose API endpoints and data flow patterns.`
+            remediation: "Informational. Review React application for client-side secret exposure, API endpoint discovery via network tab, and dangerouslySetInnerHTML usage."
+    end if
+
+    if {latest.response.body} matches "(?i)(ng-version|ng-app|angular\.min\.js|angular\.js|ng-controller)" then
+        report issue:
+            severity: info
+            confidence: firm
+            detail: `Angular framework detected via DOM attributes or script references. Angular template injection (CSTI) may be possible if user input is rendered in Angular template context.`
+            remediation: "Informational. Test for Angular template injection: {{7*7}} in user-controlled inputs. Review for exposed API calls in Angular services."
+    end if
+
+    if {latest.response.body} matches "(?i)(data-v-[0-9a-f]+|__vue__|vue\.min\.js|Vue\.config)" then
+        report issue:
+            severity: info
+            confidence: firm
+            detail: `Vue.js framework detected via scoped style attributes (data-v-*) or Vue globals. Vue applications may expose Vuex store state and API endpoints.`
+            remediation: "Informational. Review for Vue template injection and exposed state management data."
+    end if
+
+    if {latest.response.body} matches "(?i)(__svelte|svelte-[0-9a-z]+|class=\"svelte-)" then
+        report issue:
+            severity: info
+            confidence: firm
+            detail: `Svelte framework detected via Svelte-specific CSS class names (svelte-*) or internal markers.`
+            remediation: "Informational."
+    end if

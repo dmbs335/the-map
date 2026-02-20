@@ -340,6 +340,7 @@ When requests traverse multiple services, authorization context can be lost, inf
 | **Privilege Escalation via Service Chaining** | User-context lost across service hops; downstream service uses calling service's elevated privileges | No end-to-end user identity propagation; services use service accounts for downstream calls |
 | **Confused Deputy** | Service A makes request to Service B on behalf of user, but Service B cannot distinguish between Service A's own requests and user-delegated requests | No delegation/impersonation framework; Service B trusts Service A's identity alone |
 | **Scope Inflation** | OAuth scope for user narrower than service-to-service scope; internal call uses broader service credentials | Services issued broad scopes for operational convenience; user scope not propagated |
+| **Recursive Upstream API Chaining (RRE)** | Unauthenticated APIs exposing upstream metadata (CDN configs, streaming manifests, entitlement endpoints) are chained recursively — each API response reveals the next upstream service URL. Starting from a public endpoint, the attacker reconstructs the entire entitlement workflow, reaching protected resources without authorization | Microservice architecture with unauthenticated metadata APIs; each service trusts callers as pre-authorized; no end-to-end entitlement verification |
 
 ---
 

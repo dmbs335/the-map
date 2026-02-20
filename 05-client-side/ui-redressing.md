@@ -261,6 +261,7 @@ Exploiting WebView components within mobile applications.
 |---|---|---|
 | **WebView overlay** | A malicious app opens a WebView that overlays a legitimate app's WebView, intercepting taps | Both apps use WebView with overlapping display |
 | **WebView JavaScript injection** | Malicious content loaded in a WebView manipulates the DOM to reposition sensitive buttons | WebView allows JavaScript execution with lax origin policy |
+| **Address bar spoofing via intent:// scheme** | Attacker crafts an `intent://` or browser-specific URI scheme (e.g., `opera-browser://`) that navigates the browser to an internal page or attacker-controlled content while the address bar displays a trusted URL or omits the actual origin | Mobile browser with insufficient intent:// URI validation; browser-specific custom scheme handling (Opera, Samsung Internet) |
 
 ---
 
@@ -409,6 +410,7 @@ Until browsers implement a universal "verified intent" primitive — analogous t
 - Philipp Beer et al., "TapTrap: Animation-Driven Tapjacking on Android" (USENIX Security 2025) — https://www.usenix.org/conference/usenixsecurity25/presentation/beer
 - PortSwigger Web Security Academy: Clickjacking — https://portswigger.net/web-security/clickjacking
 - MDN Web Docs: Clickjacking — https://developer.mozilla.org/en-US/docs/Web/Security/Attacks/Clickjacking
+- renwa: "The Underrated Bugs, Clickjacking, CSS Injection, Drag-Drop XSS, Cookie Bomb..." (2022) — Unified argument for the combined significance of systematically undervalued vulnerability classes
 
 ---
 

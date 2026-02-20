@@ -1,0 +1,15 @@
+metadata:
+    language: v2-beta
+    name: "ASP.NET Version Header Disclosure"
+    description: "Detects ASP.NET version disclosure via X-AspNet-Version or X-AspNetMvc-Version headers. Taxonomy: §5-1 Default Header Presence."
+    author: "the-map"
+    tags: "fingerprinting", "aspnet", "passive", "recon"
+
+given response then
+    if {latest.response.headers} matches "(?i)X-AspNet(Mvc)?-Version:\s*[\d.]+" then
+        report issue:
+            severity: low
+            confidence: certain
+            detail: `The server discloses the exact ASP.NET or ASP.NET MVC version via response headers. This allows an attacker to target version-specific vulnerabilities (e.g., ViewState deserialization, parameter binding flaws).`
+            remediation: "In web.config: <httpRuntime enableVersionHeader='false' />. Additionally remove X-AspNetMvc-Version via custom module or Response.Headers.Remove() in Application_PreSendRequestHeaders."
+    end if

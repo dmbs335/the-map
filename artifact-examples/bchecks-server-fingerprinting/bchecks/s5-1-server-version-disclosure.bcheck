@@ -1,0 +1,15 @@
+metadata:
+    language: v2-beta
+    name: "Server Version Number Disclosure"
+    description: "Detects exact version numbers in the Server header. Taxonomy: §5-1 Server Banner Extraction."
+    author: "the-map"
+    tags: "fingerprinting", "server", "passive", "recon"
+
+given response then
+    if {latest.response.headers} matches "Server:.*\d+\.\d+(\.\d+)?" then
+        report issue:
+            severity: low
+            confidence: certain
+            detail: `The Server header discloses a specific version number. An attacker can correlate this with known CVEs to identify exploitable vulnerabilities for the exact version in use.`
+            remediation: "Configure the server to suppress version numbers. Apache: ServerTokens Prod. nginx: server_tokens off. IIS: Remove via URL Rewrite or registry modification."
+    end if

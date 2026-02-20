@@ -1,0 +1,57 @@
+metadata:
+    language: v2-beta
+    name: "Debug and Management Endpoint Exposure"
+    description: "Probes for debug, actuator, and management endpoints that reveal technology stack and sensitive data. Taxonomy: §6-2 Behavioral Version Detection."
+    author: "the-map"
+    tags: "fingerprinting", "debug", "active", "recon"
+
+given request then
+    send request called actuator:
+        replacing path: "/actuator"
+
+    if {actuator.response.status_code} is "200" and
+       {actuator.response.body} matches "(?i)(_links|actuator)" then
+        report issue:
+            severity: high
+            confidence: certain
+            detail: `Spring Boot Actuator endpoint is publicly accessible. This exposes application health, environment variables, beans, mappings, and potentially heap dumps. Specific dangerous endpoints: /actuator/env (secrets), /actuator/heapdump (memory dump with credentials), /actuator/gateway/routes (Spring Cloud Gateway RCE pattern).`
+            remediation: "Restrict actuator endpoints via management.endpoints.web.exposure.include. Bind management port to localhost only. Require authentication for all actuator endpoints."
+    end if
+
+    send request called phpinfo:
+        replacing path: "/phpinfo.php"
+
+    if {phpinfo.response.status_code} is "200" and
+       {phpinfo.response.body} matches "(?i)(phpinfo|PHP Version)" then
+        report issue:
+            severity: high
+            confidence: certain
+            detail: `phpinfo() page is publicly accessible. This exposes the complete PHP configuration including: exact PHP version, loaded modules, environment variables (may contain credentials), file paths, disabled functions list, and server configuration. This information greatly assists exploit development.`
+            remediation: "Remove phpinfo.php from production servers. Ensure no test/info files are deployed."
+    end if
+
+    send request called elmahAxd:
+        replacing path: "/elmah.axd"
+
+    if {elmahAxd.response.status_code} is "200" and
+       {elmahAxd.response.body} matches "(?i)(ELMAH|Error Log)" then
+        report issue:
+            severity: high
+            confidence: certain
+            detail: `ASP.NET ELMAH error log is publicly accessible. This exposes detailed error messages, stack traces, request parameters, and potentially sensitive data from application errors.`
+            remediation: "Restrict ELMAH access via authorization configuration in web.config. Bind to localhost or require admin authentication."
+    end if
+
+    send request called graphqlIntrospection:
+        method: "POST"
+        replacing path: "/graphql"
+        replacing body: "{\"query\":\"{__schema{types{name}}}\"}"
+
+    if {graphqlIntrospection.response.status_code} is "200" and
+       {graphqlIntrospection.response.body} matches "__schema" then
+        report issue:
+            severity: medium
+            confidence: certain
+            detail: `GraphQL introspection is enabled. This exposes the complete API schema including all types, queries, mutations, and subscriptions. An attacker can discover undocumented endpoints, internal data models, and authorization-sensitive operations.`
+            remediation: "Disable introspection in production. Apollo Server: introspection: false. Hasura: HASURA_GRAPHQL_ENABLE_INTROSPECTION=false."
+    end if

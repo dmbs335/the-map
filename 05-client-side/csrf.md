@@ -328,6 +328,18 @@ WebSocket connections begin with an HTTP handshake that carries cookies. Once es
 | **Form-Based Cross-Origin POST** | Standard HTML `<form>` submissions with `method="POST"` are not subject to CORS preflight. The browser sends the request with cookies and the target processes it — even though the attacker cannot read the response. | D4 | No CSRF token required; SameSite=None or same-site context |
 | **`navigator.sendBeacon()`** | This API sends POST requests with credentials after page unload. It is useful for fire-and-forget CSRF where the attacker doesn't need a response and wants to avoid the victim seeing a page navigation. | D4 | Beacon requests are POST with `text/plain`; server accepts this content type |
 
+### §6-3. HTML-Over-the-Wire Framework Exploitation
+
+"HTML-over-the-wire" frameworks (Turbo/Hotwire, htmx, Unpoly, Phoenix LiveView, Laravel Livewire) replace traditional JSON API calls with server-rendered HTML fragments delivered via fetch requests. These frameworks introduce a distinct CSRF surface because they process cross-origin HTML responses containing sensitive tokens and page state.
+
+| Subtype | Mechanism | Discrepancy | Key Condition |
+|---------|-----------|-------------|---------------|
+| **Cross-origin HTML response acceptance** | Turbo, htmx, and similar libraries issue fetch-based POST requests and inject the HTML response directly into the DOM. A cross-origin page can submit a form targeting the victim application's Turbo/htmx endpoint; the framework processes the response HTML, which may contain CSRF tokens, session state, or other sensitive data embedded in the response fragment | D4 + D6 | Framework accepts and processes HTML responses from cross-origin form submissions; no `Sec-Fetch-Site` validation |
+| **CSRF token leakage via injected link** | The cross-origin HTML response processed by the framework contains an attacker-injected `<link>` tag or `<img>` tag referencing an external URL. When the framework inserts this HTML into the DOM, the browser fetches the external resource, leaking the page's CSRF token (if present in the URL or Referer header) to the attacker's server | D6 | HTML-over-the-wire framework inserts server response into DOM without sanitization; CSRF tokens appear in page URLs or form fields within the fragment |
+| **Turbo Stream action injection** | Turbo Streams use `<turbo-stream>` elements with `action` attributes (`append`, `replace`, `remove`) to declaratively mutate the DOM. If a cross-origin response contains crafted `<turbo-stream>` elements, the framework executes the specified DOM mutations — enabling attacker-controlled content injection, element removal, or form field replacement in the victim's page | D4 + D7 | Turbo processes stream responses without verifying response origin; `SameSite=Lax` permits the initial navigation |
+
+The fundamental issue is that HTML-over-the-wire frameworks **treat HTML responses as trusted instructions for DOM mutation**, but the browser's same-origin policy only prevents *reading* cross-origin responses — it does not prevent the *side effects* of submitting forms that trigger server-side state changes, and in some configurations the response HTML is processed by the framework before SOP enforcement applies.
+
 ---
 
 ## §7. Authentication Context Manipulation
@@ -395,6 +407,18 @@ CSRF rarely exists in isolation in modern applications. Its most impactful explo
 |---------|-----------|-------------|---------------|
 | **Uploaded HTML/SVG XSS** | Malicious HTML or SVG files uploaded to the target domain execute JavaScript in the target's origin, enabling token extraction and CSRF submission. | D6 | File upload without content sanitization; files served from same origin |
 | **PDF JavaScript Execution** | PDF files with embedded JavaScript, when opened in the browser's built-in viewer from the target's origin, can make same-origin requests and read CSRF tokens. | D6 | PDF served from same origin; browser renders PDF with JS support |
+
+### §8-5. Cloud Management Plane CSRF → RCE Chains
+
+Cloud PaaS management endpoints (deployment APIs, CI/CD dashboards, SCM interfaces) are high-value CSRF targets because successful state-changing requests can deploy attacker-controlled code — converting a CSRF into remote code execution.
+
+| Subtype | Mechanism | Discrepancy | Key Condition |
+|---------|-----------|-------------|---------------|
+| **Same-site origin confusion on PaaS management plane** | Cloud platforms host management interfaces (e.g., Azure Kudu SCM at `*.scm.azurewebsites.net`) on the same site as customer applications (`*.azurewebsites.net`). The management plane trusts requests from the same site, but `SameSite=Lax` cookies are sent from any page on the same registrable domain. An attacker hosting a page on `attacker.azurewebsites.net` can issue requests to `victim.scm.azurewebsites.net` that carry the victim's management session cookies | D6 | Management interface and customer apps share a registrable domain (same-site); management cookies use `SameSite=Lax` or `None` |
+| **Origin validation bypass → ZIP deployment** | The management endpoint performs origin validation but the check is flawed — e.g., substring matching, missing port validation, or case-insensitive comparison. The attacker bypasses the origin check and submits a POST request that triggers a ZIP deployment (e.g., `/api/zipdeploy`) containing a webshell or reverse shell. The platform extracts and deploys the ZIP contents, achieving RCE | D5 + D6 | Origin validation flaw on deployment API; ZIP deployment endpoint accessible via standard HTTP POST with cookies |
+| **CSRF → code deployment → RCE** | The complete chain: (1) attacker page on same-site triggers CSRF to the deployment API, (2) deployment API accepts the attacker's archive and deploys it as the web application, (3) deployed code executes on the platform with the application's service identity. This converts a cookie-based CSRF into full server compromise with cloud IAM permissions | D6 + D8 | Same-site cookie scope includes management plane; deployment endpoint lacks CSRF token; no confirmation step for deployments |
+
+This pattern generalizes beyond Azure: any cloud platform where management interfaces share a registrable domain with customer applications (e.g., `*.herokuapp.com`, `*.vercel.app`, `*.netlify.app`) and accept cookie-authenticated deployment requests is potentially vulnerable to same-site CSRF → RCE chains.
 
 ---
 

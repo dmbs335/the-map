@@ -341,6 +341,8 @@ Trusted Types can theoretically prevent DOM Clobbering exploitation at the sink 
 
 Modern JavaScript ecosystems contain DOM Clobbering **gadgets** — code patterns in bundlers, libraries, and frameworks that, when combined with scriptless HTML injection, produce exploitable vulnerabilities. This section catalogs known gadget families.
 
+**Combined Chain: Library Gadgets as DOMPurify Bypass Vectors.** When DOMPurify is deployed as the sanitizer, the gadgets cataloged below become the critical escalation path. DOMPurify (§5-5) sanitizes script-bearing elements but permits benign-looking attributes like `id`, `name`, and `href` with `cid:` protocol. An attacker injects clobbering elements that survive sanitization (e.g., `<a id=x>` or `<img name=currentScript>`), and these elements then activate a downstream library gadget — the bundler runtime reads the clobbered `document.currentScript.src` and loads attacker-controlled scripts, or a client-side router processes the clobbered navigation state. The result is XSS despite DOMPurify being correctly configured and up-to-date: the sanitizer cannot block the clobbering elements because they contain no executable content, while the library gadget converts the clobbered DOM property into script execution. This §5-5 → §7 chain was systematically demonstrated in the "Under the Beamer" research (mizu.re, 2025), showing that DOMPurify bypass is achievable through the library gadget layer without requiring any DOMPurify-specific vulnerability.
+
 ### §7-1. Bundler Runtime Path Resolution Gadgets
 
 Bundlers that convert ES modules to browser-compatible formats (CJS/UMD/IIFE) often generate runtime code that resolves file paths using `document.currentScript`. This pattern is a universal DOM Clobbering gadget.

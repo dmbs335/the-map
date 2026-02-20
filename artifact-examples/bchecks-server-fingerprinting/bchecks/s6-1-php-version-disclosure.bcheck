@@ -1,0 +1,15 @@
+metadata:
+    language: v2-beta
+    name: "PHP Version Disclosure"
+    description: "Detects PHP version disclosure via X-Powered-By header or response patterns. Taxonomy: §5-1 + §6-1."
+    author: "the-map"
+    tags: "fingerprinting", "php", "passive", "recon"
+
+given response then
+    if {latest.response.headers} matches "(?i)X-Powered-By:\s*PHP/[\d.]+" then
+        report issue:
+            severity: low
+            confidence: certain
+            detail: `The exact PHP version is disclosed via the X-Powered-By header. An attacker can correlate this with known PHP CVEs (type juggling, deserialization, filter bypass) for the specific version.`
+            remediation: "Set expose_php = Off in php.ini. This removes the PHP version from response headers."
+    end if

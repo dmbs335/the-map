@@ -173,6 +173,7 @@ In standard browsers, V8 exploits are contained by the multi-process sandbox. De
 | **nodeIntegration enabled** | `nodeIntegration: true` merges Node.js into the renderer context, making any XSS equivalent to RCE | V1, V3 | Legacy or misconfigured applications |
 | **Chromium sandbox escape** | Exploiting bugs in the IPC layer between renderer and browser process (e.g., Mojo interface bugs) to escape the sandbox | V3, V8 | CVE-2025-4609: $250,000 bounty, affected Electron apps |
 | **nodeIntegrationInSubFrames** | Enabling Node.js integration in iframes allows untrusted sub-frames to access Node.js APIs | V1, V7 | `nodeIntegrationInSubFrames: true` in webPreferences |
+| **Rich-content rendering XSS** | Markdown preview, HTML email, or rich-text editor components render user-supplied content; unsanitized HTML tags (`<img onerror>`, `<iframe>`, `<webview>`) in the rendering pipeline yield XSS that escalates to RCE via `nodeIntegration` or overprivileged preload APIs | V6, V1 | Atom editor Markdown preview (Matt Austin 2017); renderer context has `nodeIntegration: true` or exposed IPC handlers, and content pipeline lacks DOMPurify / CSP enforcement |
 
 ### §3-3. V8 Heap Snapshot Tampering
 
@@ -482,6 +483,7 @@ Desktop hybrid apps can create transparent, frameless, always-on-top windows and
 | §10-1 (npm supply chain) | npm Shai-Hulud worm (Sept 2025) | 18 packages, 2.6B weekly downloads; self-propagating malware |
 | §5-1 (ASAR persistence) | Slack ASAR injection (pentest case) | Persistence via PowerShell payload in `electron.asar` |
 | §3-2 (CEF sandbox + V8) | Steam CEF RCE chain (DARKNAVY) | Chained V8 exploit + sandbox escape for RCE on Steam client |
+| §1 + §2 + §3 (IPC message XSS → context isolation bypass → embedded engine sandbox escape) | Pwn2Own Vancouver 2023 — Microsoft Teams (Masato Kinugawa) | Full RCE via 3-bug chain: XSS in chat message → Electron context isolation bypass → JS execution outside sandbox. Demonstrated complete Electron security boundary exploitation |
 | §1-3 (Tauri scope bypass) | GHSA-q9wv-22m9-vhqh (Tauri) | Filesystem scope partially bypassable via special character escaping |
 
 ---
@@ -574,6 +576,7 @@ The most dangerous misconception in desktop hybrid app security is that **deskto
 - Cobalt — Common Misconfigurations in Electron Apps: https://www.cobalt.io/blog/common-misconfigurations-electron-apps-part-1
 - Wojciech Regula — Abusing Electron Apps on macOS: https://wojciechregula.blog/post/abusing-electron-apps-to-bypass-macos-security-controls/
 - Microsoft — Develop Secure WebView2 Apps: https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/security
+- "ElectroVolt — Pwning Popular Desktop Apps" (2022) — Systematic Electron exploitation techniques demonstrated against popular desktop applications
 
 ---
 

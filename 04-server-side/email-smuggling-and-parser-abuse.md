@@ -465,6 +465,7 @@ A structural defense requires **parser canonicalization at trust boundaries**: b
 - Revisiting Email Forwarding Security under the Authenticated Received Chain Protocol, WWW 2022. https://gangw.cs.illinois.edu/arc-www22.pdf
 - Heyes, "Bypassing character blocklists with unicode overflows," PortSwigger Research. https://portswigger.net/research/bypassing-character-blocklists-with-unicode-overflows
 - OWASP, "Testing for IMAP SMTP Injection." https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/07-Input_Validation_Testing/10-Testing_for_IMAP_SMTP_Injection
+- Viettel Cybersecurity: "The OWASSRF + TabShell exploit chain" (2022/2024) — Microsoft Exchange multi-stage exploitation: ProxyNotShell bypass (CVE-2022-41080 + CVE-2022-41082) and TabShell (CVE-2024-49040)
 
 ---
 

@@ -9,7 +9,7 @@ A structured, comprehensive vulnerability mutation taxonomy collection for secur
 
 ## What is this?
 
-**The Map** is a **security knowledge base** that systematically classifies 90+ web vulnerability classes across 12 categories. Unlike conventional cheatsheets or CVE lists, each topic is organized by **structural mutation criteria** — what is mutated, what discrepancy it creates, and where it is weaponized.
+**The Map** is a **security knowledge base** that systematically classifies 110+ web vulnerability classes across 12 categories. Unlike conventional cheatsheets or CVE lists, each topic is organized by **structural mutation criteria** — what is mutated, what discrepancy it creates, and where it is weaponized.
 
 Each topic is a deeply structured Markdown reference document covering the full attack surface of a vulnerability class through a three-axis taxonomy (Mutation Target, Discrepancy/Bypass Type, Attack Scenario).
 
@@ -34,6 +34,8 @@ Each topic is a deeply structured Markdown reference document covering the full 
 | [**Protocol-Level Injection**](01-injection/protocol-level-injection.md) | Protocol-level injection across SMTP, LDAP, and other wire protocols |
 | [**SSI / ESI / XSLT Injection**](01-injection/ssi-esi-xslt-injection.md) | Server-Side Includes, Edge Side Includes, and XSLT injection for RCE |
 | [**ORM Misuse → SQL Injection**](01-injection/orm-misuse-sql-injection.md) | ORM query function misuse leading to SQL injection |
+| [**CSV Formula Injection**](01-injection/csv-formula-injection.md) | Spreadsheet formula injection via CSV/Excel export functionality |
+| [**CSS Injection**](01-injection/css-injection.md) | CSS-based data exfiltration and style injection attacks |
 
 ### 02. Authentication & Authorization
 | Category | Description |
@@ -42,8 +44,6 @@ Each topic is a deeply structured Markdown reference document covering the full 
 | [**OAuth**](02-auth/oauth.md) | OAuth 2.0 flow exploitation and token theft patterns |
 | [**JWT**](02-auth/jwt.md) | JSON Web Token algorithm confusion, key injection, and claim abuse |
 | [**SAML**](02-auth/saml.md) | SAML assertion forgery, signature wrapping, and parser differentials |
-| [**Cookie**](02-auth/cookie.md) | Cookie security bypass, scope confusion, and injection techniques |
-| [**CSRF**](02-auth/csrf.md) | Cross-Site Request Forgery token bypass and SameSite evasion |
 | [**CORS Misconfiguration**](02-auth/cors-misconfiguration.md) | Cross-Origin Resource Sharing misconfig exploitation patterns |
 | [**IDOR / BOLA**](02-auth/idor-bola.md) | Broken Object Level Authorization and reference manipulation |
 | [**Account Takeover**](02-auth/account-takeover.md) | Authentication bypass chains and account recovery exploitation |
@@ -58,10 +58,10 @@ Each topic is a deeply structured Markdown reference document covering the full 
 | [**HTTP Parameter Pollution**](03-http-protocol/http-parameter-pollution.md) | Parameter parsing discrepancy across backends and frameworks |
 | [**WebSocket**](03-http-protocol/websocket.md) | WebSocket handshake abuse, hijacking, and cross-site attacks |
 | [**gRPC / tRPC**](03-http-protocol/grpc-and-trpc.md) | gRPC and tRPC protocol exploitation and security patterns |
-| [**DNS Web Security**](03-http-protocol/dns-web-security.md) | DNS rebinding, subdomain takeover, and resolver abuse |
 | [**Reverse Proxy Misrouting**](03-http-protocol/http-parsing-discrepancy/reverse-proxy-misrouting.md) | Reverse proxy path normalization discrepancies and access control bypass |
 | [**Protocol-Level WAF Bypass**](03-http-protocol/http-parsing-discrepancy/protocol-level-waf-bypass.md) | Protocol-level WAF evasion via HTTP parsing differentials |
 | [**HTTP Censorship Bypass**](03-http-protocol/http-parsing-discrepancy/http-censorship-bypass.md) | HTTP-based censorship circumvention techniques |
+| [**HTTP/3 QUIC Protocol Smuggling**](03-http-protocol/http-parsing-discrepancy/http3-quic-protocol-smuggling.md) | HTTP/3 and QUIC protocol-level smuggling and parsing differentials |
 
 ### 04. Server-Side Attacks
 | Category | Description |
@@ -79,18 +79,26 @@ Each topic is a deeply structured Markdown reference document covering the full 
 | [**Arbitrary File Write → RCE**](04-server-side/arbitrary-file-write-to-rce.md) | Cross-platform arbitrary file write to RCE chain taxonomy |
 | [**Document & Media Processing RCE**](04-server-side/document-media-processing-library-rce.md) | Document/media processing library exploitation (ImageMagick, Ghostscript, etc.) |
 | [**JMX Attack**](04-server-side/jmx-attack.md) | Java Management Extensions attack surface and MBean abuse |
+| [**HTTP Pipelining Attack**](04-server-side/http-pipelining-attack.md) | HTTP pipelining abuse, response queue poisoning, and desync attacks |
+| [**Arbitrary Object Instantiation**](04-server-side/arbitrary-object-instantiation.md) | Arbitrary object instantiation and class loading exploitation |
 
 ### 05. Client-Side & UI
 | Category | Description |
 |---|---|
+| [**Cookie Security**](05-client-side/cookie.md) | Cookie security bypass, scope confusion, and injection techniques |
+| [**CSRF**](05-client-side/csrf.md) | Cross-Site Request Forgery token bypass and SameSite evasion |
 | [**UI Redressing**](05-client-side/ui-redressing.md) | Clickjacking, drag-and-drop hijacking, and UI deception techniques |
 | [**Open Redirect**](05-client-side/open-redirect.md) | URL redirect bypass techniques and chaining with other vulns |
-| [**Client-Side Web Security**](05-client-side/client-side-web-security.md) | Client-side security vulnerabilities and exploitation patterns |
 | [**Browser Security Model**](05-client-side/browser-security-model.md) | Browser security model bypass and same-origin policy violations |
 | [**Browser Extension Security**](05-client-side/browser-extension-security.md) | Browser extension vulnerabilities and attack surface |
 | [**DOM Clobbering**](05-client-side/dom-clobbering.md) | DOM Clobbering attacks via named access and prototype chain pollution |
 | [**Service Worker**](05-client-side/service-worker.md) | Service Worker security issues and exploitation techniques |
 | [**XS-Leak**](05-client-side/xs-leak.md) | Cross-site leak attacks and timing side-channels |
+| [**Mutation XSS (mXSS)**](05-client-side/mutation-xss.md) | DOM mutation-based XSS via sanitizer/parser differentials |
+| [**Universal XSS (uXSS)**](05-client-side/universal-xss.md) | Browser-level universal XSS vulnerabilities |
+| [**Cross-Site Script Inclusion (XSSI)**](05-client-side/cross-site-script-inclusion.md) | Cross-site script inclusion and JSONP data theft |
+| [**Relative Path Overwrite (RPO)**](05-client-side/rpo.md) | Relative path overwrite for stylesheet injection and content hijacking |
+| [**Desktop & Hybrid App Security**](05-client-side/desktop-hybrid-app-security.md) | Electron, CEF, and desktop/hybrid application security |
 
 ### 06. Encoding & Parser Differential
 | Category | Description |
@@ -109,7 +117,6 @@ Each topic is a deeply structured Markdown reference document covering the full 
 | [**Web Timing Attack**](07-application-logic/web-timing-attack.md) | Timing side-channels for enumeration and state inference |
 | [**Implicit Trust Boundary**](07-application-logic/implicit-trust-boundary.md) | Undocumented trust relationships and boundary crossing attacks |
 | [**Numeric & Boundary Logic**](07-application-logic/numeric-and-boundary-logic.md) | Integer overflow, boundary value abuse, and numeric logic flaws |
-| [**Secondary Context Attack**](07-application-logic/secondary-context-attack.md) | Cross-context injection and inter-component trust abuse |
 
 ### 08. Infrastructure & Supply Chain
 | Category | Description |
@@ -121,6 +128,9 @@ Each topic is a deeply structured Markdown reference document covering the full 
 | [**API Inventory Management**](08-infrastructure/api-inventory-management.md) | API discovery, shadow APIs, and inventory management security |
 | [**Container & Orchestration RCE**](08-infrastructure/container-orchestration-infrastructure-rce.md) | Container escape, Kubernetes exploitation, and orchestration infrastructure RCE |
 | [**Developer Toolchain & Build System RCE**](08-infrastructure/developer-toolchain-build-system-rce.md) | Build tool, IDE plugin, and developer toolchain exploitation for RCE |
+| [**Nginx Vulnerability Taxonomy**](08-infrastructure/nginx-vulnerability-taxonomy.md) | Nginx-specific misconfigurations, alias traversal, and off-by-slash attacks |
+| [**Jetty Vulnerability Taxonomy**](08-infrastructure/jetty-vulnerability-taxonomy.md) | Eclipse Jetty-specific vulnerabilities and exploitation patterns |
+| [**Secondary Context Attack**](08-infrastructure/secondary-context-attack.md) | Cross-context injection and inter-component trust abuse |
 
 ### 09. Frameworks & Languages
 | Category | Description |
@@ -129,8 +139,13 @@ Each topic is a deeply structured Markdown reference document covering the full 
 | [**ASP.NET**](09-frameworks-and-languages/asp-dot-net.md) | ASP.NET specific vulnerabilities and exploitation patterns |
 | [**PHP**](09-frameworks-and-languages/php.md) | PHP-specific vulnerabilities, type juggling, and deserialization |
 | [**Ruby on Rails**](09-frameworks-and-languages/ruby-on-rails.md) | Rails-specific vulnerabilities, mass assignment, and ERB injection |
-| [**Modern JS Frameworks**](09-frameworks-and-languages/modern-js-frameworks.md) | React, Angular, Vue, Next.js security patterns and SSR vulnerabilities |
+| [**Django**](09-frameworks-and-languages/django.md) | Django-specific vulnerabilities and ORM exploitation |
+| [**Symfony**](09-frameworks-and-languages/symfony.md) | Symfony framework-specific vulnerabilities and exploitation |
+| [**Next.js**](09-frameworks-and-languages/nextjs.md) | Next.js SSR/SSG security patterns and middleware bypass |
+| [**Modern JS Frameworks**](09-frameworks-and-languages/modern-js-frameworks.md) | React, Angular, Vue security patterns and SSR vulnerabilities |
 | [**Adobe Experience Manager (AEM)**](09-frameworks-and-languages/aem.md) | AEM-specific attack surface, dispatcher bypass, and OSGi exploitation |
+| [**Salesforce Lightning Platform**](09-frameworks-and-languages/salesforce-lightning-platform-security.md) | Salesforce Lightning security, Aura/LWC exploitation, and SOQL injection |
+| [**SAP**](09-frameworks-and-languages/sap.md) | SAP-specific web vulnerabilities and exploitation patterns |
 | [**ORM Leak**](09-frameworks-and-languages/orm-leak.md) | ORM information leakage and query manipulation patterns |
 
 ### 10. Recon & Methodology
@@ -138,8 +153,7 @@ Each topic is a deeply structured Markdown reference document covering the full 
 |---|---|
 | [**Web Fingerprinting**](10-recon-methodology/web-fingerprinting.md) | Server and application fingerprinting techniques |
 | [**Web Fuzzing**](10-recon-methodology/web-fuzzing.md) | Web fuzzing strategies, wordlist generation, and parameter discovery |
-| [**Hidden Parameter Discovery**](10-recon-methodology/recon.md) | Undocumented parameter and endpoint enumeration |
-| [**CTF Exotic Tricks**](10-recon-methodology/ctf-exotic-tricks.md) | Unconventional exploitation techniques from CTF competitions |
+| [**Reconnaissance**](10-recon-methodology/recon.md) | Undocumented parameter and endpoint enumeration |
 
 ### 11. Security Researchers
 | Researcher | Focus Areas |
@@ -155,6 +169,11 @@ Each topic is a deeply structured Markdown reference document covering the full 
 |---|---|
 | [**AI/LLM Security**](12-misc/ai-llm-security.md) | AI/LLM prompt injection, jailbreak, agent exploitation, and model security |
 | [**Web Application DoS**](12-misc/web-application-dos.md) | Application-layer denial of service via ReDoS, hash collision, resource exhaustion |
+| [**DNS Web Security**](12-misc/dns-web-security.md) | DNS rebinding, subdomain takeover, and resolver abuse |
+| [**WordPress**](12-misc/wordpress.md) | WordPress-specific vulnerabilities, plugin exploitation, and misconfigurations |
+| [**NAT Slipstreaming**](12-misc/nat-slipstreaming.md) | NAT/firewall bypass via browser-initiated protocol confusion |
+| [**Dynamic Rendering Engine Exploitation**](12-misc/dynamic-rendering-engine-exploitation.md) | Headless browser and dynamic rendering engine exploitation |
+| [**CTF Exotic Tricks**](12-misc/ctf-exotic-tricks.md) | Unconventional exploitation techniques from CTF competitions |
 
 ### Artifact Examples
 | Category | Description |
@@ -207,20 +226,21 @@ Every document in this repository was researched and synthesized using **Claude 
 
 ```
 the-map/
-  ├── 01-injection/              # Injection attacks (SQL, NoSQL, XSS, SSTI, LaTeX, etc.)
-  ├── 02-auth/                   # Authentication & Authorization
-  ├── 03-http-protocol/          # HTTP & Protocol Layer attacks
-  ├── 04-server-side/            # Server-side vulnerabilities
-  ├── 05-client-side/            # Client-side & Browser attacks
-  ├── 06-encoding-parser/        # Encoding & Parser differentials
-  ├── 07-application-logic/      # Business logic vulnerabilities
-  ├── 08-infrastructure/         # Infrastructure & Supply Chain
-  ├── 09-frameworks-and-languages/  # Framework & Language-specific vulnerabilities
-  ├── 10-recon-methodology/      # Reconnaissance & Methodology
-  ├── 11-researchers/            # Security researcher case studies
-  ├── 12-misc/                   # Miscellaneous (AI/LLM Security, DoS, etc.)
-  ├── skills/                    # Claude Code skill definitions
-  ├── artifact-examples/         # Generated tooling examples
+  ├── 01-injection/              # Injection attacks (16 topics)
+  ├── 02-auth/                   # Authentication & Authorization (9 topics)
+  ├── 03-http-protocol/          # HTTP & Protocol Layer attacks (9 topics)
+  │   └── http-parsing-discrepancy/  # HTTP parsing differential sub-category
+  ├── 04-server-side/            # Server-side vulnerabilities (15 topics)
+  ├── 05-client-side/            # Client-side & Browser attacks (14 topics)
+  ├── 06-encoding-parser/        # Encoding & Parser differentials (4 topics)
+  ├── 07-application-logic/      # Business logic vulnerabilities (6 topics)
+  ├── 08-infrastructure/         # Infrastructure & Supply Chain (10 topics)
+  ├── 09-frameworks-and-languages/  # Framework & Language-specific (12 topics)
+  ├── 10-recon-methodology/      # Reconnaissance & Methodology (3 topics)
+  ├── 11-researchers/            # Security researcher case studies (5 topics)
+  ├── 12-misc/                   # Miscellaneous (7 topics)
+  ├── skills/                    # Claude Code skill definitions (9 skills)
+  ├── artifact-examples/         # Generated tooling examples & visualizations
   └── README.md
 ```
 
