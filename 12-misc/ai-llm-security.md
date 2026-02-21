@@ -140,6 +140,7 @@ System prompt leakage attacks target the confidentiality of internal instruction
 | **Embedding Space Leakage** | Extracting semantic information about system prompts through embedding similarity analysis | Access to embedding API or vector store |
 | **Token Probability Analysis** | Analyzing token-level log probabilities to infer system prompt content from statistical distribution shifts | API exposes log probabilities (logprobs) |
 | **Timing Side-Channel** | Measuring response latency variations to infer prompt length or content | Consistent network conditions for timing measurement |
+| **Token-Length Side-Channel on Streaming** | When LLMs stream responses token-by-token over HTTPS, each token is sent as a separate encrypted packet. Packet sizes correlate with token lengths. An eavesdropper can reconstruct responses using LLM-based sequence prediction from length sequences. 27% of AI assistant responses accurately reconstructed; 53% topic inference rate. (USENIX Security 2024, "What Was Your Prompt?") | LLM API using token-by-token streaming over HTTPS. No padding applied to individual token responses. Network-positioned attacker. |
 | **Error Message Leakage** | Triggering error conditions that include fragments of system prompts or internal configuration in error messages | Application surfaces verbose error messages |
 
 ---

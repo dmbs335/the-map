@@ -144,53 +144,11 @@ NW.js (node-webkit) differs fundamentally from Electron by merging Node.js and b
 
 ---
 
-## §3. Embedded Engine Vulnerabilities (Chromium/V8)
-
-Desktop hybrid apps inherit the full attack surface of their embedded browser engine. Unlike browsers that auto-update within hours, hybrid apps bundle specific Chromium versions and often lag weeks or months behind security patches — creating a persistent "patch gap."
-
-### §3-1. V8 JavaScript Engine Exploits
-
-The V8 engine is the most prolific source of renderer-level RCE primitives. Type confusion and memory corruption bugs in V8's JIT compiler and garbage collector provide arbitrary read/write primitives.
-
-| Subtype | Mechanism | Violation | Key Condition |
-|---------|-----------|-----------|---------------|
-| **Type confusion in JIT** | Turbofan/Maglev compiler generates optimized code based on incorrect type assumptions, creating type-confused objects that enable arbitrary memory read/write | V3, V8 | Unpatched V8 version; attacker can execute JavaScript in renderer |
-| **Use-after-free in GC** | Garbage collector frees an object still referenced by JIT code, creating a dangling pointer that enables heap corruption | V3, V8 | Triggered by specific JS patterns that confuse GC heuristics |
-| **"TheHole" value leak** | Leaking V8's internal sentinel value across isolation boundaries leads to type confusion and memory corruption | V2, V3 | V8 optimization bug exposes internal values to user JS |
-| **ArrayBuffer OOB access** | Integer overflow or bounds-check elimination in typed array operations provides out-of-bounds read/write | V3, V8 | JIT incorrectly eliminates bounds checks |
-
-**Example — Patch Gap Chain:**
-CVE-2025-10585 (V8 type confusion, CISA KEV) was actively exploited while Electron apps like Cursor and Windsurf still ran vulnerable Chromium versions — a classic supply-chain lag where upstream patches exist but downstream apps remain exposed.
-
-### §3-2. Renderer Sandbox Limitations
-
-In standard browsers, V8 exploits are contained by the multi-process sandbox. Desktop hybrid apps often weaken or entirely lack this protection.
-
-| Subtype | Mechanism | Violation | Key Condition |
-|---------|-----------|-----------|---------------|
-| **Sandbox disabled** | Application sets `sandbox: false` in `webPreferences`, giving the renderer direct Node.js access after a V8 exploit | V3 | Misconfiguration for compatibility reasons |
-| **CEF sandbox absence** | CEF does not support Chromium's sandbox implementation because it makes assumptions about the host executable | V3 | Any CEF-based application by default |
-| **nodeIntegration enabled** | `nodeIntegration: true` merges Node.js into the renderer context, making any XSS equivalent to RCE | V1, V3 | Legacy or misconfigured applications |
-| **Chromium sandbox escape** | Exploiting bugs in the IPC layer between renderer and browser process (e.g., Mojo interface bugs) to escape the sandbox | V3, V8 | CVE-2025-4609: $250,000 bounty, affected Electron apps |
-| **nodeIntegrationInSubFrames** | Enabling Node.js integration in iframes allows untrusted sub-frames to access Node.js APIs | V1, V7 | `nodeIntegrationInSubFrames: true` in webPreferences |
-| **Rich-content rendering XSS** | Markdown preview, HTML email, or rich-text editor components render user-supplied content; unsanitized HTML tags (`<img onerror>`, `<iframe>`, `<webview>`) in the rendering pipeline yield XSS that escalates to RCE via `nodeIntegration` or overprivileged preload APIs | V6, V1 | Atom editor Markdown preview (Matt Austin 2017); renderer context has `nodeIntegration: true` or exposed IPC handlers, and content pipeline lacks DOMPurify / CSP enforcement |
-
-### §3-3. V8 Heap Snapshot Tampering
-
-A unique attack vector specific to Electron: V8 heap snapshots used for fast startup can be tampered with to inject malicious JavaScript.
-
-| Subtype | Mechanism | Violation | Key Condition |
-|---------|-----------|-----------|---------------|
-| **Snapshot code injection** | Attacker with filesystem access modifies the V8 heap snapshot file; malicious JavaScript executes when the app loads the snapshot | V5, V4 | CVE-2025-55305; ASAR integrity validation not enabled or bypassed |
-| **Custom snapshot persistence** | Malicious code persisted in snapshot survives app updates if the snapshot file is not regenerated | V5 | Snapshot file outside the signed/validated application bundle |
-
----
-
-## §4. Navigation & URL Handling
+## §3. Navigation & URL Handling
 
 Desktop hybrid apps must handle URLs across multiple trust boundaries: custom protocol schemes, deep links, external URL opening, and internal navigation between trusted and untrusted origins. Each transition point is a potential injection vector.
 
-### §4-1. Custom Protocol Handler Exploitation
+### §3-1. Custom Protocol Handler Exploitation
 
 Applications register custom URI schemes (e.g., `myapp://`, `vscode://`) to enable deep linking. On Windows, protocol handler arguments are passed directly to the executable command line.
 
@@ -201,7 +159,7 @@ Applications register custom URI schemes (e.g., `myapp://`, `vscode://`) to enab
 | **Protocol handler MITM** | Attacker registers a competing protocol handler on the system, intercepting deep links meant for the legitimate app | V7 | No exclusive protocol registration; first-come-first-served on some OS |
 | **Navigation to untrusted origin** | Deep link triggers navigation to attacker-controlled URL within the privileged BrowserWindow | V7 | No allowlist validation on deep link URL parameter |
 
-### §4-2. `shell.openExternal()` Abuse
+### §3-2. `shell.openExternal()` Abuse
 
 The `shell.openExternal()` API opens a URL using the system's default handler. When called with untrusted input, it becomes a command injection primitive.
 
@@ -217,7 +175,7 @@ The `shell.openExternal()` API opens a URL using the system's default handler. W
 shell.openExternal('ms-msdt:/id PCWDiagnostic /skip force /param "IT_RebsrowseForFile=?/../../$(calc)"')
 ```
 
-### §4-3. WebContents Navigation Control
+### §3-3. WebContents Navigation Control
 
 Navigation within `BrowserWindow` and `webview` tags must be constrained to prevent the application from loading attacker-controlled content in a privileged context.
 
@@ -229,11 +187,11 @@ Navigation within `BrowserWindow` and `webview` tags must be constrained to prev
 
 ---
 
-## §5. Application Packaging & Code Integrity
+## §4. Application Packaging & Code Integrity
 
 Desktop hybrid apps distribute their entire frontend codebase (HTML, JS, CSS) as readable files within the application bundle. Without integrity validation, any process with filesystem write access can silently modify application behavior.
 
-### §5-1. ASAR Archive Tampering
+### §4-1. ASAR Archive Tampering
 
 Electron's ASAR format is a simple tar-like archive with no built-in encryption or signing. Application logic stored in `app.asar` can be unpacked, modified, and repacked without invalidating the application's code signature (which covers the Electron binary, not the ASAR contents).
 
@@ -244,71 +202,13 @@ Electron's ASAR format is a simple tar-like archive with no built-in encryption 
 | **ASAR integrity bypass** | CVE-2024-46992 and CVE-2025-55305: Even with `embeddedAsarIntegrityValidation` fuse enabled, modifying resources outside the validated ASAR or manipulating the integrity check itself bypasses validation | V5 | Integrity check implementation flaw |
 | **Resource file replacement** | Replacing HTML/CSS/JS files loaded from outside the ASAR (e.g., plugins, themes) without triggering integrity checks | V5 | Application loads resources from non-validated paths |
 
-### §5-2. Binary Planting & DLL Hijacking
-
-Desktop applications are susceptible to binary planting attacks where malicious libraries are placed in directories searched before legitimate library paths.
-
-| Subtype | Mechanism | Violation | Key Condition |
-|---------|-----------|-----------|---------------|
-| **DLL search-order hijacking** | Placing a malicious DLL (e.g., `version.dll`, `dbghelp.dll`) in the application directory; loaded before the system copy | V5, V2 | Per-user installation (default for many Electron apps) |
-| **Electron DLL proxying** | Malicious DLL proxies all calls to the legitimate DLL while executing additional payload; survives app updates | V5 | Application directory writable by current user |
-| **Node native module replacement** | Replacing `.node` native addon files with malicious compiled modules | V5 | Native addons loaded from writable paths |
-| **PATH manipulation** | Modifying the system PATH to inject malicious executables that are spawned by the application | V5, V6 | Application uses `child_process.exec()` with relative paths |
-
-### §5-3. Code Signing & Notarization Gaps
-
-| Subtype | Mechanism | Violation | Key Condition |
-|---------|-----------|-----------|---------------|
-| **Unsigned application distribution** | Application distributed without code signature; OS warnings easily dismissed by users | V5 | No code signing certificate or CI/CD misconfiguration |
-| **Signature scope exclusion** | Application resources (ASAR, JS, HTML) are outside the signed bundle scope | V5 | macOS: resources in `Contents/Resources/` may not be covered by signature scope |
-| **Notarization bypass** | Application passes notarization but loads unsigned plugins or native modules at runtime | V5 | Dynamic loading from user-writable directories |
-
 ---
 
-## §6. OS Integration & Permission Abuse
-
-Desktop hybrid apps receive OS-level permissions (file access, camera, microphone, accessibility) that are inherited by all code running within the app — including injected or compromised web content.
-
-### §6-1. Environment Variable Abuse
-
-Electron applications respond to several environment variables that fundamentally alter their execution mode.
-
-| Subtype | Mechanism | Violation | Key Condition |
-|---------|-----------|-----------|---------------|
-| **ELECTRON_RUN_AS_NODE** | Setting this variable converts the Electron binary into a plain Node.js runtime, inheriting all of the app's OS permissions (TCC grants, entitlements) | V4, V1 | `runAsNode` fuse not disabled; attacker has local execution |
-| **NODE_OPTIONS injection** | Injecting `--require /path/to/payload.js` or `--inspect-brk` via `NODE_OPTIONS` environment variable | V4, V1 | `enableNodeOptionsEnvironmentVariable` fuse not disabled |
-| **--inspect / --inspect-brk** | Enabling Chrome DevTools Protocol debugging on the running Electron process, allowing remote code execution via debugger | V4, V1 | `enableNodeCliInspectArguments` fuse not disabled |
-| **LD_PRELOAD / DYLD_INSERT_LIBRARIES** | Injecting shared libraries into the Electron process at startup | V4, V5 | Hardened runtime not enabled (macOS); no library validation |
-
-### §6-2. macOS TCC & Entitlement Abuse
-
-macOS Transparency, Consent, and Control (TCC) enforces per-app permissions. Electron apps with TCC grants (camera, microphone, contacts) become high-value targets for permission piggybacking.
-
-| Subtype | Mechanism | Violation | Key Condition |
-|---------|-----------|-----------|---------------|
-| **TCC bypass via runAsNode** | Using `ELECTRON_RUN_AS_NODE=1` to run arbitrary scripts that inherit the app's TCC permissions (camera, mic, contacts, files) | V4 | App has broad TCC grants; `runAsNode` fuse enabled |
-| **TCC bypass via --inspect** | Connecting to the Node.js debugger and executing code that uses TCC-protected APIs | V4 | Debug inspect arguments fuse not disabled |
-| **Entitlement inheritance** | Malicious code injected into the app process inherits all entitlements (get-task-allow, network-client, file access) | V4 | Overly broad entitlements in the app's code signature |
-| **Hardened runtime bypass** | If `com.apple.security.cs.allow-dyld-environment-variables` is set, DYLD environment variables can inject code | V4, V5 | Debugging entitlements enabled in production builds |
-
-### §6-3. Electron Fuse Misconfiguration
-
-Electron fuses are build-time toggles embedded in the binary that control dangerous features. Because they're set before code signing, the OS enforces their immutability — but only if the app is properly signed.
-
-| Subtype | Mechanism | Violation | Key Condition |
-|---------|-----------|-----------|---------------|
-| **runAsNode fuse enabled** | Default-enabled fuse allows `ELECTRON_RUN_AS_NODE` abuse (§6-1) | V4 | Fuse not explicitly disabled during build |
-| **Cookie encryption fuse disabled** | Chromium's cookie SQLite database stores values in plaintext when `EnableCookieEncryption` fuse is off | V3 | Default: cookies stored in plaintext |
-| **Node CLI inspect fuse enabled** | Allows `--inspect` and `--inspect-brk` flags for remote debugging | V4 | Fuse not explicitly disabled |
-| **ASAR integrity fuse disabled** | Application does not validate ASAR contents at runtime (§5-1) | V5 | Fuse not enabled; default in many Electron versions |
-
----
-
-## §7. Update Mechanism Attacks
+## §5. Update Mechanism Attacks
 
 Auto-update is a critical security feature (closing patch gaps) but also a high-value attack surface — a compromised update channel delivers signed, persistent RCE to every user.
 
-### §7-1. Signature Validation Bypass
+### §5-1. Signature Validation Bypass
 
 | Subtype | Mechanism | Violation | Key Condition |
 |---------|-----------|-----------|---------------|
@@ -317,7 +217,7 @@ Auto-update is a critical security feature (closing patch gaps) but also a high-
 | **Certificate pinning absence** | Update manifest fetched over HTTPS but without certificate pinning; MITM on corporate/public networks can substitute the manifest | V5, V6 | No certificate pinning on update server connection |
 | **Hash verification bypass** | Update binary hash checked against manifest-provided hash; MITM replaces both manifest and binary simultaneously | V5 | No independent verification channel (e.g., transparency log) |
 
-### §7-2. Update Channel Exploitation
+### §5-2. Update Channel Exploitation
 
 | Subtype | Mechanism | Violation | Key Condition |
 |---------|-----------|-----------|---------------|
@@ -326,7 +226,7 @@ Auto-update is a critical security feature (closing patch gaps) but also a high-
 | **DNS-based MITM** | Redirecting the update domain to an attacker-controlled server via DNS poisoning or compromise | V5 | Update URL resolved via DNS without DNSSEC or pinning |
 | **Local update proxy injection** | On corporate networks, proxy can intercept and modify update traffic | V5 | HTTP update channel or weak HTTPS validation |
 
-### §7-3. Tauri Update Security
+### §5-3. Tauri Update Security
 
 | Subtype | Mechanism | Violation | Key Condition |
 |---------|-----------|-----------|---------------|
@@ -335,11 +235,11 @@ Auto-update is a critical security feature (closing patch gaps) but also a high-
 
 ---
 
-## §8. Credential & Data Storage
+## §6. Credential & Data Storage
 
 Desktop hybrid apps store authentication tokens, API keys, cookies, and sensitive user data locally. The storage mechanisms range from plaintext JSON files to OS-provided keychains, each with distinct attack surfaces.
 
-### §8-1. Insecure Local Storage
+### §6-1. Insecure Local Storage
 
 | Subtype | Mechanism | Violation | Key Condition |
 |---------|-----------|-----------|---------------|
@@ -348,15 +248,7 @@ Desktop hybrid apps store authentication tokens, API keys, cookies, and sensitiv
 | **electron-store encryption weakness** | CBC-mode AES encryption vulnerable to padding oracle attacks; encryption key derivable from application source | V3 | Using electron-store's built-in "encryption" |
 | **Config file secrets** | API keys, webhook URLs, or database credentials stored in readable JSON/YAML configuration files | V3 | Developer convenience; no separation of secrets |
 
-### §8-2. OS Keychain and Secure Storage Attacks
-
-| Subtype | Mechanism | Violation | Key Condition |
-|---------|-----------|-----------|---------------|
-| **DPAPI cross-app access (Windows)** | `safeStorage` on Windows uses DPAPI, which protects content from other users but not from other apps running as the same user | V3 | Attacker has code execution as the same OS user |
-| **Keychain access prompt fatigue** | Repeated keychain access prompts lead users to click "Always Allow," granting permanent access to the stored credentials | V3 | macOS keychain access controls |
-| **Linux secret store variance** | On Linux, `safeStorage` backends vary (kwallet, gnome-libsecret, plaintext fallback); some configurations provide no real encryption | V3 | Unsupported desktop environment defaults to plaintext |
-
-### §8-3. Session and Cookie Theft
+### §6-2. Session and Cookie Theft
 
 | Subtype | Mechanism | Violation | Key Condition |
 |---------|-----------|-----------|---------------|
@@ -366,11 +258,11 @@ Desktop hybrid apps store authentication tokens, API keys, cookies, and sensitiv
 
 ---
 
-## §9. Content Security Policy & Web Security Bypasses
+## §7. Content Security Policy & Web Security Bypasses
 
 Web security mechanisms (CSP, CORS, SOP) behave differently in desktop hybrid apps due to the `file://` origin, custom schemes, and the presence of Node.js integration.
 
-### §9-1. CSP Enforcement Gaps
+### §7-1. CSP Enforcement Gaps
 
 | Subtype | Mechanism | Violation | Key Condition |
 |---------|-----------|-----------|---------------|
@@ -379,7 +271,7 @@ Web security mechanisms (CSP, CORS, SOP) behave differently in desktop hybrid ap
 | **`unsafe-eval` for framework compatibility** | Application requires `unsafe-eval` for bundler output (Webpack dev, Vue templates), leaving eval-based injection vectors open | V6 | Framework compilation requires runtime eval |
 | **Custom scheme CSP** | CSP rules designed for HTTPS origins may not apply to custom Electron schemes (`app://`, `electron://`) | V7 | Origin-based CSP rules don't match custom scheme origins |
 
-### §9-2. Origin and CORS Anomalies
+### §7-2. Origin and CORS Anomalies
 
 | Subtype | Mechanism | Violation | Key Condition |
 |---------|-----------|-----------|---------------|
@@ -390,11 +282,11 @@ Web security mechanisms (CSP, CORS, SOP) behave differently in desktop hybrid ap
 
 ---
 
-## §10. Supply Chain & Dependency Attacks
+## §8. Supply Chain & Dependency Attacks
 
-Desktop hybrid apps have uniquely deep supply chains: npm/crate ecosystems for application code, native modules for OS integration, and the embedded browser engine itself.
+Desktop hybrid apps have uniquely deep supply chains: npm/crate ecosystems for application code and the embedded browser engine itself, each introducing distinct compromise vectors.
 
-### §10-1. Package Ecosystem Compromise
+### §8-1. Package Ecosystem Compromise
 
 | Subtype | Mechanism | Violation | Key Condition |
 |---------|-----------|-----------|---------------|
@@ -404,15 +296,7 @@ Desktop hybrid apps have uniquely deep supply chains: npm/crate ecosystems for a
 | **Post-install script execution** | npm package `postinstall` scripts execute arbitrary code during `npm install`, before any review | V6 | Unrestricted lifecycle script execution |
 | **Self-propagating worm** | Shai-Hulud-style npm worms use post-install scripts to infect other packages, creating secondary and tertiary infections | V6 | No package lockfile integrity verification |
 
-### §10-2. Native Module Risks
-
-| Subtype | Mechanism | Violation | Key Condition |
-|---------|-----------|-----------|---------------|
-| **Prebuilt binary substitution** | Native `.node` addons distributed as prebuilt binaries; compromised prebuild server serves malicious binaries | V5 | prebuild/prebuildify without integrity verification |
-| **Build-time compilation attack** | `node-gyp` compiles native modules at install time; malicious `binding.gyp` executes arbitrary commands | V6 | Native module requires compilation |
-| **ABI mismatch exploitation** | Loading a native module compiled for a different Node.js ABI version causes undefined behavior / memory corruption | V3, V8 | Incorrect electron-rebuild configuration |
-
-### §10-3. Embedded Engine Patch Lag
+### §8-2. Embedded Engine Patch Lag
 
 | Subtype | Mechanism | Violation | Key Condition |
 |---------|-----------|-----------|---------------|
@@ -423,11 +307,11 @@ Desktop hybrid apps have uniquely deep supply chains: npm/crate ecosystems for a
 
 ---
 
-## §11. UI Deception & Social Engineering
+## §9. UI Deception & Social Engineering
 
 Desktop hybrid apps can create transparent, frameless, always-on-top windows and manipulate the system tray, notifications, and dialog boxes — capabilities that web applications lack.
 
-### §11-1. Window Overlay Attacks
+### §9-1. Window Overlay Attacks
 
 | Subtype | Mechanism | Violation | Key Condition |
 |---------|-----------|-----------|---------------|
@@ -436,7 +320,7 @@ Desktop hybrid apps can create transparent, frameless, always-on-top windows and
 | **Notification spoofing** | Application uses OS notification API to display fake security alerts or update prompts directing users to malicious actions | V7 | Notification permissions granted |
 | **Dialog box replacement** | Native dialog boxes (file open, save, authentication) replaced with look-alike HTML dialogs that capture input | V7 | Frameless window with native look-and-feel CSS |
 
-### §11-2. Authentication Interception
+### §9-2. Authentication Interception
 
 | Subtype | Mechanism | Violation | Key Condition |
 |---------|-----------|-----------|---------------|
@@ -450,15 +334,13 @@ Desktop hybrid apps can create transparent, frameless, always-on-top windows and
 
 | Scenario | Architecture | Primary Mutation Categories |
 |----------|-------------|---------------------------|
-| **W1: XSS → RCE** | Electron with nodeIntegration or weak preload | §1 + §2 + §3-2 |
-| **W1: V8 Exploit → RCE** | Any Chromium-based hybrid app with patch gap | §3-1 + §3-2 + §10-3 |
-| **W1: Deep Link → RCE** | Windows protocol handler + command injection | §4-1 + §4-2 |
-| **W2: TCC Privilege Escalation** | macOS Electron with enabled fuses | §6-1 + §6-2 + §6-3 |
-| **W3: Cookie/Credential Theft** | WebView2 phishing + session capture | §8-3 + §11-2 |
-| **W4: ASAR Persistence** | Local attacker + unvalidated ASAR | §5-1 + §5-2 |
-| **W5: OS Control Bypass** | Electron fuses + environment variables | §6-1 + §6-2 |
-| **W6: Supply Chain RCE** | npm compromise → Electron app infection | §10-1 + §10-2 |
-| **W7: Desktop Phishing** | WebView2/Electron overlay spoofing | §11-1 + §11-2 |
+| **W1: XSS → RCE** | Electron with nodeIntegration or weak preload | §1 + §2 |
+| **W1: Chromium N-day → RCE** | Any Chromium-based hybrid app with patch gap | §8-2 |
+| **W1: Deep Link → RCE** | Windows protocol handler + command injection | §3-1 + §3-2 |
+| **W3: Cookie/Credential Theft** | WebView2 phishing + session capture | §6-2 + §9-2 |
+| **W4: ASAR Persistence** | Local attacker + unvalidated ASAR | §4-1 |
+| **W6: Supply Chain RCE** | npm compromise → Electron app infection | §8-1 |
+| **W7: Desktop Phishing** | WebView2/Electron overlay spoofing | §9-1 + §9-2 |
 | **W1: IPC Escalation** | XSS + overprivileged IPC handler | §1-1 + §2-1 |
 
 ---
@@ -467,23 +349,17 @@ Desktop hybrid apps can create transparent, frameless, always-on-top windows and
 
 | Mutation Combination | CVE / Case | Impact / Bounty |
 |---------------------|-----------|----------------|
-| §4-1 (Protocol handler injection) | CVE-2018-1000006 (Electron) | RCE on Windows via custom URI scheme argument injection |
-| §7-1 (Signature validation bypass) | electron-updater signature bypass (2020) | RCE via MITM update; environment variable expansion in validation |
+| §3-1 (Protocol handler injection) | CVE-2018-1000006 (Electron) | RCE on Windows via custom URI scheme argument injection |
+| §5-1 (Signature validation bypass) | electron-updater signature bypass (2020) | RCE via MITM update; environment variable expansion in validation |
 | §1-3 (Tauri iFrame IPC bypass) | CVE-2024-35222 (Tauri) | iFrames bypass origin checks for IPC access control |
-| §6-1 (Rust command injection) | CVE-2024-24576 (Rust std) | Command injection on Windows affecting Tauri apps using `Command::new()` |
-| §3-1 (V8 type confusion) | CVE-2024-5274 (Chromium) | Actively exploited V8 type confusion; affects all Electron apps on vulnerable versions |
-| §3-1 (V8 type confusion) | CVE-2024-7965 (Chromium) | Heap corruption via V8 JIT; actively exploited in the wild |
-| §5-1 (ASAR integrity bypass) | CVE-2024-46992 (Electron) | ASAR integrity check bypassable by content modification |
-| §8-3 (WebView2 spoofing) | CVE-2024-29049 (Edge/WebView2) | Spoofing vulnerability allowing credential phishing |
-| §6-1 (ELECTRON_RUN_AS_NODE) | CVE-2024-22169 (WD Discovery) | TCC bypass and arbitrary code execution via environment variable |
-| §3-1 (V8 type confusion) | CVE-2025-10585 (Chromium, CISA KEV) | Actively exploited; Electron apps slow to patch |
-| §3-1 (V8 use-after-free) | CVE-2025-9864 (Chromium) | CVSS 8.8; heap corruption in V8 GC |
-| §5-1 (ASAR integrity bypass) | CVE-2025-55305 (Electron) | ASAR integrity bypass via resource modification |
-| §3-2 (Sandbox escape) | CVE-2025-4609 (Chromium) | $250,000 bounty; sandbox escape → RCE; affected Cursor and Windsurf |
-| §10-1 (npm supply chain) | npm Shai-Hulud worm (Sept 2025) | 18 packages, 2.6B weekly downloads; self-propagating malware |
-| §5-1 (ASAR persistence) | Slack ASAR injection (pentest case) | Persistence via PowerShell payload in `electron.asar` |
-| §3-2 (CEF sandbox + V8) | Steam CEF RCE chain (DARKNAVY) | Chained V8 exploit + sandbox escape for RCE on Steam client |
-| §1 + §2 + §3 (IPC message XSS → context isolation bypass → embedded engine sandbox escape) | Pwn2Own Vancouver 2023 — Microsoft Teams (Masato Kinugawa) | Full RCE via 3-bug chain: XSS in chat message → Electron context isolation bypass → JS execution outside sandbox. Demonstrated complete Electron security boundary exploitation |
+| §1-3 (Rust command injection) | CVE-2024-24576 (Rust std) | Command injection on Windows affecting Tauri apps using `Command::new()` |
+| §4-1 (ASAR integrity bypass) | CVE-2024-46992 (Electron) | ASAR integrity check bypassable by content modification |
+| §9-1 (WebView2 spoofing) | CVE-2024-29049 (Edge/WebView2) | Spoofing vulnerability allowing credential phishing |
+| §4-1 (ASAR integrity bypass) | CVE-2025-55305 (Electron) | ASAR integrity bypass via resource modification |
+| §8-2 (Chromium N-day patch gap) | CVE-2025-4609 (Chromium) | $250,000 bounty; sandbox escape → RCE; affected Cursor and Windsurf |
+| §8-1 (npm supply chain) | npm Shai-Hulud worm (Sept 2025) | 18 packages, 2.6B weekly downloads; self-propagating malware |
+| §4-1 (ASAR persistence) | Slack ASAR injection (pentest case) | Persistence via PowerShell payload in `electron.asar` |
+| §1 + §2 + §8-2 (IPC XSS → context isolation bypass → Chromium N-day chain) | Pwn2Own Vancouver 2023 — Microsoft Teams (Masato Kinugawa) | Full RCE via 3-bug chain: XSS in chat message → Electron context isolation bypass → sandbox escape via Chromium vulnerability |
 | §1-3 (Tauri scope bypass) | GHSA-q9wv-22m9-vhqh (Tauri) | Filesystem scope partially bypassable via special character escaping |
 
 ---

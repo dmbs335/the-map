@@ -18,7 +18,7 @@ This document covers **code execution vulnerabilities inherent in developer tool
 
 This taxonomy organizes developer toolchain RCE vulnerabilities across **three orthogonal axes**:
 
-**Axis 1 (Primary): Toolchain Component** — The structural layer of the developer toolchain being exploited for code execution. This forms the main organizational structure (§1–§9).
+**Axis 1 (Primary): Toolchain Component** — The structural layer of the developer toolchain being exploited for code execution. This forms the main organizational structure (§1–§8).
 
 **Axis 2 (Cross-Cutting): Execution Trigger Mechanism** — How the attacker causes code to execute on the developer's machine. These mechanisms appear across multiple components.
 
@@ -35,7 +35,6 @@ This taxonomy organizes developer toolchain RCE vulnerabilities across **three o
 | **Extension/Plugin Poisoning** | Malicious or compromised extensions execute in the IDE context | VSCode Marketplace, JetBrains plugins, browser DevTools extensions |
 | **Prompt Injection → Code Execution** | AI coding assistants tricked into executing commands via crafted input | Rules file backdoor, indirect prompt injection in issues/PRs |
 | **Tool Vulnerability Exploitation** | Bugs in the developer tool itself enable code execution | Path traversal in dev servers, deserialization in build plugins |
-| **Build System Bootstrap Compromise** | Wrapper scripts or bootstrap binaries tampered before the real build tool runs | Gradle Wrapper, Maven Wrapper, XZ Utils build process |
 
 ### Development Workflow Phase Mapping (Axis 3)
 
@@ -198,8 +197,6 @@ Compilers and transpilers execute code or process data in ways that can be explo
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
 | **cgo Build-Time RCE (Go)** | Go's cgo integration passes compiler/linker flags from source code directives. Multiple bypass vectors allow injecting flags that cause the C compiler to execute attacker-controlled code. Seven CVEs in the same feature (2018–2024). | `go build` on modules with cgo; Darwin-specific CVE-2024-24787 |
-| **Compiler Trojanization** | The "Trusting Trust" attack: a compromised compiler injects backdoors into all code it compiles, including future versions of itself. | Using a compiler from an untrusted source; supply chain compromise of compiler distribution |
-| **Linker Script Injection** | Crafted linker scripts or object files can cause the linker to execute code or include malicious sections during the linking phase. | Building code that links against untrusted libraries |
 
 ### §3-3. Code Generator Exploitation
 
@@ -370,38 +367,6 @@ IaC tools and container builders execute code as a core part of their operation 
 
 ---
 
-## §9. Build System Bootstrap & Wrapper Attacks
-
-Before the actual build tool runs, many projects use wrapper scripts or bootstrap mechanisms to download and configure the build tool itself. These bootstrapping stages execute with implicit trust and minimal verification.
-
-### §9-1. Build Tool Wrapper Attacks
-
-| Subtype | Mechanism | Key Condition |
-|---------|-----------|---------------|
-| **Gradle Wrapper Tampering** | The `gradlew` / `gradlew.bat` wrapper script and `gradle-wrapper.jar` can be replaced with malicious versions that execute arbitrary code before delegating to Gradle. Malicious Gradle wrappers have been found that modify `build.gradle` to add dependencies, relocate injected code, and execute payloads. | Developer runs `./gradlew` without verifying wrapper integrity |
-| **Maven Wrapper Tampering** | Similar to Gradle Wrapper, `mvnw` can be replaced with a malicious script that executes before Maven. | Developer runs `./mvnw` on an untrusted project |
-| **Node Version Manager (nvm/fnm) Exploitation** | `.nvmrc` or `.node-version` files specify the Node.js version. While not directly code execution, combined with compromised Node.js distributions, this can be an attack vector. | Developer uses nvm that auto-switches versions based on project config |
-
-### §9-2. Build Tool Distribution Compromise
-
-| Subtype | Mechanism | Key Condition |
-|---------|-----------|---------------|
-| **Trojanized Build Tool Distribution** | The XZ Utils backdoor (CVE-2024-3094) exemplifies this: the attacker compromised the build process of a widely-used compression library, injecting a backdoor that only manifested in distribution tarballs (not in the Git source). | Developer/distro builds from compromised tarball rather than from verified Git source |
-| **Build Tool Update Hijacking** | Compromise of the build tool's update mechanism (registry, CDN, DNS) to serve a malicious version. | Auto-update fetches from compromised source |
-| **Package Manager Repository Compromise (Homebrew Cask)** | Homebrew's official Cask tap auto-merged pull requests via CI without sufficient review. Attacker submits a PR modifying a popular cask formula to include a malicious `postflight` block, executing arbitrary code on all users running `brew upgrade`. (Ryotak, 2021) | Package manager with auto-merge CI on official formula/tap repositories |
-| **CDN Library Publishing Pipeline RCE (cdnjs)** | Cloudflare's cdnjs auto-publish pipeline cloned Git repositories and ran npm `post-install` scripts in an unsandboxed environment. Attacker publishes a crafted npm package with symlinks traversing to the pipeline's credential store, achieving RCE on cdnjs build servers — enabling modification of any library served to ~12.7% of all websites. (Ryotak, 2021) | CDN/registry with automated build pipeline that executes untrusted package scripts without sandboxing |
-| **S1ngularity/Nx Build System Compromise (August 2025)** | The Nx monorepo build system was compromised, injecting AI-powered malware into widely-used packages through the build system itself. | Developer uses compromised version of Nx build system |
-
-### §9-3. Environment Variable & PATH Manipulation
-
-| Subtype | Mechanism | Key Condition |
-|---------|-----------|---------------|
-| **PATH Hijacking via .envrc/.env** | Tools like `direnv` auto-load `.envrc` files, which can modify PATH to prepend directories containing trojanized binaries that shadow legitimate tools. | Developer uses direnv and enters directory with malicious `.envrc` |
-| **Arbitrary Code via Environment Variables (CVE in Gradle)** | Gradle was vulnerable to arbitrary code execution via specially crafted environment variables (GHSA-6j2p-252f-7mw8). | Attacker controls environment variables in developer's shell |
-| **LD_PRELOAD / DYLD_INSERT_LIBRARIES** | A malicious `.envrc` or project setup script can set LD_PRELOAD to load a shared library that hooks system calls in all subsequent processes. | Developer runs setup script from untrusted project |
-
----
-
 ## Attack Scenario Mapping (Axis 3)
 
 Real-world exploitation chains mutations across multiple toolchain components.
@@ -410,12 +375,11 @@ Real-world exploitation chains mutations across multiple toolchain components.
 |----------|-------------|---------------------------|----------------|
 | **Clone-to-RCE** | Cloning a malicious repository triggers immediate code execution | §4-1 (git submodule symlink) | Workstation compromise before code inspection |
 | **Install-to-Exfiltrate** | Package installation exfiltrates credentials via lifecycle hooks | §2-1/§2-2 (npm/pip hooks) + §1-5 (setup.py) | Credential theft, lateral movement |
-| **Build-to-Backdoor** | Build process injects backdoor into compiled output | §1-3 (Makefile) + §3-2 (compiler) + §9-2 (XZ Utils) | Supply chain compromise at scale |
+| **Build-to-Backdoor** | Build process injects backdoor into compiled output | §1-3 (Makefile) + §3-2 (compiler) | Supply chain compromise at scale |
 | **Open-to-Own** | Opening a project in an IDE triggers extension-based attacks | §5-1 (VSCode ext) + §4-3 (auto-loaded configs) | Full workstation access |
 | **AI-Assisted Compromise** | AI assistant processes poisoned content and executes malicious commands | §6-1 (prompt injection) + §6-2 (MCP) | Data exfiltration, RCE, credential theft |
 | **Lint-to-Execute** | Running code quality tools on a project executes malicious plugin code | §7-1 (ESLint config) + §7-3 (conftest.py) | Code execution during "safe" analysis |
 | **Provision-to-Pivot** | IaC tool execution on developer machine enables network pivot | §8-1 (Terraform provider) + §8-3 (Dockerfile) | Cloud credential theft, infrastructure access |
-| **Bootstrap-to-Persist** | Tampered build wrapper establishes persistent access | §9-1 (Gradle wrapper) + §9-3 (PATH hijack) | Persistent backdoor surviving project cleanup |
 | **Tool-as-Worm** | Compromised developer tools self-propagate via stolen credentials | §2-1 (npm hooks) + §5-1 (extension supply chain) | Exponential propagation (Shai-Hulud model) |
 
 ---
@@ -424,7 +388,7 @@ Real-world exploitation chains mutations across multiple toolchain components.
 
 | Mutation Combination | CVE / Case | Impact / Bounty | Year |
 |---------------------|-----------|----------------|------|
-| §9-2 + §1-3 | **CVE-2024-3094** (XZ Utils backdoor) | CVSS 10.0. Three-year social engineering + build system backdoor. SSH RCE on affected Linux distributions. | 2024 |
+| §1-3 | **CVE-2024-3094** (XZ Utils backdoor) | CVSS 10.0. Three-year social engineering + build system backdoor. SSH RCE on affected Linux distributions. | 2024 |
 | §4-1 | **CVE-2024-32002** (Git submodule symlink RCE) | CVSS 9.0. Clone-time RCE via symlink on case-insensitive filesystems. | 2024 |
 | §4-1 | **CVE-2024-32004** (Git multi-user clone RCE) | Clone-time RCE on multi-user machines via crafted local repository. | 2024 |
 | §5-2 | **CVE-2024-37051** (JetBrains GitHub Plugin) | CVSS 9.3. GitHub access token exposure via malicious PR content in IntelliJ IDEs. | 2024 |
@@ -432,7 +396,7 @@ Real-world exploitation chains mutations across multiple toolchain components.
 | §3-1 | **CVE-2023-45133** (Babel traverse RCE) | Compile-time RCE via crafted code triggering `path.evaluate()` in Babel. | 2023 |
 | §2-5 | **CVE-2023-29404, CVE-2023-29405** (Go cgo LDFLAGS) | Build-time RCE via unsanitized linker flags in cgo directives. | 2023 |
 | §2-5 | **CVE-2023-39320** (Go toolchain directive) | Arbitrary code execution via crafted `go.mod` toolchain directive. | 2023 |
-| §9-2 | **CVE-2023-42793** (JetBrains TeamCity) | CVSS 9.8. Authentication bypass via alternative path in request interceptor pre-processing; unauthenticated RCE on CI/CD server; actively exploited in the wild. | 2023 |
+
 | §2-5 | **CVE-2025-68119, CVE-2025-4674** (Go VCS command injection) | Code execution during `go get` / `go mod download` via VCS command injection. | 2025 |
 | §7-1 | **CVE-2025-54313** (eslint-config-prettier compromise) | 31M weekly downloads. Maintainer phished → malicious versions deployed → Windows RCE via `node-gyp.dll`. | 2025 |
 | §6-3 | **CVE-2025-61260** (OpenAI Codex CLI RCE) | Configuration file RCE on developer machines via malicious MCP server entries. | 2025 |
@@ -446,11 +410,11 @@ Real-world exploitation chains mutations across multiple toolchain components.
 | §5-3 | **TamperedChef** (Chrome Extensions) | 16+ Chrome extensions compromised, 3.2M+ users affected via phishing. | 2025 |
 | §5-3 | **Trust Wallet** (Chrome Extension) | $7–8.5M cryptocurrency theft from 2,520 wallets via leaked API key. | 2025 |
 | §2-1 | **Shai-Hulud 1.0/2.0** (npm hooks) | Self-propagating worm via npm lifecycle scripts. 25,000+ repos, mass credential theft. | 2025 |
-| §9-2 | **S1ngularity** (Nx build system) | AI-powered malware injected through compromised Nx monorepo build system. | 2025 |
+
 | §8-1 | **CVE-2024-6257** (go-getter RCE) | Terraform module fetching via go-getter leads to code execution through malicious Git config. | 2024 |
 | §8-1 | **CVE-2025-2180** (Checkov deserialization RCE) | Security scanner becomes attack vector: RCE when scanning malicious Terraform files. | 2025 |
 | §1-2 | **Gradle Enterprise Maven Extension deserialization** | Deserialization of untrusted data via socket connection enables RCE in Gradle builds. | 2024 |
-| §9-1 | **Malicious Gradle Wrapper** (multiple incidents) | Modified `gradle-wrapper.jar` injects dependencies and executes payloads during builds. | 2022–2025 |
+
 | §6-1 | **Rules File Backdoor** (Pillar Security) | AI coding assistants weaponized via Unicode-obfuscated instructions in `.cursorrules` / Copilot instruction files. | 2025 |
 
 ---
@@ -571,7 +535,6 @@ The 2024-2025 attack wave demonstrates a clear trend: **the developer's local en
 - Go Fixes Its 7th Code Execution Bug in the Same Feature (Mattermost)
 - Exploiting CVE-2024-32002: RCE via git clone (Amal Murali)
 - Maven Plugins from Hell: When Your Build Hijacks Your PC (Java Code Geeks, 2025)
-- Gradle Wrapper Attack Report (Gradle Blog)
 - From Assistant to Adversary: Exploiting Agentic AI Developer Tools (NVIDIA Technical Blog)
 - Python Package Installation Attacks (Phylum)
 - NPM Security Best Practices After Shai-Hulud (Snyk)
@@ -590,7 +553,6 @@ The 2024-2025 attack wave demonstrates a clear trend: **the developer's local en
 - Shai-Hulud 1.0/2.0 npm Worm Campaign (Wiz, StepSecurity, Check Point, Snyk, 2025)
 - GlassWorm VSCode Extension Supply Chain Attack (Koi Security, October 2025)
 - TamperedChef Chrome Extension Campaign (GitLab Threat Intelligence, February 2025)
-- S1ngularity Nx Build System Compromise (August 2025)
 - eslint-config-prettier Hijacking (Snyk, Endor Labs, July 2025)
 - Assetnote: "Exploiting Static Site Generators: When Static Is Not Actually Static" (2022) — SSG build-time dynamic code execution attack surface (Hugo, Jekyll, Gatsby)
 

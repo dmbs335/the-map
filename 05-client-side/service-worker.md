@@ -72,6 +72,16 @@ Abuses `skipWaiting()` and `clients.claim()` to force immediate activation and c
 
 **Security Note**: `clients.claim()` allows a SW to control pages that loaded via the network or a different SW, creating an unexpected control transfer.
 
+### §1-4. Payment Handler API Registration Abuse
+
+The Payment Handler API allows web-based payment apps to register service workers that handle payment requests. Attackers can exploit this mechanism to JIT-install malicious service workers in a victim origin's context.
+
+| Subtype | Mechanism | Key Condition |
+|---------|-----------|---------------|
+| **Payment Manifest SW Injection (CVE-2023-5480)** | Chrome's Payment Handler API permits payment apps to register service workers via payment manifests. An attacker crafts a malicious payment manifest that triggers JIT installation of a service worker containing attacker-controlled JavaScript in the victim origin, achieving XSS through the newly registered worker | Payment Handler API enabled; attacker can initiate a payment flow referencing a manipulated manifest that specifies a malicious SW script URL (Slonser, 2024) |
+
+**Attack Flow**: Attacker initiates payment request → browser fetches manipulated payment manifest → manifest specifies malicious SW registration → browser JIT-installs SW in victim origin → SW executes attacker JavaScript in victim context
+
 ---
 
 ## §2. Script Loading & Execution Mutations
@@ -308,16 +318,6 @@ Service Workers cannot bypass SOP but can manipulate cross-origin requests.
 
 **Key Limitation**: SW script URL must be same-origin as registering page; cross-origin SW registration is blocked.
 
-### §8-2. Foreign Fetch Attack Surface (Deprecated)
-
-Foreign Fetch API (deprecated 2017 due to security concerns) allowed cross-origin SW request handling.
-
-| Subtype | Mechanism | Key Condition |
-|---------|-----------|---------------|
-| **Double-Keying Bypass** | Foreign Fetch SW could intercept requests from other origins, creating tracking vectors that violated double-keying privacy protections | Feature was deprecated; historical context only |
-
-**Status**: Removed from spec due to unresolved security and privacy issues, particularly around tracking prevention.
-
 ---
 
 ## Attack Scenario Mapping (Axis 3)
@@ -346,6 +346,7 @@ Foreign Fetch API (deprecated 2017 due to security concerns) allowed cross-origi
 | §3-3 (Cache Poisoning) | HackBox CTF 2022 | Chaining self-XSS with cache poisoning for stored XSS impact |
 | §2-3 (Stale Imports) | ACM RAID 2021 | 40-day average SW staleness enables persistent exploitation of outdated imported scripts |
 | §3-1 + §3-2 (MITM) | Shadow Workers Tool | Open-source C2 demonstrating full MITM proxy capabilities in compromised SW |
+| §1-4 (Payment Handler SW) | CVE-2023-5480 (Chrome, Slonser 2024) | UXSS via payment manifest triggering JIT service worker registration; malicious manifest installs attacker-controlled SW in victim origin context |
 
 ---
 
@@ -369,7 +370,7 @@ Three structural properties create the attack surface:
 
 1. **Persistent Interception Authority**: Once installed, a SW controls all HTTP traffic within its scope until explicitly replaced. The average 40-day update cycle transforms temporary compromises (XSS, script injection) into long-lived persistent attacks. Unlike traditional XSS which ends when the page closes, SW-based XSS survives browser restarts and tab closures.
 
-2. **Policy Exemption**: `importScripts()` bypasses CSP, foreign fetch (deprecated) violated same-origin assumptions, and SW script responses define their own CSP context separate from the pages they control. This creates a "script within a script" security model that standard web defenses don't anticipate.
+2. **Policy Exemption**: `importScripts()` bypasses CSP, and SW script responses define their own CSP context separate from the pages they control. This creates a "script within a script" security model that standard web defenses don't anticipate.
 
 3. **Shared Storage & Lifecycle**: Service Workers access origin-level storage (Cache API, IndexedDB) and communicate via postMessage without per-page isolation. Combined with background APIs (Push, Sync), this enables privacy leakage (history sniffing, location tracking), resource abuse (cryptomining, botnets), and persistent state corruption attacks.
 
@@ -418,7 +419,6 @@ The Service Worker security model assumes benign installation and trusts the SW 
 ### Standards & Specifications
 - W3C Service Worker Specification. [https://github.com/w3c/ServiceWorker](https://github.com/w3c/ServiceWorker)
 
-- WHATWG Foreign Fetch (Deprecated). [https://wiki.whatwg.org/wiki/Foreign_Fetch](https://wiki.whatwg.org/wiki/Foreign_Fetch)
 
 ### Security Best Practices
 - "Service Worker Security Best Practices - 2024 Guide." [https://www.zeepalm.com/blog/service-worker-security-best-practices-2024-guide](https://www.zeepalm.com/blog/service-worker-security-best-practices-2024-guide)

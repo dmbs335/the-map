@@ -362,6 +362,17 @@ All cloud providers use `169.254.169.254` as the metadata endpoint. This IP can 
 | nip.io | `http://169.254.169.254.nip.io/` |
 | Shortened | `http://169.254.43518/` (last two octets as 16-bit) |
 
+### §8-6. SDK Credential Chain Fallback Exploitation
+
+When an AWS SDK client is initialized without explicit credentials (or credentials are set to `nil` during error handling), the SDK traverses a default credential provider chain: environment variables → shared credentials file → ECS task role → EC2 instance IAM role. The first provider returning credentials wins. This creates a privilege escalation vector distinct from direct metadata SSRF.
+
+| Subtype | Mechanism | Key Condition |
+|---|---|---|
+| **Credential nullification fallback** | Application accepts user-provided AWS credentials for a feature (e.g., "Import from S3"). When user credentials fail validation, error handling sets `aws_config.Credentials = nil` — the SDK silently falls back to the instance's IAM role, which typically has broad internal permissions (full S3 access, service discovery) | Application uses AWS SDK with user-supplied credentials; error path nullifies credentials instead of returning error; instance has IAM role attached |
+| **Internal bucket enumeration via fallback** | Attacker provides invalid credentials intentionally, triggering fallback to instance role. If internal S3 bucket names are discoverable (network traffic, error messages, config files), attacker accesses private data through the application's own UI using the instance's elevated permissions | Instance role has S3 access broader than intended for the user-facing feature; internal bucket names are guessable or leaked |
+
+**Mitigation:** Use `AnonymousAWSCredentials` (empty static credentials `"", "", ""`) when accessing public resources — this explicitly prevents credential chain traversal. Never set credentials to `nil` as a fallback (Doyensec, 2022).
+
 ---
 
 ## §9. Attack Scenario Mapping (Axis 3)

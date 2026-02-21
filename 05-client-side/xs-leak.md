@@ -82,6 +82,7 @@ Measures whether resource loaded from cache or network, revealing browsing histo
 | **Performance.getEntries() Cache Detection** | Examines `transferSize` (0 for cached, >0 for network) or `duration` | Same mitigation as above; partitioned cache prevents cross-origin inference |
 | **Force-Cache Fetch** | `fetch(url, {cache: 'force-cache'})` followed by timing; cached resources return instantly | Partitioned cache prevents cross-site cache probing |
 | **Cache Probing via Redirect** | Checks if redirect target is cached by measuring redirect-following time | Modern browsers partition cache using (top-frame-site, resource-url) or (top-frame-site, framing-site, resource-url) tuples |
+| **SOP Bypass via Shared Cache Storage** | In pre-partitioned browsers or same-site framing scenarios, the browser's shared HTTP cache allows direct cross-origin content inference beyond timing. An attacker loads a cross-origin resource that populates the shared cache, then reads cached response properties (size via `transferSize`, ETag presence, content type via CORB behavior) or forces cache reuse to serve cross-origin content in the attacker's context. Unlike pure timing-based probing, this technique extracts structural response properties — effectively reading cross-origin metadata through the cache as a shared state channel | Pre-partitioned-cache browsers (Chrome < 86, older Firefox/Safari); same-site framing where cache partition key collides; or Service Worker `Cache` API interactions that inadvertently share cache entries across origins |
 
 **Partitioned Cache Defense**: Since late 2020, Chrome, Edge, Safari partition HTTP cache by Network Isolation Key (top-level site + current-frame site), preventing cross-site cache probing. Firefox uses (top-frame-site, resource-url).
 
@@ -231,6 +232,15 @@ Detecting specific element presence or properties cross-origin.
 |---------|-----------|---------------|
 | **Download Prompt Detection** | User download prompt changes focus, triggers events, or alters history; measurable via timing or window focus | Reveals `Content-Disposition: attachment` |
 | **beforeunload Event Observation** | Cross-origin navigation may trigger observable `beforeunload` timing variance | Limited applicability; requires precise timing |
+
+### §5-4. Security Software Oracle
+
+Endpoint security software (antivirus, real-time scanners, Safe Browsing APIs) processes web content with content-dependent behavior, creating observable side-channels exploitable from cross-origin contexts.
+
+| Subtype | Mechanism | Key Condition |
+|---------|-----------|---------------|
+| **Antivirus Scan Timing Oracle** | Triggering a cross-origin resource load that invokes AV/security software real-time scanning on the victim's machine. AV engines exhibit measurably different processing times depending on content characteristics — matching malware signatures triggers deeper analysis (heuristic execution, sandbox emulation), causing detectably slower resource load times. By measuring timing of cross-origin requests whose responses contain patterns similar to known signatures, an attacker infers AV presence, engine type, or whether specific content patterns exist on a target page | Victim runs real-time AV scanning (Windows Defender, browser-integrated scanning); attacker can time cross-origin resource loads via Performance API or onload events; AV processing time is content-dependent |
+| **Security Software Behavioral Oracle** | Antivirus or endpoint security software reacts differently to file downloads or page content based on signature matches — blocking, quarantining, or delaying responses. An attacker triggers cross-origin file downloads and observes whether the download completes, is blocked (no download prompt), or is delayed, inferring the presence or absence of specific content patterns on the target resource | Real-time AV scanning intercepts downloads; observable difference between blocked/allowed/delayed states via timing, error events, or download prompt behavior detection (§5-3) |
 
 ---
 

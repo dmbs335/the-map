@@ -68,6 +68,7 @@ Mutations that change the **representation** of the attack payload at the charac
 | **Hex/Octal/Binary Literals** | Express SQL strings as hex (`0x756E696F6E`), use `CHAR()` functions (`CHAR(83,69,76,69,67,84)`), or octal in shell commands. | Backend SQL/shell interpreter processes the literal form |
 | **Base64 Encoding** | Encode payloads in Base64 within contexts where the backend decodes them (XML CDATA, JSON values, custom headers). | Application explicitly Base64-decodes user input |
 | **IBM037/EBCDIC Charset** | Set Content-Type charset to `ibm037` or other exotic codepages. The WAF cannot decode the payload; the backend's framework handles the charset conversion. | Backend framework auto-detects and converts charsets |
+| **x-up-devcap-post-charset Header** | The `x-up-devcap-post-charset` header, originating from legacy Openwave mobile browser specifications, instructs ASP.NET to re-encode the request body using the specified charset before model binding. Sending `x-up-devcap-post-charset: ibm037` converts a standard request body from IBM EBCDIC codepage 037 to UTF-8 *on the server side* — meaning the WAF inspects the EBCDIC-encoded payload (unrecognizable as an attack), while ASP.NET transparently converts it to readable UTF-8 before processing. A SQL injection payload in EBCDIC passes the WAF entirely undetected | ASP.NET Framework backend (IIS); WAF inspects raw request body before ASP.NET charset conversion (Soroush Dalili, 2019) |
 | **JavaScript String Methods** | Use `String.fromCharCode()`, template literals, `atob()`, `eval()`, or concatenation (`'al'+'ert'`) to construct payloads at runtime. | XSS context where JavaScript is executed |
 | **XML Entity Encoding** | Wrap payloads in XML character entities (`&#x3C;script&#x3E;`) or define custom entities via internal DTD subset. WAF inspects raw XML; backend resolves entities. | WAF does not resolve XML entities before pattern matching |
 | **CDATA Section Wrapping** | Place attack payload inside `<![CDATA[...]]>` blocks. Some WAFs skip CDATA content during inspection. | WAF treats CDATA as opaque text |
@@ -102,6 +103,7 @@ Mutations that exploit the gap between what the WAF's rules recognize as malicio
 | **LIKE / BETWEEN Substitution** | Replace blocked operators | `=` → `LIKE`, `>` → `NOT BETWEEN 0 AND`, `OR` → `||` | WAF blocks `=` and `>` but not equivalents |
 | **Comment-Based Directive** | Use MySQL version-specific comments | `/*!50000SELECT*/` — executed only on MySQL ≥ 5.0 | WAF does not parse MySQL conditional comments |
 | **Subquery Wrapping** | Nest payload inside subqueries | `(SELECT(SELECT password FROM users))` — extra parentheses break simple regex | WAF regex expects flat query structure |
+| **DBMS-Specific Statement Termination** | MSSQL accepts whitespace (space, tab, newline) as implicit statement terminators instead of requiring semicolons. WAF rules matching `;<keyword>` patterns miss payloads that use space-separated statements | `1 UNION SELECT password FROM users ` (space-terminated, no semicolon) | WAF SQL rules require semicolon before statement keywords; backend is MSSQL |
 
 ### §2-2. XSS Grammar Evasion
 
@@ -156,6 +158,7 @@ Mutations that target the WAF's detection engine itself — its regex patterns, 
 | **Comment/Whitespace Padding** | Pad payloads with excessive comments, whitespace, or no-op characters to push the actual attack past the WAF's inspection buffer size. | WAF has a maximum inspection size |
 | **Anchor / Boundary Exploitation** | WAF regex uses `^` and `$` anchors or `\b` word boundaries that can be bypassed by prepending/appending benign content. | WAF regex assumes payload is at specific position |
 | **Lazy vs. Greedy Quantifier Abuse** | Craft input where greedy vs. lazy matching causes the WAF's regex to match the wrong portion of the input, missing the actual payload. | WAF regex uses greedy matching that overshoots or undershoots |
+| **JSON Body Parsing Differential** | WAF's JSON parser and the backend's JSON parser handle malformed JSON differently. Duplicate key names (WAF reads the first value, backend reads the last), invalid JSON syntax that the WAF skips but the backend tolerates, and Unicode escape sequences in key names that the WAF fails to decode allow the payload to hide in the value the WAF does not inspect. | WAF inspects JSON request bodies; backend JSON parser is more permissive than WAF's parser (common with AWS WAF and application-level parsers) |
 
 ### §3-2. ML-Based WAF Evasion
 

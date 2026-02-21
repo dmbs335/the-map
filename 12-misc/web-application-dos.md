@@ -65,6 +65,7 @@ The severity of a ReDoS vulnerability depends on where the regex evaluation occu
 | **Rate limiter key extraction** | Rate limiters using regex to extract client identifiers (API keys, tokens) from requests. Crafted requests cause the extraction regex to backtrack, paradoxically disabling the rate limiter itself | Rate limiting middleware with regex-based key extraction |
 | **Log processing ReDoS** | Log aggregation systems parsing log entries with regex. A single log line containing a ReDoS payload blocks the entire log processing pipeline | ELK stack, Splunk, custom log parsers with vulnerable patterns |
 | **Per-route middleware ReDoS** | Framework middleware that applies regex-based path matching before route handling. Crafted URL paths trigger backtracking before the request reaches application code | Express.js path-to-regexp, Django URL patterns, Spring path matchers |
+| **ReDoS timing side-channel for data exfiltration** | ReDoS execution time varies based on which input character triggers backtracking failure. By crafting inputs that conditionally backtrack depending on a secret character's value, the attacker infers secret data one character at a time via response timing differentials. Cross-site variants exploit client-side JavaScript regex to leak cross-origin data through `performance.now()` timing | Server or client-side regex evaluation where input and secret interact; timing measurable by attacker (lmt_swallow, 2020) |
 
 ---
 

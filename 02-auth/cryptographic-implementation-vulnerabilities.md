@@ -4,9 +4,10 @@
 
 ## Scope & Boundary
 
-This document covers **cryptographic primitive and protocol implementation flaws** as they manifest in web applications and infrastructure. The focus is on the underlying cryptographic mechanisms—cipher modes, asymmetric operations, hash functions, TLS implementations, RNG, key lifecycle, data structure parsing, and side-channel leakage—rather than the higher-level protocols that consume them.
+This document covers **cryptographic primitive and protocol implementation flaws** as they manifest in web applications and infrastructure. The focus is on the underlying cryptographic mechanisms—cipher modes, asymmetric operations, hash functions, RNG, key lifecycle, data structure parsing, and side-channel leakage—rather than the higher-level protocols that consume them.
 
 **Explicitly excluded** (covered in dedicated documents):
+- TLS/SSL protocol-level attacks (version downgrade, cipher negotiation, session management, certificate validation, HSTS) → `tls-security.md`
 - JWT-specific attacks (algorithm confusion, header injection, kid exploitation) → `jwt.md`
 - SAML signature wrapping, canonicalization, Golden/Silver SAML → `saml.md`
 - OAuth token handling, PKCE downgrade, client authentication → `oauth.md`
@@ -25,7 +26,7 @@ The taxonomy is organized along three axes:
 
 ### Axis 1 — Mutation Target (Primary Structure)
 
-The structural component of the cryptographic system being attacked or misused. This axis defines the ten top-level categories (§1–§10).
+The structural component of the cryptographic system being attacked or misused. This axis defines the nine top-level categories (§1–§9).
 
 ### Axis 2 — Discrepancy Type (Cross-Cutting)
 
@@ -101,7 +102,6 @@ Counter (CTR) mode and its authenticated variant GCM depend on nonce uniqueness.
 | **CTR Nonce Reuse (Two-Time Pad)** | Reusing a nonce with the same key produces identical keystream blocks. XORing two ciphertexts eliminates the keystream: `C1 XOR C2 = P1 XOR P2`. Known or guessable portions of either plaintext enable full recovery of the other. | Same (key, nonce) pair used for two or more encryptions. Common in stateless servers or distributed systems without nonce coordination. |
 | **GCM Nonce Reuse → Auth Key Recovery** | AES-GCM uses a polynomial MAC (GHASH) keyed by `H = AES_K(0^128)`. With two messages encrypted under the same nonce, the authentication key `H` is recoverable via polynomial GCD. The attacker can then forge authenticated ciphertexts. | Same (key, nonce) pair used for two GCM encryptions. This destroys both confidentiality AND authenticity. |
 | **GCM Short Tag Truncation** | GCM tags can be truncated to reduce overhead. Each bit removed doubles the forgery probability. A 32-bit tag allows forgery with probability 2^-32 per attempt—feasible for online attacks with high request rates. | Application uses truncated GCM tags (< 96 bits). High request volume available. |
-| **AES-GCM Key Commitment Failure** | AES-GCM lacks key commitment: a single ciphertext can decrypt to valid (but different) plaintexts under different keys. Exploitable in multi-recipient encryption, E2EE abuse scenarios, and deniable encryption attacks. | Multiple keys may be tried against the same ciphertext. Multi-recipient or key-escrow scenarios. |
 
 ### §1-4. Stream Cipher Keystream Reuse
 
@@ -154,16 +154,13 @@ Impact: SSH private keys recoverable from public Git signing history
 | **ROBOT (Return of Bleichenbacher's Oracle Threat)** | Modern variant using subtle side-channels as oracles: TCP reset vs. timeout, duplicated TLS alerts, HTTP status code differences. Affected ~27% of Alexa Top 100 in 2017. Products from F5, Citrix, Palo Alto, IBM, and Cisco were vulnerable. | RSA key exchange enabled in TLS. Any observable behavioral difference on padding failure—even at the TCP level. |
 | **Weak RSA Key Generation** | Keys generated with insufficient entropy, shared prime factors across devices (common in IoT/embedded), or degenerate parameters (e.g., `e=1`). Factorable.net found 0.2% of TLS RSA public keys shared prime factors. | Low-entropy PRNG at key generation time. Mass-produced devices with identical firmware generating keys at first boot. |
 | **RSA Short Key Length** | RSA keys below 2048 bits are factorizable with moderate resources. 1024-bit keys are within reach of well-funded attackers. 512-bit keys (FREAK/export-grade) are trivially factorizable on consumer hardware. | Legacy systems or misconfigured servers offering short RSA keys. FREAK: forcing export-grade 512-bit RSA. |
-| **Coppersmith's Attack on Short Padding** | When RSA encryption uses short or predictable padding (or the message is partially known), lattice-based techniques recover the plaintext from a single ciphertext. Applicable when the unknown portion of the message is less than `n^(1/e)` bits. | Short or predictable padding. High public exponent `e` with small unknown message portion. |
-| **Public Key Encryption as Token Authentication (Confidentiality ≠ Authenticity)** | OIDC/OAuth implementations that encrypt refresh tokens or session tokens using RSA public keys retrievable from public JWKS endpoints (`.well-known/jwks.json`). Since the public key is available to anyone, any party can encrypt arbitrary token payloads that the server will successfully decrypt and accept — the server confuses "I can decrypt this" with "this is authentic." The attacker extracts the public RSA key, constructs a token with forged claims (user identity, scopes, expiration), encrypts it with the public key, and submits it to the token endpoint. The server decrypts successfully, trusts the claims, and issues valid access tokens for the victim's account | RSA public key used for token encryption is publicly accessible (JWKS endpoint). Token integrity relies solely on encryption (no separate signature or MAC). Token structure/schema is predictable or documented. (See `oauth.md` for OAuth-specific context.) |
+| **Public Key Encryption as Token Authentication (Confidentiality ≠ Authenticity)**| OIDC/OAuth implementations that encrypt refresh tokens or session tokens using RSA public keys retrievable from public JWKS endpoints (`.well-known/jwks.json`). Since the public key is available to anyone, any party can encrypt arbitrary token payloads that the server will successfully decrypt and accept — the server confuses "I can decrypt this" with "this is authentic." The attacker extracts the public RSA key, constructs a token with forged claims (user identity, scopes, expiration), encrypts it with the public key, and submits it to the token endpoint. The server decrypts successfully, trusts the claims, and issues valid access tokens for the victim's account | RSA public key used for token encryption is publicly accessible (JWKS endpoint). Token integrity relies solely on encryption (no separate signature or MAC). Token structure/schema is predictable or documented. (See `oauth.md` for OAuth-specific context.) |
 
 ### §2-3. Ed25519 Implementation Flaws
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
 | **Unvalidated Public Key Parameter (Chalkias Vulnerability)** | Over 45 Ed25519 libraries expose a signing API accepting a pre-computed public key as an optimization parameter. If the library does not validate that the public key matches the private key, an attacker can invoke signing with manipulated public keys and use lattice-based cryptanalysis on the resulting signatures to recover the private key. | Library exposes `sign(message, privateKey, publicKey)` API. No validation that `publicKey = privateKey * G`. Attacker can invoke signing with arbitrary public key values. |
-| **Cofactor Handling Differences** | Ed25519 has cofactor 8, meaning 8 equivalent public keys exist for each private key. Implementations differ in whether they validate for small-order components. This creates signature malleability and can enable double-spend or replay attacks. | Consensus-critical systems (blockchain, distributed ledgers) using Ed25519. Implementations disagree on cofactor validation (ZIP-215 vs. RFC 8032 strict). |
-| **Signature Malleability** | Given a valid signature `(R, s)`, the signature `(R, s + L)` (where `L` is the group order) is also valid in some implementations. An attacker can modify valid signatures without the private key. | Implementation does not check `s < L`. Relevant for transaction IDs or signature-dependent logic. |
 
 ### §2-4. Diffie-Hellman / ECDH Key Exchange Flaws
 
@@ -224,56 +221,11 @@ Attack:   GET /api?user=alice[padding]&admin=true&sig=def456
 
 ---
 
-## §4. TLS/SSL Implementation Vulnerabilities
-
-TLS is the foundational encryption layer for web traffic. Implementation flaws in TLS libraries and server configurations undermine the entire web security model.
-
-### §4-1. Version and Cipher Downgrade
-
-| Subtype | Mechanism | Key Condition |
-|---|---|---|
-| **Protocol Version Downgrade (POODLE)** | Attacker forces fallback from TLS 1.2 to SSL 3.0 by injecting handshake failures. SSL 3.0's CBC padding is non-deterministic, enabling a padding oracle that decrypts ~1 byte per 256 requests. | Server supports SSL 3.0 fallback. Client performs version fallback without TLS_FALLBACK_SCSV. |
-| **FREAK (Factoring RSA Export Keys)** | MitM attacker rewrites ClientHello to request export-grade RSA (512-bit). Server uses a static 512-bit export key, factorable in ~7 hours on EC2 (~$100). Attacker decrypts the session. | Server supports RSA_EXPORT cipher suites. Static export key reused across connections. |
-| **Logjam (DH Export Downgrade)** | Attacker modifies handshake to request DHE_EXPORT (512-bit DH). Precomputed Number Field Sieve tables for common 512-bit DH groups enable real-time downgrade. A single 1024-bit DH group was reused by ~18% of HTTPS Top 1M. | Server supports DHE_EXPORT. Common DH groups enable precomputation. (See also §2-4.) |
-| **SWEET32 (64-bit Block Cipher Birthday)** | Ciphers with 64-bit blocks (3DES, Blowfish) encounter birthday-bound collisions after ~2^32 blocks (~32GB). In long-lived TLS connections, block collisions leak XOR of plaintext blocks. | 3DES or Blowfish cipher suites enabled. Long-lived connections (HTTP/2 multiplexing, WebSocket). |
-| **DROWN (Cross-Protocol Downgrade)** | SSLv2 support on *any* server sharing the same RSA key enables a Bleichenbacher-style attack against TLS connections to other servers using that key. A SSLv2-only mail server can be used to attack a TLS 1.2 web server. | Same RSA private key used across servers. Any server with that key supports SSLv2. |
-
-### §4-2. Record Layer and Padding Vulnerabilities
-
-| Subtype | Mechanism | Key Condition |
-|---|---|---|
-| **Lucky13 (CBC Timing)** | TLS ≤1.2 uses MAC-then-Encrypt with CBC. The MAC verification time depends on padding length after decryption. A ~1µs timing difference reveals whether padding is valid, enabling byte-by-byte plaintext recovery. | TLS 1.0/1.1/1.2 with CBC cipher suites. Attacker can measure server response timing with sufficient precision. |
-| **BEAST (CBC IV Predictability)** | TLS 1.0 uses the previous record's last ciphertext block as the IV for the next record. An attacker (via injected JavaScript) performs a chosen-plaintext attack by aligning guesses with block boundaries and comparing ciphertext blocks. | TLS 1.0 with CBC cipher suites. Attacker can inject chosen plaintext into the same TLS connection (e.g., via JavaScript). |
-| **CRIME/BREACH (Compression Oracle)** | TLS-level compression (CRIME) or HTTP-level compression (BREACH) combined with attacker-controlled input creates an oracle: when a guess matches existing content, the compressed (and encrypted) output is shorter. Byte-by-byte recovery of secrets (CSRF tokens, session IDs) in compressed responses. | TLS compression enabled (CRIME) or HTTP compression enabled with reflected user input in responses containing secrets (BREACH). |
-| **Raccoon (DH Key Exchange Timing)** | A timing side-channel in DH key exchange: when the shared secret has leading zero bytes, the server's processing time differs slightly. With sufficient measurements and precomputed tables, the premaster secret is recoverable. | TLS-DH or TLS-DHE. Server processes DH shared secret with timing variations on leading zeros. |
-| **TLS 1.3 Padding Bug (wolfSSL)** | Malformed TLS 1.3 records with invalid padding trigger out-of-bounds reads during padding removal, causing crashes or memory exposure. A pre-authentication remote DoS. (CVE-2024-0901) | wolfSSL < 5.7.0. TLS 1.3 enabled. Any unauthenticated client can trigger. |
-
-### §4-3. Certificate Validation Failures
-
-| Subtype | Mechanism | Key Condition |
-|---|---|---|
-| **Missing Certificate Chain Validation** | Application connects via TLS but does not verify the server's certificate chain against a trusted CA store. Accepts any certificate, including self-signed or attacker-generated. Common in mobile apps, microservices, and development configurations leaked to production. | `verify=False` (Python requests), `rejectUnauthorized: false` (Node.js), `InsecureSkipVerify: true` (Go). |
-| **Hostname Mismatch Acceptance** | Certificate is valid and chain-verified, but the hostname in the certificate (CN or SAN) does not match the server being connected to. If the client skips hostname verification, any valid certificate from any domain works for MitM. | Custom TLS clients that verify the chain but skip hostname matching. Common in Java (`HostnameVerifier` returning `true`). |
-| **Expired/Revoked Certificate Acceptance** | Client does not check certificate expiration or revocation status (CRL/OCSP). Revoked certificates (e.g., from key compromise) remain accepted. OCSP stapling failures silently ignored ("soft-fail" OCSP). | OCSP/CRL checking disabled or in soft-fail mode. No OCSP Must-Staple extension. |
-| **Wildcard Certificate Misscoping** | `*.example.com` matches `anything.example.com` but not `sub.anything.example.com` per RFC 6125. Implementations that match too broadly or issue wildcards at too high a level (e.g., `*.com` — prevented by CA/Browser Forum rules but not by all internal CAs). | Internal PKI issuing overly broad wildcards. Misconfigured matching logic in custom TLS clients. |
-| **Raw Public Key (RPK) Authentication Bypass** | OpenSSL 3.2–3.4 with RFC 7250 RPK: when a TLS client uses `SSL_VERIFY_PEER` and the server presents an untrusted RPK, the handshake does not abort. The client proceeds as if authenticated. (CVE-2024-12797) | OpenSSL 3.2+ with RPK explicitly enabled. Client expects RPK-based authentication. |
-| **Certificate Transparency (CT) Bypass** | If the client does not require Signed Certificate Timestamps (SCTs), a rogue CA can issue certificates without public CT logging, evading detection. Expect-CT header is deprecated; SCT enforcement is moving to browser-enforced policy. | No SCT validation enforced. Reliance on Expect-CT header (deprecated). |
-
-### §4-4. HSTS and Transport Security Gaps
-
-| Subtype | Mechanism | Key Condition |
-|---|---|---|
-| **Missing HSTS** | Without HTTP Strict Transport Security, the first connection to a site may use plain HTTP, enabling SSL stripping. The attacker intercepts the initial HTTP request and proxies all traffic unencrypted. | No HSTS header. User types `http://` or clicks an HTTP link. |
-| **HSTS Incomplete Scope** | HSTS without `includeSubDomains` leaves subdomains vulnerable. An attacker can SSL-strip `subdomain.example.com` and use it as a pivot to steal cookies scoped to `.example.com`. | HSTS set on `example.com` but without `includeSubDomains`. Cookies scoped to parent domain. |
-| **HSTS Preload Gap** | Even with HSTS, the very first visit is unprotected (TOFU — Trust On First Use). HSTS preload lists solve this, but require explicit submission and propagation. Browsers may cache the preload list infrequently. | Site not on HSTS preload list. First-visit interception window. |
-
----
-
-## §5. Random Number & Nonce Generation Failures
+## §4. Random Number & Nonce Generation Failures
 
 Cryptographic security fundamentally depends on the quality of random number generation. Insufficient entropy or predictable generators undermine every cryptographic operation built upon them.
 
-### §5-1. Insufficient Entropy at Generation Time
+### §4-1. Insufficient Entropy at Generation Time
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
@@ -281,7 +233,7 @@ Cryptographic security fundamentally depends on the quality of random number gen
 | **VM Fork Entropy Duplication** | When a VM is forked/cloned, the forked instance inherits the parent's PRNG state. Both VMs generate identical "random" values until sufficient new entropy is mixed in. TLS session keys, ECDSA nonces, and CSRF tokens may collide. | VM live migration or snapshot-based cloning. No PRNG reseeding after fork. Cloud auto-scaling from snapshots. |
 | **Embedded Device Entropy Failure** | Devices lacking hardware RNG (no RDRAND, no TPM, no timer jitter) generate keys from predictable sources (uptime, PID, MAC address). Multiple devices produce identical keys. | IoT devices, routers, network appliances. Headless systems with no user input entropy. |
 
-### §5-2. Predictable PRNG in Web Frameworks
+### §4-2. Predictable PRNG in Web Frameworks
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
@@ -291,7 +243,7 @@ Cryptographic security fundamentally depends on the quality of random number gen
 | **Ruby SecureRandom Pitfalls** | Ruby's `SecureRandom` typically uses `/dev/urandom`, but fallback to OpenSSL's PRNG can introduce issues in forked processes (pre-Ruby 2.5 did not reseed after fork). | Ruby applications using `SecureRandom` in forked worker processes (Unicorn, Puma prefork). |
 | **Java java.util.Random State Recovery** | Java's `java.util.Random` uses a 48-bit LCG. The full seed is recoverable from two consecutive outputs. `ThreadLocalRandom` shares this weakness. Only `java.security.SecureRandom` is cryptographically secure. | Java applications using `Random` or `ThreadLocalRandom` for security-critical values. |
 
-### §5-3. Nonce/IV Generation Flaws
+### §4-3. Nonce/IV Generation Flaws
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
@@ -301,30 +253,29 @@ Cryptographic security fundamentally depends on the quality of random number gen
 
 ---
 
-## §6. Key Material Lifecycle & Management
+## §5. Key Material Lifecycle & Management
 
 Key material exposure, from generation through storage, rotation, and destruction, represents the most direct path to cryptographic system compromise.
 
-### §6-1. Key Material Exposure
+### §5-1. Key Material Exposure
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
 | **Source Code Repository Leakage** | Private keys, API secrets, and encryption keys committed to Git repositories (including in commit history even after deletion). GitHub's secret scanning detected >40 million secrets in public repos in 2024. | `.pem`, `.key`, `.pfx` files in repositories. Hardcoded key strings in source code. `.env` files committed. |
 | **Error Message Key Disclosure** | Stack traces, debug pages, and verbose error messages exposing key material, PRNG state, or intermediate cryptographic values. Django debug pages, PHP `phpinfo()`, and Java stack traces have all leaked secrets. | Debug mode enabled in production. Verbose error handling for cryptographic operations. |
-| **Memory Disclosure (Heartbleed Pattern)** | Buffer over-read vulnerabilities in TLS libraries expose server memory containing private keys, session keys, and user credentials. Heartbleed (CVE-2014-0160) leaked up to 64KB per request from OpenSSL's heap. The pattern recurs in any TLS library with buffer management bugs. | TLS library with buffer over-read. Server memory contains key material (common due to long-lived processes). |
+| **Memory Disclosure (Heartbleed Pattern)** | Buffer over-read vulnerabilities in TLS libraries expose server memory containing private keys, session keys, and user credentials. Heartbleed (CVE-2014-0160) leaked up to 64KB per request from OpenSSL's heap. The pattern recurs in any TLS library with buffer management bugs. (See `tls-security.md` §7-2 and `web-memory-disclosure.md` §1-1 for detailed treatment.) | TLS library with buffer over-read. Server memory contains key material (common due to long-lived processes). |
 | **Backup and Log Exposure** | Key material included in database backups, application logs, cloud storage snapshots, or monitoring systems. Encrypted database backups that include the encryption key in the same backup. | Logging of request/response bodies containing keys. Backup systems without separate key management. |
-| **Side-Channel Key Extraction** | Spectre/Meltdown class vulnerabilities, cache-timing attacks, and electromagnetic emanation enabling key extraction from co-located processes. Practical in shared cloud environments. | Co-located VMs or containers on shared hardware. No hardware-level isolation (e.g., SEV, TDX). |
 
-### §6-2. Key Rotation and Revocation Failures
+### §5-2. Key Rotation and Revocation Failures
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
 | **No Key Rotation** | Cryptographic keys used indefinitely. Long-lived keys accumulate risk: more data encrypted under the same key (increasing exposure from compromise), more time for cryptanalysis, and more opportunities for exfiltration. | No key rotation policy. Keys older than organizational lifecycle. |
 | **Rotation Without Re-Encryption** | Key is rotated (new key generated) but existing data remains encrypted under the old key, which must be retained indefinitely. The "rotated" key provides no forward security for existing data. | Key rotation policy without data re-encryption strategy. Old keys stored alongside new keys with equal access. |
-| **Certificate Revocation Failure** | Revoked certificates remain trusted because clients don't check CRL/OCSP, OCSP responders are unreachable, or soft-fail OCSP silently accepts the certificate. CRLite and short-lived certificates are emerging mitigations. | Soft-fail OCSP (default in most browsers). CRL distribution point unreachable. No OCSP Must-Staple. |
+| **Certificate Revocation Failure** | Revoked certificates remain trusted because clients don't check CRL/OCSP, OCSP responders are unreachable, or soft-fail OCSP silently accepts the certificate. CRLite and short-lived certificates are emerging mitigations. (See `tls-security.md` §4-3 for TLS-specific revocation treatment.) | Soft-fail OCSP (default in most browsers). CRL distribution point unreachable. No OCSP Must-Staple. |
 | **JWKS Endpoint Key Confusion** | When a JWKS endpoint serves multiple keys and the `kid` (Key ID) is not validated strictly, an attacker may be able to exploit key rollover windows where both old and new keys are valid, or inject additional keys if the JWKS endpoint is compromisable. | JWKS endpoint serves keys without strict `kid` binding. Key rollover window with permissive validation. (See jwt.md for JWT-specific treatment.) |
 
-### §6-3. Key Derivation Function (KDF) Weaknesses
+### §5-3. Key Derivation Function (KDF) Weaknesses
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
@@ -335,11 +286,11 @@ Key material exposure, from generation through storage, rotation, and destructio
 
 ---
 
-## §7. Cryptographic Data Structure Parsing Vulnerabilities
+## §6. Cryptographic Data Structure Parsing Vulnerabilities
 
 Cryptographic systems consume complex data structures (ASN.1/DER, X.509 certificates, PKCS#7/CMS, PEM encoding). Parser vulnerabilities in these structures enable pre-authentication attacks.
 
-### §7-1. ASN.1/DER Parsing Flaws
+### §6-1. ASN.1/DER Parsing Flaws
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
@@ -348,7 +299,7 @@ Cryptographic systems consume complex data structures (ASN.1/DER, X.509 certific
 | **Type Confusion in ASN.1** | ASN.1 tags identify the type of each element. If a parser does not strictly validate expected tags, an attacker can substitute one type for another (e.g., an INTEGER where a BIT STRING is expected), leading to misinterpretation of cryptographic parameters. | Lax ASN.1 parsing that skips tag validation. Certificate or key structures with substituted types. |
 | **Trailing Data / Non-Canonical Encoding** | DER requires canonical encoding (minimal length, no trailing data). Parsers that accept non-canonical input or ignore trailing bytes may process different data than what was signed, enabling signature bypass. | Certificate validation using lax DER parsers. Signed data with appended unsigned content. |
 
-### §7-2. X.509 Certificate Parsing Attacks
+### §6-2. X.509 Certificate Parsing Attacks
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
@@ -357,7 +308,7 @@ Cryptographic systems consume complex data structures (ASN.1/DER, X.509 certific
 | **Critical Extension Handling** | X.509 extensions marked as `critical` MUST be understood by the client; unrecognized critical extensions MUST cause rejection. Libraries that ignore this requirement accept certificates with security-relevant extensions they don't understand. | TLS libraries that skip unknown critical extensions. Custom certificate validation code. |
 | **Certificate Policy Confusion** | Extended Validation (EV), Organization Validation (OV), and Domain Validation (DV) certificates have different trust levels but are technically equivalent in TLS. Applications assuming certificate type implies security level can be misled. | Application logic that depends on certificate validation level. Phishing sites with DV certificates. |
 
-### §7-3. CMS/PKCS#7/S/MIME Parsing
+### §6-3. CMS/PKCS#7/S/MIME Parsing
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
@@ -367,11 +318,11 @@ Cryptographic systems consume complex data structures (ASN.1/DER, X.509 certific
 
 ---
 
-## §8. Side-Channel Leakage in Web Context
+## §7. Side-Channel Leakage in Web Context
 
 Side-channel attacks exploit information leaked through implementation behavior (timing, size, power, electromagnetic emanation) rather than cryptographic weaknesses. In web contexts, network-observable side channels are the primary threat.
 
-### §8-1. Timing Side-Channels
+### §7-1. Timing Side-Channels
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
@@ -380,37 +331,27 @@ Side-channel attacks exploit information leaked through implementation behavior 
 | **RSA Decryption Timing** | RSA private-key operations using Chinese Remainder Theorem (CRT) with non-constant-time modular exponentiation leak information about the private key factors through timing. | RSA implementations without blinding. Co-located attacker or network timing with statistical analysis. |
 | **Key-Dependent Branch Timing** | Conditional branches based on key bits (e.g., square-and-multiply without Montgomery ladder) leak the bit pattern of the exponent/scalar through execution time. | Unprotected modular exponentiation. Private key operations without constant-time guarantees. |
 
-### §8-2. Network Traffic Analysis
+### §7-2. Network Traffic Analysis
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
-| **Token-Length Side-Channel on LLM Streaming** | When LLMs stream responses token-by-token over HTTPS, each token is sent as a separate encrypted packet. Packet sizes correlate with token lengths. An eavesdropper can reconstruct responses using LLM-based sequence prediction from length sequences. 27% of AI assistant responses accurately reconstructed; 53% topic inference rate. (USENIX Security 2024, "What Was Your Prompt?") | LLM API using token-by-token streaming over HTTPS. No padding applied to individual token responses. Network-positioned attacker. |
 | **Encrypted Traffic Classification** | TLS encrypts content but not metadata: packet sizes, timing, direction, and connection patterns. Machine learning classifiers identify visited pages, API endpoints, and user actions from encrypted traffic patterns with >90% accuracy in controlled settings. | HTTPS without traffic padding. Distinctive page sizes or API response patterns. |
-| **Compression Ratio Oracle (BREACH)** | HTTP-level compression combined with attacker-controlled input creates a length oracle: when a guess matches existing content, the compressed output is shorter, and the encrypted packet is correspondingly smaller. Byte-by-byte recovery of secrets in compressed responses. | HTTP compression enabled. Reflected user input in responses containing secrets (CSRF tokens, API keys). See §4-2 for TLS-level treatment. |
-
-### §8-3. Cache and Microarchitectural Side-Channels
-
-| Subtype | Mechanism | Key Condition |
-|---|---|---|
-| **Flush+Reload on Shared Libraries** | In shared-memory environments (same host, co-located VMs), the attacker measures cache line access times for shared cryptographic libraries (OpenSSL, libgcrypt). Cache hits/misses reveal which code paths were executed, leaking key-dependent branches. | Shared physical memory (shared libraries, deduplication). Co-located VMs or containers on the same host. |
-| **Spectre/Meltdown on Crypto Operations** | Speculative execution reads secret key material into the cache, then side-channel techniques exfiltrate it. Browser-based Spectre attacks using JavaScript `SharedArrayBuffer` (now mitigated by site isolation and reduced timer precision) demonstrated cross-origin secret extraction. | Shared-core execution (hyperthreading). Browser contexts before site isolation. Cloud environments without hardware mitigations. |
-| **Hertzbleed (Frequency Scaling)** | CPU dynamic voltage and frequency scaling (DVFS) causes power-dependent computation time differences. Cryptographic operations with data-dependent power consumption exhibit timing variations exploitable remotely. Demonstrated against SIKE key encapsulation. | Modern CPUs with DVFS. Cryptographic algorithms with data-dependent power profiles. Remote timing measurement. |
+| **Compression Ratio Oracle (BREACH)** | HTTP-level compression combined with attacker-controlled input creates a length oracle: when a guess matches existing content, the compressed output is shorter, and the encrypted packet is correspondingly smaller. Byte-by-byte recovery of secrets in compressed responses. | HTTP compression enabled. Reflected user input in responses containing secrets (CSRF tokens, API keys). See `tls-security.md` §3-3 for TLS-level treatment. |
 
 ---
 
-## §9. Cryptographic Agility & Algorithm Migration Vulnerabilities
+## §8. Cryptographic Agility & Algorithm Migration Vulnerabilities
 
 The transition between cryptographic algorithms—whether due to deprecation, standardization, or quantum threat—creates a distinct class of vulnerabilities.
 
-### §9-1. Algorithm Downgrade Attacks
+### §8-1. Algorithm Downgrade Attacks
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
-| **Cipher Suite Downgrade (TLS)** | MitM attacker modifies the ClientHello to remove strong cipher suites, forcing the server to select a weak suite. TLS 1.3 mitigates this by including a hash of the ClientHello in the Finished message, but TLS ≤1.2 is vulnerable without TLS_FALLBACK_SCSV. | TLS ≤1.2 without downgrade protection. Server supports both strong and weak cipher suites. |
-| **Algorithm Negotiation Stripping** | Protocols with algorithm negotiation (S/MIME, PGP, JOSE) can be attacked by modifying the negotiation to select a weak algorithm. If the receiver does not enforce minimum algorithm strength, the attacker succeeds. | Protocol supports multiple algorithm options. No minimum algorithm strength policy enforced. |
+| **Cipher Suite / Algorithm Downgrade** | MitM attacker modifies protocol negotiation to remove strong options, forcing selection of a weak algorithm. Applies to S/MIME, PGP, JOSE, and any protocol with algorithm negotiation. If the receiver does not enforce minimum algorithm strength, the attacker succeeds. (For TLS-specific cipher suite downgrade, see `tls-security.md` §1-2.) | Protocol supports multiple algorithm options. No minimum algorithm strength policy enforced. |
 | **Crypto Library Fallback Behavior** | Libraries that silently fall back to weaker algorithms when the preferred algorithm is unavailable (e.g., falling back from AES-256-GCM to AES-128-CBC, or from ECDSA to RSA) without application awareness. | Library with automatic fallback behavior. Application does not verify the actual algorithm used. |
 
-### §9-2. Hardcoded Algorithm Inflexibility
+### §8-2. Hardcoded Algorithm Inflexibility
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
@@ -418,22 +359,22 @@ The transition between cryptographic algorithms—whether due to deprecation, st
 | **Protocol-Locked Algorithms** | Some protocols embed specific algorithms in their specification (e.g., RADIUS uses MD5 for Response-Authenticator). Upgrading requires protocol version changes, which require ecosystem-wide adoption. BlastRADIUS (CVE-2024-3596) exploited RADIUS's MD5 dependency. | Protocol standards mandating specific algorithms. Legacy protocol deployments. |
 | **Data Format Algorithm Binding** | Encrypted data stored with algorithm metadata (e.g., JWE headers, CMS algorithm identifiers). When the algorithm is deprecated, all stored data must be re-encrypted—a massive operational undertaking for databases, backups, and archives. | Long-lived encrypted data stores. No re-encryption automation. |
 
-### §9-3. Post-Quantum Migration Risks
+### §8-3. Post-Quantum Migration Risks
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
-| **Harvest Now, Decrypt Later (HNDL)** | Adversaries capture encrypted traffic today for future decryption by quantum computers. All TLS sessions using RSA or ECDH key exchange are vulnerable to retrospective decryption once cryptographically relevant quantum computers exist. >50% of web traffic through Cloudflare used PQ key agreement by late 2025. | Any data with long-term confidentiality requirements encrypted with non-PQ algorithms. State-level adversaries with large-scale traffic capture capability. |
-| **Hybrid Implementation Errors** | Combining classical and post-quantum algorithms (e.g., X25519 + ML-KEM in TLS 1.3) creates new attack surface: incorrect concatenation of shared secrets, missing validation of PQ public keys, or fallback to classical-only when PQ negotiation fails. | Hybrid key exchange implementations. Early PQ adoption without mature library support. |
-| **PQ Signature Size Impact** | ML-DSA (Dilithium) signatures are ~2.5KB (vs. ~256B for ECDSA). In TLS, this increases handshake size, potentially causing fragmentation, middlebox incompatibility, and performance degradation that encourages disabling PQ. | TLS with PQ signatures. Network paths with small MTU or intolerant middleboxes. |
+| **Harvest Now, Decrypt Later (HNDL)** | Adversaries capture encrypted traffic today for future decryption by quantum computers. All sessions using RSA or ECDH key exchange are vulnerable to retrospective decryption once cryptographically relevant quantum computers exist. (See `tls-security.md` §10-1 for TLS-specific HNDL treatment.) | Any data with long-term confidentiality requirements encrypted with non-PQ algorithms. State-level adversaries with large-scale traffic capture capability. |
+| **Hybrid Implementation Errors** | Combining classical and post-quantum algorithms (e.g., X25519 + ML-KEM) creates new attack surface: incorrect concatenation of shared secrets, missing validation of PQ public keys, or fallback to classical-only when PQ negotiation fails. | Hybrid key exchange implementations. Early PQ adoption without mature library support. |
+| **PQ Signature Size Impact** | ML-DSA (Dilithium) signatures are ~2.5KB (vs. ~256B for ECDSA). In protocols like TLS, this increases handshake size, potentially causing fragmentation and middlebox incompatibility. (See `tls-security.md` §10-2 for TLS-specific PQ treatment.) | PQ signatures in latency-sensitive protocols. Network paths with small MTU or intolerant middleboxes. |
 | **Cryptographic Inventory Gaps** | Organizations cannot migrate what they cannot inventory. Unknown cryptographic dependencies in third-party libraries, embedded systems, and legacy applications create blind spots. PCI DSS v4.0 requires documented cryptographic inventory after March 2025. | Large organizations with heterogeneous technology stacks. No automated crypto discovery tools deployed. |
 
 ---
 
-## §10. End-to-End Encryption (E2EE) Implementation Flaws
+## §9. End-to-End Encryption (E2EE) Implementation Flaws
 
 E2EE in web applications (messaging, cloud storage, collaboration tools) introduces client-side cryptography that is notoriously difficult to implement correctly.
 
-### §10-1. Key Management in E2EE
+### §9-1. Key Management in E2EE
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
@@ -441,7 +382,7 @@ E2EE in web applications (messaging, cloud storage, collaboration tools) introdu
 | **Key Verification Ceremony Bypass** | E2EE systems that offer but don't require key verification (fingerprint comparison, safety numbers) allow the server to silently perform key substitution for the majority of users who never verify. | Optional key verification. No automatic cryptographic binding between key distribution and verification. |
 | **Key Escrow / Recovery Backdoor** | E2EE systems with server-mediated key recovery (e.g., password-based key recovery) expose the encryption key to the server during recovery, breaking the E2EE guarantee. The server (or an attacker compromising the recovery flow) gains access to all encrypted data. | Key recovery mechanism that involves server access to plaintext key material. Password-based recovery without client-side key wrapping. |
 
-### §10-2. Client-Side Crypto Implementation
+### §9-2. Client-Side Crypto Implementation
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
@@ -450,7 +391,7 @@ E2EE in web applications (messaging, cloud storage, collaboration tools) introdu
 | **Metadata Leakage** | E2EE protects file content but often exposes: file names, directory structure, file sizes, modification timestamps, sharing relationships, and access patterns. This metadata can reveal sensitive information even without decrypting content. | E2EE design that encrypts content but not metadata. Server-side indexing for search or deduplication. |
 | **WebCrypto API Misuse** | The W3C WebCrypto API (`SubtleCrypto`) provides low-level cryptographic primitives in the browser. Its API design requires developers to make correct mode/parameter choices. Common misuses: using `AES-CBC` without separate HMAC, `RSA-OAEP` with default SHA-1, or `ECDSA` with `Math.random()` nonces instead of the internal RNG. | Browser-based E2EE implementation. Developers unfamiliar with cryptographic primitive selection. No high-level crypto library wrapper. |
 
-### §10-3. Protocol-Level E2EE Weaknesses
+### §9-3. Protocol-Level E2EE Weaknesses
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
@@ -464,12 +405,12 @@ E2EE in web applications (messaging, cloud storage, collaboration tools) introdu
 
 | Scenario | Architecture | Primary Mutation Categories |
 |---|---|---|
-| **MitM / Session Interception** | Network-positioned attacker between client and server | §4 (TLS) + §2-4 (DH/ECDH) + §1-1 (CBC) + §9-1 (downgrade) |
-| **Token / Credential Forgery** | Attacker generates valid authentication material | §2-1 (ECDSA) + §2-3 (Ed25519) + §3-1 (length extension) + §5 (PRNG) |
-| **Data Exfiltration** | Extracting protected data from encrypted stores or transit | §1 (symmetric modes) + §8-2 (traffic analysis) + §10 (E2EE flaws) |
-| **Retrospective Decryption** | Captured traffic decrypted later (quantum or key compromise) | §9-3 (PQC) + §4-1 (weak ciphers) + §6-1 (key exposure) |
-| **Supply Chain Compromise** | Attacking crypto libraries or key distribution | §7 (parser vulns) + §6-1 (key leakage) + §10-1 (key distribution) |
-| **Infrastructure Compromise** | Exploiting crypto processing for RCE, DoS, or pivoting | §7-3 (CMS parsing) + §3-4 (PBKDF2 DoS) + §4-2 (padding bugs) |
+| **MitM / Session Interception** | Network-positioned attacker between client and server | `tls-security.md` + §2-4 (DH/ECDH) + §1-1 (CBC) + §8-1 (downgrade) |
+| **Token / Credential Forgery** | Attacker generates valid authentication material | §2-1 (ECDSA) + §2-3 (Ed25519) + §3-1 (length extension) + §4 (PRNG) |
+| **Data Exfiltration** | Extracting protected data from encrypted stores or transit | §1 (symmetric modes) + §7-2 (traffic analysis) + §9 (E2EE flaws) |
+| **Retrospective Decryption** | Captured traffic decrypted later (quantum or key compromise) | §8-3 (PQC) + `tls-security.md` §1 (weak ciphers) + §5-1 (key exposure) |
+| **Supply Chain Compromise** | Attacking crypto libraries or key distribution | §6 (parser vulns) + §5-1 (key leakage) + §9-1 (key distribution) |
+| **Infrastructure Compromise** | Exploiting crypto processing for RCE, DoS, or pivoting | §6-3 (CMS parsing) + §3-4 (PBKDF2 DoS) |
 
 ---
 
@@ -481,15 +422,12 @@ E2EE in web applications (messaging, cloud storage, collaboration tools) introdu
 | §2-1 (ECDSA timing) | CVE-2024-13176 (OpenSSL) | ~300ns timing signal on ECDSA nonce inversion. All OpenSSL versions through 3.4. |
 | §2-1 (ECDSA timing, Minerva) | CVE-2024-23342 (python-ecdsa) | Nonce bit-length leakage via signing time. Private key recoverable. |
 | §2-1 (ECDSA timing, SM2) | CVE-2025-9231 (OpenSSL ARM64) | SM2 signing timing variations. All OpenSSL < 3.6 on ARM64. |
-| §2-2 (RSA padding oracle) | ROBOT (2017, ongoing) | ~27% of Alexa Top 100 vulnerable. F5, Citrix, Palo Alto, IBM, Cisco products. |
-| §4-3 (RPK auth bypass) | CVE-2024-12797 (OpenSSL 3.2–3.4) | TLS MitM via unauthenticated RPK. Discovered by Apple. |
-| §4-2 (TLS 1.3 padding) | CVE-2024-0901 (wolfSSL) | Pre-auth DoS via malformed TLS 1.3 padding. OOB read/write. |
-| §7-3 (CMS IV overflow) | CVE-2025-15467 (OpenSSL 3.x) | Pre-auth stack buffer overflow in CMS parsing. RCE achieved by JFrog. |
-| §7-3 (multiple parser vulns) | 12 CVEs (OpenSSL, AISLE 2026) | 12 zero-days including one present since 1998. QUIC, PKCS#12, CMS, TLS 1.3, BIO subsystems. |
+| §2-2 (RSA padding oracle) | ROBOT (2017, ongoing) | ~27% of Alexa Top 100 vulnerable. F5, Citrix, Palo Alto, IBM, Cisco products. (See `tls-security.md` §2-1 for TLS context.) |
+| §6-3 (CMS IV overflow) | CVE-2025-15467 (OpenSSL 3.x) | Pre-auth stack buffer overflow in CMS parsing. RCE achieved by JFrog. |
+| §6-3 (multiple parser vulns) | 12 CVEs (OpenSSL, AISLE 2026) | 12 zero-days including one present since 1998. QUIC, PKCS#12, CMS, TLS 1.3, BIO subsystems. |
 | §3-2 (MD5 collision) | CVE-2024-3596 (BlastRADIUS) | RADIUS Response-Authenticator forgery via MD5 chosen-prefix collision. |
-| §4-1 (KeyTrap DNSSEC) | CVE-2023-50387 | Algorithmic complexity DoS against DNSSEC validators. Single 100-byte packet causes 2min–16hr stall. |
 | §3-4 (bcrypt truncation) | Okta incident (Oct 2024) | Cache key collision via bcrypt 72-byte truncation. Authentication bypass for passwords >72 bytes. |
-| §10-2 (E2EE implementation) | ETH Zurich (2024) | Sync, pCloud, Icedrive, Seafile: unauthenticated keys, fixed IVs, file injection. |
+| §9-2 (E2EE implementation) | ETH Zurich (2024) | Sync, pCloud, Icedrive, Seafile: unauthenticated keys, fixed IVs, file injection. |
 
 ---
 
@@ -499,15 +437,13 @@ E2EE in web applications (messaging, cloud storage, collaboration tools) introdu
 
 | Tool | Target Scope | Core Technique |
 |---|---|---|
-| **testssl.sh** | TLS/SSL configuration | Protocol/cipher enumeration, known vulnerability checks (ROBOT, BEAST, POODLE, DROWN, Heartbleed, FREAK, Logjam, SWEET32, Lucky13) |
-| **SSLyze** | TLS/SSL configuration | Python-based; validates against Mozilla TLS profiles; CI/CD integration |
-| **robot-detect** | RSA padding oracle | Specialized ROBOT (Bleichenbacher) oracle detection |
 | **PadBuster** | CBC padding oracle | Automated padding oracle exploitation for CBC-encrypted cookies/tokens |
 | **jwt_tool** | JWT implementation | Algorithm confusion, none algorithm, header injection, key brute-force |
 | **hashcat / John the Ripper** | Password hash cracking | GPU-accelerated brute-force for bcrypt, PBKDF2, scrypt, Argon2 |
-| **nonce-disrespect** | GCM nonce reuse | Detection of GCM nonce reuse across TLS connections |
-| **Raccoon Attack Tool** | DH timing side-channel | Measurement and exploitation of DH leading-zero timing |
+| **nonce-disrespect** | GCM nonce reuse | Detection of GCM nonce reuse across connections |
 | **ECDSA Nonce Analysis Scripts** | ECDSA nonce reuse/bias | Lattice-based key recovery from biased or reused nonces |
+
+*For TLS-specific tools (testssl.sh, SSLyze, robot-detect, Raccoon Attack Tool), see `tls-security.md` Detection Tools section.*
 
 ### Defensive / Static Analysis Tools
 
@@ -518,7 +454,6 @@ E2EE in web applications (messaging, cloud storage, collaboration tools) introdu
 | **Semgrep (crypto rules)** | Multi-language crypto misuse | Pattern-based detection of insecure crypto function calls (ECB mode, weak hashes, hardcoded keys) |
 | **CRYLOGGER** | Android/Java runtime | Dynamic analysis: logs crypto API parameters during execution, validates offline |
 | **Cryptosense Analyzer** | Enterprise crypto inventory | Maps all cryptographic operations across application portfolio. PCI DSS 4.0 compliance. |
-| **MASC** | Crypto detector evaluation | Mutation-based evaluation framework. Found 19 undocumented flaws in 9 major crypto detectors. |
 
 ---
 
@@ -539,7 +474,7 @@ Each vulnerability in this taxonomy has a straightforward "fix" in isolation—u
 
 ### The Structural Solution
 
-The only durable approach is **raising the abstraction level**: developers should interact with goal-oriented APIs ("encrypt this message for this recipient with integrity and authentication") rather than primitive-oriented APIs ("encrypt with AES-256-GCM using this key and this nonce"). Libraries like libsodium, Tink, and age exemplify this approach. Combined with automated cryptographic inventory (§9-3), hardware-backed key management (§6), and protocol-level enforcement of minimum algorithm strength (§9-1), the attack surface can be reduced—though never eliminated—structurally.
+The only durable approach is **raising the abstraction level**: developers should interact with goal-oriented APIs ("encrypt this message for this recipient with integrity and authentication") rather than primitive-oriented APIs ("encrypt with AES-256-GCM using this key and this nonce"). Libraries like libsodium, Tink, and age exemplify this approach. Combined with automated cryptographic inventory (§8-3), hardware-backed key management (§5), and protocol-level enforcement of minimum algorithm strength (§8-1), the attack surface can be reduced—though never eliminated—structurally.
 
 ---
 
@@ -550,10 +485,9 @@ The only durable approach is **raising the abstraction level**: developers shoul
 - McDonald, G. et al. "Whisper Leak: Side-Channel Attack on Remote Language Models." 2025.
 - JFrog Security Research. "CVE-2025-15467: OpenSSL CMS AuthEnvelopedData Buffer Overflow." 2025.
 - AISLE. "AI-Discovered 12 OpenSSL Zero-Days." January 2026.
-- OpenSSL Security Advisory. CVE-2024-12797 (RPK MitM), CVE-2024-13176 (ECDSA timing), CVE-2025-9231 (SM2 timing).
+- OpenSSL Security Advisory. CVE-2024-13176 (ECDSA timing), CVE-2025-9231 (SM2 timing). (For TLS-specific OpenSSL CVEs, see `tls-security.md`.)
 - PuTTY Advisory. CVE-2024-31497 (P-521 nonce bias).
 - python-ecdsa Advisory. CVE-2024-23342 (Minerva timing attack).
-- wolfSSL Advisory. CVE-2024-0901 (TLS 1.3 padding bug).
 - Böck, H. et al. "Return Of Bleichenbacher's Oracle Threat (ROBOT)." USENIX Security 2018.
 - Albrecht, M. & Heninger, N. "On Boundedly Generated Subgroups of Finite Groups." Crypto 2024.
 - ETH Zurich. "End-to-End Encrypted Cloud Storage: Security Analysis." 2024.
@@ -567,7 +501,6 @@ The only durable approach is **raising the abstraction level**: developers shoul
 - fast-jwt Advisory. CVE-2025-30144 (Issuer claim bypass).
 - Proofpoint / IOActive. "Authentication Downgrade Attacks: MFA Bypass." 2025.
 - MystenLabs. "ed25519-unsafe-libs: Vulnerable Ed25519 Implementations." GitHub.
-- Emil Lerner: "A story of leaking uninitialized memory from Fastly" (2022) — CDN infrastructure uninitialized memory disclosure (Heartbleed-pattern vulnerability in Fastly edge servers)
 
 ---
 

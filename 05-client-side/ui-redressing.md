@@ -90,6 +90,7 @@ The attacker opens a new window with benign content (e.g., a CAPTCHA), then expl
 | **OAuth authorization hijack** | First click closes attacker's overlay window; second click lands on an OAuth "Authorize" dialog that was revealed underneath | Target uses OAuth with predictable authorization dialog layout |
 | **Account settings manipulation** | Attacker swaps window content to expose account deletion, email change, or API key generation dialogs | Target has single-click sensitive actions without re-authentication |
 | **Payment confirmation hijack** | Window swap reveals a payment confirmation or subscription dialog on the second click | Target uses one-click purchase flows |
+| **Safari TCC permission prompt hijack** | Safari's TCC permission prompts (camera, microphone, location) remain interactive when the browser window is unfocused — unlike Chrome/Firefox which require focus first. Attacker triggers `getUserMedia()`, overlays a popup with a fake "double-click to continue" button. First click closes the popup via `mousedown`; second click lands on the exposed "Allow" button, granting permanent device access | Safari on macOS; TCC prompts accept clicks from unfocused windows (Apple rejected as non-vulnerability, Feb 2024; RenwaX23 disclosure Aug 2025) |
 
 The key innovation is exploiting the ~100ms timing difference between `mousedown` (fires immediately on press) and `click` (fires on release). During this window, JavaScript swaps the visible content via `window.location` changes or by closing/moving an overlay window. Demonstrated against Shopify, Slack, and Salesforce account takeover flows.
 
@@ -152,7 +153,6 @@ The user is tricked into dragging content *from* a framed target page *to* the a
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
 | **Token/secret extraction** | User drags an apparent UI element; the drag source is actually a hidden span containing a CSRF token or API key from the framed page | Target renders secrets in draggable DOM elements |
-| **Cookie exfiltration (CookieJacking)** | User drags an object that invisibly selects and extracts cookie content from the browser's cookie store interface | Browser exposes cookie content in a draggable interface (legacy IE) |
 
 ---
 
@@ -205,17 +205,7 @@ SVG filters applied to cross-origin iframes can access and process the rendered 
 
 This technique was demonstrated against Google Docs, achieving text exfiltration that earned a $3,133.70 Google VRP bounty. The attack constructs **computational logic gates** entirely from SVG filter primitives (`feColorMatrix` for AND/OR, `feComposite` for arithmetic operations), processing cross-origin pixels through arbitrary functions.
 
-### §6-2. CSS Timing Side-Channel Pixel Stealing
-
-Using CSS properties that have timing differences based on pixel color values to exfiltrate visual information from cross-origin content.
-
-| Subtype | Mechanism | Key Condition |
-|---|---|---|
-| **CSS filter timing attack** | Applying CSS filters (e.g., blur, brightness) to cross-origin iframes and measuring rendering time differences to infer pixel values | Measurable timing variance per pixel value |
-| **GPU-based side-channel** | Exploiting GPU rendering timing differences when processing cross-origin content through CSS transforms/filters | GPU rendering with measurable timing leakage |
-| **History sniffing via `:visited`** | Applying CSS filters that produce different timings for visited vs. unvisited links, leaking browsing history | Browser renders `:visited` styles (increasingly restricted) |
-
-### §6-3. Interactive SVG Clickjacking
+### §6-2. Interactive SVG Clickjacking
 
 Beyond data exfiltration, SVG filters can be used to create sophisticated **interactive** clickjacking interfaces.
 
@@ -311,6 +301,7 @@ Specialized UI redressing techniques targeting specific platform features and so
 | **Filejacking** | User is tricked into interacting with a file browser dialog, establishing a file server or selecting files for exfiltration | Browser's file dialog can be triggered and obscured |
 | **Webcam/microphone activation** | Clickjacking targets the browser's permission dialog for camera/microphone access | Permission dialog is frameable or timing-attackable |
 | **Clipboard hijacking** | User's copy/paste action is redirected to read from or write to the clipboard via a hidden iframe | Clipboard API access within iframe context |
+| **Third-party widget permission inheritance** | Compromising widely-deployed chat/support widgets (LiveChat, Glassix) to inherit their delegated browser permissions. XSS in widget marketplace chains to admin account takeover, enabling code injection into unsanitized widget customization — executing on every embedding site with inherited `allow` permissions for camera, microphone, clipboard, display-capture | Widget iframe has Permissions-Policy `allow` attributes for sensitive APIs; widget vendor has XSS/injection in marketplace or customization layer |
 
 ### §9-3. Single-Page Application (SPA) Specific
 
@@ -351,6 +342,8 @@ Specialized UI redressing techniques targeting specific platform features and so
 | §1-1 (Classic iframe overlay) | CVE-2025-54139 (HAX CMS) | Unauthenticated clickjacking on login/admin pages |
 | §1-1 (Classic iframe) | GHSA-jhgq-cx3f-vj5p (DIFY) | Clickjacking on AI application platform |
 | §3-1 (Gesture Jacking) | $5,000 Google bounty (Google Drive) | Full Google Drive access via chained embed + open redirect + clickjacking |
+| §2-1 (Safari TCC prompt hijack) | Apple rejected (Feb 2024); RenwaX23 disclosure (Aug 2025) | Camera/microphone/location permission grant via unfocused TCC prompt clickjacking on macOS Safari |
+| §9-2 (Widget permission inheritance) | LiveChat (fixed Dec 2024), Glassix (fixed May 2025) | Delegated permission hijack at scale via compromised support widgets; 100K–200K potential sites |
 
 ---
 
@@ -411,6 +404,8 @@ Until browsers implement a universal "verified intent" primitive — analogous t
 - PortSwigger Web Security Academy: Clickjacking — https://portswigger.net/web-security/clickjacking
 - MDN Web Docs: Clickjacking — https://developer.mozilla.org/en-US/docs/Web/Security/Attacks/Clickjacking
 - renwa: "The Underrated Bugs, Clickjacking, CSS Injection, Drag-Drop XSS, Cookie Bomb..." (2022) — Unified argument for the combined significance of systematically undervalued vulnerability classes
+- RenwaX23, "PermissionJacking Safari" (August 2025) — Clickjacking Safari TCC permission prompts via unfocused window interaction. https://github.com/RenwaX23/X/blob/master/safari_bug.md
+- Alberto F. de la Rosa, "Permission Hijacking at Scale" (2025) — Third-party support widget compromise for delegated browser permission inheritance at scale. https://albertofdr.github.io/post/permission-hijacking-2025/
 
 ---
 

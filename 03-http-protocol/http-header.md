@@ -176,6 +176,7 @@ CRLF injection is the foundational mechanism underlying many header-based attack
 | **CORS Header Injection** | Inject `%0d%0aAccess-Control-Allow-Origin: *` to bypass same-origin restrictions | CRLF injection point in response header + victim browser respects injected CORS headers |
 | **CSP Injection/Override** | Inject `%0d%0aContent-Security-Policy: default-src *` to weaken or override existing CSP | CRLF injection point; browser may process last-seen or most-permissive CSP |
 | **Location Header Injection** | Inject `%0d%0aLocation: https://attacker.com` to redirect users | CRLF injection point + 3xx response code or browser follow behavior |
+| **Nested Response Splitting (CSP `'self'` Bypass)** | Chain two CRLF splits via the same endpoint: first split returns HTML with `<script src="[same endpoint]">`, second split (triggered by the script load) returns attacker JavaScript with injected `Content-Type: text/javascript` and `Content-Length` truncation to terminate the JS body cleanly. The script loads from same-origin, satisfying `script-src 'self'` — escalating CRLF to XSS under strict CSP | CRLF injection on an endpoint loadable as `<script src>`; CSP with `script-src 'self'`; double-encoded CRLF (`%250d%250a`) for the nested payload |
 
 ### §4-2. CRLF Encoding Bypass Techniques
 
@@ -431,3 +432,4 @@ A robust defense requires treating HTTP headers with the same rigor as any other
 - Praetorian — [Bypassing Akamai WAF Using Injected Content-Encoding Header](https://www.praetorian.com/blog/using-crlf-injection-to-bypass-akamai-web-app-firewall/)
 - SwissKyRepo — [PayloadsAllTheThings: CRLF Injection](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/CRLF%20Injection)
 - F5 — [Security Rule Zero: A Warning about X-Forwarded-For](https://www.f5.com/company/blog/security-rule-zero-a-warning-about-x-forwarded-for)
+- CTBB Lab — [CRLF Injection: Nested Response Splitting CSP Gadget](https://lab.ctbb.show/research/crlf-injection-nested-response-splitting-csp-gadget)

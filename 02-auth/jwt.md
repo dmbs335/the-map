@@ -208,7 +208,6 @@ Attacks that modify JWT payload claims to alter authorization decisions, escalat
 | **Expiration extension** | Set `exp` to a far-future timestamp | Signature bypass is available; server trusts the `exp` in the token |
 | **`nbf` (Not Before) bypass** | Set `nbf` to a past time or manipulate client-side time used for `nbf` generation | Application relies on client-provided time for `nbf` |
 | **`iat` (Issued At) manipulation** | Pre-date or post-date the `iat` claim to circumvent age-based checks | Server uses `iat` for token freshness validation |
-| **Back to the Future attack** | During device manufacturing (IoT), manipulate the device's perceived time to generate tokens with far-future `iat` claims; use them later when the timestamp arrives | Physical access during manufacturing; system lacks nonce/replay protection (RFC 7519 protocol flaw) |
 
 ### §4-4. Audience Claims Manipulation
 
@@ -336,7 +335,6 @@ JWS (signed) and JWE (encrypted) share the same compact serialization format —
 | **Remote Code Execution** | Unsafe deserialization or command injection | §2-1 (`kid` command injection) + §2-5 (`cty` deserialization) |
 | **Denial of Service** | Resource-constrained server | §3-2 (invalid curve) + §3-4 (PBES2 billion hashes) + §7-3 (memory exhaustion) |
 | **Token Forgery via Type Confusion** | Asymmetric signing with public key exposure (OIDC) | §7-1 (sign/encrypt confusion, polyglot token) |
-| **Persistent Impersonation (IoT)** | IoT devices with factory-stage physical access | §4-3 (Back to the Future) |
 | **WAF/Gateway Bypass** | Security appliance in front of application | §7-2 (encoding tricks) + §1-1 (case variants) |
 
 ---
@@ -359,7 +357,6 @@ JWS (signed) and JWE (encrypted) share the same compact serialization format —
 | §3-4 (PBES2 billion hashes) | CVE-2023-49290 (go-jose/Go) | DoS. Same PBES2 `p2c` exploitation. Fixed in go-jose v3.0.2. |
 | §5-1 / §6-3 (Token leakage) | Grafana Bug Bounty | JWT tokens in query parameters leaked to backend data sources via proxied requests. |
 | §6-3 (Replay / revocation) | HackerOne #3120790 (WakaTime) | Session replay. Logged-out tokens remain valid, enabling persistent access. |
-| §3-3 (Privilege escalation) | CVE-2025-4692 (ABUP Cloud Update Platform) | CVSS 6.8. Privilege escalation via maliciously crafted JWT in IoT cloud update service. |
 
 ---
 
@@ -400,7 +397,7 @@ JWS (signed) and JWE (encrypted) share the same compact serialization format —
 
 **Incremental fixes fail because the attack surface is combinatorial.** Fixing `alg: none` doesn't prevent algorithm confusion. Fixing algorithm confusion doesn't prevent `kid` injection. Fixing `kid` injection doesn't prevent `jku` SSRF. Each mutation target (§1–§7) is independently exploitable, and combinations create novel attack chains (e.g., `jku` bypass + algorithm confusion + claim manipulation). Libraries must implement a "deny-by-default" posture across *all* header parameters simultaneously, which many fail to do — evidenced by recurring CVEs across different libraries year after year (2015 through 2025).
 
-**The structural solution requires four architectural principles:** (1) **Server-side algorithm pinning** — never read the algorithm from the token; configure it at the application level. (2) **Closed key resolution** — never fetch, embed, or dynamically resolve keys from token headers; use a pre-configured, immutable key store. (3) **Explicit token type enforcement** — always enforce whether JWS or JWE is expected; never use a unified decode() interface that auto-detects token type. The sign/encrypt confusion and polyglot token attacks (§7-1) demonstrate that collapsing signing and encryption into a single code path converts a proof-of-authenticity check into a mere decryption check, which anyone with the public key can pass. (4) **Stateful lifecycle management** — accept that purely stateless JWTs cannot support revocation, replay prevention, or session binding; augment with server-side state (token blacklists, refresh token rotation, `jti` tracking) for any use case requiring these properties. The 2025 "Back to the Future" attack on IoT and the PBES2 billion hashes DoS (§3-4) both underscore that even the RFC specifications themselves have protocol-level gaps — missing nonce requirements and unbounded computation parameters — that no library can fix without deviating from the standard.
+**The structural solution requires four architectural principles:** (1) **Server-side algorithm pinning** — never read the algorithm from the token; configure it at the application level. (2) **Closed key resolution** — never fetch, embed, or dynamically resolve keys from token headers; use a pre-configured, immutable key store. (3) **Explicit token type enforcement** — always enforce whether JWS or JWE is expected; never use a unified decode() interface that auto-detects token type. The sign/encrypt confusion and polyglot token attacks (§7-1) demonstrate that collapsing signing and encryption into a single code path converts a proof-of-authenticity check into a mere decryption check, which anyone with the public key can pass. (4) **Stateful lifecycle management** — accept that purely stateless JWTs cannot support revocation, replay prevention, or session binding; augment with server-side state (token blacklists, refresh token rotation, `jti` tracking) for any use case requiring these properties. The PBES2 billion hashes DoS (§3-4) underscores that even the RFC specifications themselves have protocol-level gaps — unbounded computation parameters — that no library can fix without deviating from the standard.
 
 ---
 
@@ -415,7 +412,6 @@ JWS (signed) and JWE (encrypted) share the same compact serialization format —
 - PortSwigger Web Security Academy: JWT Attacks — https://portswigger.net/web-security/jwt
 - Auth0: Critical Vulnerabilities in JSON Web Token Libraries — https://auth0.com/blog/critical-vulnerabilities-in-json-web-token-libraries/
 - PentesterLab: The Ultimate Guide to JWT Vulnerabilities and Attacks — https://pentesterlab.com/blog/jwt-vulnerabilities-attacks-guide
-- SecurityPattern: "Back to the Future" Attack — https://www.securitypattern.com/post/introducing-the-back-to-the-future-attack
 - HackTricks: JWT Vulnerabilities — https://book.hacktricks.xyz/pentesting-web/hacking-jwt-json-web-tokens
 - OWASP WSTG: Testing JSON Web Tokens — https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/06-Session_Management_Testing/10-Testing_JSON_Web_Tokens
 - Red Sentry: JWT Vulnerabilities List 2026 — https://redsentry.com/resources/blog/jwt-vulnerabilities-list-2026-security-risks-mitigation-guide

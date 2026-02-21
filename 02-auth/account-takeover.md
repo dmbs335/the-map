@@ -86,7 +86,6 @@ Password reset is the **most frequent entry point** for ATO. Vulnerabilities ari
 | **Short Token / Low Entropy** | Token length is short (e.g., 4-6 digit numbers), making brute-force feasible | Insufficient token entropy + inadequate rate limiting | D3 |
 | **Token Reuse Across Users** | Reset tokens generated in the same time window are identical across different users | No per-user unique seed in token generation | D3 |
 | **UUID v1 Token** | UUID v1 (timestamp + MAC address based) used as reset token, making it predictable | UUID v1 used instead of CSPRNG-based UUID v4 | D3 |
-| **Shell PRNG Token** | Token generated via Bash `$RANDOM` (15-bit, range 0–32767) seeded by PID, reducing brute-force to ~32K attempts | Reset flow in shell scripts; `$RANDOM` or similar non-CSPRNG used | D3 |
 
 ### §2-2. Token Delivery / Leakage
 
@@ -189,6 +188,7 @@ MFA is the **last line of defense** against ATO, yet implementation flaws enable
 | **MFA Prompt Bombing / Fatigue** | Repeatedly send MFA approval push notifications to the victim, inducing accidental or fatigue-driven approval | Push-based MFA + no notification rate limit | D7 |
 | **OAuth Device Code Phishing** | Abuse the OAuth 2.0 Device Authorization Grant flow to trick the victim into entering the attacker's device code on a legitimate Microsoft authentication page — actively used by state-sponsored actors since January 2025 | OAuth Device Code Flow + social engineering | D7 |
 | **AiTM (Adversary-in-the-Middle) Phishing** | Real-time reverse proxy (Evilginx, Modlishka, etc.) relays the legitimate site while simultaneously capturing MFA tokens and session cookies | Real-time phishing proxy + session token not bound to device | D7 |
+| **DNS Cache Poisoning → Password Reset Interception (Kaminsky-Style)** | Poison the target domain's MX records or mail server DNS to redirect password reset emails to an attacker-controlled mail server. When the victim requests a password reset, the email containing the reset token is delivered to the attacker, enabling account takeover. Must induce the reset request within the DNS TTL window, typically combined with social engineering | DNS resolver vulnerable to cache poisoning + target mail server DNS responses are spoofable + password reset flow relies on email channel | D7 |
 
 ---
 

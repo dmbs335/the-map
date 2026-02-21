@@ -169,17 +169,7 @@ Extension APIs may expose cross-origin data or execution capabilities that, when
 
 **Example (CVE-2016-5168, Chromium):** Persistent UXSS via SchemaRegistry, where extension API schemas could be intercepted by malicious web pages.
 
-### §4-3. Third-Party Plugin Origin Bypass
-
-Legacy plugins (now largely deprecated) provided a historically significant UXSS attack surface.
-
-| Subtype | Mechanism | Key Condition |
-|---------|-----------|---------------|
-| **Adobe Acrobat plugin URI injection** | The Adobe Acrobat browser plugin allowed JavaScript execution via specially crafted PDF URLs (e.g., `file.pdf#FDF=javascript:alert(1)`). The script executed in the origin of the page hosting the PDF. (M6, M1) | Adobe Acrobat plugin/extension installed in the browser, victim visits attacker-controlled PDF URL. |
-| **Flash navigateToURL cross-domain scripting** | Adobe Flash's `navigateToURL` and `asfunction:` protocol allowed SWF files to execute JavaScript in the hosting page's origin, bypassing cross-domain restrictions. (M1, M6) | Flash Player plugin installed, attacker can embed or reference a malicious SWF. |
-| **Java applet SOP bypass** | Java browser plugins could bypass SOP through `LiveConnect` (Java-JavaScript bridge), DNS rebinding of applet codebase, or signed applet privilege escalation. (M2, M7) | Java plugin installed and enabled, attacker can serve a malicious applet. |
-
-### §4-4. Browser Extension UXSS
+### §4-3. Browser Extension UXSS
 
 Extensions themselves can contain UXSS vulnerabilities that allow any webpage to execute script in the context of other tabs/origins.
 
@@ -307,27 +297,7 @@ Electron applications combine Chromium with Node.js. UXSS in Electron contexts c
 
 Browsers process various content types (XSLT, SVG, MHTML, PDF) through specialized pipelines. Interactions between these pipelines and the browser's origin model can create UXSS conditions.
 
-### §8-1. XSLT Processing Origin Confusion
-
-XSLT transformations execute in the context of the source XML document. Bugs in how the browser handles XSLT's interaction with the DOM can lead to UXSS.
-
-| Subtype | Mechanism | Key Condition |
-|---------|-----------|---------------|
-| **XSLT nested document replacement** | During XSLT transformation, nested document replacements can cause the browser to lose track of the current origin, allowing the transformed content to execute in a cross-origin context. (M3, M5) | XSLT stylesheet triggers document replacement during transformation processing. |
-| **XSLT + iframe origin confusion** | Creating an empty iframe via MHTML and combining it with XSLT processing causes the browser to confuse the origin as being from a pre-instantiated empty iframe. (M3, M4) | Specific combination of MHTML content and XSLT transformation in the same page. |
-
-### §8-2. MHTML Content Origin Confusion
-
-MHTML (MIME HTML) archives bundle a webpage and its resources into a single file. The browser's handling of MHTML origins has been a persistent source of UXSS.
-
-| Subtype | Mechanism | Key Condition |
-|---------|-----------|---------------|
-| **Local MHTML file cross-origin access** | When a user opens a local MHTML file, the browser may assign it a file:// or null origin that has access to other local files or web origins. (M4, M7) | User opens an attacker-crafted MHTML file saved locally. |
-| **MHTML content-location spoofing** | MHTML files can specify arbitrary `Content-Location` headers for embedded resources, causing the browser to attribute the wrong origin to the rendered content. (M3) | Browser trusts Content-Location headers in MHTML archives for origin determination. |
-
-**Example (CVE-2014-1747, Chromium):** UXSS from local MHTML file exploiting incorrect origin attribution of MHTML-embedded content.
-
-### §8-3. SVG and XML Namespace Confusion
+### §8-1. SVG and XML Namespace Confusion
 
 SVG documents processed inline or via `<img>`/`<object>` tags execute in contexts where the interaction between XML namespaces and HTML parsing creates exploitable discrepancies.
 
@@ -392,6 +362,7 @@ Browser-integrated PDF viewers (Chrome's PDFium, Firefox's PDF.js) run in specia
 | §8-2 (MHTML) | CVE-2014-1747 (Chromium) | UXSS from local MHTML file |
 | §8-4 (PDF viewer) | CVE-2024-4367 (PDF.js) | XSS via crafted PDF, CSP bypass |
 | §7-2 (Safari/WebKit) | CVE-2022-22587 (Safari) | $100,500 Apple bounty; full account takeover on every visited site |
+| §8 + §4 (Payment manifest + SW registration) | CVE-2023-5480 (Chrome, Slonser 2024) | UXSS via manipulated payment manifest triggering JIT service worker registration in victim origin; Payment Handler API allows attacker to install malicious SW that executes JavaScript in any origin's context |
 
 ---
 

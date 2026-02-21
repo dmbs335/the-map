@@ -400,9 +400,12 @@ When specific characters are filtered (underscores, dots, brackets, quotes, etc.
 | §5-1 (EJS `outputFunctionName`) | CVE-2024-33883 | EJS < 3.1.10 | RCE via prototype pollution → `outputFunctionName` injection |
 | §1-1 (Direct PHP execution) | CVE-2024-22722 | Form Tools 3.1.1 | RCE via template injection in Group Name field |
 | §3-1 (FreeMarker) | CVE-2024-41667 | OpenAM <= 15.0.3 | RCE via FreeMarker template injection |
-| §2-1 (MRO traversal) | CVE-2024-28118 | Grav CMS (Twig + Python-like) | RCE via unrestricted Twig extension class access |
+| §4-2 (Twig sandbox bypass) | CVE-2024-28118 | Grav CMS (Twig) | RCE via unrestricted Twig extension class access |
 | §7-1 + §2-1 | Bug Bounty | Undisclosed | $1,200 bounty for `{{6*200}}` SSTI leading to RCE |
 | §2-1 (Config globals) | HackerOne #423541 | Shopify (Return Magic) | SSTI via Jinja2 in third-party integration |
+| §6-2 (SaaS Placeholder Injection) | Zendesk Placeholder Injection (Rikesh Baniya, 2024) | Zendesk | User info extraction via injecting platform template placeholders (e.g., `{{ticket.requester.email}}`) through subject-to-description sanitization differential; system renders injected placeholder with victim's PII in automated response context |
+| Cross-ref: Expression Injection | Unrestricted SOQL Endpoint Exfiltration (Securitum, 2024) | Salesforce | Data exfiltration via unrestricted SOQL query endpoints without parameterized binding; expression-based injection analogous to SSTI in Salesforce's query language (see `salesforce-lightning-platform-security.md` §2) |
+
 
 ---
 

@@ -340,6 +340,7 @@ XLSX files are ZIP archives containing XML documents. Server-side libraries that
 |---|---|---|
 | **Cloud log poisoning** | Attacker injects formula payloads into log-generating fields (User-Agent headers, login usernames, API parameters). When an administrator exports these logs to CSV for analysis and opens them in a spreadsheet application, the injected formulas execute. This was demonstrated against Azure logs where no authentication was needed — only knowledge of a valid username. | The application logs user-controlled input. Administrator exports and opens logs in a spreadsheet. |
 | **Audit trail injection** | Similar pattern in application audit logs, transaction records, or support ticket exports where user-provided text is included verbatim in CSV exports. | Application includes user input in exportable log/audit data without sanitization. |
+| **Financial messaging field injection** | Core banking systems using comma-delimited message formats (e.g., Temenos T24 OFS messages) accept user-controlled input into transaction fields. OFS messages structure fields as comma-separated `FIELD.NAME:POSITION=VALUE` pairs; injecting delimiter characters or additional field assignments into a value overwrites downstream fields — altering transaction amounts, beneficiary accounts, or approval flags within the same message. The attack surface extends to any financial middleware that constructs delimited messages from partially user-controlled data without field-level escaping. | Application constructs structured financial messages (OFS, ISO 8583 field assembly, SWIFT MT field concatenation) from user input without delimiter neutralization. |
 
 ---
 
@@ -388,6 +389,7 @@ The file format used to deliver the injected payload affects which techniques ar
 | **Cross-tenant data leak** | Google Sheets IMPORTRANGE across organizational boundaries | §3-5 (IMPORTRANGE) | Authorization prompt |
 | **Phishing via spreadsheet** | HYPERLINK formula disguised as legitimate link | §3-1 + social engineering | Click |
 | **Supply chain** | Vulnerable CSV library ships without sanitization | §7-2, §8-3 | Depends on consumer |
+| **Financial transaction manipulation** | Delimiter injection in financial messaging fields alters transaction parameters | §7-3 (Financial messaging) | None (server-side) |
 
 ---
 
@@ -411,6 +413,7 @@ The file format used to deliver the injected payload affects which techniques ar
 | §7-1 (SSSI) | — (Bishop Fox) | G-Suite integrated application | Live-streaming data exfiltration + DDE-based RCE on cloud instance |
 | §3-1 + §3-2 | HackerOne #1748961 | Consensys (MetaMask) | CSV injection in export functionality |
 | §3-2 (WEBSERVICE SSRF) | — (Bug bounty writeup) | Undisclosed | CSV injection → client-side SSRF → AWS IAM credential exfiltration |
+| §7-3 (Financial messaging) | — (Omar El Shopky, 2025) | Temenos T24 (OFS) | Field delimiter injection in OFS messages overwrites transaction fields; generalizable to financial middleware using delimited message formats |
 
 ---
 

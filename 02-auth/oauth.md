@@ -97,6 +97,7 @@ The authorization code is the bearer credential exchanged for tokens. Attacks in
 | **Token in error responses** | Authorization server or client includes token/code in error redirect parameters, exposing them in logs or to third parties | Verbose error handling that echoes sensitive parameters | D3 |
 | **Token via WebSocket** | Client transmits token over unencrypted WebSocket or to an attacker-observable WebSocket endpoint | Insecure WebSocket implementation for token transport | D3 |
 | **Callback code leak via navigation blocking** | Browser navigation-blocking mechanisms (`beforeunload` event handlers, `window.stop()`, slow-loading iframes) delay or prevent the OAuth callback redirect from completing. During the navigation pause, the authorization code is visible in the pending URL, allowing attacker-controlled script on the page (via open redirect chain or XSS on a page in the redirect path) to extract the code before the client endpoint processes it | Attacker has script execution on a page in the redirect chain; browser supports navigation interception | D3 |
+| **Browser-level redirect termination** | Browser and server resource limits create redirect-blocking primitives beyond JavaScript interception: protocol scheme rejection (`about:`, `data:` URIs → `about:blank#blocked`), dangling markup protection (Chrome blocks `<\t` in URLs), URL length overflow (>2MB), cookie bombing (~400KB cookies scoped to callback path → HTTP 431), WAF-triggering payloads in `state` parameter, and navigation rate limiting (>200 navigations/10s). Blocked redirect URLs persist in the Navigation API's `navigation.entries()`, readable cross-origin from the opener window | Attacker can trigger redirect to OAuth callback; browser enforces URL/navigation limits; Navigation API available (Chromium) | D3 |
 
 ### §2-3. Token Exchange Attacks
 
@@ -393,6 +394,7 @@ The key insight is that OAuth/OIDC flows are inherently **cross-origin navigatio
 | §4-1 (Multi-tenant app over-provisioning) | BingBang (Wiz Research, 2023) | Unauthorized access to internal Microsoft applications including Bing.com search result manipulation and Office 365 XSS via over-provisioned Azure AD multi-tenant apps |
 | §1-1 (Whitespace injection) | draw.io OAuth Token Leakage (2023) | OAuth token leakage via whitespace bypass in redirect_uri validation |
 | §1-1 (Path confusion) | ACM CCS "OAuth Path Confusion" (2023) | redirect_uri validation bypass via URL parser differentials on path component interpretation |
+| §2-2 (Token leakage via public key) | Azure B2C Crypto Misuse (Praetorian, 2023) | RSA public key extracted from JWKS endpoint used to forge encrypted refresh tokens → full account compromise on Azure AD B2C tenants. See `cryptographic-implementation-vulnerabilities.md` §2-2 |
 
 ---
 

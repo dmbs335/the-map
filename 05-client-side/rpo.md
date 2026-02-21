@@ -143,7 +143,6 @@ The simplest exploitation of RPO: injecting CSS rules that alter the visual pres
 | **Universal selector override** | `{}*{color:red;}` — the leading `{}` closes any open CSS context from the HTML parsing; `*{...}` applies styles to all elements. The browser's tolerant CSS parser skips HTML syntax it doesn't understand and extracts valid CSS rules. | RPO self-reference achieved; reflected text in the page (URL path, query parameter, form input) |
 | **Targeted element manipulation** | `{}body{background:url(//evil.com/bg.png)}` — replaces page background, images, or layout to create a phishing facade. | RPO + text reflection + specific CSS knowledge of the target page |
 | **@import remote stylesheet** | `{}@import url(//evil.com/malicious.css);` — loads an external stylesheet of arbitrary complexity, bypassing the limited injection point by delegating to a full attacker-controlled CSS file. | RPO + text reflection; requires no CSP `style-src` restriction blocking the external domain |
-| **IE expression() XSS** | `{}*{x:expression(alert(1))}` — Internet Explorer's proprietary `expression()` CSS function evaluates JavaScript. This converts CSS injection into full XSS. | Internet Explorer + Quirks Mode; deprecated but relevant for legacy corporate environments |
 
 ### §3-2. UI Redressing and Phishing
 

@@ -217,6 +217,7 @@ Exploiting server-side or client-side redirects to deliver XSS payloads.
 | **Meta refresh redirect** | `<meta http-equiv="refresh" content="0;url=javascript:alert(1)">` | Input controls meta refresh URL |
 | **DOM-based redirect** | `location.href = userInput` or `window.open(userInput)` | Client-side redirect with unsanitized input |
 | **OAuth fragment leak** | Redirect preserves `#access_token=...` across 302, readable via `location.hash` | OAuth implicit flow combined with open redirect |
+| **302 response body rendering (Firefox)** | Firefox renders the HTML response body of 302 redirect responses when `Content-Type: text/html` is set, instead of silently following the `Location` header. XSS payloads in the redirect response body execute in the redirecting origin's context — a browser-specific behavior other browsers suppress by discarding redirect bodies | Firefox browser; 302 response includes HTML body with attacker-controlled content; `Content-Type: text/html` on redirect response |
 
 ---
 
@@ -320,6 +321,7 @@ Causing the browser to interpret content in a more dangerous MIME context.
 | **Polyglot files** | File valid as both image and HTML; browser renders as HTML in certain contexts | Content-Type negotiation or MIME sniffing |
 | **KML/XML file rendering** | KML (Keyhole Markup Language) files are XML-based and can embed `<script>` or event handlers; when a web application renders KML content (e.g., map widgets, geo-data viewers) without sanitization, embedded JavaScript executes in the application's origin. Mixed-case tag names (`<ScRiPt>`) bypass keyword blacklists. Wormable when injected KML propagates to other users' views | Application renders user-uploaded KML/GeoXML content; tag-name blacklist is case-sensitive |
 | **Content-Type override in cloud storage/CDN** | Cloud object storage (S3, GCS, Azure Blob) serves user-uploaded files with the `Content-Type` set at upload time by the uploading client. If the application does not enforce a safe Content-Type on upload, an attacker uploads an HTML file with `Content-Type: text/html` — served directly from the storage origin or through a CDN without re-validation. Serverless/edge environments (Cloudflare Workers, Lambda@Edge) that dynamically construct responses may omit or misconfigure Content-Type headers, triggering browser MIME sniffing that promotes text or JSON containing HTML markup to executable HTML context. CDN cache re-serialization can also strip or replace Content-Type headers during cache storage/retrieval cycles | User-controlled Content-Type on upload; CDN/storage serves directly without Content-Type override or `X-Content-Type-Options: nosniff`; shared origin between user content and application (no subdomain isolation) (Flatt Security, 2024) |
+| **Safari Reader Mode re-rendering** | Safari's Reader Mode extracts article content and re-renders it through a separate HTML sanitization and parsing pipeline distinct from the normal rendering path. Payloads stripped or neutralized by the standard browser rendering (e.g., event handlers, `javascript:` URIs, custom element constructs) survive Reader Mode's different extraction and reconstruction rules, executing in the page's origin context when a user activates Reader Mode | Safari browser; page eligible for Reader Mode activation (sufficient article-like content); payload structure survives Reader Mode extraction pipeline (Nikhil Mittal, 2020) |
 
 ---
 
@@ -397,6 +399,7 @@ XSS vectors specific to client-side frameworks, template engines, and rendering 
 | **HTML entity bypass in markdown** | `&#106;avascript:` in link URL bypasses denylist of `javascript:` | Filter checks literal string; parser decodes entities |
 | **Rich text editor XSS** | WYSIWYG editor (TinyMCE, CKEditor, Quill) allows script injection via HTML mode | Insufficient output sanitization of editor content |
 | **Clipboard/Paste injection** | Malicious HTML/SVG delivered via clipboard paste bypasses input sanitization — paste handlers insert unsanitized DOM fragments containing event handlers or script elements into `contenteditable` regions | Rich-text editor or `contenteditable` element processing paste events without clipboard content sanitization |
+| **AMP for Email / Dynamic Email XSS** | AMP for Email (Gmail, Yahoo) allows dynamic content in emails via a restricted subset of HTML/CSS/AMP components. CSS parsing differences between the email client's sanitizer and its rendering engine allow injection of `<meta>` tags via CSS directives, bypassing the AMP validator's HTML restrictions and overriding CSP headers to enable script execution within the email rendering context | Email client supports AMP4Email/dynamic email rendering; CSS parser interprets constructs as HTML that the AMP validator does not catch |
 
 ### §9-3. Server-Side Template Injection (SSTI) to XSS
 
@@ -436,9 +439,10 @@ XSS achieved through manipulation of HTTP protocol features, cookie handling, or
 |---|---|---|
 | **SVG file upload** | Uploaded SVG contains `<script>` or event handlers; served with `image/svg+xml` | Application allows SVG upload; serves from same origin |
 | **HTML file upload** | `.html` file uploaded and accessible directly | No content-type restriction; same-origin serving |
-| **PDF XSS** | PDF with embedded JavaScript served inline | `Content-Disposition: inline` for PDF; browser renders PDF JS |
+| **PDF XSS** | PDF internal structures provide multiple JavaScript execution triggers: `OpenAction` (auto-execute on document open), annotation `URI`/`JavaScript` actions (execute on click), `AcroForm` field validation scripts, and `SubmitForm` actions for data exfiltration. Chrome's built-in PDF viewer and Adobe Reader implement different JS API subsets, creating parser-differential bypass opportunities where payloads blocked by one renderer execute in another | `Content-Disposition: inline`; browser PDF JS enabled; server-side PDF content inspection absent or checking only a subset of action types |
 | **XML file with XSS** | Uploaded XML processed with XSLT containing script | XML processing with user-controlled stylesheets |
 | **Polyglot file** | File valid as both JPEG and HTML (or GIF and HTML) | MIME sniffing enabled; file served without `nosniff` |
+| **Polymorphic image XSS** | Image file (JPEG, GIF, BMP) embeds XSS payload within pixel data, comment fields, or structural segments that survive server-side image re-processing (resize, transcode, metadata strip), remaining executable when the output image is rendered inline or via MIME sniffing | Same-origin serving; image processing preserves payload-bearing segments; `X-Content-Type-Options: nosniff` absent |
 
 ### §10-4. HTTP/2 Protocol-Level XSS
 

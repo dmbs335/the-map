@@ -37,7 +37,6 @@ Cross-Site WebSocket Hijacking is the WebSocket analog of Cross-Site Request For
 | **GraphQL-over-WebSocket CSWSH** | Target exposes GraphQL API via WebSocket (e.g., `graphql-ws` protocol); CSWSH enables arbitrary query/mutation/subscription execution including destructive operations (account deletion, data exfiltration) | GraphQL endpoint accessible via WS + cookie auth without CSRF token enforcement on WS |
 | **Subdomain Trust CSWSH** | When SameSite=Lax is set, CSWSH is blocked cross-site — but subdomains of the same registrable domain are considered "same-site"; an XSS on any subdomain enables CSWSH against the main domain | Multi-tenant subdomain architecture (e.g., `*.example.com`) |
 | **Private Network CSWSH** | WebSocket connections from public web pages to private/localhost IPs (`127.0.0.1`, `192.168.x.x`); Chrome's Private Network Access preflight does NOT apply to WebSocket connections | Locally-bound WebSocket server without origin/auth checks |
-| **SameSite Lax 2-Minute Grace Period** | Chrome temporarily allows cross-site cookie transmission for POST navigations within 2 minutes of cookie creation; however, this does NOT apply to CSWSH because WebSocket handshakes are not top-level POST navigations | Not directly exploitable for CSWSH; included for disambiguation |
 
 **Browser Mitigation Landscape (2025):**
 

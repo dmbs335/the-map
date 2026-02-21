@@ -374,6 +374,22 @@ Encrypted email (S/MIME, OpenPGP) introduces a cryptographic layer that interact
 
 ---
 
+## §9. Email Infrastructure Feature Abuse
+
+Email infrastructure components — autoresponders, vacation messages, out-of-office replies, bounce handlers (DSN generators), and mailing list reflectors — are designed to automatically generate and send email in response to received messages. When an attacker controls the triggering message content, these features become weaponizable for SSRF, information disclosure, and spam relay.
+
+### §9-1. Autoresponder and Bounce Weaponization
+
+| Subtype | Mechanism | Key Condition |
+|---------|-----------|---------------|
+| **Autoresponder SSRF** | Autoresponder or vacation reply systems that parse and fetch URLs embedded in received emails (e.g., rendering HTML email content, loading images for response templates, or processing calendar invitations) perform server-side requests from the mail server's network context, enabling SSRF to internal services or cloud metadata endpoints | Autoresponder processes HTML content or fetches embedded URLs; mail server has access to internal network |
+| **Bounce Message Information Disclosure** | Non-Delivery Reports (NDRs/DSNs) and bounce messages include diagnostic information: internal server hostnames, IP addresses, software versions, routing paths, queue IDs, and sometimes partial message content. Attacker sends messages designed to trigger bounces (invalid recipients, oversized messages, policy violations) and harvests infrastructure details from the returned NDRs | Mail server generates detailed bounce messages; no bounce message sanitization |
+| **Autoresponder Spam Relay** | Attacker sends email with a spoofed From address (the intended spam victim) to targets with autoresponders enabled. The autoresponder replies to the spoofed address, effectively relaying the attacker's content through the legitimate server's infrastructure — passing SPF/DKIM for the autoresponder's domain and bypassing reputation filters | Autoresponder replies to the From header address without verifying sender identity; no rate limiting on auto-replies |
+| **Mailing List Reflection Abuse** | Attacker subscribes a victim's email address to high-volume mailing lists or sends crafted messages to lists that reflect content. The mailing list infrastructure relays messages to the victim with the list server's reputation and authentication, enabling email bombing or content delivery through trusted channels | Open subscription mailing lists; lists without subscription confirmation (double opt-in) |
+| **Helpdesk Ticket Domain Verification Abuse** | Attacker submits a support ticket to a company's helpdesk (Zendesk, Freshdesk, JIRA Service Desk, etc.). The helpdesk generates auto-reply emails from addresses like `support+ticket-id@company.com`, routed to the ticket submitter. The attacker then uses these incoming emails from `@company.com` to complete domain-ownership verification on third-party services (Slack, GitHub, GitLab, Google Workspace, Atlassian) that equate "can receive email at @domain" with domain membership — gaining access to the company's workspace, repositories, or internal channels without any credentials | Helpdesk sends auto-replies from the company's domain; third-party service uses email-based domain verification; no additional proof of employment required |
+
+---
+
 ## Attack Scenario Mapping (Axis 3)
 
 | Scenario | Architecture / Conditions | Primary Mutation Categories |

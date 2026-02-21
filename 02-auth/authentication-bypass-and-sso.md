@@ -2,7 +2,7 @@
 
 **Scope**: Authentication bypass and Single Sign-On (SSO) vulnerabilities
 **Exclusions**: OAuth, JWT, SAML (covered in separate taxonomies)
-**Coverage**: Kerberos, NTLM, RADIUS, LDAP, CAS, FIDO2/WebAuthn, MFA, session management, middleware/framework auth, password recovery, credential acquisition
+**Coverage**: Kerberos, LDAP, CAS, FIDO2/WebAuthn, MFA, session management, middleware/framework auth, password recovery, credential acquisition
 **Period**: Focused on 2024–2025 discoveries, with foundational techniques included
 
 ---
@@ -36,11 +36,11 @@ This taxonomy organizes authentication bypass and SSO vulnerabilities along thre
 
 | Scenario | Architecture | Typical Entry Vectors |
 |----------|-------------|----------------------|
-| **Full Domain Compromise** | Active Directory / Windows domain | §2 + §9 (Kerberos + credential acquisition) |
+| **Full Domain Compromise** | Active Directory / Windows domain | §2 + §9 (ticket forging + credential acquisition) |
 | **Cloud/SaaS Account Takeover** | Azure/Entra ID, Okta, Google Workspace | §3 + §4 (MFA bypass + session theft) |
 | **Network Appliance Takeover** | Firewalls, VPN gateways, management interfaces | §7 (framework/middleware bypass) |
 | **Web Application Access** | Custom web applications | §1 + §7 + §8 (logic flaws + middleware + recovery) |
-| **Lateral Movement** | Post-initial-compromise expansion | §2 + §5 (protocol relay + SSO trust) |
+| **Lateral Movement** | Post-initial-compromise expansion | §2 + §5 (ticket forging + SSO trust) |
 | **Persistent Backdoor** | Long-term undetected access | §2 + §5 (ticket forging + Golden dMSA) |
 
 ---
@@ -107,50 +107,13 @@ Creating or manipulating Kerberos tickets without legitimate authority, enabling
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
 | **Golden Ticket** | Forging Ticket-Granting Tickets (TGTs) using the compromised `krbtgt` account hash. Forged tickets are accepted unconditionally because the KDC's own key signed them, granting authentication as any user including Domain Admins | Attacker has obtained the `krbtgt` NTLM hash (typically via domain controller compromise) |
-| **Silver Ticket** | Forging Ticket-Granting Service (TGS) tickets using a compromised service account hash. Unlike Golden Tickets, these target specific services but do not require communication with the KDC, making detection significantly harder | Attacker has obtained a service account NTLM hash (via Kerberoasting §9-3 or other means) |
+| **Silver Ticket** | Forging Ticket-Granting Service (TGS) tickets using a compromised service account hash. Unlike Golden Tickets, these target specific services but do not require communication with the KDC, making detection significantly harder | Attacker has obtained a service account NTLM hash (via credential theft or other means) |
 | **Diamond Ticket** | Modifying legitimate TGTs obtained from the KDC rather than forging from scratch, blending into normal ticket lifecycle and evading detections that look for tickets with anomalous creation metadata | `krbtgt` hash compromised; attacker wants to evade Golden Ticket detection mechanisms |
 | **Golden dMSA** | Exploiting a design flaw in Windows Server 2025's delegated Managed Service Accounts (dMSA) where the `ManagedPasswordId` structure contains only 1,024 possible time-based combinations, reducing password derivation to a trivial brute-force operation | Windows Server 2025 with dMSA deployed; attacker has KDS root key (Domain Admin, Enterprise Admin, or SYSTEM access) |
 
 The Golden dMSA vulnerability, discovered in May 2025, is particularly notable because it attacks a feature explicitly designed to *improve* service account security. Microsoft acknowledged the finding but characterized it as by-design behavior for scenarios where domain controller secrets are already compromised.
 
-### §2-2. Kerberos Relay and Reflection
-
-Forwarding or reflecting Kerberos authentication messages to gain unauthorized access to services the victim machine is authorized for.
-
-| Subtype | Mechanism | Key Condition |
-|---------|-----------|---------------|
-| **Reflective Kerberos Relay** | Coercing a Windows host to authenticate via SMB, then relaying the computer account's Kerberos ticket back to the same host, achieving SYSTEM privileges and RCE | Target does not enforce SMB signing; attacker can coerce SMB authentication (CVE-2025-33073) |
-| **DNS CNAME Relay** | Abusing DNS CNAME records to manipulate Kerberos SPN resolution. When Windows resolves a CNAME alias, it may construct a Kerberos service ticket request for the aliased target, allowing relay to unintended services | DNS CNAME records resolvable in the domain; target service accepts relayed tickets |
-| **Ghost SPN Exploitation** | Registering or manipulating Service Principal Names to redirect Kerberos authentication to attacker-controlled services | Attacker has write access to SPN attributes; vulnerable service accepts any ticket encrypted with its key (CVE-2025-58726) |
-
-### §2-3. NTLM Relay and Coercion
-
-Forcing Windows machines to authenticate and relaying or abusing the resulting NTLM authentication material.
-
-| Subtype | Mechanism | Key Condition |
-|---------|-----------|---------------|
-| **Classic NTLM Relay** | Intercepting NTLM authentication between a client and server, then forwarding the authentication messages to a different target service, impersonating the client | Target service does not require SMB signing or channel binding; attacker is in network path |
-| **Coercion via MS-EFSRPC (PetitPotam)** | Abusing the Encrypting File System Remote Protocol to force a domain controller to authenticate to an attacker-controlled server | MS-EFSRPC accessible; domain controller not patched; relay target available |
-| **Coercion via MS-DFSNM (DFSCoerce)** | Abusing the Distributed File System Namespace Management protocol to trigger domain controller authentication to arbitrary servers | MS-DFSNM accessible; domain controller not patched |
-| **Coercion via MS-EVEN (EventLog)** | Exploiting the remote event logging interface to force machines to authenticate outbound. Detected in the wild in March 2025 targeting healthcare organizations | MS-EVEN RPC interface accessible; no coercion-agnostic detection in place |
-| **NTLM LDAP Auth Bypass** | Combining coercion with NTLM relay manipulation to achieve domain controller compromise, bypassing traditional channel binding and LDAP signing requirements | Domain controller running LDAP/LDAPS; standard hardening measures in place (CVE-2025-54918, CVSS Critical) |
-| **NTLM Hash Disclosure** | Vulnerabilities that leak NTLMv2 password hashes with minimal or no user interaction, enabling offline cracking or pass-the-hash attacks | Victim interaction as minimal as viewing a file in Explorer (CVE-2024-43451) |
-
-The coercion attack landscape continues to expand because it targets rarely-used RPC protocols. Detection strategies that are coercion-agnostic (monitoring for outbound authentication anomalies rather than specific protocol abuse) are more resilient than signature-based approaches.
-
-### §2-4. RADIUS Protocol Attacks
-
-Exploiting weaknesses in the RADIUS authentication protocol specification and its cryptographic foundations.
-
-| Subtype | Mechanism | Key Condition |
-|---------|-----------|---------------|
-| **BlastRADIUS Response Forgery** | Exploiting MD5 chosen-prefix collision vulnerability in RADIUS Response Authenticator (RFC 2865) to forge valid Access-Accept responses from Access-Reject, enabling authentication bypass without knowing passwords or shared secrets | Man-in-the-middle position between RADIUS client and server; MD5 collision computation capability (CVE-2024-3596, CVSS 7.5) |
-| **Shared Secret Brute-Force** | Offline cracking of the RADIUS shared secret from captured authentication exchanges, then forging arbitrary authentication responses | Captured RADIUS traffic; weak or short shared secret |
-| **RADIUS Relay** | Forwarding RADIUS authentication requests to a rogue server that always returns Access-Accept, bypassing the legitimate authentication backend | Attacker controls network path between NAS and RADIUS server |
-
-The BlastRADIUS vulnerability (July 2024) is significant because it attacks a *protocol-level* design flaw — MD5's use for authentication integrity — rather than an implementation bug. Mitigation requires mandating Message-Authenticator attributes or migrating to RADIUS over TLS (RADSEC).
-
-### §2-5. LDAP Authentication Attacks
+### §2-2. LDAP Authentication Attacks
 
 Targeting the LDAP protocol as an authentication backend, beyond the injection attacks covered in §1-2.
 
@@ -160,6 +123,18 @@ Targeting the LDAP protocol as an authentication backend, beyond the injection a
 | **LDAP Referral Abuse** | Manipulating LDAP referrals to redirect authentication queries to attacker-controlled LDAP servers that return forged positive results | LDAP client follows referrals; no referral validation |
 | **Pass-Back Attack** | Reconfiguring a device to point its LDAP authentication to an attacker-controlled server, capturing credentials in cleartext as users authenticate | Administrative access to device LDAP configuration; credentials sent in cleartext |
 | **ACL Hierarchy Exploitation** | Leveraging LDAP group hierarchy resolution and ACL misconfigurations to escalate from limited access to SYSTEM level | Misconfigured Active Directory ACLs; LDAP query access to group objects (CVE-2025-29810, CVSS 7.5) |
+
+### §2-3. Mutual TLS (mTLS) Authentication Bypass
+
+Mutual TLS extends standard TLS by requiring the client to present a certificate during the handshake. Implementation flaws in certificate validation, identity extraction, and revocation checking create authentication bypass vectors.
+
+| Subtype | Mechanism | Key Condition |
+|---------|-----------|---------------|
+| **Certificate Validation Without Identity Binding** | Application validates that the client certificate is signed by a trusted CA but does not verify the certificate's subject, SAN, or other identity fields against the expected user identity. Any certificate from the same CA authenticates as any user | mTLS enabled; CA-level trust without per-certificate identity binding |
+| **Subject/SAN Extraction Differential** | Different components in the request chain (load balancer, reverse proxy, application) extract identity from different certificate fields (CN, SAN, OU). Attacker obtains a certificate with a permissive SAN or mismatched CN that passes one component's check while being interpreted differently by another | Multi-layer mTLS termination; inconsistent identity extraction logic across components |
+| **Proxy Header Trust Without Connection Verification** | mTLS is terminated at the reverse proxy, which forwards the client certificate or its subject in an HTTP header (e.g., `X-Client-Cert`, `X-SSL-Client-DN`). The application trusts this header without verifying that the request actually traversed the proxy — allowing direct requests with injected headers to impersonate any certificate holder | mTLS terminated at proxy; backend trusts certificate headers without connection-level verification |
+| **Certificate Revocation Check Bypass** | Application does not check CRL or OCSP for certificate revocation status, or the check fails open (treats OCSP timeout as valid). Revoked certificates continue to authenticate indefinitely | No CRL/OCSP check configured; or fail-open revocation policy |
+| **Privilege Escalation via Certificate Attribute Injection** | CA or registration authority allows certificate attributes (OU, role, group) to be influenced by the requester. Attacker requests a certificate with elevated attributes that the application uses for authorization decisions | Self-service or weakly controlled certificate issuance; application derives authorization from certificate attributes (CVE-2025-9312) |
 
 ---
 
@@ -222,6 +197,7 @@ Architectural errors in how MFA is integrated into the authentication flow, allo
 | **Session Binding Mismatch** | MFA verification is not bound to the same session as the first factor, allowing an attacker to complete first-factor auth in one session and satisfy MFA in a different session they control | Session ID not validated across authentication steps; MFA code accepted for any pending session |
 | **User Agent Classification Bypass** | MFA enforcement policies exempt certain user agents classified as "unknown" (uncommon browsers, Python scripts, CLI tools) from MFA requirements | SSO policy does not enforce MFA for unrecognized user agents (Okta vulnerability, 2024) |
 | **TOCTOU in MFA Verification** | Race condition between MFA check and access grant allows requests that slip through during the verification window | MFA check and authorization are not atomic; concurrent request processing (CVE-2025-62004) |
+| **OpenID Connect MFA Enforcement Gap** | OIDC authentication flow에서 IdP가 MFA를 수행했는지 여부를 RP(Relying Party)가 검증하지 않음. IdP의 `acr` (Authentication Context Class Reference) 또는 `amr` (Authentication Methods References) claim을 RP가 무시하거나, IdP 자체가 MFA 없이도 해당 claim을 발급하는 misconfiguration으로 인해 2FA가 완전히 우회됨. 공격자는 MFA가 비활성화된 별도 IdP를 등록하거나, IdP의 MFA 정책이 느슨한 flow를 선택적으로 이용 | RP가 OIDC token의 `acr`/`amr` claim을 검증하지 않음; 또는 IdP가 MFA 없이도 높은 assurance level claim을 발급하는 설정 |
 
 ---
 
@@ -469,17 +445,7 @@ Testing credential pairs (username + password) leaked from breaches against targ
 
 Current scale: approximately 26 billion stuffing attempts per month (2024), with a 50% growth rate over 18 months.
 
-### §9-3. Kerberos Credential Extraction
-
-Offline password cracking of Kerberos authentication material.
-
-| Subtype | Mechanism | Key Condition |
-|---------|-----------|---------------|
-| **Kerberoasting** | Requesting TGS tickets for service accounts with SPNs, then cracking the ticket's encrypted portion offline to recover the service account password | Any authenticated domain user; service accounts with weak passwords; SPNs registered |
-| **AS-REP Roasting** | Requesting AS-REP messages for accounts with Kerberos pre-authentication disabled, cracking the encrypted portion offline | Target accounts have "Do not require Kerberos pre-authentication" flag set; weak passwords |
-| **Targeted Kerberoasting** | Setting SPNs on specific high-value accounts (if the attacker has SPN write access), then performing Kerberoasting against those accounts | Attacker has write access to servicePrincipalName attribute on target accounts |
-
-### §9-4. Infostealer Ecosystem
+### §9-3. Infostealer Ecosystem
 
 Industrial-scale credential theft through malware families that extract stored credentials, session tokens, and authentication material from compromised endpoints.
 
@@ -487,7 +453,7 @@ Industrial-scale credential theft through malware families that extract stored c
 |---------|-----------|---------------|
 | **Browser Credential Store Extraction** | Extracting saved usernames and passwords from browser credential stores (Chrome, Firefox, Edge) | Victim machine infected; browser stores credentials; no additional encryption beyond OS-level |
 | **Session Cookie Harvesting** | Extracting active session cookies from browser storage, enabling authenticated access without credentials or MFA (detailed in §4-2) | Browser cookies not bound to device; cookies accessible to malware with user-level privileges |
-| **Certificate and Key Theft** | Extracting client certificates, private keys, and Kerberos tickets/hashes from the operating system credential store | Access to LSASS memory (Mimikatz-style); or certificate store accessible with user privileges |
+| **Certificate and Key Theft** | Extracting client certificates and private keys from the operating system credential store | Certificate store accessible with user-level privileges; no hardware-bound key protection |
 | **Credential Log Marketplace** | Stolen credentials aggregated and sold on darknet marketplaces (Russian Market, Genesis) with filtering by domain, service, and freshness | Mature criminal marketplace infrastructure; logs priced at $1–$50 per machine |
 
 ---
@@ -496,8 +462,8 @@ Industrial-scale credential theft through malware families that extract stored c
 
 | Scenario | Architecture | Primary Mutation Categories | Typical Chain |
 |----------|-------------|---------------------------|---------------|
-| **Full AD Domain Compromise** | On-premises Active Directory | §2 + §9 | Credential stuffing (§9-2) → Kerberoasting (§9-3) → Golden Ticket (§2-1) |
-| **Cloud/SaaS Account Takeover** | Azure/Entra, Okta, Google Workspace | §3 + §4 + §9 | Infostealer (§9-4) → Cookie replay (§4-3) → Lateral access via SSO |
+| **Full AD Domain Compromise** | On-premises Active Directory | §2 + §9 | Credential stuffing (§9-2) → Golden Ticket (§2-1) |
+| **Cloud/SaaS Account Takeover** | Azure/Entra, Okta, Google Workspace | §3 + §4 + §9 | Infostealer (§9-3) → Cookie replay (§4-3) → Lateral access via SSO |
 | **Network Appliance Takeover** | Firewalls, VPN, management interfaces | §7 + §1 | WebSocket bypass (§7-2) or middleware injection (§7-1) → Admin access |
 | **Web Application Access** | Custom applications | §1 + §7 + §8 | LDAP injection (§1-2) → Session fixation (§4-1) → Account takeover |
 | **MFA-Protected Account Bypass** | Enterprise with MFA deployed | §3 + §6 | Downgrade attack (§3-3) → AitM interception (§3-4) → Session theft (§4-2) |
@@ -514,12 +480,7 @@ Industrial-scale credential theft through malware families that extract stored c
 | §1-1 (Hash Truncation) | Okta Advisory (Oct 2024) | Okta AD/LDAP DelAuth | Auth bypass via bcrypt 52-char truncation; no CVE assigned |
 | §1-2 (LDAP Injection) | CVE-2024-37782 | Gladinet CentreStack v13.12 | Unauthorized access + RCE via username field injection |
 | §1-2 (LDAP ACL Exploit) | CVE-2025-29810 | Windows AD Domain Services | Privilege escalation to SYSTEM; CVSS 7.5 |
-| §2-2 (Kerberos Reflection) | CVE-2025-33073 | Windows SMB | Reflective Kerberos relay → SYSTEM RCE; patched June 2025 |
 | §2-1 (Golden dMSA) | Semperis Disclosure (May 2025) | Windows Server 2025 dMSA | Auth bypass for all managed service accounts; Microsoft: "by design" |
-| §2-2 (Ghost SPN) | CVE-2025-58726 | Windows SMB Server | Elevation of privilege; patched October 2025 |
-| §2-3 (NTLM LDAP Bypass) | CVE-2025-54918 | Windows Domain Controllers | Coercion + relay → DC compromise; bypasses channel binding |
-| §2-3 (Hash Disclosure) | CVE-2024-43451 | Microsoft Windows | NTLMv2 hash leakage with minimal interaction |
-| §2-4 (RADIUS Forgery) | CVE-2024-3596 | RADIUS Protocol (RFC 2865) | MD5 collision → response forgery; CVSS 7.5 |
 | §3-1 (TOTP Brute Force) | Oasis Security (Dec 2024) | Microsoft Azure MFA | AuthQuake: session-parallel TOTP brute-force; no CVE assigned |
 | §3-5 (User Agent Bypass) | Okta Advisory (2024) | Okta SSO Policies | MFA bypass via unknown user agent classification |
 | §5-1 (CAS WebAuthn) | Apereo Advisory (Apr 2025) | Apereo CAS 7.x | Authentication bypass in WebAuthn integration; CVSS ~7.5 |
@@ -543,24 +504,21 @@ Industrial-scale credential theft through malware families that extract stored c
 
 | Tool | Target Scope | Core Technique |
 |------|-------------|---------------|
-| **Impacket** | Kerberos, NTLM, LDAP, SMB | Python library for network protocol interaction; includes GetTGT, GetST, ntlmrelayx, secretsdump |
-| **Rubeus** | Kerberos (Windows) | C# Kerberos abuse toolkit: Kerberoasting, AS-REP roasting, ticket forging, overpass-the-hash |
-| **Mimikatz** | Windows credential store | LSASS memory extraction, pass-the-hash, pass-the-ticket, Golden/Silver ticket creation |
+| **Impacket** | Kerberos, LDAP, SMB | Python library for network protocol interaction; includes GetTGT, GetST, secretsdump |
+| **Rubeus** | Kerberos (Windows) | C# Kerberos abuse toolkit: ticket forging, overpass-the-hash, ticket manipulation |
 | **Evilginx** | AitM phishing / MFA bypass | Open-source reverse proxy phishing framework for real-time session cookie interception |
-| **Coercer** | NTLM coercion | Automated coercion testing across all known MS-RPC coercion methods (EFSRPC, DFSNM, EVEN, etc.) |
-| **CrackMapExec / NetExec** | AD reconnaissance + credential testing | Network-wide credential spraying, pass-the-hash, Kerberos attacks |
-| **Hashcat / John the Ripper** | Offline credential cracking | GPU-accelerated hash cracking for Kerberos tickets, NTLM hashes, TOTP seeds |
+| **CrackMapExec / NetExec** | AD reconnaissance + credential testing | Network-wide credential spraying, Kerberos ticket operations |
+| **Hashcat / John the Ripper** | Offline credential cracking | GPU-accelerated hash cracking for authentication tokens, TOTP seeds |
 | **Burp Suite** | Web authentication testing | HTTP interception, authentication flow analysis, session management testing |
 | **Nuclei** | CVE scanning | Template-based vulnerability scanner with auth bypass detection templates |
 | **NextSploit** | CVE-2025-29927 | Dedicated scanner/exploiter for Next.js middleware auth bypass |
-| **PetitPotam / DFSCoerce** | NTLM coercion | Targeted coercion tools for specific MS-RPC interfaces |
 
 ### Defensive / Detection Tools
 
 | Tool | Target Scope | Core Technique |
 |------|-------------|---------------|
-| **CrowdStrike Identity Protection** | NTLM relay, Kerberos abuse | Real-time identity threat detection; coercion-agnostic relay detection |
-| **Microsoft Defender for Identity** | AD authentication attacks | Kerberoasting, pass-the-hash, Golden Ticket detection via DC sensor |
+| **CrowdStrike Identity Protection** | AD authentication attacks | Real-time identity threat detection; anomalous authentication monitoring |
+| **Microsoft Defender for Identity** | AD authentication attacks | Golden Ticket, pass-the-hash detection via DC sensor |
 | **Semperis Directory Services Protector** | AD persistence attacks | Golden Ticket, dMSA abuse, DCSync detection and response |
 | **OWASP ZAP** | Web authentication testing | Open-source DAST with authentication flow fuzzing |
 | **SSOScan** | SSO implementation testing | Automated SSO vulnerability detection (Facebook SSO focused) |
@@ -581,11 +539,11 @@ Kerberos tickets can be forged because trust is materialized in a signed data st
 
 1. **Defense-in-depth layers are independently attackable**: Each authentication layer (credential verification, MFA, session management, SSO trust) can be bypassed independently. Strengthening one layer does not protect against bypass of another. The 2024–2025 trend of AitM + infostealer chains demonstrates that even "phishing-resistant" MFA is bypassed by attacking the session layer that sits *above* it.
 
-2. **Protocol ossification**: Protocols like RADIUS (MD5-based since 1997), NTLM (maintained for backward compatibility despite known weaknesses), and Kerberos (designed before modern threat models) cannot be fundamentally redesigned without breaking compatibility with millions of deployed systems.
+2. **Protocol ossification**: Protocols like Kerberos (designed before modern threat models) and legacy authentication mechanisms cannot be fundamentally redesigned without breaking compatibility with millions of deployed systems.
 
 3. **The fallback problem**: Every authentication system maintains weaker alternatives for disaster recovery, accessibility, or compatibility. The authentication downgrade attacks of 2025 prove that the *effective* security of any system is equal to its weakest maintained fallback method.
 
-4. **Trust boundary proliferation**: The explosion of SSO, federation, cloud synchronization, and hybrid architectures means that authentication trust boundaries are multiplying faster than they can be secured. Each trust relationship (AD ↔ Azure, IdP ↔ SP, RADIUS client ↔ server) is an independent attack surface.
+4. **Trust boundary proliferation**: The explosion of SSO, federation, cloud synchronization, and hybrid architectures means that authentication trust boundaries are multiplying faster than they can be secured. Each trust relationship (AD ↔ Azure, IdP ↔ SP, LDAP client ↔ server) is an independent attack surface.
 
 ### Structural Solutions
 
@@ -594,7 +552,7 @@ The only comprehensive mitigations are those that address the trust materializat
 - **Device-bound session credentials (DBSC)**: Cryptographically binding session tokens to specific devices prevents replay even if cookies are stolen, addressing §4 entirely.
 - **Continuous authentication**: Re-verifying identity throughout a session rather than trusting a single point-in-time authentication event, addressing §4 and reducing the value of §3 bypasses.
 - **Zero-fallback MFA policies**: Eliminating all phishable fallback methods, accepting the usability/accessibility trade-off, which is the only defense against §3-3 downgrade attacks.
-- **Protocol modernization**: Migrating from MD5-based RADIUS to RADSEC, from NTLM to Kerberos with modern protections, and enforcing AES encryption for all Kerberos operations.
+- **Protocol modernization**: Enforcing AES encryption for all Kerberos operations, mandating modern authentication protocols over legacy mechanisms, and requiring cryptographic channel binding.
 - **Credential-less architectures**: Moving toward systems where there is no extractable secret at rest (hardware-bound passkeys without synchronization, certificate-based auth with non-exportable keys), which structurally eliminates §9 credential acquisition attacks.
 
 The trajectory is clear: authentication security must evolve from "verify once, trust forever" to "verify continuously, trust nothing." Until that transition is complete, the techniques documented in this taxonomy will continue to evolve faster than point defenses can contain them.
@@ -603,8 +561,6 @@ The trajectory is clear: authentication security must evolve from "verify once, 
 
 ## References
 
-- CrowdStrike, "Analyzing NTLM LDAP Auth Bypass Vulnerability (CVE-2025-54918)," 2025
-- RedTeam Pentesting, "A Look in the Mirror - The Reflective Kerberos Relay Attack," June 2025
 - Semperis, "Golden dMSA: What Is dMSA Authentication Bypass?," July 2025
 - Oasis Security, "Microsoft Azure MFA Bypass," December 2024
 - IOActive, "Authentication Downgrade Attacks: Deep Dive into MFA Bypass," 2025
@@ -612,8 +568,6 @@ The trajectory is clear: authentication security must evolve from "verify once, 
 - JFrog, "CVE-2025-29927 - Authorization Bypass in Next.js," March 2025
 - Watchtowr Labs, "FortiOS Authentication Bypass CVE-2024-55591," January 2025
 - Sekoia, "Global Analysis of Adversary-in-the-Middle Phishing Threats," 2025
-- Palo Alto Unit 42, "Authentication Coercion Keeps Evolving," 2025
-- BlastRADIUS Research Team, "RADIUS Protocol Forgery Vulnerability," July 2024
 - Securing.pl, "CVE-2025-26788: Passkey Authentication Bypass in StrongKey FIDO Server," February 2025
 - PortSwigger Research, "The Fragile Lock: Novel Bypasses for SAML Authentication," 2025
 - Apereo Foundation, "CAS OAuth/OpenID Connect & WebAuthn Vulnerability Disclosure," April/September 2025

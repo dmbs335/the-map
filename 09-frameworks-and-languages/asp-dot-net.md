@@ -103,6 +103,7 @@ The layered proxy architecture of ASP.NET deployments (reverse proxy → Kestrel
 | **Host Header Injection** | ASP.NET applications that trust `Request.Host` or `Request.Headers["Host"]` without validation enable attackers to manipulate URL generation, password reset links, cache keys, and virtual host routing. | E6, E7 | Application uses Host header value in response generation. |
 | **X-Forwarded-For/X-Forwarded-Host Spoofing** | When `ForwardedHeadersMiddleware` is configured to trust all proxies (`ForwardedHeaders.All` without `KnownProxies`/`KnownNetworks` restrictions), attackers can inject arbitrary IP/host values. | E2, E3 | Middleware trusts all forwarded headers. |
 | **HTTP/2 → HTTP/1.1 Downgrade** | When Kestrel serves HTTP/2 and downgrades to HTTP/1.1 for backend communication, pseudo-headers (`:authority`, `:path`) may be mapped inconsistently, creating injection points. | E1, E6 | HTTP/2 front-end with HTTP/1.1 backend. |
+| **x-up-devcap-post-charset Charset Override** | The legacy `x-up-devcap-post-charset` HTTP header (from Openwave/UP.Browser specifications) instructs ASP.NET Framework's request processing pipeline to re-encode the request body from the specified charset to UTF-8 before model binding. An attacker sends a request body encoded in IBM037 (EBCDIC) with this header set to `ibm037`. WAFs and reverse proxies inspect the raw EBCDIC bytes — which bear no resemblance to attack patterns — while ASP.NET silently converts the body to UTF-8, producing valid SQL injection, XSS, or command injection payloads that reach the application layer unfiltered. | E1, E6 | ASP.NET Framework on IIS; WAF operates on raw request body; `x-up-devcap-post-charset` header not stripped by proxy (Soroush Dalili, 2019). |
 
 ### §2-3. Connection-Level Attacks
 
@@ -261,6 +262,7 @@ The Razor View Engine resolves views through a deterministic search hierarchy. C
 | **Middleware Ordering Vulnerability** | ASP.NET Core middleware executes in registration order. If authorization middleware is registered after a middleware that short-circuits the pipeline (e.g., static file middleware serving from a writable directory), requests bypass authorization entirely. | E3 | `app.UseStaticFiles()` registered before `app.UseAuthorization()`. |
 | **Endpoint Routing Mismatch** | `[Authorize]` attributes on controllers may not apply to endpoints registered via `MapGet`/`MapPost` minimal APIs if `RequireAuthorization()` is not chained. Developers may assume attribute-based authorization applies globally. | E3 | Mixed controller + minimal API routing without consistent authorization. |
 | **Fallback Policy Gaps** | `FallbackPolicy` in `AuthorizationOptions` only applies to endpoints that don't have any authorization metadata. Endpoints with an empty `[AllowAnonymous]` attribute or custom policies may inadvertently bypass the fallback. | E3 | Fallback policy assumed to cover all endpoints. |
+| **Referer-Based Authentication Bypass** | SharePoint's request validation exempts requests referencing certain administrative pages in the `Referer` header. Spoofing `Referer: /_layouts/SignOut.aspx` on POST requests to `/_layouts/15/ToolPane.aspx?DisplayMode=Edit` bypasses authentication entirely, granting unauthenticated access to server-side control rendering and enabling deserialization chains (CVE-2025-53771). Combined with a `DataSetSurrogateSelector` allowlist bypass via generic-wrapper type-confusion, this achieves the "ToolShell" pre-auth RCE chain (CVE-2025-53770). | E3, E4 | SharePoint Server without July 2025 patches (KB5002768/KB5002754/KB5002760); externally accessible deployment. Pwn2Own Berlin 2025 ($100,000). |
 
 ---
 
@@ -366,6 +368,16 @@ The Razor View Engine resolves views through a deterministic search hierarchy. C
 | **Client-Side Authorization Bypass** | `[Authorize]` attributes and `AuthorizeView` components in Blazor WASM are enforced only client-side. Users can modify the WASM code or directly call API endpoints, bypassing all client-side authorization. | E3 | Authorization logic only on client; server APIs lack independent authorization checks. |
 | **Assembly Tampering** | Intercepting and modifying `.dll` files served to the Blazor WASM client enables logic manipulation (e.g., bypassing license checks, modifying pricing logic). Without server-side validation, tampered assemblies execute freely. | E7, E3 | No server-side integrity validation of client behavior. |
 
+### §11-4. Read-Only Web Path Persistence
+
+Techniques for maintaining covert web shell access in .NET environments where the web application directory is read-only or monitored by file integrity checking.
+
+| Subtype | Mechanism | Effect | Key Condition |
+|---------|-----------|--------|---------------|
+| **Virtual Path Provider Web Shell** | ASP.NET's `VirtualPathProvider` allows registration of custom providers that serve files from non-filesystem sources (database, embedded resources, memory). An attacker with initial code execution registers a VPP that serves a web shell from memory — the shell exists only in the application's address space and leaves no file on disk, surviving even when `wwwroot` is read-only or monitored | E4 | Initial code execution or configuration access; ASP.NET Framework or Core with VPP support |
+| **NTFS Alternate Data Stream Shell** | A web shell is written to an alternate data stream of an existing legitimate file (`legitimate.aspx:shell.aspx`). IIS can be configured to serve ADS content, while file integrity monitors and directory listings do not display alternate streams | E4, E5 | NTFS filesystem; IIS ADS serving enabled or handler mapping configured |
+| **GAC Assembly Injection** | Placing a malicious .NET assembly in the Global Assembly Cache (`C:\Windows\assembly\`) makes it loadable by any ASP.NET application on the system. The assembly implements `IHttpModule` or similar interface, intercepting all requests to execute attacker logic without any file in the web root | E4, E3 | Write access to GAC; IIS application configured to load GAC modules |
+
 ---
 
 ## §12. Cross-Site Scripting (XSS) — ASP.NET-Specific Mutations
@@ -406,7 +418,7 @@ While XSS is a generic web vulnerability, ASP.NET has framework-specific pattern
 | §2-1 (Chunked LF differential) | CVE-2025-55315 (ASP.NET Core Kestrel) | CVSS 9.9. HTTP request smuggling via lone LF in chunk extension. $10,000 MSRC bounty. Highest-severity ASP.NET Core CVE ever. |
 | §9-1 (SOAPwn WSDL file write) | CVE-2025-34392 (Barracuda RMM), CVE-2025-13659 (Ivanti EPM) | Pre-auth RCE via WSDL proxy generation. Webshell deployment to IIS wwwroot. Microsoft declined to patch framework flaw. |
 | §1-1 (ViewState + machine keys) | CVE-2025-53690 (Sitecore), CVE-2025-30406 (Gladinet CentreStack) | Zero-day ViewState deserialization via exposed machine keys. Active exploitation in the wild. Godzilla webshell deployment. |
-| §1-1 (ViewState + machine keys) | CVE-2025-53770 (SharePoint) | "ToolShell" attack chain. ViewState deserialization for persistent server access. |
+| §7-3 + §1-1 (Referer auth bypass + ViewState deserialization) | CVE-2025-53770 (CVSS 9.8) + CVE-2025-53771 (SharePoint Server) | "ToolShell" pre-auth RCE chain: Referer spoofing bypasses auth → ToolPane deserialization deploys webshell → MachineKey extraction → persistent ViewState RCE. Pwn2Own Berlin 2025 ($100,000). Zero-day exploitation; 75–85+ servers compromised globally. July 2025 emergency patch. |
 | §3-1 (Double cookieless auth bypass) | CVE-2023-36899 (ASP.NET Framework) | Authentication bypass on protected directories. WAF bypass via path manipulation. |
 | §3-1 (Cookieless App Pool escalation) | CVE-2023-36560 (ASP.NET Framework) | Privilege escalation — execute code under parent App Pool identity. |
 | §6-1 (RefreshSignInAsync impersonation) | CVE-2025-24070 (ASP.NET Core) | Elevation of privilege — sign in as another user. |

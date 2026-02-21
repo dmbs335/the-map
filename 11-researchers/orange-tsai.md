@@ -511,6 +511,29 @@ Co-researcher: Meh Chang
 Award: Pwnie Award 2019 - Best Server-Side Bug
 ```
 
+### §5-3. MobileIron MDM Pre-Auth RCE
+
+Enterprise Mobile Device Management (MDM) servers sit on the network perimeter and are reachable pre-authentication by design — managed devices must contact them before any user credentials are established.
+
+#### CVE-2020-15505 (MobileIron Core & Connector)
+
+**Mechanism**: Multi-bug chain combining path traversal, ACL bypass, and unsafe deserialization to achieve unauthenticated RCE on MobileIron MDM appliances.
+
+```
+Attack Chain:
+1. Path traversal bypasses web server ACL to reach restricted endpoints
+2. ACL bypass grants access to administrative deserialization sink
+3. Crafted serialized object triggers RCE via gadget chain
+4. Execution as MobileIron service account (high-privilege)
+
+Result: Pre-auth RCE on enterprise MDM infrastructure
+Impact: APT groups weaponized within weeks of disclosure (CISA Alert AA20-258A)
+Affected: MobileIron Core ≤ 10.6, Connector ≤ 10.6, Sentry ≤ 9.8
+Recognition: PortSwigger Top 10 Web Hacking Techniques 2020 nominee
+```
+
+**Significance**: Demonstrates that enterprise perimeter security appliances (VPN, MDM, gateway) share a common architectural weakness — pre-authentication attack surface with high-privilege execution context. The same chaining pattern (path traversal → auth bypass → deserialization) recurs across MobileIron, Citrix, and similar enterprise products.
+
 ---
 
 ## §6. Serialization/Deserialization Mutations
@@ -652,7 +675,7 @@ Result: Pre-auth RCE (no Overall/Read permission needed)
 
 | Scenario | Architecture | Primary Mutation Categories | Notable Cases |
 |----------|-------------|----------------------------|---------------|
-| **Pre-auth RCE** | Externally exposed services with no auth requirement | §5-2 (SSL VPN), §7-1 (Format String), §8-1 (Meta-Programming) | Palo Alto ($0), Fortinet, Pulse Secure, Jenkins |
+| **Pre-auth RCE** | Externally exposed services with no auth requirement | §5-2 (SSL VPN), §5-3 (MDM), §7-1 (Format String), §8-1 (Meta-Programming) | Palo Alto ($0), Fortinet, Pulse Secure, MobileIron, Jenkins |
 | **SSRF to RCE Chain** | Internal services accessible via SSRF + deserialization/protocol smuggling | §1-1 (URL Parser) + §2-1 (CR-LF) + §6-1 (Marshal) | GitHub Enterprise ($7,500), Amazon Nuxeo |
 | **Post-auth Privilege Escalation** | Authenticated user → SYSTEM/root | §5-1 (ProxyLogon), §4-1 (DocumentRoot Confusion) | Exchange ProxyShell ($200K Pwn2Own) |
 | **ACL/Auth Bypass** | Multi-layer architectures (proxy + backend) | §1-2 (Path Normalization), §4-1 (Filename Confusion) | Apache Confusion (CVE-2024-38473) |
@@ -671,6 +694,7 @@ Result: Pre-auth RCE (no Overall/Read permission needed)
 | §8-1 | CVE-2019-1003000, CVE-2019-1003005, CVE-2019-1003029 | Jenkins | Pre-auth RCE via Groovy meta-programming | 2019 |
 | §7-1 | CVE-2019-1579 | Palo Alto GlobalProtect | Pre-auth RCE via format string (Uber case study) | 2019 |
 | §5-2 | CVE-2018-13382 | Fortinet SSL VPN | Pre-auth RCE via magic backdoor | 2019 |
+| §5-3 | CVE-2020-15505 | MobileIron Core/Connector | Pre-auth RCE via path traversal + deserialization chain. APT-weaponized (CISA AA20-258A) | 2020 |
 | §5-1 | CVE-2021-26855, CVE-2021-27065 | Microsoft Exchange (ProxyLogon) | Pre-auth RCE • Pwnie Award 2021 Best Server-Side Bug | 2021 |
 | §5-1 | CVE-2021-34473, CVE-2021-34523, CVE-2021-31207 | Microsoft Exchange (ProxyShell) | **$200,000** • Pwn2Own Vancouver 2021 Master of Pwn | 2021 |
 | §3-1 | CVE-2024-4577 | PHP-CGI | CVSS 9.8 • RCE via soft hyphen Best-Fit bypass | 2024 |
@@ -688,7 +712,7 @@ Result: Pre-auth RCE (no Overall/Read permission needed)
 **Recognition**:
 - **Pwnie Awards**: 2019 (SSL VPN), 2021 (ProxyLogon) - Best Server-Side Bug
 - **Pwn2Own Master of Pwn**: 2021 (Vancouver), 2022 (Toronto)
-- **Top 10 Web Hacking Techniques**: 1st place 2017/2018, 2024 nominee (Confusion Attacks, WorstFit)
+- **Top 10 Web Hacking Techniques**: 1st place 2017/2018, 2020 nominee (MobileIron MDM), 2024 nominee (Confusion Attacks, WorstFit)
 
 ---
 

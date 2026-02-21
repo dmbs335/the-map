@@ -127,6 +127,7 @@ When server-side template engines are integrated with SSR frameworks, or when fr
 | **Server-Side Template Injection (SSTI)** | Developers integrating EJS, Pug, or Handlebars with Next.js/Nuxt.js route handlers may pass user input directly into template rendering, allowing arbitrary code execution | Explicit template engine integration with user input |
 | **Client-Side Template Injection (CSTI)** | When Vue templates are compiled at runtime with user-controlled content, Vue's expression evaluation executes arbitrary JavaScript. Angular expression injection in older versions (< 1.6) allows sandbox escape | Runtime template compilation with user data; AngularJS < 1.6 |
 | **Markdown Parser Bypass** | Markdown-to-HTML libraries used by Nuxt Content, MDX, or custom CMS integrations may fail to sanitize embedded HTML, allowing `<script>` or `javascript:` injection through markdown content | @nuxtjs/mdc < 0.13.3 (CVE-2025-24981); MDX without sanitization |
+| **Server-Side MDX Evaluation RCE** | Documentation platforms compiling MDX (Markdown + JSX) server-side evaluate embedded expressions as executable code during static site generation. Attacker-authored MDX content containing `{fetch('...').then(r=>r.text()).then(eval)}` achieves RCE during the build, enabling `process.env` exfiltration and filesystem access | Server-side MDX compilation with user-controlled content; Mintlify (CVE-2025-67843); any MDX-based documentation platform without expression sandboxing |
 
 ### §3-4. Hydration and DOM Manipulation Attacks
 
@@ -403,6 +404,7 @@ Framework development tools run with elevated privileges and may be inadvertentl
 | §7-1 (webpack-dev-server Source Theft) | CVE-2025-30359 | Cross-origin source code theft from development server |
 | §8-1 (npm Supply Chain) | September 2025 npm incident | 18 packages, 2.6B weekly downloads compromised. Shai-Hulud worm: 200+ packages |
 | §8-2 (CDN Compromise) | Polyfill.io (June 2024) | 100,000+ websites compromised via CDN-level script modification |
+| §3-3 (MDX Evaluation RCE) | CVE-2025-67843 (Mintlify) | Server-side MDX expression evaluation during SSG achieves RCE. $5,000 bounty. Affected Discord, Vercel, Cursor documentation sites |
 
 ---
 
@@ -464,6 +466,7 @@ Framework development tools run with elevated privileges and may be inadvertentl
 - Kodem: Security Issues in Popular Full-Stack Frameworks
 - Semgrep: A Technical Deep Dive into JavaScript Vulnerability Detection
 - Sam Curry: "Exploiting Web3's Hidden Attack Surface: Universal XSS on Netlify's Next.js Library" (2022) — UXSS affecting Web3 applications via Next.js library vulnerability on Netlify
+- kibty, "how to hack discord, vercel and more with one easy trick" (2025) — Server-side MDX evaluation RCE in Mintlify (CVE-2025-67843). Cross-tenant static asset XSS, path traversal, deployment downgrade. $5,000 bounty. https://kibty.town/blog/mintlify
 
 ---
 

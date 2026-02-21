@@ -451,6 +451,7 @@ This pattern generalizes beyond Azure: any cloud platform where management inter
 | §6-1 (CSWSH) + §3-2 (GraphQL WS) | Include Security Research (2025) | GraphQL API protected against direct CSRF but accessible via WebSocket without Origin validation — arbitrary API calls including account deletion |
 | §7-2 (OAuth state) + §7-1 (Login CSRF) | Multiple OAuth implementations | Missing state parameter allows attacker's OAuth code to be bound to victim's session — account linkage takeover |
 | §1-3 (Double submit bypass) + §2-2 (Subdomain takeover) | Various bug bounty reports | Subdomain takeover enables cookie injection, breaking unsigned double-submit cookie protection |
+| §8-5 (Cloud management plane CSRF → RCE) | EmojiDeploy (Ermetic, 2023) | Azure Kudu SCM same-site CSRF with origin validation bypass → ZIP deployment → RCE on Azure Web Services. $30,000 MSRC bounty |
 
 ---
 

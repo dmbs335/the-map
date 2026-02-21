@@ -163,7 +163,6 @@ ES6 Proxy objects provide a meta-programming mechanism to intercept arbitrary pr
 | **`has` trap on prototype** | `Object.setPrototypeOf(__proto__, new Proxy(__proto__, {has: (t,n) => exfil(n)}))` | Captures every identifier lookup in the global scope |
 | **`get` trap for property access** | Proxy intercepts property reads on polluted objects | Access to object properties within included script |
 | **`caller` context leak (Chrome)** | Proxy `has` trap's `caller` property exposes calling function source | Read the calling function's `toString()` to extract inline data |
-| **Deep prototype chain** | Different browsers require different prototype nesting depths: Chrome v53 needs 5 levels, Safari needs 4, Edge needs 2 | Browser-specific exploitation paths |
 
 ---
 
@@ -188,7 +187,6 @@ By forcing a different character encoding on the included resource, attackers tr
 | Subtype | Mechanism | Example |
 |---|---|---|
 | **UTF-16BE conversion** | ASCII bytes reinterpreted as UTF-16BE form valid Unicode identifiers; `{"email":"..."}` becomes variable names | `<script charset="UTF-16BE" src="//victim.com/api/user.json"></script>` |
-| **UTF-7 injection (legacy)** | UTF-7 escape sequences (`+ADw-script+AD4-`) decoded by browser into executable HTML/JS | `+ADw-script+AD4-alert(1)+ADw-/script+AD4-` in JSON value |
 | **UCS-2 / UTF-16LE** | Similar to UTF-16BE but with different byte-order; usable for XML data import | More brittle than UTF-16BE; limited browser support |
 | **Data-free charset exploitation** | Even without controlling response content, charset-shifted bytes form valid JS variable names | Attacker enumerates window properties to find the constructed variable |
 
@@ -363,7 +361,6 @@ Server checks `Referer` or `Origin` header to reject cross-origin requests.
 | §5-2 (UTF-16BE charset manipulation) | JSON Hijacking for the Modern Web (2016) | Research. UTF-16BE charset forces JSON to parse as JS variable names; CSP bypass demonstrated |
 | §3-2 (JSONP CSP bypass) | Liberapay JSONP Callback Exploitation (HackerOne #361951) | Disclosed. JSONP callback parameter used for CSP bypass |
 | §5-1 + §5-2 (CSV data theft) | MBSD Identifier-Based XSSI (2015) | Research. CSV data exfiltrated via script tag with charset manipulation |
-| §3-2 (JSONP + Rosetta Flash) | Rosetta Flash JSONP Exploitation (2014) | $5,000+ (Google). SWF-as-JSONP allowed cross-origin Flash execution |
 | §7-2 + §7-3 (CORB bypass) | Chrome CORB implementation gaps (ongoing) | Browser-level. Ongoing tightening of content-type sniffing heuristics |
 | §3-1 (JSONP hijacking) | Flickr API Contact List Leak | Disclosed. Authenticated user contact list accessible via JSONP endpoint |
 | §3-2 (JSONP callback injection) | ossrs/srs JSONP XSS (GHSA-gv9r-qcjc-5hj7) | Disclosed. DOM XSS via JSONP callback reflection |

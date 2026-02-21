@@ -94,6 +94,7 @@ ImageMagick processes complex formats by delegating to external programs via `sy
 | **`@` file read primitive** | `label:@/etc/passwd` or `text:@/etc/passwd` causes ImageMagick to read the specified file and render its content as text in the output image, enabling information disclosure | `@` file reading not restricted by policy |
 | **Environment variable policy bypass** | AppImage-packaged ImageMagick loads `delegates.xml` from the current working directory if `MAGICK_CONFIGURE_PATH` contains empty path entries, allowing attacker-controlled delegate definitions | AppImage distribution with manipulable working directory |
 | **Framework-level shell-out injection** | Web frameworks pass user-controlled filenames to ImageMagick CLI without sanitization: `convert "$(whoami).jpg" output.png` | CodeIgniter ImageManipulation handler (CVE-2025-54418, CVSS 9.8); any framework shelling out to `convert`/`magick` |
+| **PDF password field shell injection** | When ImageMagick processes password-protected PDF files, the password is passed to the Ghostscript delegate via command-line arguments constructed through `delegates.xml`. A crafted password string containing shell metacharacters (e.g., `$(id)` or `` `id` ``) is interpolated unsanitized into the shell command, achieving command injection via the password parameter rather than the filename | ImageMagick processing password-protected PDFs with Ghostscript delegate; password supplied via user input or metadata |
 
 ### §2-2. Ghostscript PostScript Sandbox Escape
 
@@ -279,6 +280,17 @@ The sheer complexity of Office formats (OOXML with ZIP + XML + relationships + e
 | **Environment variable exfiltration** | INI file parsing within ODF documents extracts values from environment variables and filesystem files, leaking secrets from server-side conversion environments | LibreOffice ≤ 24.8.3 (CVE-2024-12426) |
 | **OOXML XXE via XMLBeans** | Apache POI and similar Java-based OOXML parsers using XMLBeans ≤ 2.6.0 are susceptible to XXE during OOXML document parsing, enabling file read, SSRF, and potentially RCE chains | CVE-2014-3529, CVE-2019-12415; server-side document parsing with Apache POI |
 
+### §6-5. Spreadsheet Format Conversion Exploitation
+
+Server-side spreadsheet processing — importing CSV into XLSX, converting XLSX to PDF, generating reports from uploaded data files — creates unique attack surfaces distinct from general Office document risks. Spreadsheet conversion pipelines evaluate formulas, resolve external references, and process embedded objects during format transformation, making the conversion itself the exploitation trigger.
+
+| Subtype | Mechanism | Key Condition |
+|---|---|---|
+| **Formula Evaluation During Conversion** | Spreadsheet formulas (`=HYPERLINK()`, `=IMPORTDATA()`, `=WEBSERVICE()`) are evaluated during server-side format conversion (e.g., XLSX → PDF via LibreOffice). Formulas containing `=WEBSERVICE("http://169.254.169.254/")` trigger SSRF; formulas with `=CMD()` or `=SYSTEM()` (in certain engines) achieve command execution during the conversion process | Server-side conversion with formula evaluation enabled; LibreOffice Calc headless, Google Sheets API, Apache POI formula evaluator |
+| **CSV Injection via Conversion Pipeline** | CSV files containing formula-prefixed cells (`=`, `+`, `-`, `@`) are imported into spreadsheet formats (XLSX, ODS) where the values are reinterpreted as formulas. Server-side conversion then evaluates these formulas, triggering SSRF, file read, or command execution during the import-to-export pipeline | CSV → XLSX/ODS → PDF conversion chain; no cell value sanitization at import stage |
+| **OLE Object Activation in Conversion** | Spreadsheet files containing embedded OLE objects (charts linking to external data, embedded executables, ActiveX controls) trigger object activation when the document is opened for conversion. LibreOffice headless mode and some conversion APIs process embedded objects, potentially executing linked content | Server-side conversion that processes embedded OLE objects; no sandboxing of OLE activation |
+| **Macro Execution in Headless Conversion** | Spreadsheet macros (VBA in XLSX, LibreOffice Basic in ODS) execute during server-side headless conversion if macro execution is not explicitly disabled. Auto-execute macros (`Workbook_Open`, `Auto_Open`) trigger on document load | LibreOffice/OpenOffice headless conversion without `--norestore --nofirststartwizard --nologo --nocrashreport --nolockcheck` and macro disabling flags |
+
 ---
 
 ## §7. Metadata Processing RCE
@@ -368,6 +380,9 @@ PHP-based PDF generation libraries (dompdf, TCPDF, mPDF) that process user-contr
 | **dompdf font cache PHP injection** | dompdf processes CSS `@font-face` rules by downloading font files and saving them with a `.php` extension in the font cache directory. A crafted font file (TTF+PHP polyglot) containing PHP code becomes web-accessible and executable | dompdf ≤ 1.2.0 (CVE-2022-28368); `$isRemoteEnabled=true`; font cache directory web-accessible |
 | **TCPDF font metadata PHP injection** | TCPDF converts font files to PHP source code for caching. Crafted font metadata containing PHP code persists as executable PHP in the generated font file | TCPDF < 6.8.0 (CVE-2024-56520); applications converting attacker-controlled fonts |
 | **PHP deserialization in PDF metadata** | Some PHP PDF libraries use `unserialize()` on cached data structures. Crafted cache files containing serialized PHP objects trigger gadget chains | PHP PDF libraries with file-based caching |
+| **Resource loader Phar deserialization** | PHP PDF libraries calling `file_exists()` or `getimagesize()` on user-controlled resource paths trigger `phar://` stream wrapper deserialization. In spipu/html2pdf, `<cert src="phar://uploaded.png">` reaches `file_exists()`, deserializing the Phar manifest in an uploaded polyglot and executing `__destruct()` gadget chains | PHP < 8.0; file upload placing Phar archive on server; spipu/html2pdf ≤ 5.3.0 |
+| **Path traversal via encoding bypass** | PDF renderers filter literal `../` in resource paths but fail to account for URL-encoded variants. TCPDF validates then calls `urldecode()` — attackers supply `..%2f` or double-encoded `%252f..` to traverse directories and embed arbitrary server files as images in the generated PDF | TCPDF 6.8.0–6.8.2; any PHP PDF library performing path traversal checks before URL decoding of resource URIs |
+| **Security hook timing bypass** | PDF libraries with pluggable security interfaces execute resource loading under the default permissive handler before the custom security implementation is initialized. In spipu/html2pdf 5.3.1, `_drawImage()` fires SSRF requests before custom restrictions take effect — a "hook runs too late" race | spipu/html2pdf 5.3.1; application relying on custom security handler to restrict resource loading |
 
 ---
 
@@ -468,6 +483,9 @@ The pattern extends beyond ClamAV to any security tool that parses file formats.
 | §2-1 (ImageMagick delegate injection) | CVE-2016-3714 (ImageMagick) — ImageTragick | Shell command execution via crafted image filenames. Massive impact on web applications |
 | §1-1 (FFmpeg PNM overflow) | CVE-2024-7055 (FFmpeg ≤ 7.0.1) | Heap buffer overflow in PNM frame decoder |
 | §10-1 (Zip Slip path traversal) | Multiple CVEs across ecosystems | Arbitrary file write → webshell. Affects Java, Go, Python, Ruby, .NET |
+| §9-2 (Resource loader Phar deserialization) | — (PT SWARM research, 2025) | Phar deserialization via `file_exists()` in spipu/html2pdf ≤ 5.3.0; RCE chain through `__destruct()` gadgets |
+| §9-2 (Path traversal encoding bypass) | — (PT SWARM research, 2025) | TCPDF 6.8.0–6.8.2; URL-encoded/double-encoded path traversal bypasses `../` filter in resource loading |
+| §9-2 (Security hook timing bypass) | — (PT SWARM research, 2025) | spipu/html2pdf 5.3.1; SSRF via resource load before custom security handler initialization |
 
 ---
 
@@ -555,6 +573,7 @@ Effective defense against document and media processing RCE requires **architect
 - arxiv.org — Where the Polyglots Are: How Polyglot Files Enable Cyber Attack Chains (2024)
 - TU Braunschweig — Server-Side Browsers: Exploring the Web's Hidden Attack Surface
 - Emil Lerner — "HotPics 2021: The Current State of Server-Side Image Conversion Attacks" (ZeroNights X, 2021). Survey of ImageMagick, Ghostscript, Pillow exploitation including Ghostscript zero-day achieving bounties at Airbnb, Dropbox, and Yandex. https://www.slideshare.net/neexemil/hotpics-2021
+- PT SWARM — "Blind trust: what is hidden behind the process of creating your PDF file?" (2025). Path traversal encoding bypass, Phar deserialization, and security hook timing bypass in TCPDF, spipu/html2pdf, mpdf, and jsPDF. https://swarm.ptsecurity.com/blind-trust-what-is-hidden-behind-the-process-of-creating-your-pdf-file/
 
 ---
 

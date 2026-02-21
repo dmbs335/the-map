@@ -84,6 +84,7 @@ The most straightforward vector: user-controlled data reaches `unserialize()` wi
 | **Property-Oriented Programming (POP)** | Chains constructed purely through property assignments and magic method invocations, analogous to ROP in binary exploitation | Sufficient class diversity in application/framework |
 | **Partial Object Injection** | Only a substring of the serialized data is controlled; exploitation requires crafting valid serialization boundaries around the injection point | Serialized data is partially constructed server-side |
 | **Allowed Classes Bypass** | `unserialize($data, ["allowed_classes" => [...]])` can be bypassed if the allowed list includes a gadget-capable class, or via nested serialization | PHP 7.0+ allowed_classes parameter |
+| **Autoload-Triggered Unreachable Class Exploitation** | PHP's `spl_autoload` mechanism loads any class referenced in serialized data during `unserialize()`, even classes never instantiated in normal execution. This expands the gadget surface to the entire autoload path — classes from unused framework modules, optional dependencies, and development tools all become reachable gadgets despite being "unreachable" in application logic | Composer autoloader or `spl_autoload_register` configured; additional framework/library classes on the autoload path not directly used by the vulnerable endpoint |
 
 ### §2-2. PHAR Deserialization
 

@@ -153,6 +153,7 @@ Attacking the CSP policy itself rather than bypassing it.
 | **Meta Tag CSP Override** | HTML meta CSP tag competes with HTTP header; browsers may apply both or prefer one | Attacker injects <meta http-equiv="Content-Security-Policy" content="script-src *"> |
 | **CSP Reporting Endpoint Injection** | Attacker controls report-uri endpoint, receiving reports containing sensitive data | CSP report-uri points to attacker domain; violations leak page content |
 | **Browser Extension CSP Modification** | Malicious extension modifies CSP headers via webRequest API (CVE-2025-9866 Chromium) | Extension has webRequestBlocking permission and weakens CSP |
+| **Browser Engine CSP Implementation Bug** | Bugs in the browser engine's CSP implementation itself (WebKit/Safari, etc.) can nullify correctly-defined CSP policies. Examples include WebKit failing to enforce the CSP sandbox directive to block cross-origin iframe credential access, or `strict-dynamic` interpretation differences causing inline script execution only on specific engines. The attack vector is not the policy definition but the *engine's conformance level with the specification*. | Browser engine's CSP implementation deviates from the W3C specification; attacker can fingerprint the victim's browser engine |
 
 ---
 
@@ -215,6 +216,7 @@ These headers control whether a page can be framed, preventing clickjacking.
 | **Browser Inconsistency** | Different browsers interpret ALLOW-FROM differently or not at all | X-Frame-Options: ALLOW-FROM https://trusted.com works in IE but ignored in Chrome |
 | **Frame-Ancestors Null Origin** | CSP frame-ancestors validation doesn't properly reject null origin | Sandboxed iframe with null origin bypasses frame-ancestors check |
 | **Clickjacking on XFO Error Page** | Firefox native error page when X-FO blocks framing can itself be clickjacked (CVE-2024-5691) | Attacker frames the error page and performs clickjacking on it |
+| **Portal Element Frame Bypass** | The experimental `<portal>` element embeds cross-origin pages for seamless navigation transitions but does not respect `X-Frame-Options` or `CSP frame-ancestors` restrictions. An attacker uses `<portal src="https://victim.com">` to embed protected pages, enabling clickjacking on content that explicitly denies framing. Portal activation (user click) navigates the top-level context to the embedded page, and the attacker can overlay UI elements to trick users into activating the portal — performing actions on the victim site disguised as interactions with the attacker's page | Target browser supports `<portal>` element (Chrome experimental); victim page relies on X-Frame-Options or frame-ancestors for clickjacking protection without additional defenses (Securitum Research, 2019) |
 
 ### §4-2. Iframe Sandbox Escapes
 
