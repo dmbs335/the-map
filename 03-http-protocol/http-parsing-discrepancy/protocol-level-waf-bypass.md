@@ -117,7 +117,7 @@ Exploiting how WAFs parse, validate, and act on HTTP headers — including heade
 
 ## §4. Content-Type & Body Parsing Manipulation
 
-Mutations that exploit how WAFs select and execute body parsers based on the Content-Type header. The WAF must replicate the exact parsing behavior of the backend framework — a structurally impossible task given the diversity of backend implementations.
+Mutations that exploit how WAFs select and execute body parsers based on the Content-Type header. The WAF must replicate the exact parsing behavior of the backend framework — a structurally impossible task given the diversity of backend implementations. Systematic testing of 14 WAFs against 20 backend frameworks (WAFManis, IEEE S&P 2024) identified 311 protocol-level evasion cases falling into three root-cause categories: **Parameter Type Confusion (PTC)** — the WAF and backend disagree on how to classify or extract a parameter value from the request body; **Malformed Parameter Structure (MPS)** — malformed structural elements (boundaries, separators, terminators) cause parsing divergence; **RFC Support Gap (RSG)** — the WAF and backend support different RFC features (e.g., RFC 2231 extended parameters, Content-Transfer-Encoding).
 
 ### §4-1. Content-Type Confusion
 
@@ -126,7 +126,9 @@ Mutations that exploit how WAFs select and execute body parsers based on the Con
 | **Type Switching** | Send a JSON body with `Content-Type: application/x-www-form-urlencoded` or vice versa. The WAF applies the wrong parser. | Backend auto-negotiates body format regardless of Content-Type |
 | **Unknown Content-Type** | Use a rare or invented Content-Type (`application/x-custom`). The WAF skips body inspection; the backend's framework may still parse it as form data or JSON. | WAF falls through to no-parse on unknown types |
 | **Dual Charset Declaration** | Use `Content-Type: application/json; charset=utf-8; charset=utf-7`. The WAF uses the first charset; the backend uses the last (or vice versa). | WAF and backend disagree on charset precedence |
-| **Charset-Based Encoding Swap** | Declare `charset=ibm500`, `charset=shift_jis`, or `charset=ibm037` to encode the payload in a character set the WAF cannot decode. | Backend converts from declared charset to UTF-8 |
+| **Charset-Based Encoding Swap** | Declare `charset=ibm500`, `charset=shift_jis`, `charset=ibm037`, or `charset=utf-16le` to encode the payload in a character set the WAF cannot decode. WAFManis found `utf-16le` bypasses multiple WAFs beyond the previously known `utf-7` and `ibm500` vectors | Backend converts from declared charset to UTF-8 |
+| **Content-Transfer-Encoding (CTE)** | Add `Content-Transfer-Encoding: quoted-printable` or `Content-Transfer-Encoding: base64` to the request. The backend decodes the body content per the CTE header; the WAF inspects the encoded form and fails to detect the payload | Backend supports CTE decoding (common in PHP and email-derived parsers); WAF does not decode CTE-encoded bodies |
+| **Multiple Content-Type headers** | Send two `Content-Type` headers with different values (e.g., `application/x-www-form-urlencoded` and `multipart/form-data`); the WAF uses one parser and the backend uses another. CVE-2023-38199 | WAF and backend disagree on which Content-Type header takes precedence |
 | **Parameter Injection in Content-Type** | Add extra parameters to the Content-Type header (`boundary=X; evil=payload`) that interfere with the WAF's header parser. | WAF's Content-Type parser is fragile |
 
 ### §4-2. Multipart/Form-Data Evasion
@@ -142,6 +144,9 @@ Multipart parsing is one of the richest protocol-level bypass surfaces. Research
 | **Filename/Field Injection** | Place payloads in the `filename` parameter of Content-Disposition, or use unusual field names that the WAF does not inspect. | WAF only inspects the `name` parameter, not `filename` |
 | **Multipart within Multipart** | Nest a multipart body inside a multipart part (RFC 2046 allows this). Most WAFs do not recurse into nested multipart structures. | Backend framework handles nested multipart |
 | **Extra Headers in Parts** | Add custom headers within multipart parts. Some WAFs only parse standard headers (Content-Disposition, Content-Type) and ignore others where payloads can hide. | Backend processes or reflects custom part headers |
+| **RFC 2231 Parameter Encoding / Continuation** | Encode `boundary`, `name`, or `filename` parameters using RFC 2231 extended notation (`boundary*=us-ascii''boundary`) or split them across continuation parameters (`boundary*0=re; boundary*1=al`). WAFs that do not implement RFC 2231 decoding fail to identify part boundaries or field names. | Backend framework supports RFC 2231 parameter decoding or continuation |
+| **Linefeed / CRLF Removal** | Remove `\r\n` between the request headers and the multipart body, or between the boundary delimiter and part headers. The WAF's multipart parser loses its structural anchor and misparses part boundaries. | WAF requires strict CRLF positioning to parse multipart structure |
+| **Part Header Separator Manipulation** | Replace or remove line separators between headers within a multipart part (e.g., substitute `\r\n` with other characters). The WAF merges or skips part headers while the backend's parser remains tolerant. | WAF and backend handle non-standard line terminators in part headers differently |
 
 ### §4-3. JSON Parser Discrepancies
 
@@ -151,6 +156,7 @@ Multipart parsing is one of the richest protocol-level bypass surfaces. Research
 | **Nested JSON Structures** | Deeply nest objects/arrays to exceed WAF parsing depth limits: `{"a":{"b":{"c":{"d":"<payload>"}}}}`. | WAF has a recursion/depth limit on JSON parsing |
 | **Duplicate JSON Keys** | Send `{"id": "safe", "id": "malicious"}`. WAF may inspect the first value; backend uses the last (per RFC 8259, behavior is implementation-defined). | WAF and backend disagree on duplicate key handling |
 | **JSON Encoding Discrepancies** | WAF parses raw JSON bytes while backend resolves `\uXXXX` escapes, surrogate pairs, or multi-byte UTF-8 within JSON strings differently. | WAF does not fully resolve JSON string encoding |
+| **Null-Byte Field Delimiter Injection** | Insert `\x00` between the JSON field name and the colon separator (`"field1"\x00: "value"`) or within field names (`"f\x00eld1"`). The WAF's JSON parser fails to extract the field name or match it against rules; the backend silently strips the null byte and processes the field normally. | Backend's JSON parser tolerates null bytes in field names/delimiters |
 
 ### §4-4. XML Parser Discrepancies
 
@@ -160,6 +166,8 @@ Multipart parsing is one of the richest protocol-level bypass surfaces. Research
 | **XML Parameter Entities** | Use parameter entities (`%entity;`) in external DTD references to inject content the WAF cannot resolve at parse time. | Backend processes external entities |
 | **XML Encoding Declaration** | Specify an encoding in the XML declaration (`<?xml encoding="UTF-16"?>`) that the WAF doesn't handle, causing it to misparse the body. | WAF supports only UTF-8 XML parsing |
 | **DOCTYPE Manipulation** | Declare internal DTD subsets with entity definitions that restructure the document content after entity resolution, invisible to the WAF. | WAF does not resolve DTD entity definitions |
+| **Extra Field / Schema Overflow** | Add fields outside the defined XML schema (e.g., `<field2 attr="...">`) or insert characters/elements at schema closure points. The WAF validates against an expected schema structure; the backend accepts the extra content. | Backend XML parser does not enforce strict schema validation |
+| **Misplaced Field Values** | Place field values outside their corresponding XML tags, altering the positional structure of the document. The WAF's rule matching expects values within specific tag hierarchies; the backend extracts values regardless of position. | Backend XML parser tolerates values outside expected tag boundaries |
 
 ---
 
@@ -330,7 +338,8 @@ Protocol-level bypasses are transport-agnostic — once a bypass channel is esta
 | §2-1 (Framework Header) + §9-2 (Alternate Endpoint) | CVE-2025-29927 (Next.js middleware bypass) | Authorization middleware bypass via `x-middleware-subrequest` header |
 | §4-2 (Multipart/Boundary) + §4-1 (Content-Type Confusion) | WAFFLED (ACSAC 2025) | 1,207 bypasses across AWS WAF, Azure, Cloud Armor, Cloudflare, ModSecurity |
 | §8-2 (H2C Smuggling) | Azure WAF H2C Bypass (Assetnote) | Global WAF bypass via HTTP/2 cleartext upgrade |
-| §2-2 (Header) + §6-1 (HPP) | WAFManis (Black Hat 2024) | 311 protocol-level evasion cases discovered across multiple WAFs |
+| §4-1 (Multiple Content-Type) | CVE-2023-38199 | WAF and backend disagree on which Content-Type header takes precedence when duplicate headers are sent; discovered by WAFManis |
+| §2-2 (Header) + §6-1 (HPP) | WAFManis (IEEE S&P 2024) | 311 protocol-level evasion cases across 14 WAFs × 20 frameworks in 3 categories (PTC, MPS, RSG) |
 | §5-1 (Path Confusion) | ModSecurity v2/v3 Path Confusion (SicuraNext, 2024) | Multiple path confusion bugs enabling rule bypass on both v2 and v3 branches |
 | §9-1 (Origin IP) | Cloudflare Origin IP Bypass (HackerOne #1536299) | WAF bypass by sending requests directly to origin IP |
 
@@ -342,8 +351,8 @@ Protocol-level bypasses are transport-agnostic — once a bypass channel is esta
 
 | Tool | Target Scope | Core Technique |
 |---|---|---|
-| **WAFFLED** (Fuzzer) | Multipart/Content-Type parsing discrepancies across AWS, Azure, Cloud Armor, Cloudflare, ModSecurity | Content-type-specific fuzzing: mutates boundaries, charsets, namespaces, multipart structure |
-| **WAFManis** (Framework) | Protocol-level WAF evasion testing | Systematic mutation of HTTP protocol features (headers, methods, encoding) |
+| **WAFFLED** (Fuzzer) | Multipart/JSON/XML parsing discrepancies across 5 WAFs (ModSecurity, Azure, AWS, Cloudflare, Cloud Armor) × 7 frameworks (Flask, FastAPI, Gin, Laravel, Spring Boot, Express, Node.js) | Content-type-specific fuzzing with 24 bypass classes: 12 multipart, 5 JSON, 7 XML. 1,207 total bypasses; notably AWS WAF was the only WAF not bypassed due to strict RFC-compliant parsing |
+| **WAFManis** (Framework) | Protocol-level WAF evasion across 14 WAFs × 20 backend frameworks | Grammar-guided fuzzing with coverage feedback. Discovers PTC (Parameter Type Confusion), MPS (Malformed Parameter Structure), and RSG (RFC Support Gap) evasion classes. 311 evasion cases found, including RFC 2231, Content-Transfer-Encoding, and charset-based bypasses |
 | **Break the Wall from Bottom** (Jianjun Chen et al.) | Automated HTTP parsing discrepancy discovery | Differential testing framework that systematically discovers protocol-level WAF evasion by fuzzing HTTP request structure (method, path, headers, chunked encoding, content-type boundaries) and comparing parsing behavior between WAF/CDN frontends and backend servers. Identifies framing disagreements and normalization mismatches that enable request smuggling and rule bypass at scale |
 | **Burp Suite — Request Smuggler** | HTTP/1.1 and HTTP/2 request smuggling detection | CL.TE, TE.CL, H2.CL, H2.TE desync testing |
 | **Burp Suite — Param Miner** | Hidden parameter and header discovery | Discovers backend-processed headers the WAF doesn't inspect |
@@ -379,7 +388,7 @@ The fundamental challenge is that WAFs must **parse HTTP messages identically** 
 
 ### Structural Defenses
 
-1. **Strict RFC-compliant request normalization** at the edge (HTTP Normalizer), rejecting malformed or ambiguous requests before they reach the WAF or backend.
+1. **Strict RFC-compliant request normalization** at the edge (HTTP Normalizer), rejecting malformed or ambiguous requests before they reach the WAF or backend. Empirical validation: AWS WAF was the only WAF among 5 major vendors not bypassed by WAFFLED's 1,207 content-type parsing mutations, precisely because it enforces strict RFC-compliant parsing and rejects malformed requests outright.
 2. **End-to-end HTTP/2** without downgrade, eliminating the HTTP/1.1 text-based ambiguities that enable request smuggling.
 3. **Origin network isolation**: firewall rules ensuring the origin server only accepts traffic from WAF provider IP ranges.
 4. **TLS termination enforcement**: disable TLS passthrough/fail-open, restrict origin to modern TLS versions only, and ensure all cipher suites are inspectable by the WAF.
@@ -395,7 +404,7 @@ The fundamental challenge is that WAFs must **parse HTTP messages identically** 
 - CVE-2024-1019: ModSecurity Path Normalization Bypass — https://nvd.nist.gov/vuln/detail/CVE-2024-1019
 - ModSecurity Path Confusion Bugs (SicuraNext, 2024) — https://blog.sicuranext.com/modsecurity-path-confusion-bugs-bypass/
 - H2C Smuggling in the Wild (Assetnote / Bishop Fox) — https://www.assetnote.io/resources/research/h2c-smuggling-in-the-wild
-- WAFManis: Protocol-Level WAF Evasion Testing (Black Hat USA 2024) — presented by Ryan Kane & Rushank Shetty
+- Qi Wang, Jianjun Chen et al. — *Break the Wall from Bottom: Automated Discovery of Protocol-Level Evasion Vulnerabilities in Web Application Firewalls* (IEEE S&P 2024). 14 WAFs × 20 frameworks, 311 evasion cases in 3 categories (PTC, MPS, RSG). CVE-2023-38199
 - HTTP Request Smuggling Using Chunk Extensions — CVE-2025-55315 (F5 DevCentral) — https://community.f5.com/kb/security-insights/http-request-smuggling-using-chunk-extensions-cve-2025-55315/344118
 - Breaking Down Multipart Parsers: File Upload Validation Bypass (SicuraNext) — https://blog.sicuranext.com/breaking-down-multipart-parsers-validation-bypass/
 - When WAFs Go Awry: Common Detection & Evasion Techniques (MDSec, 2024) — https://www.mdsec.co.uk/2024/10/when-wafs-go-awry-common-detection-evasion-techniques-for-web-application-firewalls/

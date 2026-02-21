@@ -130,9 +130,7 @@ Quick reference for the gap-analyzer skill. Maps each taxonomy file to its cover
 | `asp-dot-net.md` | ASP.NET: ViewState, path normalization, Razor, SignalR, Blazor, IIS, SOAPwn | ASP.NET, ViewState, Razor, IIS, SignalR, SOAP |
 | `php.md` | PHP: loose comparison, unserialize, stream wrappers, disable_functions | PHP, unserialize, php://, phar://, type juggling |
 | `ruby-on-rails.md` | Rails: mass assignment, ERB/Haml, ActiveRecord, YAML deserialization, Array#pack | Rails, ActiveRecord, ERB, strong_params, Marshal |
-| `aem.md` | AEM: Dispatcher, Sling, selectors, OSGi, CRXDE | AEM, Adobe Experience Manager, Sling, Dispatcher |
 | `orm-leak.md` | ORM Leak: filter injection, relationship traversal, Beego, Prisma, ordering | ORM leak, filter, Beego, Prisma, ordering |
-| `salesforce-lightning-platform-security.md` | Salesforce: SOQL, Apex, LWC/Aura, CRUD/FLS, guest user, AgentForce | Salesforce, SOQL, Apex, Lightning, LWC |
 
 ## 10-recon-methodology/ (4 files)
 
@@ -143,7 +141,19 @@ Quick reference for the gap-analyzer skill. Maps each taxonomy file to its cover
 | `web-fuzzing.md` | Fuzzing: path discovery, parameter fuzzing, grammar-based, coverage-guided, LLM-assisted | fuzzing, ffuf, wfuzz, coverage-guided, mutation |
 | `ctf-exotic-tricks.md` | CTF: sandbox escape, crypto misuse, non-HTTP parsers, constrained exploitation | CTF, sandbox escape, jail, constrained |
 
-## 12-misc/ (2 files)
+## 12-product-security/ (7 files)
+
+| File | Coverage | Key Search Terms |
+|------|----------|-----------------|
+| `sap.md` | SAP: RFC, Diag, ICM, ABAP, HANA, Fiori, NetWeaver | SAP, ABAP, HANA, Fiori, NetWeaver, RFC |
+| `aem.md` | AEM: Dispatcher, Sling, selectors, OSGi, CRXDE | AEM, Adobe Experience Manager, Sling, Dispatcher |
+| `salesforce-lightning-platform-security.md` | Salesforce: SOQL, Apex, LWC/Aura, CRUD/FLS, guest user, AgentForce | Salesforce, SOQL, Apex, Lightning, LWC |
+| `sharepoint-vulnerability-taxonomy.md` | SharePoint: deserialization, auth bypass, web shells, machine keys | SharePoint, ViewState, Machine Key, TypeConverter |
+| `wordpress.md` | WordPress: plugin exploitation, REST API, XML-RPC, PHP object injection | WordPress, WP, plugin, wp-admin, xmlrpc |
+| `nginx-vulnerability-taxonomy.md` | Nginx: alias traversal, off-by-slash, merge_slashes, proxy_pass | Nginx, alias, off-by-slash, proxy_pass |
+| `jetty-vulnerability-taxonomy.md` | Jetty: ambiguous path, servlet mapping, HTTP/2, WEB-INF | Jetty, servlet, WEB-INF, ambiguous path |
+
+## 13-misc/ (2 files)
 
 | File | Coverage | Key Search Terms |
 |------|----------|-----------------|

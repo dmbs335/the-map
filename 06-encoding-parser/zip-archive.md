@@ -191,17 +191,7 @@ Traditional nested archives that require recursive extraction to fully expand.
 
 Attacks that strip, bypass, or prevent propagation of OS-level or application-level security markers.
 
-### §5-1. Mark-of-the-Web (MotW) Bypass
-
-Windows uses Zone.Identifier alternate data streams to mark files downloaded from the internet. Archive extractors are expected to propagate this marker to extracted files.
-
-| Subtype | Mechanism | Key Condition |
-|---|---|---|
-| **Nested archive MotW non-propagation** | Outer archive has MotW, but files extracted from a nested (inner) archive do not receive MotW | 7-Zip before 24.09 (CVE-2025-0411); exploited in the wild with SmokeLoader malware against Ukrainian organizations |
-| **Homoglyph inner archive naming** | Inner archive uses Cyrillic homoglyphs in filename (e.g., `Доcument.docx` with mixed scripts) to appear as a document while being an archive | Social engineering combined with MotW non-propagation |
-| **Format-specific MotW gaps** | Certain archive formats (e.g., ISO, VHD, IMG) do not propagate MotW by design on some Windows versions | Attackers wrap malicious ZIPs in ISO containers to strip MotW |
-
-### §5-2. Alternate Data Stream (ADS) Exploitation
+### §5-1. Alternate Data Stream (ADS) Exploitation
 
 NTFS Alternate Data Streams can be embedded within or alongside archive entries.
 
@@ -211,13 +201,11 @@ NTFS Alternate Data Streams can be embedded within or alongside archive entries.
 | **ADS-embedded payload** | Malicious code stored in ADS of a benign-looking file within the archive; most security scanners only scan the default data stream | Antivirus tools that do not enumerate or scan ADS |
 | **ADS with space-in-path** | Spaces in relative paths combined with ADS notation circumvent path filters | WinRAR before 7.12 (CVE-2025-6218) |
 
-### §5-3. Signature and Integrity Bypass
+### §5-2. Signature and Integrity Bypass
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
-| **APK signature scheme bypass** | APK is a ZIP; prepending DEX bytecode before the ZIP portion creates a DEX+APK polyglot that passes APK signature verification (which only verifies ZIP entries) but is also valid as a DEX file | Android Janus vulnerability (CVE-2017-13156); APK Signature Scheme v1 |
 | **JAR signature tampering** | Modifying ZIP structure (CD offsets, entry ordering) without altering the signed content within individual entries; signature verification passes but different files are loaded | Spring Boot signed JAR bypass via ZIP64 EOCD manipulation |
-| **Tampered APK headers (BadPack)** | Modifying ZIP header values in APK files to prevent analysis tools from parsing them, while Android's runtime parser still loads them correctly | Nearly 9,200 BadPack samples detected between June 2023 and June 2024 |
 
 ---
 
@@ -331,9 +319,9 @@ The original PKWARE encryption scheme (ZipCrypto) is fundamentally broken but re
 | **Arbitrary File Write → RCE** | Any system extracting user-supplied archives | §1 + §2 | Zip Slip writes webshell to web root; symlink writes crontab |
 | **Denial of Service** | Servers, email gateways, CI/CD pipelines processing uploads | §4 + §3-4 | Zip bomb exhausts memory/disk; entry count crash |
 | **Security Scanner Bypass** | Email gateways, antivirus, WAF, EDR | §3-3 + §6 + §7 | Concatenated ZIP shows benign to scanner, malicious to extractor |
-| **Signature/Integrity Bypass** | Android APK, signed JARs, code signing | §5-3 + §3-2 | Janus DEX+APK polyglot; Spring Boot signed JAR tampering |
+| **Signature/Integrity Bypass** | Android APK, signed JARs, code signing | §5-2 + §3-2 | Janus DEX+APK polyglot; Spring Boot signed JAR tampering |
 | **MotW / SmartScreen Bypass** | Windows desktop, endpoints, phishing campaigns | §5-1 + §5-2 | Nested archive strips MotW; ADS writes to Startup folder |
-| **Supply Chain Attack** | Package managers, ML model hubs, extension marketplaces | §7-4 + §5-3 | Picklescan bypass; VS Code extension impersonation |
+| **Supply Chain Attack** | Package managers, ML model hubs, extension marketplaces | §7-4 + §5-2 | Picklescan bypass; VS Code extension impersonation |
 | **Malware Delivery / Evasion** | Phishing, email attachments | §6 + §3-3 + §5-1 | PDF+ZIP polyglot; concatenated archive; MotW bypass |
 | **Container / Sandbox Escape** | Docker, Kubernetes, cloud environments | §2-2 + §1-1 | Symlink targets host mount; path traversal escapes chroot |
 | **Data Exfiltration** | Backup systems, file sync services | §2-2 | Symlink to sensitive file included in backup archive |
@@ -362,13 +350,13 @@ The original PKWARE encryption scheme (ZipCrypto) is fundamentally broken but re
 | §3-1 (filename spoofing) | CVE-2023-39137 (Dart archive) | LFH/CDH filename mismatch → filename spoofing in mobile apps. |
 | §2-1 (symlink traversal) | CVE-2023-39139 (Dart archive) | Symlink targets not validated → arbitrary file read/write. |
 | §1-3 (normalization differential) | CVE-2023-39138 (Swift ZIPFoundation) | `isContained()` bypass via path normalization difference. |
-| §5-3 (APK signature bypass) | CVE-2017-13156 (Android Janus) | DEX+APK polyglot bypasses APK v1 signature verification. |
+| §5-2 (APK signature bypass) | CVE-2017-13156 (Android Janus) | DEX+APK polyglot bypasses APK v1 signature verification. |
 | §3-4 (duplicate filenames) | Android Master Key Bug (2013) | Duplicate ZIP entries; first passes verification, second is loaded. |
 | §7-4 (parser differential) | Gmail/Coremail/Zoho bounties (2025) | ZIP parser differential bypasses secure email gateway scanning. |
 | §7-4 (parser differential) | Spring Boot CVE (2025) | Signed JAR tampering via CD offset manipulation. |
 | §7-4 (parser differential) | LibreOffice CVE (2025) | ZIP64 EOCD manipulation causes document content spoofing. |
 | §6-1 (polyglot) | CVE-2025-58440 (Laravel FileManager) | Polyglot file + null byte injection → RCE. |
-| §5-3 (tampered headers) | BadPack APK malware (2023–2024) | ~9,200 samples with tampered ZIP headers to prevent analysis tool parsing. |
+| §5-2 (tampered headers) | BadPack APK malware (2023–2024) | ~9,200 samples with tampered ZIP headers to prevent analysis tool parsing. |
 | §7-4 (parser differential) | CVE-2025-62156 (Argo Workflow) | Zip Slip vulnerability in Argo Workflow's archive handling. |
 
 ---

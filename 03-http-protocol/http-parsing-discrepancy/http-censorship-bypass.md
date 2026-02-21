@@ -65,6 +65,7 @@ The most widely deployed category of censorship evasion. DPI systems typically i
 | **First-byte split** | Send only the first 1 byte of a request, then the remainder in a second segment | DPI examines only the first segment for pattern matching | D1 |
 | **Mid-keyword split** | Fragment the TCP stream such that the censored string (e.g., `exampl` / `e.com`) straddles two segments | DPI lacks cross-segment reassembly | D1 |
 | **Multi-split** | Divide a single request into 3+ small segments, each below the DPI's minimum inspection threshold | DPI drops very small segments or has limited reassembly buffers | D1 |
+| **Induced oversized segmentation** | Pad the HTTP request beyond ~1,449 bytes (just below the ~1,500-byte Ethernet MTU with headers), forcing natural TCP segmentation; the censored Host header lands in the second segment that the DPI fails to reassemble | DPI inspects only the first TCP segment; Airtel (India) does not handle cross-segment HTTP reassembly | D1 |
 | **Out-of-order segments (disorder)** | Send TCP segments out of sequence number order; the endpoint reorders, but the DPI may not | DPI performs in-order-only inspection | D1, D2 |
 | **Overlapping segments** | Send overlapping TCP segments with different data; endpoint and DPI may resolve overlaps differently (RFC 793 vs. implementation) | Platform-specific overlap resolution (first-wins vs. last-wins) | D1 |
 
@@ -179,7 +180,7 @@ Make the circumvention server's TLS handshake indistinguishable from a legitimat
 
 ## §3. HTTP Semantics Manipulation
 
-HTTP-layer evasion targets censors that inspect HTTP request/response content for censored keywords — typically in the `Host` header, URL path, or response body. These techniques exploit the gap between how a DPI system parses HTTP and how the destination web server interprets the same bytes.
+HTTP-layer evasion targets censors that inspect HTTP request/response content for censored keywords — typically in the `Host` header, URL path, or response body. These techniques exploit the gap between how a DPI system parses HTTP and how the destination web server interprets the same bytes. Automated discovery of 77 unique HTTP-layer evasion strategies across China, India, and Kazakhstan (GET /out, USENIX Security 2022) revealed that **whitespace manipulation is the dominant mutation class** — 53 of 77 strategies (69%) involve whitespace insertion, removal, or repositioning in the request line, headers, or field values.
 
 ### §3-1. Host Header Mutation
 
@@ -194,6 +195,8 @@ The HTTP `Host` header is the primary target for HTTP-layer censors. Mutations a
 | **Duplicate Host headers** | Include two `Host` headers with different values; the DPI and server may choose differently (first vs. last) | Server and DPI have different duplicate-header resolution logic | D1 |
 | **Null byte injection** | Insert `\x00` within the hostname: `Host: blocked\x00.com`; some servers truncate at null while DPI reads the full string | Server truncates at null byte; DPI does not | D1, D3 |
 | **Tab/space before colon** | Add whitespace before the colon: `Host : blocked.com`; technically invalid but accepted by some servers | DPI rejects or misparses the malformed header; server is tolerant | D1 |
+| **Long header name injection** | Insert a header with a name ≥64 bytes before the Host header; the GFW's HTTP parser cannot parse subsequent headers and fails open | GFW has a 63-byte limit on header name parsing | D1, D6 |
+| **Request size overflow** | Pad the HTTP request beyond ~1,280 bytes (e.g., via path padding or extra headers); the GFW's internal parser buffer overflows and it fails to extract the Host header | GFW has a fixed ~1,280-byte HTTP request parsing buffer | D1, D6 |
 
 ### §3-2. HTTP Request Smuggling for Censorship Evasion
 
@@ -206,7 +209,18 @@ Repurposing the web security vulnerability of HTTP Request Smuggling (HRS) as a 
 | **TE obfuscation** | Obfuscate the `Transfer-Encoding` header (e.g., `Transfer-Encoding: \tchunked` or `Transfer-Encoding: chunked, identity`) so one parser recognizes it and the other does not | DPI and server have different TE parsing tolerance | D1, D3 |
 | **Pipelined smuggling** | Send multiple HTTP requests in a pipeline where the boundary between requests is ambiguous; the censored domain appears in a request the DPI attributes to a different connection context | DPI does not correctly track pipelined request boundaries | D1 |
 
-This technique was demonstrated effective against censors in China, Russia, and Iran (FOCI 2024), with the censored domain placed in a smuggled second request's Host header.
+This technique was systematically evaluated against censors in China, Russia, and Iran (FOCI 2024). From 4,488 test vectors (derived from 1,138 HRS mutations across four vector types: CL\*/TE, TE\*/CL, CL/TE\*, TE/CL\*), 2,015 were accepted by at least one web server. Six mutation strategy categories proved effective:
+
+| Strategy | Mechanism | Effectiveness |
+|----------|-----------|---------------|
+| **Double colon** | Inject extra colon in header: `Transfer-Encoding:: chunked` | Iran (CL\*/TE, CL/TE\*); older Apache |
+| **Whitespace injection** | Inject tabs, spaces, or line breaks into CL/TE headers | Iran (standard-compliant with tabs/spaces); partial in China |
+| **Letter case** | Change header value casing: `CHUNKED`, `Chunked` | China (GFW ignores TE with wrong case); Apache, Nginx |
+| **Wrapping** | Wrap header value with extra bytes invalidating parsing | Iran (CL\*/TE — 12.6% circumvention rate via CL/TE interplay bug) |
+| **Invalid header name** | Inject Unicode characters into header name | Russia only (censor cannot parse modified header) |
+| **Double-header** | Send two TE headers, only the last indicating chunked | All three censors; Nginx 1.14, CitizenLab list servers |
+
+**Per-country results:** Russia achieved 100% circumvention — the censor only inspects the first HTTP request in a TCP stream and never analyzes smuggled second requests, making even standard-compliant pipelining a bypass. Iran achieved 12.6% circumvention (254/2,015 vectors), primarily through a CL/TE interplay bug where an invalid CL value combined with a valid TE header causes the censor to fail open. China achieved 0.9% circumvention (19/2,015 vectors), with some vectors showing inconsistent 10–35% success rates across different GFW infrastructure components.
 
 ### §3-3. HTTP Method and Version Tricks
 
@@ -215,8 +229,10 @@ Exploit DPI assumptions about HTTP method types and protocol versions.
 | Subtype | Mechanism | Key Condition | Discrepancy |
 |---------|-----------|---------------|-------------|
 | **Unusual HTTP methods** | Use methods like `OPTIONS`, `HEAD`, `CONNECT`, or custom methods; some DPI systems only inspect `GET` and `POST` | DPI filters only common methods | D6 |
+| **Method case variation** | Alter method casing: `gEt`, `GeT`, `gET`; HTTP methods are case-sensitive per RFC 9110, but many servers (Apache 2.4.6/2.4.18, Nginx) accept any casing while the DPI expects exact uppercase | DPI performs case-sensitive method matching; server is tolerant | D3 |
 | **HTTP/0.9 downgrade** | Send a bare request line without headers (`GET /path\r\n`); the DPI may not recognize this as HTTP | DPI expects HTTP/1.0+ format | D6 |
-| **HTTP version manipulation** | Use non-standard version strings (e.g., `HTTP/1.2`, `HTTP/2.0` in plaintext); the DPI may skip inspection for unrecognized versions | DPI has version-specific parsing logic | D6 |
+| **HTTP version manipulation** | Use non-standard version strings (e.g., `HTTP/1.2`, `HTTP/2.0` in plaintext) or corrupt the version with `%25` injection; the DPI may skip inspection for unrecognized versions. Evades both Host-based and keyword-based censorship in China, as the GFW validates the version field before performing DPI | DPI has version-specific parsing logic; GFW requires valid version to trigger inspection | D6 |
+| **Four-element request line** | Insert a space mid-field in the path or version (e.g., `GET /pa th HTTP/1.1`), creating a four-element request line; the DPI fails to parse the version correctly while Apache accepts it | DPI splits request line on whitespace and expects exactly three elements | D1, D6 |
 | **Absolute-form vs. origin-form** | Use `GET http://blocked.com/ HTTP/1.1` (absolute form) when the DPI only inspects the Host header, or vice versa | DPI extracts the hostname from only one location | D1, D3 |
 
 ### §3-4. URL and Path Obfuscation
@@ -475,7 +491,8 @@ Counter protocol-level and behavior-level fingerprinting used by ML classifiers.
 | §1-4 (TCP state exploitation) | SymTCP discovers novel evasion strategies via symbolic execution, including urgent pointer abuse | Bypasses Zeek, Snort, and the GFW; tens of thousands of candidate evasion packets generated | 2020 |
 | §1 (TCP manipulation, multiple) | Geneva genetic algorithm discovers 100+ evasion strategies against censors in CN, IN, IR, KZ | Previously unknown censor bugs discovered; deployed client-side without proxy | 2019–2025 |
 | GFW internal | Wallbleed: memory disclosure vulnerability in GFW's DNS injector reveals internal architecture | Unprecedented view of GFW internals; 6+ months of data leakage before patch | 2023–2024 |
-| §3-2 (HTTP smuggling) | HTTP Request Smuggling demonstrated as censorship evasion against CN, RU, IR censors | Novel application-layer evasion; effective against Host-header-based blocking | 2024 (FOCI) |
+| §3 (HTTP semantics, multiple) | GET /out: automated discovery of 77 HTTP and 9 DNS application-layer evasion strategies across CN, IN, KZ | First systematic application-layer evasion fuzzer; 56/77 strategies bypass India (Airtel), 29/77 bypass Kazakhstan, 22–27/77 bypass China. GFW ~1,280-byte buffer limit and 64-byte header name limit discovered | 2022 |
+| §3-2 (HTTP smuggling) | HTTP Request Smuggling demonstrated as censorship evasion against CN, RU, IR censors; 4,488 test vectors from 1,138 HRS mutations | Russia: 100% circumvention (censor inspects only first request in TCP stream); Iran: 12.6% (CL/TE interplay bug); China: 0.9% | 2024 (FOCI) |
 | §5-1 (QUIC frame splitting) | GFW begins QUIC SNI-based censorship; circumvented by CRYPTO frame splitting | First country-level QUIC censorship; Chrome changes naturally break GFW's single-datagram parser | 2024–2025 |
 | §2-2 (ECH) | Russia blocks ECH connections to Cloudflare within one month of Cloudflare's ECH rollout | Rapid censor adaptation; ECH's limited server support undermines its circumvention potential | 2024 |
 | §6-2 (fully encrypted detection) | GFW deploys entropy-based detection of fully encrypted traffic, blocking Shadowsocks and similar | Paradigm shift: "look-like-nothing" no longer viable in China | 2023 |
@@ -497,7 +514,7 @@ Counter protocol-level and behavior-level fingerprinting used by ML classifiers.
 | **SpoofDPI** | Cross-platform (Go) | First-byte TCP split (§1-1), HTTP header fragmentation | Passive DPI |
 | **ByeDPI** | Linux, Android | TCP fragmentation, fake packets, desynchronization (§1) | Passive DPI |
 | **zapret** | Linux, OpenWrt | Multi-split, fake packets, disorder, desync, combined L3-L7 (§1, §2, §3) | Passive and stateful DPI |
-| **Geneva** | Linux (client/server) | Genetically evolved packet manipulation strategies (§1, §2) | Any DPI; discovers novel strategies automatically |
+| **Geneva** | Linux (client/server) | Genetically evolved packet manipulation strategies (§1, §2); extended to application-layer fuzzing (§3) via GET /out — 77 HTTP + 9 DNS evasion strategies discovered | Any DPI; discovers novel strategies automatically |
 | **SymTCP** | Linux (research) | Symbolic execution-driven TCP state discrepancy discovery (§1-4) | Stateful DPI (Zeek, Snort, GFW) |
 | **DPYProxy** | Cross-platform | TLS record fragmentation (§2-1) + TCP fragmentation (§1-1) | SNI-based filtering |
 | **TLSFragmenter** | Android, desktop | TLS record fragmentation of ClientHello (§2-1) | SNI-based filtering |
@@ -564,6 +581,7 @@ The following sources informed this taxonomy. Consistent with the document's met
 - "How China Detects and Blocks Shadowsocks" — IMC 2020
 - "Conjure: Summoning Proxies from Unused Address Space" — CCS 2020
 - "Running Refraction Networking for Real" — PETS 2020
+- "GET /out: Automated Discovery of Application-Layer Censorship Evasion Strategies" — USENIX Security 2022
 - "How the Great Firewall of China Detects and Blocks Fully Encrypted Traffic" — USENIX Security 2023
 - "Circumventing the GFW with TLS Record Fragmentation" — CCS 2023 Poster / FOCI 2024
 - "Turning Attacks into Advantages: Evading HTTP Censorship with HTTP Request Smuggling" — FOCI 2024

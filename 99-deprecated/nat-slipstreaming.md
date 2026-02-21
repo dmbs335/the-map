@@ -1,3 +1,8 @@
+> **DEPRECATED** — Moved to `99-deprecated/`.
+> - Browser-side mitigations (restricted port lists, mDNS ICE candidates, Private Network Access) have neutralized all known attack vectors.
+> - ALG exploitation requires a very specific combination of legacy NAT configuration, browser version, and network topology that is vanishingly rare in practice.
+> - Core concept (ALG connection tracking abuse) is a network-layer attack with minimal overlap to web application security testing.
+
 # NAT Slipstreaming Mutation/Variation Taxonomy
 
 ---
@@ -221,17 +226,6 @@ NATs may rewrite the source port of outgoing connections. The attacker must ensu
 | **Direct port targeting** | If the NAT doesn't rewrite source ports for traffic to known ALG ports (e.g., outgoing traffic to port 5060 keeps its source port), the attack is straightforward. | NAT port preservation; common in consumer routers |
 | **ALG forced port forwarding** | Even when the NAT rewrites source ports, the ALG's pinhole creation is based on the *signaling content* (the IP:PORT in the SIP Contact header), not the transport-layer source port. The ALG forces the NAT to create a forward for the specified port regardless of the connection's actual source port. | Standard ALG behavior |
 
-### §5-3. Linux conntrack Helper Exploitation
-
-On Linux-based NAT devices (including most consumer routers), connection tracking helpers are kernel modules that implement ALG logic.
-
-| Subtype | Mechanism | Key Condition |
-|---------|-----------|---------------|
-| **nf_conntrack_sip automatic activation** | In Linux kernels before 4.7, conntrack helpers were automatically activated for all traffic on their configured port. Any packet with SIP-like content arriving on port 5060 would be processed by the SIP helper — no validation of whether the connection was actually a SIP session. | Linux kernel < 4.7; or `nf_conntrack_helper=1` sysctl |
-| **nf_conntrack_h323 expectation creation** | The H.323 conntrack helper creates expectations based on H.225/H.245 signaling. The helper trusts the IP addresses in call setup messages to create DNAT expectations, enabling the v2 any-IP targeting attack. | nf_conntrack_h323 module loaded |
-| **nf_conntrack_ftp PORT tracking** | The FTP conntrack helper parses PORT commands and creates expectations for the specified data connection. This enables the FTP variant of the attack. | nf_conntrack_ftp module loaded |
-| **Helper assignment bypass** | Even when automatic helper assignment is disabled (kernel ≥ 4.7), many distributions re-enable it for backward compatibility, or assign helpers via iptables CT target rules that match broadly (e.g., all traffic to port 5060). | Distribution/configuration dependent |
-
 ---
 
 ## §6. Target Scope Expansion
@@ -247,17 +241,7 @@ The original NAT Slipstreaming and NAT Pinning attacks open pinholes only to the
 | **Victim-machine service exposure** | SIP REGISTER with the victim's own internal IP in the Contact header. The pinhole forwards a specified port to the victim machine. The attacker can then connect to any service running on that port: SSH, RDP, HTTP admin panels, database services. | Service must be listening on the target port on the victim machine |
 | **Port scanning via sequential pinholes** | By repeating the attack with different port numbers, the attacker can sequentially open pinholes to scan the victim's machine for open services. Each attempt requires a full attack cycle (padding + SIP injection + ALG trigger). | Attack can be repeated within a single browser session |
 
-### §6-2. Any-IP Network Targeting (v2 Scope)
-
-The H.323 call-forwarding capability allows specifying an arbitrary internal IP, dramatically expanding attack scope.
-
-| Subtype | Mechanism | Key Condition |
-|---------|-----------|---------------|
-| **Targeted device exploitation** | The attacker specifies the IP of a known internal device (discovered via §1 or guessed from common DHCP ranges) in the H.323 forwarding message. The NAT opens a pinhole to that device. Targets include: printers (IPP/SNMP), IP cameras (RTSP/HTTP), NAS devices (SMB/SSH), IoT controllers, SCADA/ICS systems. | H.323 ALG enables third-party IP forwarding; attacker knows target IP |
-| **Network sweep** | The attacker iterates through the /24 (or wider) subnet, attempting H.323 call-forwarding to each address. Combined with port scanning, this maps the entire internal network topology and service landscape from an external position. | Requires many attack iterations; browser must remain on malicious page |
-| **Pivot chaining** | After gaining access to an internal device via a pinhole, the attacker uses that device as a pivot point for deeper network penetration. For example: access a printer's web admin panel → exploit a known firmware vulnerability → establish a reverse shell → scan deeper network segments. | Internal device must have exploitable services |
-
-### §6-3. Cross-Network Attacks
+### §6-2. Cross-Network Attacks
 
 In certain architectural scenarios, the attack scope extends beyond a single NAT boundary.
 

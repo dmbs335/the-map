@@ -329,21 +329,6 @@ AI frameworks serialize complex object graphs (model pipelines, agent chains, to
 | **Model pickling** | PyTorch, scikit-learn | Models serialized via Python pickle; loading untrusted `.pkl` files executes arbitrary code via `__reduce__` |
 | **Configuration deserialization** | MLflow, Kubeflow | Pipeline configurations containing class names for custom transformers/estimators |
 
-### §7-2. Infrastructure-as-Code and Configuration
-
-| Surface | Entry Point | Mechanism |
-|---------|-------------|-----------|
-| **Helm/Kubernetes manifests** | Container image specifications | Injecting arbitrary container images via templated values |
-| **Terraform providers** | Provider plugin loading | Custom provider loading arbitrary Go packages |
-| **CI/CD pipeline actions** | GitHub Actions `uses:` field | Specifying arbitrary action repositories |
-
-### §7-3. WebAssembly and Edge Computing
-
-| Surface | Mechanism | Status |
-|---------|-----------|--------|
-| **WASI module loading** | Dynamic module instantiation from user-specified paths | Emerging; limited current exploitation |
-| **Edge function deployment** | User-supplied code bundles instantiated on edge infrastructure | Platform-dependent; isolation boundaries vary |
-
 ---
 
 ## Attack Scenario Mapping (Axis 3)

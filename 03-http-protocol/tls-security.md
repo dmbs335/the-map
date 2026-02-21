@@ -127,7 +127,6 @@ In TLS ≤1.2, RSA key exchange encrypts the premaster secret under the server's
 | **Small Subgroup Attack** | Attacker sends a DH public value from a small subgroup of the multiplicative group. The shared secret is confined to a small set of values, recoverable by brute force. | DH group parameters lack safe-prime validation. Server does not validate peer's public value order. |
 | **Weak DH Parameter Reuse** | Many servers reuse the same DH parameters (particularly 1024-bit groups). Precomputation of discrete logarithm tables for popular groups enables passive decryption. An academic estimate suggests a nation-state could break a single 1024-bit group for ~$100M, then passively decrypt any connection using that group. | Common 1024-bit DH groups. No server-side generation of unique DH parameters. |
 | **Raccoon Attack (DH Timing)** | A timing side-channel in DH key exchange: when the shared secret has leading zero bytes, the server's HMAC computation during key derivation processes fewer bytes, producing a measurable timing difference. Combined with precomputed tables, the premaster secret is recoverable. | TLS-DHE or TLS-DH. Non-constant-time processing of DH shared secret leading zeros. |
-| **Key Compromise Impersonation (KCI)** | When an attacker possesses the client's private key (from a compromised client certificate), they can impersonate any server to that client using non-ephemeral DH cipher suites. The client believes it has authenticated the server, but the attacker controls the shared secret. | Non-ephemeral DH key exchange with fixed DH client authentication. Compromised client certificate private key. |
 
 ### §2-3. Elliptic Curve Key Exchange Vulnerabilities
 
@@ -177,8 +176,6 @@ TLS 1.3 mandates AEAD ciphers and eliminates CBC, removing most record-layer vul
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
 | **TLS 1.3 Padding Bug (wolfSSL)** | Malformed TLS 1.3 records with invalid content-type padding trigger out-of-bounds reads during padding removal. A pre-authentication remote DoS or memory exposure. (CVE-2024-0901) | wolfSSL < 5.7.0 with TLS 1.3. Unauthenticated. |
-| **AEAD Tag Truncation** | Implementations accepting truncated AEAD authentication tags reduce forgery resistance. Each bit removed doubles forgery probability. | Non-standard AEAD tag length negotiation. Permissive tag validation. |
-| **Record Size Limit Mismatch** | TLS 1.3 records have a maximum size of 16KB + 256 bytes (for content type and padding). Implementations disagreeing on this limit may cause fragmentation, truncation, or buffer overflows. | Different TLS libraries on each side of a proxy with different max record size interpretations. |
 
 ---
 
@@ -328,10 +325,7 @@ Beyond protocol-level weaknesses, individual TLS library implementations contain
 |---|---|---|
 | **Heartbleed (Heartbeat Over-Read)** | OpenSSL's TLS Heartbeat extension (RFC 6520) echoes a payload whose length is specified by the sender. The implementation trusted the sender's length field, reading up to 64KB of heap memory per request. ~17% of TLS servers affected at disclosure. Leaked private keys, session tokens, user data. (CVE-2014-0160) | OpenSSL 1.0.1–1.0.1f. TLS Heartbeat enabled (default). See `web-memory-disclosure.md` §1-1 for detailed treatment. |
 | **Ticketbleed (Session Ticket ID Padding)** | F5 BIG-IP's TLS implementation pads Session IDs shorter than 32 bytes with uninitialized memory, leaking up to 31 bytes per connection. Leaked session data and key material. (CVE-2016-9244) | F5 BIG-IP with Session Tickets enabled. See `web-memory-disclosure.md` §1-1. |
-| **PKCS#12 Parser Heap Overflow** | Multiple heap overflow vulnerabilities in OpenSSL's PKCS#12 parsing, including PBMAC1 parameter validation failure causing stack buffer overflow or NULL dereference during MAC verification. | OpenSSL processing untrusted PKCS#12 files. |
-| **CMS AuthEnvelopedData IV Overflow** | When parsing CMS structures using AEAD ciphers, the IV from ASN.1 parameters is copied into a fixed-size stack buffer without length validation. Pre-authentication buffer overflow. (CVE-2025-15467) | OpenSSL 3.0–3.6 processing untrusted CMS/PKCS#7 content. |
 | **TLS 1.3 Certificate Decompression DoS** | A TLS 1.3 connection using certificate compression can force allocation of up to ~22MB per connection before decompression, without checking against the configured certificate size limit. | TLS 1.3 with certificate compression. Unauthenticated. |
-| **OCB Mode Trailing Bytes** | OpenSSL's OCB encryption mode leaves trailing bytes unencrypted and unauthenticated, breaking both confidentiality and integrity for the affected portion. | OpenSSL OCB mode. Discovered as part of 12 AI-found zero-days (2026). |
 
 ### §7-3. Library-Specific Configuration Pitfalls
 
@@ -414,7 +408,6 @@ The transition from classical to post-quantum (PQ) cryptography in TLS creates a
 | **Hybrid Concatenation Errors** | Combining classical and PQ shared secrets (e.g., X25519 + ML-KEM) requires correct secret concatenation and key derivation. Incorrect implementation can weaken the combined key below either component's strength. | Hybrid key exchange implementation. Custom concatenation logic. |
 | **PQ Public Key Validation Failure** | Post-quantum KEMs (ML-KEM/Kyber) have specific public key validation requirements. Missing validation allows crafted public keys that reveal the recipient's private key through decapsulation. | PQ KEM without public key validation. |
 | **PQ Signature Size Fragmentation** | ML-DSA (Dilithium) signatures are ~2.5KB (vs. ~256B for ECDSA). In the TLS handshake, this increases certificate chain size, causing IP fragmentation, middlebox incompatibility, and performance degradation. Certificate chains with multiple PQ signatures may exceed MTU, triggering TCP fragmentation and potential middlebox drops. | TLS with PQ signature algorithms. Network paths with small MTU or intolerant middleboxes. |
-| **Lattice-Based Side-Channel Vulnerability** | ML-KEM implementations on constrained hardware may leak secret information through timing or power analysis during encapsulation/decapsulation. The re-encryption step in CCA-secure KEMs introduces additional side-channel risk. | PQ KEM on constrained/embedded hardware. Non-constant-time implementation. |
 
 ### §10-3. PQ Deployment Status
 
@@ -456,8 +449,7 @@ Over 50% of web traffic through Cloudflare used PQ key agreement (X25519Kyber768
 | §4-1 (RPK auth bypass) | CVE-2024-12797 (OpenSSL 3.2–3.4) | TLS MitM via unauthenticated RPK. Discovered by Apple. |
 | §2-1 (RSA timing) | Marvin Attack (2023–2024, multi-library) | Bleichenbacher timing oracle in OpenSSL, NSS, Go, Java, libgcrypt, Linux kernel. |
 | §5-1 (cross-zone resumption) | Cloudflare mTLS bypass (Jan 2025) | Session ticket from zone A resumes in zone B, bypassing mTLS. |
-| §7-2 (CMS overflow) | CVE-2025-15467 (OpenSSL 3.x) | Pre-auth stack buffer overflow in CMS IV handling. |
-| §7-2 (multiple) | 12 CVEs (OpenSSL, AI-discovered 2026) | QUIC, PKCS#12, CMS, TLS 1.3, BIO subsystems. Heap overflows, type confusions, crypto bug. |
+| §7-2 (multiple) | 12 CVEs (OpenSSL, AI-discovered 2026) | QUIC, TLS 1.3, BIO subsystems. Heap overflows, type confusions, crypto bug. |
 | §4-3 (OCSP end-of-life) | Let's Encrypt OCSP sunset (2025) | OCSP support ended. Transition to CRLs and short-lived certificates. |
 | §10-3 (PQ standardization) | NIST FIPS 203/204/205 (Aug 2024) | ML-KEM, ML-DSA, SLH-DSA finalized. HQC selected March 2025. |
 
@@ -524,7 +516,6 @@ TLS 1.3 represents a significant structural improvement — eliminating RSA key 
 - Adrian, D. et al. "Imperfect Forward Secrecy: How Diffie-Hellman Fails in Practice (Logjam)." ACM CCS 2015.
 - Al Fardan, N. & Paterson, K. "Lucky Thirteen: Breaking the TLS and DTLS Record Protocols." IEEE S&P 2013.
 - Kario, H. "The Marvin Attack." Red Hat, 2023. https://people.redhat.com/~hkario/marvin/
-- Hlauschek, C. et al. "Prying Open Pandora's Box: KCI Attacks against TLS." USENIX WOOT 2015.
 - Bhargavan, K. et al. "Triple Handshakes and Cookie Cutters: Breaking and Fixing Authentication over TLS." IEEE S&P 2014.
 - Duong, T. & Rizzo, J. "The CRIME Attack." Ekoparty 2012.
 - Gluck, Y. et al. "BREACH: Reviving the CRIME Attack." Black Hat USA 2013.

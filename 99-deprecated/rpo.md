@@ -1,3 +1,8 @@
+> **DEPRECATED** — Moved to `99-deprecated/`.
+> - RPO requires an extremely narrow precondition set: path confusion + text reflection + quirks mode simultaneously
+> - Virtually no standalone RPO findings in modern bug bounty or pentest engagements
+> - Path-confusion-based cache poisoning/deception is covered in `web-cache-poisoning-and-deception.md`
+
 # Relative Path Overwrite (RPO) — Mutation & Variation Taxonomy
 
 ---

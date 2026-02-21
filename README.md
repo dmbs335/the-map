@@ -9,7 +9,7 @@ A structured, comprehensive vulnerability mutation taxonomy collection for secur
 
 ## What is this?
 
-**The Map** is a **security knowledge base** that systematically classifies 100+ web vulnerability classes across 12 categories. Unlike conventional cheatsheets or CVE lists, each topic is organized by **structural mutation criteria** — what is mutated, what discrepancy it creates, and where it is weaponized.
+**The Map** is a **security knowledge base** that systematically classifies 100+ web vulnerability classes across 13 categories. Unlike conventional cheatsheets or CVE lists, each topic is organized by **structural mutation criteria** — what is mutated, what discrepancy it creates, and where it is weaponized.
 
 Each topic is a deeply structured Markdown reference document covering the full attack surface of a vulnerability class through a three-axis taxonomy (Mutation Target, Discrepancy/Bypass Type, Attack Scenario).
 
@@ -128,8 +128,6 @@ Each topic is a deeply structured Markdown reference document covering the full 
 | [**API Inventory Management**](08-infrastructure/api-inventory-management.md) | API discovery, shadow APIs, and inventory management security |
 | [**Container & Orchestration RCE**](08-infrastructure/container-orchestration-infrastructure-rce.md) | Container escape, Kubernetes exploitation, and orchestration infrastructure RCE |
 | [**Developer Toolchain & Build System RCE**](08-infrastructure/developer-toolchain-build-system-rce.md) | Build tool, IDE plugin, and developer toolchain exploitation for RCE |
-| [**Nginx Vulnerability Taxonomy**](08-infrastructure/nginx-vulnerability-taxonomy.md) | Nginx-specific misconfigurations, alias traversal, and off-by-slash attacks |
-| [**Jetty Vulnerability Taxonomy**](08-infrastructure/jetty-vulnerability-taxonomy.md) | Eclipse Jetty-specific vulnerabilities and exploitation patterns |
 | [**Secondary Context Attack**](08-infrastructure/secondary-context-attack.md) | Cross-context injection and inter-component trust abuse |
 
 ### 09. Frameworks & Languages
@@ -143,9 +141,6 @@ Each topic is a deeply structured Markdown reference document covering the full 
 | [**Symfony**](09-frameworks-and-languages/symfony.md) | Symfony framework-specific vulnerabilities and exploitation |
 | [**Next.js**](09-frameworks-and-languages/nextjs.md) | Next.js SSR/SSG security patterns and middleware bypass |
 | [**Modern JS Frameworks**](09-frameworks-and-languages/modern-js-frameworks.md) | React, Angular, Vue security patterns and SSR vulnerabilities |
-| [**Adobe Experience Manager (AEM)**](09-frameworks-and-languages/aem.md) | AEM-specific attack surface, dispatcher bypass, and OSGi exploitation |
-| [**Salesforce Lightning Platform**](09-frameworks-and-languages/salesforce-lightning-platform-security.md) | Salesforce Lightning security, Aura/LWC exploitation, and SOQL injection |
-| [**SAP**](09-frameworks-and-languages/sap.md) | SAP-specific web vulnerabilities and exploitation patterns |
 | [**ORM Leak**](09-frameworks-and-languages/orm-leak.md) | ORM information leakage and query manipulation patterns |
 
 ### 10. Recon & Methodology
@@ -164,16 +159,25 @@ Each topic is a deeply structured Markdown reference document covering the full 
 | [**LiveOverflow**](11-researchers/liveoverflow.md) | Security research insights and exploitation techniques |
 | [**Soroush Dalili**](11-researchers/soroush-dalili.md) | IIS exploitation and web application security research |
 
-### 12. Miscellaneous
+### 12. Product Security
 | Category | Description |
 |---|---|
-| [**AI/LLM Security**](12-misc/ai-llm-security.md) | AI/LLM prompt injection, jailbreak, agent exploitation, and model security |
-| [**Web Application DoS**](12-misc/web-application-dos.md) | Application-layer denial of service via ReDoS, hash collision, resource exhaustion |
-| [**DNS Web Security**](12-misc/dns-web-security.md) | DNS rebinding, subdomain takeover, and resolver abuse |
-| [**WordPress**](12-misc/wordpress.md) | WordPress-specific vulnerabilities, plugin exploitation, and misconfigurations |
-| [**NAT Slipstreaming**](12-misc/nat-slipstreaming.md) | NAT/firewall bypass via browser-initiated protocol confusion |
-| [**Dynamic Rendering Engine Exploitation**](12-misc/dynamic-rendering-engine-exploitation.md) | Headless browser and dynamic rendering engine exploitation |
-| [**CTF Exotic Tricks**](12-misc/ctf-exotic-tricks.md) | Unconventional exploitation techniques from CTF competitions |
+| [**SAP**](12-product-security/sap.md) | SAP-specific web vulnerabilities and exploitation patterns |
+| [**Adobe Experience Manager (AEM)**](12-product-security/aem.md) | AEM-specific attack surface, dispatcher bypass, and OSGi exploitation |
+| [**Salesforce Lightning Platform**](12-product-security/salesforce-lightning-platform-security.md) | Salesforce Lightning security, Aura/LWC exploitation, and SOQL injection |
+| [**SharePoint**](12-product-security/sharepoint-vulnerability-taxonomy.md) | SharePoint deserialization, auth bypass, and infrastructure exploitation |
+| [**WordPress**](12-product-security/wordpress.md) | WordPress-specific vulnerabilities, plugin exploitation, and misconfigurations |
+| [**Nginx**](12-product-security/nginx-vulnerability-taxonomy.md) | Nginx-specific misconfigurations, alias traversal, and off-by-slash attacks |
+| [**Jetty**](12-product-security/jetty-vulnerability-taxonomy.md) | Eclipse Jetty-specific vulnerabilities and exploitation patterns |
+
+### 13. Miscellaneous
+| Category | Description |
+|---|---|
+| [**AI/LLM Security**](13-misc/ai-llm-security.md) | AI/LLM prompt injection, jailbreak, agent exploitation, and model security |
+| [**Web Application DoS**](13-misc/web-application-dos.md) | Application-layer denial of service via ReDoS, hash collision, resource exhaustion |
+| [**DNS Web Security**](13-misc/dns-web-security.md) | DNS rebinding, subdomain takeover, and resolver abuse |
+| [**Dynamic Rendering Engine Exploitation**](13-misc/dynamic-rendering-engine-exploitation.md) | Headless browser and dynamic rendering engine exploitation |
+| [**CTF Exotic Tricks**](13-misc/ctf-exotic-tricks.md) | Unconventional exploitation techniques from CTF competitions |
 
 ### Artifact Examples
 | Category | Description |
@@ -234,11 +238,12 @@ the-map/
   ├── 05-client-side/            # Client-side & Browser attacks (14 topics)
   ├── 06-encoding-parser/        # Encoding & Parser differentials (4 topics)
   ├── 07-application-logic/      # Business logic vulnerabilities (6 topics)
-  ├── 08-infrastructure/         # Infrastructure & Supply Chain (10 topics)
-  ├── 09-frameworks-and-languages/  # Framework & Language-specific (12 topics)
+  ├── 08-infrastructure/         # Infrastructure & Supply Chain (8 topics)
+  ├── 09-frameworks-and-languages/  # Framework & Language-specific (9 topics)
   ├── 10-recon-methodology/      # Reconnaissance & Methodology (3 topics)
   ├── 11-researchers/            # Security researcher case studies (5 topics)
-  ├── 12-misc/                   # Miscellaneous (7 topics)
+  ├── 12-product-security/       # Product-specific security (7 topics)
+  ├── 13-misc/                   # Miscellaneous (6 topics)
   ├── skills/                    # Claude Code skill definitions (9 skills)
   ├── artifact-examples/         # Generated tooling examples & visualizations
   └── README.md

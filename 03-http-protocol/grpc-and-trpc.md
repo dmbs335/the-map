@@ -144,8 +144,8 @@ Attacks targeting access control mechanisms in gRPC/tRPC applications.
 | Subtype | Mechanism | Key Condition | CVE/Reference |
 |---------|-----------|---------------|---------------|
 | **Hardcoded Credential Exploitation** | Static credentials embedded in source code or configuration. RustFS example: token "rustfs rpc" hardcoded client and server-side, non-configurable, no rotation mechanism. | Credentials in version control, publicly accessible source code. | CVE-2025-68926 (RustFS, CVSS 9.8) |
-| **Metadata Authentication Bypass** | Service validates authentication token in wrong metadata key, or doesn't validate metadata origin. Attacker sends forged metadata with valid-looking but unverified credentials. | Weak metadata validation, reliance on client-provided metadata. |
-| **JWT/Token Replay** | Capture valid authentication token (JWT in metadata) and replay. Effective if tokens lack expiration, nonce, or binding to connection/session. | Tokens without expiration, no replay protection, no session binding. |
+| **Metadata Authentication Bypass** | Service validates authentication token in wrong metadata key, or doesn't validate metadata origin. Attacker sends forged metadata with valid-looking but unverified credentials. | Weak metadata validation, reliance on client-provided metadata. | — |
+| **JWT/Token Replay** | Capture valid authentication token (JWT in metadata) and replay. Effective if tokens lack expiration, nonce, or binding to connection/session. | Tokens without expiration, no replay protection, no session binding. | — |
 
 ### §5-2. Authorization Policy Bypass
 
@@ -153,7 +153,7 @@ Attacks targeting access control mechanisms in gRPC/tRPC applications.
 |---------|-----------|---------------|---------------|
 | **URI Fragment Bypass (Istio)** | HTTP request with fragment in URI path (e.g., `/admin#.user/data`). Istio's URI path-based authorization compares paths but may ignore or process fragments incorrectly. | Istio authorization rules based on paths; fragment handling inconsistent. | Istio security advisory |
 | **Host Header Case Sensitivity Bypass (Istio)** | Istio authorization policy compares `Host` or `:authority` headers case-sensitively. Send `Host: API.example.com` when policy expects `api.example.com`. | Authorization rules use `hosts` or `notHosts` with case-sensitive matching. | Istio security advisory |
-| **tRPC Middleware Chain Bypass** | tRPC uses middleware for authentication/authorization. If middleware chain has gaps or middleware doesn't throw errors on failure, attacker can bypass by triggering edge cases. | Incomplete middleware coverage, missing error handling in middleware. |
+| **tRPC Middleware Chain Bypass** | tRPC uses middleware for authentication/authorization. If middleware chain has gaps or middleware doesn't throw errors on failure, attacker can bypass by triggering edge cases. | Incomplete middleware coverage, missing error handling in middleware. | — |
 | **Prototype Pollution in tRPC Context** | If tRPC procedures use `experimental_caller` / `experimental_nextAppDirCaller`, prototype pollution vulnerability can inject properties into context object, potentially bypassing authorization checks. | Use of experimental tRPC functions without sanitization. | GHSA-43p4-m455-4f4j |
 
 ---
@@ -175,7 +175,7 @@ Attacks exploiting transport security, connection state, and WebSocket (for tRPC
 | Subtype | Mechanism | Key Condition | CVE/Reference |
 |---------|-----------|---------------|---------------|
 | **tRPC WebSocket connectionParams DoS** | Send invalid `connectionParams` object over WebSocket to tRPC 11 server. `parseConnectionParams` function throws error during validation. Error not caught, triggers uncaught exception, crashes entire server process. | tRPC 11 WebSocket enabled with `createContext` method. Any client can crash server. | CVE-2025-43855 (CVSS 8.7) |
-| **WebSocket Frame Injection** | Inject malformed WebSocket frames to tRPC WebSocket handler. Can cause parser errors, state confusion, or trigger edge cases in frame processing logic. | WebSocket implementation doesn't validate all frame fields. |
+| **WebSocket Frame Injection** | Inject malformed WebSocket frames to tRPC WebSocket handler. Can cause parser errors, state confusion, or trigger edge cases in frame processing logic. | WebSocket implementation doesn't validate all frame fields. | — |
 
 ---
 
@@ -195,18 +195,7 @@ Attacks exploiting type system weaknesses and input validation gaps.
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
 | **Runtime Type Bypass** | tRPC provides compile-time type safety. At runtime, if input validation (e.g., Zod) is missing or incomplete, attacker sends data that doesn't match TypeScript types. Runtime doesn't enforce types; only validation libraries do. | tRPC procedures without Zod or other runtime validation. |
-| **Type Coercion Exploitation** | JavaScript/TypeScript type coercion rules can be exploited. Send string `"123"` where number expected; JS coerces to number. Or send array `[1]` coerced to string `"1"`. Can bypass validation logic. | Weak equality checks (`==` vs `===`), missing type assertions. |
 | **Prototype Pollution via Procedure Input** | Inject `__proto__` or `constructor.prototype` fields in input objects. If tRPC procedures merge or assign user input to objects without sanitization, can pollute prototypes. | Object.assign, spread operator, or merge utilities without prototype checks. |
-
-### §7-3. Injection Attacks via Insufficient Validation
-
-gRPC and tRPC are vulnerable to classic injection attacks when input validation is missing.
-
-| Subtype | Mechanism | Key Condition |
-|---------|-----------|---------------|
-| **SQL Injection** | gRPC/tRPC procedure accepts user input and concatenates into SQL query without parameterization. Protobuf/JSON encoding doesn't prevent SQL injection; only parameterized queries or ORMs do. | Backend constructs SQL from user input without sanitization. |
-| **Command Injection** | Procedure accepts filename, path, or command argument and passes to shell without sanitization. Example: `grpcurl` with user-controlled flags. | Backend executes shell commands with user-controlled input. |
-| **XSS (tRPC with SSR/Browser Rendering)** | tRPC procedure returns data rendered in browser without escaping. Attacker injects HTML/JavaScript in input fields; returned to other users via tRPC response and rendered. | Server-side rendering or client renders tRPC responses as HTML without escaping. |
 
 ---
 

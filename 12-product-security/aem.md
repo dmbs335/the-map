@@ -520,8 +520,6 @@ A defense-in-depth approach is required: (1) **Dispatcher hardening** using full
 
 ---
 
-*This document was created for defensive security research and vulnerability understanding purposes.*
-
 ## References
 
 - [Searchlight Cyber — Finding Critical Bugs in AEM](https://slcyber.io/research-center/finding-critical-bugs-in-adobe-experience-manager/)
@@ -546,3 +544,7 @@ A defense-in-depth approach is required: (1) **Dispatcher hardening** using full
 - [AEM Dispatcher Optimizer Tool (Adobe)](https://github.com/adobe/aem-dispatcher-optimizer-tool)
 - [Detectify Labs — AEM Package Manager Auth Bypass](https://labs.detectify.com/writeups/undocumented-authentication-bypass-issue-in-aem-package-manager-blog-updated/)
 - [HackerOne — U.S. DoD AEM Misconfiguration Report #1939272](https://hackerone.com/reports/1939272)
+
+---
+
+*This document was created for defensive security research and vulnerability understanding purposes.*

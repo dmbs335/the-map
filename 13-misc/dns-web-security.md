@@ -173,25 +173,6 @@ Attacks targeting the DNS hosting layer rather than the registrar.
 | **Zone transfer information disclosure (AXFR)** | Request a full zone transfer from a misconfigured authoritative DNS server, obtaining the complete inventory of all DNS records including internal hostnames and IPs | Server allows AXFR from any source; provides reconnaissance data for further attacks (CVE-1999-0532, still prevalent) |
 | **Dynamic DNS update exploitation** | Exploit insecure dynamic DNS update configurations to inject or modify DNS records without authentication | DNS server allows unauthenticated dynamic updates; common in poorly configured BIND installations |
 
-### §4-3. DHCP-DNS Integration Exploitation
-
-Attacks leveraging the trust relationship between DHCP and DNS services, particularly in Active Directory environments.
-
-| Subtype | Mechanism | Key Condition |
-|---|---|---|
-| **DHCP DNS Dynamic Update spoofing** | Use the DHCP server as a proxy to authenticate DNS record creation/modification in Active Directory Integrated DNS (ADIDNS) zones, without requiring any domain credentials | DHCP server configured for dynamic updates; no authentication required from DHCP client; 57% of monitored networks have DHCP on domain controller |
-| **DHCP DNS record overwrite** | When DHCP server is co-located on a domain controller, exploit dynamic updates to overwrite existing DNS records in the ADIDNS zone | DHCP on DC; default configuration allows record overwrite via DDSpoof tool |
-
-### §4-4. BGP-DNS Intersection Attacks
-
-Attacks that leverage BGP route manipulation to control DNS traffic flows, creating conditions for cache poisoning, certificate issuance, or traffic interception.
-
-| Subtype | Mechanism | Key Condition |
-|---|---|---|
-| **DNS traffic hijacking via BGP** | Announce more-specific BGP routes for DNS resolver or authoritative server IP ranges, redirecting all DNS traffic through attacker infrastructure | Attacker controls BGP-speaking AS; target prefix lacks RPKI ROA; upstream networks don't enforce ROV |
-| **Certificate authority DV bypass via BGP** | Hijack BGP routes for the target domain's IP range during a certificate authority's domain validation check, intercepting the HTTP-01 or DNS-01 challenge and issuing fraudulent TLS certificates | CA performs single-vantage-point validation; attacker can maintain BGP hijack for the validation window |
-| **DNS resolver prefix hijacking** | Announce routes for well-known public DNS resolver IPs (e.g., 1.1.1.1, 8.8.8.8), intercepting and manipulating DNS queries from clients using those resolvers | Insufficient RPKI adoption; Cloudflare 1.1.1.1 incident in June 2024 |
-
 ---
 
 ## §5. DNS as Covert Data Channel (Tunneling & Exfiltration)

@@ -280,20 +280,7 @@ OGNL-specific context objects and value stack manipulation.
 
 Chaining multiple techniques or leveraging existing "gadget" methods to achieve complex exploitation.
 
-### §7-1. Early Response Gadgets
-
-Methods that respond before consuming full request body, useful in specific attack scenarios.
-
-| Subtype | Mechanism | Key Condition |
-|---------|-----------|---------------|
-| **Static File Handlers** | Static resource endpoints return before reading body | Web servers with static handlers |
-| **Windows Reserved Filenames** | Requests to `CON`, `PRN`, `AUX` trigger early responses | Windows-based servers |
-| **Server Redirects** | 30x redirects issued before body consumption | Redirect logic before body parsing |
-| **Expect: 100-continue** | Client waits for 100 response before sending body | HTTP/1.1 continuation mechanism |
-
-**Note**: These gadgets are often combined with HTTP request smuggling for advanced attacks, outside core EL injection scope.
-
-### §7-2. Deserialization Gadget Chains
+### §7-1. Deserialization Gadget Chains
 
 Using expression language to trigger Java deserialization gadgets (crossover vulnerability class).
 

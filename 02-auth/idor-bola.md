@@ -273,14 +273,7 @@ In blind IDOR, the attacker's action succeeds on the victim's object, but the at
 
 ### §6-3. Second-Order IDOR
 
-The exploitation effect manifests in a *different* functionality or at a *later time* than the initial injection.
-
-| Subtype | Mechanism | Key Condition |
-|---------|-----------|---------------|
-| **Audit log injection** | Manipulated object reference gets logged; viewing audit logs reveals other users' data that was resolved at log time | Authorization checked on the action but not on the data rendered in logs |
-| **Report/export data leak** | Injected object reference included in a generated report, export, or notification sent later | Batch job processes stored references without re-checking authorization |
-| **Notification channel hijack** | Modifying a notification target (e.g., webhook URL, email) on another user's object; subsequent events notify the attacker | Object modification succeeds (blind IDOR); data exfiltrated via notification pipeline |
-| **Cached result poisoning** | Writing unauthorized data into a cache entry that is later served to legitimate users or the attacker | Cache key does not include authorization context; stale authz state |
+The exploitation effect manifests in a *different* functionality or at a *later time* than the initial injection. Common patterns include injected object references surfacing in generated reports/exports (where batch jobs process stored references without re-checking authorization) or modified notification targets (e.g., webhook URLs) on another user's object causing data exfiltration via notification pipelines.
 
 ---
 
@@ -302,8 +295,6 @@ Authorization decisions can be invalidated by timing attacks, state transitions,
 |---------|-----------|---------------|
 | **Multi-step process ID swap** | In a multi-step workflow (e.g., create → configure → submit), swapping the object ID between steps to attach the attacker's actions to the victim's object | Authorization checked at step 1 but not re-verified at subsequent steps |
 | **Draft/pending state access** | Accessing objects in pre-publication states (e.g., draft posts, pending orders) via direct ID reference | State-based visibility not enforced at the object access layer |
-| **Archived/deleted object resurrection** | Accessing soft-deleted or archived objects by directly referencing their IDs | Soft-delete sets a flag but object remains queryable via direct reference |
-| **State rollback exploitation** | Triggering a state rollback (e.g., undo, revert) on another user's object to restore access to previously restricted data | Rollback functionality does not re-check authorization against current permissions |
 
 ---
 
@@ -332,7 +323,6 @@ The deployment architecture of modern applications creates authorization gaps at
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
 | **Cloud storage object ID guessing** | Accessing `https://bucket.s3.amazonaws.com/user_456_document.pdf` by modifying the filename pattern | Cloud storage objects named with predictable patterns; no per-object IAM policy |
-| **Serverless function context leak** | Lambda/Cloud Function reuses execution context between invocations, leaking object references from previous requests | Serverless execution reuse without clearing request-scoped authorization state |
 | **Shared database without row-level security** | Multiple microservices share a database; one service queries without tenant/user filtering that another service enforces | Shared datastore; authorization enforced in application layer, not database layer |
 
 ---

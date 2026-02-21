@@ -276,7 +276,6 @@ iOS restricts all browsers to use WebKit, but in-app browsers and WebView implem
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
 | **In-app browser SOP bypass** | In-app browsers (e.g., LINE, Facebook) may implement custom navigation handling that fails to enforce SOP, allowing embedded iframes to execute JavaScript in the top frame of any website. (M1, M2) | Victim views a page containing a malicious iframe in the in-app browser. |
-| **UIWebView javascript execution** | The deprecated `UIWebView` exposes `stringByEvaluatingJavaScriptFromString` which executes JavaScript with the top frame's privileges, and does not support disabling JavaScript. (M7) | App uses deprecated UIWebView with attacker-controllable content. |
 | **Address bar spoofing + UXSS** | In-app browsers and some third-party iOS browsers implement the address bar separately from WebKit. If the address bar can be spoofed while UXSS is executed, the attack becomes undetectable to the user. (M3) | In-app browser does not correctly synchronize displayed URL with actual loaded origin. |
 
 **Example (CVE-2024-5739):** LINE in-app browser on iOS before version 14.9.0 was vulnerable to UXSS, allowing attackers to execute arbitrary JavaScript within the top frame from an embedded iframe on any website.
@@ -306,7 +305,7 @@ SVG documents processed inline or via `<img>`/`<object>` tags execute in context
 | **SVG foreignObject origin bypass** | SVG's `<foreignObject>` element allows embedding HTML content within an SVG context. If the browser does not properly enforce origin restrictions on the embedded HTML, it creates a cross-origin execution path. (M1, M6) | SVG with foreignObject is processed in a context where the HTML content can access cross-origin resources. |
 | **Namespace confusion parsing differential** | The `<style>` tag has different parsing behavior depending on its namespace (HTML vs SVG vs MathML). This differential can confuse sanitizers and, in certain browser implementations, lead to script execution in unexpected contexts. (M6) | Browser's parser handles namespace transitions incorrectly, allowing script execution during namespace switch. |
 
-### §8-4. PDF Viewer Exploitation
+### §8-2. PDF Viewer Exploitation
 
 Browser-integrated PDF viewers (Chrome's PDFium, Firefox's PDF.js) run in specialized contexts that may have different security properties.
 
@@ -360,7 +359,7 @@ Browser-integrated PDF viewers (Chrome's PDFium, Firefox's PDF.js) run in specia
 | §7-3 (Electron) | CVE-2020-16608 | RCE via XSS in Electron application |
 | §8-1 (XSLT) | WebKit XSLT UXSS (EDB-47237) | UXSS via XSLT and nested document replacements |
 | §8-2 (MHTML) | CVE-2014-1747 (Chromium) | UXSS from local MHTML file |
-| §8-4 (PDF viewer) | CVE-2024-4367 (PDF.js) | XSS via crafted PDF, CSP bypass |
+| §8-2 (PDF viewer) | CVE-2024-4367 (PDF.js) | XSS via crafted PDF, CSP bypass |
 | §7-2 (Safari/WebKit) | CVE-2022-22587 (Safari) | $100,500 Apple bounty; full account takeover on every visited site |
 | §8 + §4 (Payment manifest + SW registration) | CVE-2023-5480 (Chrome, Slonser 2024) | UXSS via manipulated payment manifest triggering JIT service worker registration in victim origin; Payment Handler API allows attacker to install malicious SW that executes JavaScript in any origin's context |
 

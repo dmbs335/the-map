@@ -1,0 +1,595 @@
+#!/usr/bin/env python3
+"""
+Build a visual HTML dashboard for UMCS gap analysis artifacts.
+Creates new files only; does not modify existing source docs.
+"""
+
+from __future__ import annotations
+
+import csv
+import json
+from datetime import date
+from pathlib import Path
+from string import Template
+
+
+BASE = Path(__file__).resolve().parent
+SUMMARY_CSV = BASE / "umcs_gap_summary_by_rc.csv"
+HEATMAP_CSV = BASE / "umcs_gap_heatmap_rc_impact.csv"
+TOP20_CSV = BASE / "umcs_gap_top20.csv"
+REPORT_MD = BASE / "UMCS_Gap_Analysis_Report.md"
+OUT_HTML = BASE / "UMCS_Gap_Analysis_Dashboard.html"
+
+
+def read_csv(path: Path):
+    with path.open("r", encoding="utf-8", newline="") as f:
+        return list(csv.DictReader(f))
+
+
+def read_summary_metrics(path: Path):
+    text = path.read_text(encoding="utf-8", errors="ignore")
+    metrics = {
+        "valid_combo_space": 0,
+        "observed_combo_space": 0,
+        "coverage_ratio": 0.0,
+        "gap_ratio": 0.0,
+    }
+    for line in text.splitlines():
+        line = line.strip()
+        if line.startswith("- Valid combo space:"):
+            metrics["valid_combo_space"] = int(line.split("**")[1])
+        elif line.startswith("- Observed combo space:"):
+            metrics["observed_combo_space"] = int(line.split("**")[1])
+        elif line.startswith("- Total coverage ratio:"):
+            metrics["coverage_ratio"] = float(line.split("**")[1])
+        elif line.startswith("- Total gap ratio:"):
+            metrics["gap_ratio"] = float(line.split("**")[1])
+    return metrics
+
+
+def main() -> None:
+    summary_rows = read_csv(SUMMARY_CSV)
+    heatmap_rows = read_csv(HEATMAP_CSV)
+    top20_rows = read_csv(TOP20_CSV)
+    metrics = read_summary_metrics(REPORT_MD)
+
+    payload = {
+        "generated_date": date.today().isoformat(),
+        "metrics": metrics,
+        "summary_by_rc": summary_rows,
+        "heatmap": heatmap_rows,
+        "top20": top20_rows,
+    }
+    data_json = json.dumps(payload, ensure_ascii=False)
+
+    template = Template(
+        """<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>UMCS Gap Analysis Dashboard</title>
+  <style>
+    :root {
+      --bg: #f6f2ea;
+      --ink: #1a2230;
+      --muted: #5f6b7a;
+      --card: rgba(255, 255, 255, 0.74);
+      --line: rgba(26, 34, 48, 0.12);
+      --accent: #0d8477;
+      --accent2: #e76f51;
+      --shadow: 0 12px 40px rgba(26, 34, 48, 0.12);
+      --radius: 16px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 700px at 8% -10%, rgba(13,132,119,0.16), transparent 62%),
+        radial-gradient(900px 500px at 95% 8%, rgba(231,111,81,0.14), transparent 60%),
+        linear-gradient(130deg, #f9f6f0 0%, #f1ede4 45%, #f7f4ee 100%);
+      font-family: "IBM Plex Sans", "Pretendard", "Segoe UI", sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background-image:
+        linear-gradient(to right, rgba(17,24,39,0.05) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(17,24,39,0.05) 1px, transparent 1px);
+      background-size: 32px 32px;
+      mask-image: radial-gradient(circle at center, black 38%, transparent 86%);
+      opacity: 0.18;
+    }
+    .container {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 30px 20px 56px;
+      position: relative;
+      z-index: 1;
+    }
+    .reveal {
+      opacity: 0;
+      transform: translateY(10px);
+      animation: rise .55s cubic-bezier(.2,.7,.3,1) forwards;
+    }
+    .delay-1 { animation-delay: .08s; }
+    .delay-2 { animation-delay: .16s; }
+    .delay-3 { animation-delay: .24s; }
+    @keyframes rise { to { opacity: 1; transform: translateY(0); } }
+
+    .hero {
+      background: linear-gradient(135deg, rgba(255,255,255,.88), rgba(255,255,255,.64));
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      box-shadow: var(--shadow);
+      padding: 24px;
+      backdrop-filter: blur(6px);
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::after {
+      content: "";
+      position: absolute;
+      width: 420px;
+      height: 420px;
+      border-radius: 50%;
+      right: -170px;
+      top: -220px;
+      background: radial-gradient(circle, rgba(13,132,119,0.24), transparent 64%);
+    }
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(13, 132, 119, 0.10);
+      color: #05564f;
+      border: 1px solid rgba(13,132,119,.24);
+      border-radius: 999px;
+      font-size: 12px;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      padding: 6px 10px;
+      font-weight: 700;
+    }
+    h1 {
+      margin: 12px 0 8px;
+      font-size: clamp(26px, 4vw, 42px);
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+      font-family: "IBM Plex Sans", "Pretendard", sans-serif;
+    }
+    .subtitle {
+      margin: 0;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.55;
+      max-width: 980px;
+    }
+    .stamp {
+      margin-top: 10px;
+      color: #3d4a5c;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .kpis {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 14px;
+    }
+    .kpi {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 16px 14px;
+      box-shadow: 0 10px 28px rgba(20, 28, 40, 0.08);
+      min-height: 96px;
+    }
+    .kpi .label {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: #546174;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .kpi .value {
+      font-size: 30px;
+      line-height: 1;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: #162133;
+      font-family: "IBM Plex Mono", "Consolas", monospace;
+    }
+    .kpi .hint {
+      margin-top: 8px;
+      color: #607084;
+      font-size: 12px;
+    }
+    .section-grid {
+      display: grid;
+      grid-template-columns: 1.2fr .95fr;
+      gap: 14px;
+      margin-top: 14px;
+    }
+    .panel {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 16px 16px 14px;
+    }
+    .panel h2 {
+      margin: 0 0 4px;
+      font-size: 18px;
+      letter-spacing: -0.01em;
+    }
+    .panel .desc {
+      margin: 0 0 12px;
+      font-size: 13px;
+      color: #5a6879;
+    }
+    .bars {
+      display: grid;
+      gap: 9px;
+    }
+    .bar-row {
+      display: grid;
+      grid-template-columns: 58px 1fr 70px;
+      gap: 8px;
+      align-items: center;
+      font-size: 12px;
+      color: #3b4a5d;
+    }
+    .bar-track {
+      position: relative;
+      background: rgba(12, 24, 44, 0.10);
+      border-radius: 999px;
+      height: 12px;
+      overflow: hidden;
+    }
+    .bar-fill {
+      position: absolute;
+      inset: 0 auto 0 0;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #17b88a, #e9c46a 60%, #e76f51 100%);
+      transform-origin: left center;
+      animation: grow .7s cubic-bezier(.2,.7,.3,1) both;
+    }
+    @keyframes grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+    .insight-list {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      display: grid;
+      gap: 10px;
+    }
+    .insight-item {
+      border: 1px solid rgba(26, 34, 48, .12);
+      background: rgba(255,255,255,.58);
+      border-radius: 12px;
+      padding: 11px 12px;
+      font-size: 13px;
+      line-height: 1.45;
+      color: #273244;
+    }
+    .insight-item strong { color: #0d4965; }
+    .table-wrap {
+      overflow: auto;
+      border-radius: 12px;
+      border: 1px solid rgba(26, 34, 48, 0.12);
+      background: rgba(255,255,255,.62);
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      min-width: 860px;
+    }
+    th, td {
+      padding: 8px 10px;
+      border-bottom: 1px solid rgba(26, 34, 48, 0.10);
+      text-align: left;
+      font-size: 12px;
+      vertical-align: middle;
+    }
+    th {
+      background: rgba(13,132,119,.10);
+      color: #153345;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      position: sticky;
+      top: 0;
+      z-index: 2;
+    }
+    .cell {
+      text-align: center;
+      font-family: "IBM Plex Mono", "Consolas", monospace;
+      font-size: 11px;
+      border: 1px solid rgba(255,255,255,0.45);
+      min-width: 74px;
+      position: relative;
+      color: #102132;
+      font-weight: 600;
+    }
+    .cell .dot {
+      position: absolute;
+      right: 4px;
+      top: 4px;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #1b9e77;
+      box-shadow: 0 0 0 2px rgba(27,158,119,.18);
+    }
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(17, 24, 39, .18);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .05em;
+      text-transform: uppercase;
+      color: #223146;
+      background: rgba(255,255,255,.58);
+    }
+    .mono {
+      font-family: "IBM Plex Mono", "Consolas", monospace;
+    }
+    .footer-note {
+      margin-top: 10px;
+      color: #58667a;
+      font-size: 12px;
+    }
+    @media (max-width: 1024px) {
+      .section-grid { grid-template-columns: 1fr; }
+      .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 640px) {
+      .container { padding: 16px 12px 30px; }
+      .kpis { grid-template-columns: 1fr; }
+      .hero { padding: 18px 16px; }
+      .panel { padding: 14px 12px; }
+      th, td { padding: 7px 8px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <section class="hero reveal">
+      <span class="eyebrow">UMCS Gap Intelligence</span>
+      <h1>Mutation Coverage Landscape</h1>
+      <p class="subtitle">
+        전체 Mutation 공간 대비 실제 매핑 영역을 한 화면에서 보여줍니다.
+        빈칸(coverage gap), 영향 축(impact), 우선순위 후보(top missing cells)를 바로 확인할 수 있습니다.
+      </p>
+      <div class="stamp" id="generatedStamp"></div>
+      <div class="kpis">
+        <article class="kpi reveal delay-1">
+          <div class="label">Valid Combo Space</div>
+          <div class="value mono" id="kpiValid">-</div>
+          <div class="hint">분석 가능한 총 조합 수</div>
+        </article>
+        <article class="kpi reveal delay-1">
+          <div class="label">Observed Space</div>
+          <div class="value mono" id="kpiObserved">-</div>
+          <div class="hint">실제 매핑된 조합 수</div>
+        </article>
+        <article class="kpi reveal delay-2">
+          <div class="label">Coverage</div>
+          <div class="value mono" id="kpiCoverage">-</div>
+          <div class="hint">높을수록 빈칸 감소</div>
+        </article>
+        <article class="kpi reveal delay-2">
+          <div class="label">Gap Ratio</div>
+          <div class="value mono" id="kpiGap">-</div>
+          <div class="hint">높을수록 우선 보강 필요</div>
+        </article>
+      </div>
+    </section>
+
+    <section class="section-grid">
+      <article class="panel reveal delay-2">
+        <h2>RC Coverage Profile</h2>
+        <p class="desc">RC별 커버리지를 막대로 비교합니다. 오른쪽으로 갈수록 coverage가 높은 축입니다.</p>
+        <div class="bars" id="rcBars"></div>
+      </article>
+      <article class="panel reveal delay-3">
+        <h2>Actionable Insights</h2>
+        <p class="desc">현재 데이터에서 즉시 실행 가능한 보강 포인트를 자동 요약합니다.</p>
+        <ul class="insight-list" id="insightList"></ul>
+      </article>
+    </section>
+
+    <section class="panel reveal delay-3" style="margin-top:14px;">
+      <h2>RC × Impact Heatmap</h2>
+      <p class="desc">셀 값은 coverage %입니다. 색이 진할수록 gap이 큽니다. 녹색 점은 observed 조합이 있는 셀입니다.</p>
+      <div class="table-wrap"><table id="heatTable"></table></div>
+    </section>
+
+    <section class="panel reveal delay-3" style="margin-top:14px;">
+      <h2>Top 20 High-Risk Missing Cells</h2>
+      <p class="desc">gap score 기준 우선순위 후보 목록입니다.</p>
+      <div class="table-wrap"><table id="topTable"></table></div>
+      <p class="footer-note">
+        Source: <span class="mono">umcs_gap_summary_by_rc.csv</span>,
+        <span class="mono">umcs_gap_heatmap_rc_impact.csv</span>,
+        <span class="mono">umcs_gap_top20.csv</span>
+      </p>
+    </section>
+  </main>
+
+  <script>
+    const DATA = $data_json;
+    const byRc = DATA.summary_by_rc.map(function(r) {
+      return {
+        rc: r.rc,
+        possible: Number(r.possible_combos),
+        observed: Number(r.observed_combos),
+        coverage: Number(r.coverage_ratio),
+        gap: Number(r.gap_ratio)
+      };
+    });
+    const heat = DATA.heatmap.map(function(r) {
+      return {
+        rc: r.rc,
+        impact: r.impact,
+        possible: Number(r.possible_combos),
+        observed: Number(r.observed_combos),
+        coverage: Number(r.coverage_ratio),
+        gap: Number(r.gap_ratio)
+      };
+    });
+    const top20 = DATA.top20.map(function(r) {
+      return {
+        rank: Number(r.rank),
+        rc: r.rc,
+        target: r.mutation_target,
+        operator: r.mutation_operator,
+        discrepancy: r.discrepancy_type,
+        role: r.chain_role,
+        impact: r.impact_primary,
+        score: Number(r.gap_score),
+        prefix: Number(r.prefix_coverage)
+      };
+    });
+    const metrics = DATA.metrics;
+    function pct(v) { return (v * 100).toFixed(2) + "%"; }
+
+    document.getElementById("generatedStamp").textContent =
+      "Generated " + DATA.generated_date + " · UMCS valid space " + metrics.valid_combo_space.toLocaleString() + " cells";
+    document.getElementById("kpiValid").textContent = metrics.valid_combo_space.toLocaleString();
+    document.getElementById("kpiObserved").textContent = metrics.observed_combo_space.toLocaleString();
+    document.getElementById("kpiCoverage").textContent = pct(metrics.coverage_ratio);
+    document.getElementById("kpiGap").textContent = pct(metrics.gap_ratio);
+
+    // RC bar chart
+    const rcBars = document.getElementById("rcBars");
+    const sortedRc = byRc.slice().sort(function(a,b) { return a.coverage - b.coverage; });
+    sortedRc.forEach(function(r, idx) {
+      const row = document.createElement("div");
+      row.className = "bar-row";
+      const width = Math.max(r.coverage * 100, 0.6);
+      row.innerHTML =
+        '<div><span class="badge">' + r.rc + '</span></div>' +
+        '<div class="bar-track"><div class="bar-fill" style="width:' + width + '%; animation-delay:' + (idx * 0.04) + 's"></div></div>' +
+        '<div class="mono" style="text-align:right;">' + pct(r.coverage) + '</div>';
+      rcBars.appendChild(row);
+    });
+
+    // Insights
+    const zeroRc = sortedRc.filter(function(r){ return r.coverage === 0; }).map(function(r){ return r.rc; });
+    const bestRc = sortedRc.slice().sort(function(a,b){ return b.coverage - a.coverage; })[0];
+
+    const opFreq = {};
+    const impactFreq = {};
+    top20.forEach(function(r) {
+      opFreq[r.operator] = (opFreq[r.operator] || 0) + 1;
+      impactFreq[r.impact] = (impactFreq[r.impact] || 0) + 1;
+    });
+    const topOp = Object.entries(opFreq).sort(function(a,b){ return b[1]-a[1]; })[0];
+    const topImpact = Object.entries(impactFreq).sort(function(a,b){ return b[1]-a[1]; })[0];
+    const sinkRatio = top20.filter(function(r){ return r.role === "SINK"; }).length / top20.length;
+
+    const insightText = [
+      "<strong>Zero-coverage RC</strong>: " + (zeroRc.length ? zeroRc.join(", ") : "없음") + " · 이 축은 우선 매핑 착수가 필요합니다.",
+      "<strong>Best current coverage</strong>: " + bestRc.rc + " (" + pct(bestRc.coverage) + ") · 절대값은 여전히 매우 낮습니다.",
+      "<strong>Top missing operator</strong>: " + (topOp ? topOp[0] : "-") + " (" + (topOp ? topOp[1] : 0) + " / 20)",
+      "<strong>Top missing impact</strong>: " + (topImpact ? topImpact[0] : "-") + " (" + (topImpact ? topImpact[1] : 0) + " / 20)",
+      "<strong>Chain role concentration</strong>: SINK 비중 " + pct(sinkRatio) + " · 종착점 중심 공백이 큽니다."
+    ];
+    const insightList = document.getElementById("insightList");
+    insightText.forEach(function(t) {
+      const li = document.createElement("li");
+      li.className = "insight-item";
+      li.innerHTML = t;
+      insightList.appendChild(li);
+    });
+
+    // Heatmap
+    const impacts = Array.from(new Set(heat.map(function(r){ return r.impact; })));
+    const rcs = Array.from(new Set(heat.map(function(r){ return r.rc; }))).sort();
+    const impactOrder = [
+      "RCE","ATO","PRIVILEGE_ESCALATION","DATA_EXFILTRATION","SSRF_INTERNAL_ACCESS",
+      "SESSION_HIJACK","LATERAL_MOVEMENT","FINANCIAL_FRAUD","INTEGRITY_TAMPERING","DOS","RECON_ENABLEMENT"
+    ];
+    impacts.sort(function(a,b){
+      const ia = impactOrder.indexOf(a);
+      const ib = impactOrder.indexOf(b);
+      if (ia === -1 && ib === -1) return a.localeCompare(b);
+      if (ia === -1) return 1;
+      if (ib === -1) return -1;
+      return ia - ib;
+    });
+    const map = new Map();
+    heat.forEach(function(r){ map.set(r.rc + "|" + r.impact, r); });
+
+    function colorForGap(gap) {
+      const intensity = Math.pow(Math.max(0, Math.min(1, gap)), 0.45);
+      const hue = 160 - (160 * intensity); // green -> red
+      const sat = 68;
+      const light = 95 - (36 * intensity);
+      return "hsl(" + hue + "," + sat + "%," + light + "%)";
+    }
+
+    const heatTable = document.getElementById("heatTable");
+    let h = "<thead><tr><th>RC</th>";
+    impacts.forEach(function(i){ h += "<th>" + i + "</th>"; });
+    h += "</tr></thead><tbody>";
+    rcs.forEach(function(rc){
+      h += "<tr><th>" + rc + "</th>";
+      impacts.forEach(function(impact){
+        const d = map.get(rc + "|" + impact);
+        if (!d) {
+          h += '<td class="cell" style="background:rgba(0,0,0,.04)">-</td>';
+          return;
+        }
+        const bg = colorForGap(d.gap);
+        const txt = (d.coverage * 100).toFixed(2) + "%";
+        const dot = d.observed > 0 ? '<span class="dot"></span>' : "";
+        h += '<td class="cell" style="background:' + bg + '">' + txt + dot + '</td>';
+      });
+      h += "</tr>";
+    });
+    h += "</tbody>";
+    heatTable.innerHTML = h;
+
+    // Top20 table
+    const topTable = document.getElementById("topTable");
+    let t = '<thead><tr>' +
+      '<th>#</th><th>RC</th><th>Target</th><th>Operator</th><th>Discrepancy</th><th>Role</th><th>Impact</th><th>Gap Score</th><th>Prefix Coverage</th>' +
+      '</tr></thead><tbody>';
+    top20.forEach(function(r, idx){
+      t += '<tr>' +
+        '<td class="mono">' + (idx + 1) + '</td>' +
+        '<td><span class="badge">' + r.rc + '</span></td>' +
+        '<td>' + r.target + '</td>' +
+        '<td class="mono">' + r.operator + '</td>' +
+        '<td class="mono">' + r.discrepancy + '</td>' +
+        '<td>' + r.role + '</td>' +
+        '<td>' + r.impact + '</td>' +
+        '<td class="mono">' + r.score.toFixed(2) + '</td>' +
+        '<td class="mono">' + pct(r.prefix) + '</td>' +
+      '</tr>';
+    });
+    t += "</tbody>";
+    topTable.innerHTML = t;
+  </script>
+</body>
+</html>"""
+    )
+
+    html = template.substitute(data_json=data_json)
+    OUT_HTML.write_text(html, encoding="utf-8")
+    print(f"Generated: {OUT_HTML}")
+
+
+if __name__ == "__main__":
+    main()
+

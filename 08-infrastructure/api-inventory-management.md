@@ -314,7 +314,6 @@ Once APIs are discovered and cataloged, various governance operations maintain a
 | §5-3 (Third-Party) + Shadow API | SesameOp Backdoor via OpenAI API (July 2025) | Novel C2 technique using legitimate API to evade detection; long-term network intrusion |
 | §2-3 (Schema Drift) + §6-2 (Fuzzing) | Undocumented Parameter Exploitation (2024 trend) | Low-and-slow attacks via undocumented fields; 95% from authenticated sessions |
 | Google AI API Vulnerabilities | Google VRP AI Vulnerability Rewards (Oct 2025) | $5,000-$30,000 for AI API exploitation (data modification, exfiltration, model theft) |
-| OWASP API9:2023 Exploitation | General Improper Inventory Management Incidents | 99% of orgs experienced API incident (2024-2025); AI API vulns up 1,205% (2024) |
 
 ---
 
@@ -335,15 +334,15 @@ Once APIs are discovered and cataloged, various governance operations maintain a
 
 ### Governance & ASPM Tools
 
-| Tool | Management Operations | Core Capability | Market Position |
-|------|---------------------|-----------------|----------------|
-| **Jit** | §7 (All operations) | Developer-focused ASPM; tool consolidation | Developer-first orgs |
-| **Apiiro** | §7 (Risk, Compliance) | Enterprise risk management + code-to-cloud visibility | Enterprise-scale |
-| **Cycode** | §7 (Posture, Lifecycle) | Integrated tool unification + ASPM | Mid-to-large orgs |
-| **Ox Security** | §7 (Supply chain, Compliance) | Supply chain risk + orchestration-heavy ASPM | Regulated industries |
-| **ArmorCode** | §7 (Posture, Compliance) | Tool unification + vulnerability aggregation | Existing vuln mgmt programs |
-| **Snyk ASPM** | §7 (Posture, Lifecycle) | Developer workflow integration + security scoring | DevSecOps-mature teams |
-| **Kong Context Mesh** | §4-1, §4-3 | Automatic API discovery + agent tool generation; MCP registry (2025) | Enterprise API platforms |
+| Tool | Management Operations | Core Capability |
+|------|---------------------|-----------------|
+| **Jit** | §7 (All operations) | Developer-focused ASPM; tool consolidation |
+| **Apiiro** | §7 (Risk, Compliance) | Enterprise risk management + code-to-cloud visibility |
+| **Cycode** | §7 (Posture, Lifecycle) | Integrated tool unification + ASPM |
+| **Ox Security** | §7 (Supply chain, Compliance) | Supply chain risk + orchestration-heavy ASPM |
+| **ArmorCode** | §7 (Posture, Compliance) | Tool unification + vulnerability aggregation |
+| **Snyk ASPM** | §7 (Posture, Lifecycle) | Developer workflow integration + security scoring |
+| **Kong Context Mesh** | §4-1, §4-3 | Automatic API discovery + agent tool generation; MCP registry (2025) |
 
 ### Specialized Tools
 
@@ -356,7 +355,6 @@ Once APIs are discovered and cataloged, various governance operations maintain a
 | **Mintlify/ReDoc** | §7 (Documentation) | AI-driven doc generation + auto-updates from OpenAPI |
 | **Amass/subfinder/dnsx** | §5-1 (OSINT) | Subdomain discovery and DNS reconnaissance |
 
-**2025 Market Trend**: Gartner forecasts **80% of regulated-industry orgs using AppSec testing will adopt ASPM by 2027** (up from 29% in 2025), reflecting shift from "nice-to-have" to foundational requirement.
 
 ---
 

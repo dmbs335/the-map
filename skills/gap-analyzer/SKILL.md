@@ -113,7 +113,8 @@ Use the directory structure as primary guide:
 09-frameworks-and-languages/ → Spring, ASP.NET, PHP, Rails, JS frameworks, etc.
 10-recon-methodology/ → recon, fingerprinting, fuzzing, CTF
 11-researchers/    → researcher profiles
-12-misc/           → AI/LLM security, DoS
+12-product-security/ → SAP, AEM, Salesforce, SharePoint, WordPress, Nginx, Jetty
+13-misc/           → AI/LLM security, DoS
 ```
 
 ---

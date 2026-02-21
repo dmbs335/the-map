@@ -161,18 +161,6 @@ Writing arbitrary content to the host filesystem. Combined with other techniques
 
 **Key Condition:** File write is always available in TeX (not restricted by shell-escape settings). Write paths are relative to the compilation directory unless absolute paths are used. MiKTeX on Windows historically placed no restrictions on output paths.
 
-### §3-2. Self-Replicating TeX Virus
-
-A TeX document can read its own source, inject its code into other `.tex` files, and propagate without user interaction beyond compilation.
-
-| Subtype | Mechanism | Key Condition |
-|---|---|---|
-| **Header injection virus** | Reads all `.tex` files in a directory, injects virus code between `\documentclass` and `\begin{document}` | MiKTeX on Windows (no file output restrictions); requires ~21 lines of TeX code |
-| **Style file trojan** | Malicious code hidden in a `.sty` or `.cls` file that activates when any document loads the package | User downloads a "template" containing the trojaned style file |
-| **Recursive directory infection** | Combines file listing (via `\write18`) with file read/write to infect all reachable `.tex` files | Requires shell-escape for directory listing |
-
-**Key Condition:** The virus model exploits user trust — LaTeX users assume `.tex` files are "just text" and safe to compile. A 21-line TeX virus can spread across all documents in a user's home directory.
-
 ---
 
 ## §4. Filter and Blocklist Evasion
@@ -291,15 +279,6 @@ pdfTeX provides PDF-manipulation primitives that create unique attack vectors.
 | **`\pdfobj stream file` embedding** | Embeds arbitrary binary files as PDF stream objects for later extraction | pdfTeX only; no shell-escape required |
 | **PDF metadata manipulation** | Injects attacker-controlled content into PDF metadata fields | Any pdfTeX compilation |
 | **`\pdfliteral` injection** | Injects raw PDF operators into the output stream | pdfTeX only |
-
-### §5-4. XeTeX Considerations
-
-XeTeX processes Unicode natively and can load system fonts directly, creating potential attack vectors through font parsing.
-
-| Subtype | Mechanism | Key Condition |
-|---|---|---|
-| **System font enumeration** | Font loading commands reveal installed system fonts | XeTeX with font discovery enabled |
-| **`\write18` with XeTeX** | Same shell-escape mechanism as pdfTeX | `--shell-escape` flag |
 
 ---
 

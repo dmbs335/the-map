@@ -72,8 +72,6 @@ When targets deploy JavaScript-based frame-busting code, attackers have multiple
 | **HTML5 sandbox attribute** | `<iframe sandbox="allow-forms allow-scripts">` disables top-level navigation, preventing `top.location` reassignment | Target relies on JavaScript frame-busting |
 | **Double-framing** | Embedding the victim iframe inside an intermediate frame; `parent.location` access triggers a security violation that silently fails | Target uses `parent.location` instead of `top.location` |
 | **`onBeforeUnload` cancellation** | Attacker page registers an `onbeforeunload` handler that prompts the user, potentially canceling the frame-buster's navigation | User clicks "Stay on Page" in the prompt |
-| **XSS filter exploitation** | Browser's XSS auditor is tricked into disabling the frame-busting script by reflecting it as a parameter | Browser has active XSS auditor (legacy) |
-| **204 No Content response** | Attacker loads a page that returns 204 before loading the target, preventing frame-buster execution in some browsers | Legacy browser behavior |
 
 ---
 
@@ -229,7 +227,6 @@ A malicious app draws an overlay on top of a legitimate app, intercepting or red
 |---|---|---|
 | **Transparent overlay permission grant** | Malicious app displays a transparent overlay over Android's permission dialog, tricking the user into tapping "Allow" | App has `SYSTEM_ALERT_WINDOW` permission |
 | **Partial overlay with visible gap** | Overlay covers most of the screen but leaves the "Allow" button area uncovered, presenting it as part of the malicious app's UI | Predictable permission dialog layout |
-| **Toast overlay exploitation** | `TYPE_TOAST` windows (which didn't require permissions in older Android) used as overlay to cover security-sensitive UI | Android < 8.0 (API 26) |
 
 ### §7-2. Animation-Driven Tapjacking (TapTrap)
 

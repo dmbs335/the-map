@@ -100,7 +100,6 @@ Rust's Cargo executes `build.rs` files and procedural macros at compile time wit
 |---------|-----------|---------------|
 | **build.rs Arbitrary Execution** | Cargo compiles and runs `build.rs` before building the crate. This script has full filesystem, network, and process access — it can download files, execute binaries, or modify the build output. | `cargo build` on any crate with a `build.rs` file |
 | **Procedural Macro Execution** | Proc macros (`#[derive(...)]`, `#[proc_macro]`) execute arbitrary Rust code at compile time. A malicious proc macro crate can run any code when the compiler processes the macro. | Project depends on a crate with proc macros |
-| **Cargo Timing Report Injection** | Malicious dependencies can inject arbitrary JavaScript into cargo-generated timing reports (GHSA-wrrj-h57r-vx9p), leading to XSS if the report is opened in a browser. | Developer generates and views cargo timing report |
 
 The Rust community has discussed sandboxing `build.rs` and proc macros for years, but no implementation exists. Currently, `cargo build` on any crate with these features means running arbitrary code.
 
@@ -114,17 +113,6 @@ Python package installation and building execute arbitrary code through multiple
 | **pyproject.toml Build Backend** | PEP 517/518 build backends specified in `pyproject.toml` are invoked during builds. A malicious build backend can execute arbitrary code. | Package specifies custom build backend; developer runs `pip install` |
 | **conftest.py Auto-Loading** | pytest auto-discovers and loads `conftest.py` files from the project root. These execute arbitrary Python code when tests are run. | Developer runs `pytest` on an untrusted project |
 | **setup.cfg/setup.py Metadata Injection** | Package metadata fields (entry_points, console_scripts) can be abused to install executables that shadow legitimate system tools. | Package installed globally or in active virtualenv |
-
-### §1-6. Static Site Generator Build-Time Execution
-
-Static site generators (Hugo, Jekyll, Gatsby, Next.js SSG mode) execute dynamic code during the build phase to render "static" output. When content sources are untrusted (CMS, user-submitted PRs, external data), build-time code execution becomes an attack surface.
-
-| Subtype | Mechanism | Key Condition |
-|---------|-----------|---------------|
-| **Hugo Shortcode/Template Injection** | Hugo templates and shortcodes execute Go template functions during build. Malicious content using `{{ }}` syntax in Markdown files can invoke `os/exec`, read files via `readFile`, or access environment variables via `getenv`. | Hugo site with user-contributed content; shortcodes accessible from content files |
-| **Jekyll Plugin/Liquid Injection** | Jekyll processes Liquid templates and loads Ruby plugins during build. A malicious `_plugins/*.rb` file or crafted Liquid tag executes arbitrary Ruby code on the build server. | Jekyll with plugins enabled (not `--safe` mode); untrusted content in `_plugins/` or Liquid templates |
-| **Gatsby Node API Exploitation** | Gatsby's `gatsby-node.js` executes during build to create pages, transform data, and source content. `sourceNodes` and `createPages` APIs run arbitrary Node.js code, and malicious source plugins can exfiltrate data or install backdoors during `gatsby build`. | Gatsby project with untrusted source plugins or `gatsby-node.js` modifications |
-| **Next.js getStaticProps/getStaticPaths Execution** | `getStaticProps` and `getStaticPaths` execute server-side at build time during `next build`. These functions can make arbitrary network requests, access the filesystem, and execute system commands — a malicious page component's data-fetching function runs during SSG with full Node.js capabilities. | Next.js project in SSG mode; untrusted page components with data-fetching functions |
 
 ---
 
@@ -198,14 +186,6 @@ Compilers and transpilers execute code or process data in ways that can be explo
 |---------|-----------|---------------|
 | **cgo Build-Time RCE (Go)** | Go's cgo integration passes compiler/linker flags from source code directives. Multiple bypass vectors allow injecting flags that cause the C compiler to execute attacker-controlled code. Seven CVEs in the same feature (2018–2024). | `go build` on modules with cgo; Darwin-specific CVE-2024-24787 |
 
-### §3-3. Code Generator Exploitation
-
-| Subtype | Mechanism | Key Condition |
-|---------|-----------|---------------|
-| **Protocol Buffer / gRPC Code Generation** | Protobuf compiler plugins (`protoc-gen-*`) execute as external processes during code generation. A malicious plugin can execute arbitrary code. | Project uses protobuf with custom plugins |
-| **OpenAPI/Swagger Code Generation** | Code generators (openapi-generator, swagger-codegen) execute templates that can include arbitrary code. | Developer generates code from untrusted API specifications |
-| **GraphQL Code Generation** | GraphQL codegen tools execute plugin code and can process malicious schema definitions. | Using code generation with untrusted GraphQL schemas |
-
 ---
 
 ## §4. Version Control System Hooks & Exploits
@@ -261,14 +241,6 @@ IDEs execute third-party extension code with the same permissions as the IDE its
 | **GitHub Plugin Token Exposure (CVE-2024-37051)** | Malicious content in a pull request caused IntelliJ IDEs to leak GitHub access tokens to third-party hosts. CVSS 9.3. | IntelliJ IDE 2023.1+ with GitHub plugin enabled; developer views malicious PR |
 | **Malicious Plugin Repository in Project Config** | IntelliJ IDEA allowed code execution via a malicious plugin repository URL specified in the project configuration, even in "Untrusted Project" mode. | Developer opens untrusted project in IntelliJ |
 | **Plugin Marketplace Poisoning** | JetBrains Marketplace plugins execute with full IDE permissions. A compromised or malicious plugin has access to all project files, credentials, and developer environment. | Developer installs unvetted JetBrains plugin |
-
-### §5-3. Browser DevTools Extension Attacks
-
-| Subtype | Mechanism | Key Condition |
-|---------|-----------|---------------|
-| **Chrome Extension Supply Chain Compromise** | December 2024: phishing campaign compromised developer accounts, pushing malicious updates to 16+ Chrome extensions affecting 3.2M+ users (TamperedChef). | Auto-update delivers malicious extension version |
-| **DevTools Extension Credential Theft** | Trust Wallet Chrome extension compromised via leaked API key (December 2025), resulting in $7–8.5M cryptocurrency theft from 2,520 wallets. | Developer uses compromised browser extension |
-| **OAuth Application Phishing for Extension Access** | Attackers phish extension developers with fake OAuth applications to gain Chrome Web Store publishing access, then push malicious updates. | Extension developer falls for OAuth phishing |
 
 ---
 
@@ -349,22 +321,6 @@ IaC tools and container builders execute code as a core part of their operation 
 | **Arbitrary File Write during Init** | Terraform 1.0.8–1.5.6 allowed arbitrary file write during `terraform init` when processing malicious configuration. | Developer runs `terraform init` on untrusted configuration |
 | **Checkov Deserialization RCE (CVE-2025-2180)** | Unsafe deserialization in Palo Alto's Checkov (Terraform security scanner) allows RCE when scanning malicious Terraform files. The security tool itself becomes the attack vector. | Developer scans untrusted Terraform files with Checkov |
 
-### §8-2. Pulumi Exploitation
-
-| Subtype | Mechanism | Key Condition |
-|---------|-----------|---------------|
-| **General-Purpose Language Execution** | Pulumi programs are written in Python, TypeScript, Go, or C# and execute with full language capabilities. Unlike HCL, Pulumi's IaC code can make arbitrary network calls, spawn processes, and access the filesystem. | Developer runs `pulumi up` on untrusted Pulumi program |
-| **Plugin Execution** | Pulumi plugins (providers, policy packs) are executables that run on the developer's machine with the user's full permissions. | Untrusted Pulumi plugin installed |
-
-### §8-3. Container Build Exploitation
-
-| Subtype | Mechanism | Key Condition |
-|---------|-----------|---------------|
-| **Dockerfile RUN Instruction** | `RUN` instructions in Dockerfiles execute arbitrary commands during `docker build`. A malicious Dockerfile can download and execute payloads, exfiltrate data, or install backdoors in the resulting image. | Developer runs `docker build` on untrusted Dockerfile |
-| **Build Context Symlink Traversal** | When the Docker build context contains symlinks pointing outside the intended directory, `COPY` follows them, potentially exposing sensitive host files to the build process. | `docker build` with untrusted build context containing symlinks |
-| **Multi-Stage Build Secret Leakage** | Secrets passed to build stages via `--build-arg` or `--secret` can be inadvertently cached in intermediate layers. | Multi-stage build without proper secret management |
-| **Buildpack Code Execution** | Cloud Native Buildpacks automatically detect and build applications, executing detection scripts and build scripts that can contain malicious code. | Using buildpacks on untrusted source code |
-
 ---
 
 ## Attack Scenario Mapping (Axis 3)
@@ -379,7 +335,7 @@ Real-world exploitation chains mutations across multiple toolchain components.
 | **Open-to-Own** | Opening a project in an IDE triggers extension-based attacks | §5-1 (VSCode ext) + §4-3 (auto-loaded configs) | Full workstation access |
 | **AI-Assisted Compromise** | AI assistant processes poisoned content and executes malicious commands | §6-1 (prompt injection) + §6-2 (MCP) | Data exfiltration, RCE, credential theft |
 | **Lint-to-Execute** | Running code quality tools on a project executes malicious plugin code | §7-1 (ESLint config) + §7-3 (conftest.py) | Code execution during "safe" analysis |
-| **Provision-to-Pivot** | IaC tool execution on developer machine enables network pivot | §8-1 (Terraform provider) + §8-3 (Dockerfile) | Cloud credential theft, infrastructure access |
+| **Provision-to-Pivot** | IaC tool execution on developer machine enables network pivot | §8-1 (Terraform provider) | Cloud credential theft, infrastructure access |
 | **Tool-as-Worm** | Compromised developer tools self-propagate via stolen credentials | §2-1 (npm hooks) + §5-1 (extension supply chain) | Exponential propagation (Shai-Hulud model) |
 
 ---
@@ -396,7 +352,6 @@ Real-world exploitation chains mutations across multiple toolchain components.
 | §3-1 | **CVE-2023-45133** (Babel traverse RCE) | Compile-time RCE via crafted code triggering `path.evaluate()` in Babel. | 2023 |
 | §2-5 | **CVE-2023-29404, CVE-2023-29405** (Go cgo LDFLAGS) | Build-time RCE via unsanitized linker flags in cgo directives. | 2023 |
 | §2-5 | **CVE-2023-39320** (Go toolchain directive) | Arbitrary code execution via crafted `go.mod` toolchain directive. | 2023 |
-
 | §2-5 | **CVE-2025-68119, CVE-2025-4674** (Go VCS command injection) | Code execution during `go get` / `go mod download` via VCS command injection. | 2025 |
 | §7-1 | **CVE-2025-54313** (eslint-config-prettier compromise) | 31M weekly downloads. Maintainer phished → malicious versions deployed → Windows RCE via `node-gyp.dll`. | 2025 |
 | §6-3 | **CVE-2025-61260** (OpenAI Codex CLI RCE) | Configuration file RCE on developer machines via malicious MCP server entries. | 2025 |
@@ -407,14 +362,10 @@ Real-world exploitation chains mutations across multiple toolchain components.
 | §5-1 | **GlassWorm** (VSCode Extension) | Invisible Unicode-based RAT deployed via compromised Open VSX and VSCode Marketplace extensions. | 2025 |
 | §5-1 | **TigerJack** (VSCode Extension) | C++ Playground + HTTP Format extensions: 17,000+ downloads. Keylogger + crypto miner. | 2025 |
 | §5-1 | **prettier-vscode-plus** (VSCode Extension) | Anivia loader + OctoRAT multi-stage attack chain via fake Prettier extension. | 2025 |
-| §5-3 | **TamperedChef** (Chrome Extensions) | 16+ Chrome extensions compromised, 3.2M+ users affected via phishing. | 2025 |
-| §5-3 | **Trust Wallet** (Chrome Extension) | $7–8.5M cryptocurrency theft from 2,520 wallets via leaked API key. | 2025 |
 | §2-1 | **Shai-Hulud 1.0/2.0** (npm hooks) | Self-propagating worm via npm lifecycle scripts. 25,000+ repos, mass credential theft. | 2025 |
-
 | §8-1 | **CVE-2024-6257** (go-getter RCE) | Terraform module fetching via go-getter leads to code execution through malicious Git config. | 2024 |
 | §8-1 | **CVE-2025-2180** (Checkov deserialization RCE) | Security scanner becomes attack vector: RCE when scanning malicious Terraform files. | 2025 |
 | §1-2 | **Gradle Enterprise Maven Extension deserialization** | Deserialization of untrusted data via socket connection enables RCE in Gradle builds. | 2024 |
-
 | §6-1 | **Rules File Backdoor** (Pillar Security) | AI coding assistants weaponized via Unicode-obfuscated instructions in `.cursorrules` / Copilot instruction files. | 2025 |
 
 ---
@@ -517,7 +468,6 @@ The 2024-2025 attack wave demonstrates a clear trend: **the developer's local en
 - Supply Chain Attacks in Q4 2025: From Isolated Incidents to Systemic Failure Modes (Sygnia)
 - Supply Chain Risk in VSCode Extension Marketplaces (Wiz, 2025)
 - MCP Security Vulnerabilities (Practical DevSecOps, 2026)
-- A Study on Malicious Browser Extensions in 2025 (arXiv:2503.04292)
 
 ### Vulnerability Disclosures & Advisories
 - CVE-2024-3094: XZ Utils Backdoor (NVD, CVSS 10.0)
@@ -552,9 +502,7 @@ The 2024-2025 attack wave demonstrates a clear trend: **the developer's local en
 - XZ Utils Backdoor Investigation (Wikipedia, OpenSSF, CrowdStrike, 2024)
 - Shai-Hulud 1.0/2.0 npm Worm Campaign (Wiz, StepSecurity, Check Point, Snyk, 2025)
 - GlassWorm VSCode Extension Supply Chain Attack (Koi Security, October 2025)
-- TamperedChef Chrome Extension Campaign (GitLab Threat Intelligence, February 2025)
 - eslint-config-prettier Hijacking (Snyk, Endor Labs, July 2025)
-- Assetnote: "Exploiting Static Site Generators: When Static Is Not Actually Static" (2022) — SSG build-time dynamic code execution attack surface (Hugo, Jekyll, Gatsby)
 
 ---
 

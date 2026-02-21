@@ -8,7 +8,7 @@ Browser Security Model Bypass encompasses techniques that circumvent the fundame
 
 This taxonomy organizes browser security bypasses along three axes:
 
-**Axis 1 (Primary): Security Mechanism Target** — The specific browser security control being circumvented. This structural dimension organizes the taxonomy into twelve major categories (§1-§12), each representing a distinct security boundary: Same-Origin Policy enforcement, Content Security Policy, cookie security controls, frame protection mechanisms, transport security, DOM isolation, cross-origin isolation, parser/encoding layers, cross-origin communication channels, authentication systems, extension/component security, and HTTP protocol layers.
+**Axis 1 (Primary): Security Mechanism Target** — The specific browser security control being circumvented. This structural dimension organizes the taxonomy into eleven major categories (§1-§11), each representing a distinct security boundary: Same-Origin Policy enforcement, Content Security Policy, cookie security controls, frame protection mechanisms, transport security, DOM isolation, cross-origin isolation, parser/encoding layers, cross-origin communication channels, authentication systems, and extension/component security.
 
 **Axis 2 (Cross-cutting): Discrepancy Type** — The nature of the mismatch or bypass technique that enables circumvention. These represent the fundamental classes of security failures that recur across all browser security mechanisms:
 
@@ -211,9 +211,6 @@ These headers control whether a page can be framed, preventing clickjacking.
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
 | **Double Framing X-FO: SAMEORIGIN** | X-Frame-Options: SAMEORIGIN prevents cross-origin framing but allows same-origin; attacker uses double iframe | Attacker frames attacker.com/intermediary which frames victim.com; both intermediary and victim think they're framed by same origin |
-| **Protocol Downgrade** | X-Frame-Options only checked on same protocol; attacker frames HTTPS from HTTP | HTTP page frames https://victim.com; some browsers don't enforce X-FO cross-protocol |
-| **304 Not Modified Response** | Cached page with X-FO; attacker triggers 304 response without X-FO header | Browser uses cached content but attacker's framing context lacks header |
-| **Browser Inconsistency** | Different browsers interpret ALLOW-FROM differently or not at all | X-Frame-Options: ALLOW-FROM https://trusted.com works in IE but ignored in Chrome |
 | **Frame-Ancestors Null Origin** | CSP frame-ancestors validation doesn't properly reject null origin | Sandboxed iframe with null origin bypasses frame-ancestors check |
 | **Clickjacking on XFO Error Page** | Firefox native error page when X-FO blocks framing can itself be clickjacked (CVE-2024-5691) | Attacker frames the error page and performs clickjacking on it |
 | **Portal Element Frame Bypass** | The experimental `<portal>` element embeds cross-origin pages for seamless navigation transitions but does not respect `X-Frame-Options` or `CSP frame-ancestors` restrictions. An attacker uses `<portal src="https://victim.com">` to embed protected pages, enabling clickjacking on content that explicitly denies framing. Portal activation (user click) navigates the top-level context to the embedded page, and the attacker can overlay UI elements to trick users into activating the portal — performing actions on the victim site disguised as interactions with the attacker's page | Target browser supports `<portal>` element (Chrome experimental); victim page relies on X-Frame-Options or frame-ancestors for clickjacking protection without additional defenses (Securitum Research, 2019) |
@@ -392,11 +389,10 @@ Site Isolation mitigates Spectre by putting different origins in separate proces
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
 | **Spook.js Attack** | Transient side-channel attack measuring CPU execution time to leak data across Site Isolation | High-resolution timers (performance.now()) + speculative execution leak cross-origin data |
-| **SLAP and FLOP Attacks** | Exploiting Apple CPU's load address and value prediction in M1/M2 chips (disclosed 2024) | Similar to Spectre but targets Apple's prediction mechanisms; bypasses Site Isolation |
 | **SharedArrayBuffer Timing** | SharedArrayBuffer + Web Workers create high-resolution timer for side-channel attacks | Cross-origin fetch() timing measured via SharedArrayBuffer reveals response content |
 | **Safari Lack of Site Isolation** | Safari production releases lack full Site Isolation, remaining vulnerable to Spectre | Spectre attacks practical in Safari despite mitigations in Chrome/Firefox |
 
-Apple's SLAP/FLOP vulnerabilities (2024 disclosure) demonstrate that CPU-level mitigations remain insufficient. Site Isolation provides defense-in-depth but architecture-level vulnerabilities persist.
+Site Isolation provides defense-in-depth but architecture-level vulnerabilities persist.
 
 ---
 
@@ -596,35 +592,7 @@ Third-party dependencies introduce vulnerabilities into web applications.
 
 ---
 
-## §12. HTTP Protocol Layer Bypasses
-
-HTTP/2 and HTTP/3 introduce performance improvements but also new attack surfaces.
-
-### §12-1. HTTP/2 Security Bypasses
-
-HTTP/2's binary framing, multiplexing, and server push create bypass opportunities.
-
-| Subtype | Mechanism | Key Condition |
-|---------|-----------|---------------|
-| **HTTP/2 CONTINUATION Flood** | Attacker sends endless stream of CONTINUATION frames causing DoS | HTTP/2 implementations don't limit CONTINUATION frames per stream; OOM crash (Bartek Nowotarski 2024) |
-| **HTTP/2 Rapid Reset** | Attacker rapidly creates and resets streams, exhausting server resources | CVE-2023-44487: record-breaking DDoS attacks via RST_STREAM flood |
-| **CrossPUSH SOP Bypass** | HTTP/2 server push exploits authority vs origin mismatch to bypass Same-Origin Policy | Browser enforces SOP on (scheme, host, port) but HTTP/2 uses TLS cert SubjectAlternativeName for authority; attacker pushes cross-origin responses |
-| **CrossSXG (Signed HTTP Exchange) Bypass** | Signed HTTP Exchange exploits authority confusion similar to CrossPUSH | SXG signature uses cert SAN for authority; browser origin check bypassed; arbitrary XSS in 11/14 tested browsers |
-| **HTTP/2 Request Smuggling** | Front-end and back-end disagree on message boundaries due to HTTP/2 to HTTP/1.1 conversion | Proxy converts HTTP/2 to HTTP/1.1; Content-Length vs Transfer-Encoding confusion enables smuggling |
-
-CrossPUSH and CrossSXG vulnerabilities (Tsinghua University 2024) represent fundamental design flaws affecting 11/14 major browsers including Chrome, Edge, and popular mobile apps (Instagram, WeChat). The mismatch between browser-defined origins and HTTP/2-defined authority creates a persistent attack surface.
-
-### §12-2. HTTP/3 and QUIC Security Issues
-
-HTTP/3 over QUIC introduces UDP-based transport with new security implications.
-
-| Subtype | Mechanism | Key Condition |
-|---------|-----------|---------------|
-| **HTTP/3 Connection Contamination** | HTTP/3 removes IP address match requirement; compromised server with wildcard cert exploits first-request routing | Front-end routes based on first request; attacker with *.example.com cert poisons connection for secure.example.com |
-| **QUIC Amplification Attack** | QUIC's connection establishment enables DDoS amplification | Attacker spoofs victim IP in QUIC handshake; servers send large responses to victim |
-| **QUIC Version Downgrade** | Attacker forces downgrade to older QUIC version with known vulnerabilities | Version negotiation allows attacker to force insecure QUIC version |
-
-PortSwigger's HTTP/3 connection contamination research (2024) warns that removing IP matching requirements will expose front-ends using first-request routing with wildcard certificates.
+> **Cross-reference**: HTTP/2 and HTTP/3 protocol-layer attacks (request smuggling, CONTINUATION flood, H2 Rapid Reset, QUIC smuggling) are covered in [http-request-smuggling.md](../03-http-protocol/http-parsing-discrepancy/http-request-smuggling.md) and [http3-quic-protocol-smuggling.md](../03-http-protocol/http-parsing-discrepancy/http3-quic-protocol-smuggling.md). Browser-specific authority confusion attacks (CrossPUSH, CrossSXG — Tsinghua University 2024) are noted under §1 SOP Bypass.
 
 ---
 
@@ -639,10 +607,10 @@ This table maps primary attack scenarios to the Security Mechanism categories wh
 | **Authentication Bypass** | Circumventing login mechanisms | §3 (Cookie Security) + §5 (Transport Security) + §10 (WebAuthn/Credential Management) |
 | **Account Takeover** | Complete compromise of user account | §1 (CORS) + §3 (Cookies) + §6 (Prototype Pollution) + §10 (Passkey Bypass) |
 | **CSRF (Cross-Site Request Forgery)** | Unauthorized state-changing actions | §3 (SameSite Bypass) + §9 (WebSocket Hijacking) |
-| **Cache Poisoning** | Poisoning shared caches to affect multiple users | §1 (CORS) + §8 (Parser Confusion) + §12 (HTTP/2 Server Push) |
+| **Cache Poisoning** | Poisoning shared caches to affect multiple users | §1 (CORS) + §8 (Parser Confusion) |
 | **Clickjacking** | UI redressing attacks | §4 (Frame Protection Bypass) + §4 (Sandbox Escape) |
 | **Man-in-the-Middle (MITM)** | Interception and modification of traffic | §5 (HSTS Bypass) + §5 (Certificate Validation) + §5 (Mixed Content) |
-| **Denial of Service (DoS)** | Resource exhaustion or crash | §3 (Cookie Bomb) + §9 (Service Worker) + §12 (HTTP/2 CONTINUATION Flood) |
+| **Denial of Service (DoS)** | Resource exhaustion or crash | §3 (Cookie Bomb) + §9 (Service Worker) |
 | **Privilege Escalation** | Gaining elevated permissions | §6 (Prototype Pollution) + §10 (WebAuthn Logic Flaws) + §11 (Extension Permissions) |
 | **Supply Chain Compromise** | Compromising through dependencies/extensions | §11 (Extension Supply Chain) + §11 (Compromised CDN) |
 | **Persistent Attack** | Long-term compromise outlasting single session | §9 (Service Worker Persistence) + §11 (Malicious Extensions) |
@@ -668,8 +636,8 @@ This table maps primary attack scenarios to the Security Mechanism categories wh
 | §6-4 | CVE-2024-45801 (DOMPurify ≤ 3.0.8) | Prototype pollution bypassing SAFE_FOR_TEMPLATES profile, leading to stored XSS |
 | §11-1 | Cyberhaven Chrome Extension Compromise (Dec 2024) | Supply chain attack via phishing; harvested OAuth tokens from Google Workspace, Slack, Jira |
 | §11-1 | TamperedChef Campaign (Feb 2025) | 16 Chrome extensions compromised affecting 3.2M users; credential harvesting |
-| §12-1 | HTTP/2 CrossPUSH / CrossSXG (Tsinghua 2024) | SOP bypass affecting 11/14 browsers including Chrome, Edge, Instagram, WeChat. Arbitrary XSS |
-| §12-1 | HTTP/2 CONTINUATION Flood (Bartek Nowotarski Jan 2024) | DoS via unlimited CONTINUATION frames causing OOM crash. Multiple vendors affected |
+| §1 | HTTP/2 CrossPUSH / CrossSXG (Tsinghua 2024) | SOP bypass affecting 11/14 browsers including Chrome, Edge, Instagram, WeChat. Arbitrary XSS |
+| — | HTTP/2 CONTINUATION Flood (Bartek Nowotarski Jan 2024) | DoS via unlimited CONTINUATION frames causing OOM crash. Multiple vendors affected |
 | §6-2 | Google VRP (DOM Clobbering) | $500 bounty for DOM clobbering via 0.CL desync using early response gadgets |
 | §10-1 | WebAuthn API Hijacking (SquareX DEF CON 2025) | Passkey login bypass via API hijacking through XSS/malicious extension |
 | §10-1 | Synced Passkey Downgrade (Proofpoint 2025) | Entra ID phishing proxy spoofs unsupported browser; user downgrades to SMS/OTP |

@@ -154,7 +154,6 @@ Attacks targeting the semantic content of cookie values rather than the cookie p
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
 | **CRLF Injection → Set-Cookie** | CRLF characters injected into HTTP response headers allow insertion of arbitrary `Set-Cookie` headers. Attacker can set any cookie with any attributes on the victim's browser. | CRLF injection in any response header (Location, custom headers) |
-| **HTML Meta Tag Cookie Setting** | `<meta http-equiv="Set-Cookie" content="...">` can set cookies in legacy browsers. If HTML injection is possible, cookies can be injected without JavaScript. | HTML injection; legacy browser support for meta Set-Cookie |
 | **XSS → document.cookie** | Client-side script execution allows reading and writing non-HttpOnly cookies. This is the most direct cookie manipulation primitive — any XSS becomes a cookie manipulation vector. | XSS vulnerability; cookies lack HttpOnly flag |
 
 ---

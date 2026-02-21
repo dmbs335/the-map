@@ -143,7 +143,6 @@ Audio codecs parse complex bitstream structures (AAC headers, FLAC metadata bloc
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
-| **CoreAudio AAC decoder heap corruption** | A malformed MP4 audio file with crafted `inMagicCookie` triggers heap corruption in AudioConverterService's AAC decoder, enabling zero-click RCE via iMessage/SMS | iOS CoreAudio (CVE-2025-31200); zero-day zero-click; patched in iOS 18.4.1 |
 | **FLAC metadata block overflow** | Oversized or malformed FLAC metadata blocks (VORBIS_COMMENT, PICTURE) trigger heap overflow during metadata parsing | FFmpeg FLAC decoder; libFLAC historical CVEs |
 | **Opus/Vorbis packet corruption** | Crafted Opus or Vorbis packets with invalid channel mapping or window sizes trigger out-of-bounds writes during decoding | Media players, WebRTC pipelines |
 
@@ -170,7 +169,6 @@ TrueType fonts use quadratic Bézier curves and a stack-based hinting virtual ma
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
-| **TrueType subglyph signed/unsigned confusion** | An arithmetic error in FreeType's TrueType GX/variable font handling assigns a signed short to an unsigned long, causing wraparound and too-small heap allocation. Subsequent writes of up to 6 signed longs overflow the buffer | FreeType ≤ 2.13.0 (CVE-2025-27363, CVSS 8.1); **actively exploited in the wild**; CISA KEV catalog; affects Linux, Android, ChromeOS, Ghostscript, Chromium, WebKit, Gecko |
 | **CFF charstring stack overflow** | Malformed CFF charstring data overflows the PostScript interpreter stack during glyph rendering, corrupting adjacent memory | FreeType CFF parser; historical CVEs |
 | **Variable font axis overflow** | Crafted variable font files with extreme axis values cause arithmetic overflows in interpolation calculations | FreeType variable font handling; OpenType 1.8+ variable fonts |
 
@@ -229,7 +227,6 @@ PDF's extensibility makes it an ideal container for embedding exploits targeting
 | **Ghostscript rendering chain** | PDFs rendered via Ghostscript inherit all PostScript sandbox escape vulnerabilities (§2-2). Ghostscript processes embedded PostScript fragments and font programs within PDFs | Server-side PDF thumbnail generation, conversion pipelines using Ghostscript |
 | **Embedded font exploitation** | PDF files embed font programs (Type 1, CFF, TrueType) that are parsed by font libraries when the PDF is rendered, chaining into font parsing RCE (§4) | Any PDF renderer using FreeType or system font libraries |
 | **Embedded image codec exploitation** | PDF files can embed images in JPEG2000, JBIG2, CCITT, and other formats. Malformed embedded images exploit codec vulnerabilities when the PDF is rendered | PDF renderers with vulnerable codec libraries |
-| **FORCEDENTRY: Turing-complete JBIG2** | The most technically sophisticated publicly known exploit: a PDF disguised as a GIF uses over 70,000 JBIG2 segment commands to implement a Turing-complete virtual CPU with registers and a 64-bit adder/comparator, bootstrapping arbitrary code execution from within an image decompression context | Apple CoreGraphics JBIG2 decoder (CVE-2021-30860); zero-click via iMessage; used by NSO Group's Pegasus |
 
 ---
 

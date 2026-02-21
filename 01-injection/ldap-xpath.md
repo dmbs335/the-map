@@ -160,12 +160,8 @@ XPath blind extraction leverages the rich built-in function library (`substring(
 |---------|-----------|---------|--------|
 | **substring() character extraction** | Testing each character position against each possible value: `substring(target, position, 1)='a'` | `substring(//user[1]/password,1,1)="a"` | BLIND |
 | **string-length() bounding** | First determining the length of the target string to bound the extraction loop | `string-length(//user[1]/password)=8` | BLIND |
-| **contains() substring search** | Testing whether a string contains specific substrings, narrowing the search space faster than character-by-character | `contains(//user[1]/password, 'admin')` | BLIND |
-| **starts-with() prefix matching** | Binary search on prefixes to reduce query count | `starts-with(//user[1]/password, 'pa')` | BLIND |
-| **codepoints-to-string() encoding bypass** | Using numeric codepoint comparison instead of string literals, bypassing character-level input filters | `substring(password,1,1)=codepoints-to-string(97)` — tests for 'a' | BLIND |
+| **contains() / starts-with()** | Testing substrings or prefixes to narrow the search space faster than character-by-character; binary search on prefixes reduces query count | `contains(//user[1]/password, 'admin')`, `starts-with(//user[1]/password, 'pa')` | BLIND |
 | **Conditional error-based extraction** | XPath 2.0+ `if/then/else` with `error()` function: if the boolean test is true, an error is thrown; the presence/absence of the error is the signal | `if (substring(//user[1]/pw,1,1)='a') then error() else 0` | BLIND |
-| **DFS document crawling** | Recursive depth-first traversal of the entire XML document tree, extracting every node name, attribute, and text value through booleanized queries. Complexity: O(document size) | Automated recursive enumeration | BLIND |
-| **Binary search optimization** | Instead of testing each character value sequentially (O(n) per position), performing binary search over the character space using `<` and `>` comparisons | `substring(target,1,1) > 'm'` → narrow range | BLIND |
 
 ---
 

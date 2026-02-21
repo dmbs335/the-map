@@ -1,3 +1,8 @@
+> **DEPRECATED** — Moved to `99-deprecated/`.
+> - Core pattern is "exposed management interface + deserialization", already covered in `insecure-management-interface.md` and `deserialization.md`
+> - JMX is a highly specialized Java infrastructure protocol rarely encountered outside Java ops teams
+> - MBean registration/invocation RCE is a deserialization variant
+
 # JMX (Java Management Extensions) Attack Mutation/Variation Taxonomy
 
 ---

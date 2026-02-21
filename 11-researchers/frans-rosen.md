@@ -596,8 +596,7 @@ Content-Security-Policy:
 |-----------|-------------------|-----------|
 | **Frans Rosén** | Verification bypass, API differentials | DNS, cloud, OAuth |
 | **Orange Tsai** | URL parser differentials, SSRF | Java, Python, SSRF |
-| **James Kettle** | HTTP request smuggling, cache poisoning | HTTP/1.1, HTTP/2 |
-| **Albinowax** | Template injection, prototype pollution | JavaScript, SSTI |
+| **James Kettle (Albinowax)** | HTTP smuggling, cache poisoning, SSTI | HTTP/1.1, HTTP/2, JavaScript |
 
 **Frans Rosén's Niche**: **Infrastructure-layer trust assumptions**—the gaps between DNS, cloud platforms, and authentication systems.
 
@@ -611,55 +610,14 @@ Content-Security-Policy:
 
 ---
 
-## §11. Future Research Directions (Predicted)
+## §11. Conclusion
 
-Based on Frans Rosén's research trajectory and current technology trends:
+Key contributions:
+1. **Subdomain takeover** formalized as a vulnerability class (2014)
+2. **Cloud provider verification protocols** established as security requirements (2017)
+3. **OAuth third-party isolation** demonstrated via "Dirty Dancing" research (2022)
 
-### Likely Next Targets
-
-**1. Serverless Architecture Verification Gaps**
-- Function-as-a-Service (FaaS) custom domain verification
-- API Gateway authentication bypass via deployment slot confusion
-- Edge function isolation failures (Cloudflare Workers, AWS Lambda@Edge)
-
-**2. Web3 Authentication Bridges**
-- OAuth-to-Blockchain wallet bridging attacks
-- Wallet signature verification bypasses
-- Smart contract integration with OAuth (Sign-In with Ethereum)
-
-**3. AI/ML Pipeline Supply Chain**
-- Model registry subdomain takeovers (Hugging Face, Replicate)
-- Training data poisoning via DNS hijacking
-- API endpoint switching in LLM providers
-
-**4. Decentralized Identity (DID) Verification**
-- DID document hijacking via DNS
-- Verifiable credential issuance without proof-of-control
-- Cross-chain identity bridging attacks
-
-### Research Methodology Evolution
-
-- **Automated API differential testing**: Tool to enumerate all endpoints, diff security policies
-- **Third-party gadget fuzzing**: Systematic postMessage listener discovery
-- **Cloud resource lifecycle monitoring**: Real-time DNS-to-cloud mapping
-
----
-
-## §12. Conclusion: The Rosén Research Doctrine
-
-Frans Rosén's 11-year research portfolio reveals a **unified theory of web security**:
-
-> **Modern applications are federations of trust relationships—DNS trusts cloud providers, cloud providers trust OAuth servers, OAuth servers trust third-party scripts. Each handoff is a verification opportunity. Each missing verification is a vulnerability.**
-
-His contributions formalized:
-1. **Subdomain takeover** as a vulnerability class (2014)
-2. **Cloud provider verification protocols** as security requirements (2017)
-3. **OAuth third-party isolation** as authentication hygiene (2022)
-
-**Legacy**: Transformed "minor misconfigurations" into **OWASP Testing Guide** chapters, **EASM industry standards**, and **IETF protocol revisions**.
-
-**For Defenders**: Implement verification-by-default at every trust boundary.
-**For Researchers**: Master infrastructure-layer dependencies—the next breakthrough is in the gaps between systems, not within them.
+Influence: Subdomain takeover methodology adopted in **OWASP Testing Guide v4.2**; OAuth research cited in **IETF OAuth Security BCP**.
 
 ---
 
@@ -707,5 +665,5 @@ His contributions formalized:
 
 **Document Version**: 1.0 (2025)
 **Researcher Coverage**: 2014-2025
-**Analysis Depth**: §1-§12 (Infrastructure to Meta-Analysis)
+**Analysis Depth**: §1-§11 (Infrastructure to Conclusion)
 **Total Research Items Analyzed**: 25+ publications, talks, and bug bounties

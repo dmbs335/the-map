@@ -26,6 +26,7 @@ The taxonomy is organized by **what structural component of the HTTP request the
 | 7 | Malformed Headers & Error Responses | Provoking cacheable error pages via oversized/invalid headers |
 | 8 | Framework & Application-Level Caches | Internal cache mechanisms, fragment caching, middleware bypass |
 | 9 | Client-Side & Browser Caches | Client-side desync, browser cache poisoning, service worker abuse |
+| 10 | CDN Forwarding Request Inconsistencies | HEAD→GET conversion, conditional/encoding header stripping causing amplification DoS |
 
 ### Axis 2 — Discrepancy Type (Cross-Cutting)
 
@@ -353,6 +354,42 @@ These mutations target the **victim's browser cache** rather than shared server-
 
 ---
 
+## §10. CDN Forwarding Request Inconsistencies & Amplification DoS
+
+CDNs modify client requests before forwarding them to origin servers — converting methods, stripping headers, and altering encoding negotiations. When these modifications increase the origin's response size relative to what the client receives, attackers can weaponize the CDN as an HTTP traffic amplifier. Systematic fuzzing of 22 CDN providers (REQSMINER, NDSS 2024) uncovered 74 amplification DoS vulnerabilities across three novel attack categories, with amplification factors reaching up to 1,920,000× under specific conditions.
+
+### §10-1. HEAD-to-GET Conversion Amplification (HeadAmp)
+
+| Subtype | Mechanism | Key Condition |
+|---------|-----------|---------------|
+| **HEAD→GET conversion** | Client sends a HEAD request; CDN converts it to GET when forwarding to the origin. The origin generates a full response body (potentially megabytes), but the CDN only returns headers to the client. The origin bears the full computation and bandwidth cost of generating the body | CDN converts HEAD to GET on cache miss; 11 of 22 CDNs exhibited this behavior |
+| **Repeated cache-busting HEAD** | Attacker sends HEAD requests with cache-busting parameters to prevent caching, forcing repeated full-body generation at the origin while receiving only headers | CDN does not cache HEAD responses; origin generates full body each time |
+
+### §10-2. Conditional Header Stripping Amplification (CondAmp)
+
+| Subtype | Mechanism | Key Condition |
+|---------|-----------|---------------|
+| **If-None-Match stripping** | Client sends `If-None-Match: <etag>` (which would yield a 304 Not Modified from the origin); CDN strips the header when forwarding, causing the origin to return the full response body. Amplification factor scales with resource size — up to 1,920,000× for 1 GB resources | CDN strips conditional request headers; 17 of 22 CDNs strip at least one conditional header type |
+| **If-Modified-Since stripping** | CDN removes the `If-Modified-Since` header; origin returns full response instead of 304 | Same mechanism targeting time-based conditional requests |
+| **If-Match / If-Unmodified-Since stripping** | CDN strips precondition headers that would cause the origin to return 412 Precondition Failed (small response); instead origin returns the full resource | CDN does not forward precondition headers |
+| **If-Range stripping** | CDN removes `If-Range` header from range requests; origin returns the full resource instead of the requested range | CDN does not support or forward conditional range requests |
+
+### §10-3. Accept-Encoding Stripping Amplification (AEAmp)
+
+| Subtype | Mechanism | Key Condition |
+|---------|-----------|---------------|
+| **Accept-Encoding removal** | Client sends `Accept-Encoding: gzip, br` (expecting compressed response); CDN strips the header when forwarding. Origin returns uncompressed response — up to 20× larger than compressed. CDN may then compress before forwarding to client, but the origin-to-CDN link bears the full uncompressed bandwidth cost | CDN strips Accept-Encoding header; 15 of 22 CDNs exhibited this behavior |
+| **Encoding mismatch amplification** | CDN overwrites the client's Accept-Encoding with a different value (e.g., `identity`), causing the origin to return an encoding the client didn't request. Combined with cache-busting, this forces repeated uncompressed transfers from origin | CDN modifies rather than strips the encoding header |
+
+### §10-4. CDN Forwarding Loop & Infrastructure Gaps
+
+| Subtype | Mechanism | Key Condition |
+|---------|-----------|---------------|
+| **Missing CDN-Loop header** | Some CDNs do not implement the `CDN-Loop` header (RFC 8586), enabling attackers to chain multiple CDNs into forwarding loops that amplify requests exponentially | Target CDN does not add or check CDN-Loop; multiple CDNs can be chained |
+| **Range header stripping** | CDN removes the `Range` header; origin returns the full resource instead of the requested byte range, amplifying response size | CDN does not forward Range headers; 12 of 22 CDNs exhibited this behavior |
+
+---
+
 ## Attack Scenario Mapping (Axis 3)
 
 | Scenario | Required Architecture | Primary Mutation Categories | Impact |
@@ -365,6 +402,7 @@ These mutations target the **victim's browser cache** rather than shared server-
 | **Browser-Persistent Attack** | HTTP/1.1 origin + victim browser | §9 (client-side desync + browser cache) | Per-user persistent compromise |
 | **WAF/ACL Bypass** | WAF + origin with path confusion | §1 + §2 (path mutations) | Access control circumvention |
 | **Response Queue Hijack** | H2 front-end + H/1.1 back-end + cache | §9-2 (queue poisoning) | Cross-user data leakage |
+| **CDN Amplification DoS** | CDN stripping conditional/encoding headers + large origin resources | §10 (HeadAmp/CondAmp/AEAmp) | Origin server overload; up to 1,920,000× amplification |
 
 ---
 
@@ -400,6 +438,7 @@ These mutations target the **victim's browser cache** rather than shared server-
 | **Nuclei** (CLI) | Offensive | Template-based scanning | Community templates for known cache poisoning patterns |
 | **Cache Deception Armor** (CDN Feature) | Defensive | WCD prevention (§1) | Cloudflare feature that validates the response Content-Type matches the cached extension |
 | **Varnish VCL** (Configuration) | Defensive | Cache key hardening (§3–§6) | Custom VCL rules to strip/normalize dangerous headers and parameters |
+| **REQSMINER** (Research) | Offensive/Research | CDN forwarding inconsistencies (§10) | UCT-based grammar fuzzing of CDN forwarding behavior; tested 22 CDNs, discovered 74 amplification DoS vulnerabilities |
 
 ---
 
@@ -432,6 +471,7 @@ Each fix addresses a specific mutation — stripping one header, blocking one de
 - Mirheidari et al. — *Web Cache Deception Escalates!*, USENIX Security 2022
 - Guo et al. — *Internet's Invisible Enemy: Detecting and Measuring Web Cache Poisoning in the Wild*, ACM CCS 2024: https://dl.acm.org/doi/10.1145/3658644.3690361
 - Nguyen, Lo Iacono, Federrath — *Your Cache Has Fallen: Cache-Poisoned Denial-of-Service Attack*, ACM CCS 2019: https://cpdos.org/
+- Zheng, Li, Wang, Guo, Duan, Chen, Zhang, Shen — *REQSMINER: Automated Discovery of CDN Forwarding Request Inconsistencies and DoS Attacks with Grammar-based Fuzzing*, NDSS 2024: https://github.com/Konano/ReqsMiner
 - Harel — *ChatGPT Account Takeover - Wildcard Web Cache Deception* (2024): https://nokline.github.io/bugbounty/2024/02/04/ChatGPT-ATO.html
 - zhero_web_security — *Next.js, Cache, and Chains: The Stale Elixir* (2024): https://zhero-web-sec.github.io/research-and-things/nextjs-cache-and-chains-the-stale-elixir
 - Berto et al. — *A Methodology for Web Cache Deception Vulnerability Discovery*, CLOSER 2024

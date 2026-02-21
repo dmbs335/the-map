@@ -10,7 +10,7 @@ This taxonomy classifies **Insecure Management Interface** vulnerabilities along
 
 | Axis | Question | Role |
 |------|----------|------|
-| **Axis 1 — Structural Target** | *What component of the management interface is vulnerable?* | Primary organization of the document (§1–§10) |
+| **Axis 1 — Structural Target** | *What component of the management interface is vulnerable?* | Primary organization of the document (§1–§8) |
 | **Axis 2 — Discrepancy Type** | *What mismatch or gap makes the vulnerability exploitable?* | Cross-cutting explanation of *why* each mutation works |
 | **Axis 3 — Attack Scenario** | *Where and how is the vulnerability weaponized?* | Maps techniques to real-world impact chains |
 
@@ -185,13 +185,7 @@ Management traffic transmitted without encryption, enabling eavesdropping and cr
 
 | Subtype | Mechanism | Key Condition | Discrepancy |
 |---------|-----------|---------------|-------------|
-| **Telnet for device management** | Network devices managed via Telnet (port 23), transmitting commands and credentials in cleartext | Telnet enabled by default, SSH not configured | D4, D5 |
 | **HTTP (non-TLS) management interfaces** | Web-based management panels served over HTTP without TLS, exposing session tokens and credentials to network sniffing | No HTTPS enforcement, missing HSTS | D4, D5 |
-| **SNMPv1/v2c community string exposure** | SNMP management using community strings (`public`, `private`) transmitted in cleartext, allowing device reconfiguration | SNMPv3 (with authentication and encryption) not deployed | D4, D5 |
-| **Unencrypted IPMI/BMC traffic** | BMC management traffic (IPMI over LAN) transmitted without encryption over UDP port 623 | Default IPMI configuration, no TLS wrapper | D4, D5 |
-| **FTP-based firmware management** | Firmware updates delivered to devices via FTP with credentials and firmware images in cleartext | Legacy firmware update mechanism | D4 |
-
-Despite SSH being the encrypted alternative, Telnet usage *increased* across all industries, with the largest rise in government networks — growing from 2% to 10% of devices.
 
 ### §4-2. TLS and Cryptographic Weaknesses
 
@@ -204,17 +198,6 @@ Management interfaces that use encryption but with weak or misconfigured TLS.
 | **Weak cipher suites** | Management interface negotiates export-grade or RC4 ciphers, enabling passive or active decryption | Permissive cipher suite configuration | D4 |
 | **Missing certificate validation in management agents** | Management agents (on managed devices) do not validate the management server's certificate, enabling MitM between controller and agent | Agent trusts any certificate from management server | D4 |
 | **SSH host key not verified** | Operators connect to management SSH without verifying host key fingerprints, enabling MitM via SSH interception | No host key verification policy | D4 |
-
-### §4-3. Protocol-Level Vulnerabilities
-
-Inherent design weaknesses in management protocols that are exploitable regardless of configuration.
-
-| Subtype | Mechanism | Key Condition | Discrepancy |
-|---------|-----------|---------------|-------------|
-| **IPMI v2.0 RAKP hash disclosure** | IPMI v2.0 RAKP (Remote Authenticated Key Exchange Protocol) returns HMAC password hashes to unauthenticated requestors by design, enabling offline password cracking | IPMI v2.0 in use (CVE-2013-4786, by design) | D4 |
-| **SSH Terrapin attack** | The SSH transport protocol in OpenSSH before 9.6 allows integrity check bypass, enabling downgraded or disabled security features through prefix truncation | Unpatched SSH server, ChaCha20/CBC-ETM cipher use | D4 |
-| **SNMP reflection/amplification** | SNMP GET requests can be spoofed to generate large responses directed at a victim, and the community string needed is often the default `public` | SNMPv1/v2c with default community, public-facing | D4, D1 |
-| **CISCO SNMP RCE via malformed OID** | Malformed SNMP OID values exploit parser vulnerabilities in Cisco IOS SNMP handling, enabling remote code execution and rootkit deployment (CVE-2025-20352) | SNMP accessible from attacker-controlled network | D4 |
 
 ---
 
@@ -313,46 +296,11 @@ Management interfaces that were never intended for production use — or never i
 
 ---
 
-## §8. Firmware and Hardware Management Plane Vulnerabilities
-
-Out-of-band management controllers (BMC, IPMI, iLO, iDRAC, AMT) operate independently of the host OS and represent a parallel, often less-secured management plane.
-
-### §8-1. BMC/IPMI Vulnerabilities
-
-| Subtype | Mechanism | Key Condition | Discrepancy |
-|---------|-----------|---------------|-------------|
-| **IPMI Cipher 0 authentication bypass** | IPMI v2.0 supports "Cipher 0" which specifies no authentication, and some implementations accept it by default | IPMI Cipher 0 not explicitly disabled | D2, D4 |
-| **IPMI v2.0 RAKP password hash disclosure** | IPMI v2.0 protocol returns HMAC-based password hashes to unauthenticated requestors during session negotiation (CVE-2013-4786) | IPMI v2.0 in use — this is a protocol design flaw, not a misconfiguration | D4, D6 |
-| **BMC firmware buffer overflow** | Malformed requests to BMC web interface or IPMI handler trigger buffer overflows enabling arbitrary code execution within the BMC context (CVE-2024-10238, CVE-2024-10239 in Supermicro) | Unpatched BMC firmware | D2 |
-| **BMC firmware signature bypass** | Firmware update signature verification can be bypassed, allowing installation of malicious BMC firmware that persists across host OS reinstallation (CVE-2025-7937) | Insufficient signature verification in BMC bootloader | D2, D4 |
-| **BMC default credentials** | BMC ships with well-known default credentials (Dell iDRAC: `root/calvin`, Supermicro: `ADMIN/ADMIN`, HP iLO: `Administrator/<iLO tag>`) | Credentials not changed post-deployment | D2, D5 |
-| **BMC network exposure** | BMC management port shares the host's network or is accessible from the production VLAN rather than a dedicated management network | No dedicated BMC management network | D1, D5 |
-
-BMCs operate independently of the host OS, EDR, and application security tools, making them invisible to the standard security stack. A compromised BMC provides persistent, OS-independent access including virtual console, power control, and firmware manipulation.
-
-### §8-2. Intel AMT/ME Vulnerabilities
-
-| Subtype | Mechanism | Key Condition | Discrepancy |
-|---------|-----------|---------------|-------------|
-| **AMT authentication bypass** | Intel AMT web interface authentication can be bypassed via empty or null authentication digest, granting remote KVM access | Vulnerable AMT firmware version, AMT provisioned | D2 |
-| **AMT enabled without operator knowledge** | Intel AMT is provisioned at the firmware level and may be active even when the OS-level management tools show it as disabled | OEM provisioning during manufacturing | D1, D5 |
-| **ME firmware vulnerabilities** | Intel Management Engine firmware vulnerabilities allow local or remote exploitation of the ME processor, which has DMA access to all system memory | Unpatched ME firmware | D2, D4 |
-
-### §8-3. Firmware Update Channel Insecurity
-
-| Subtype | Mechanism | Key Condition | Discrepancy |
-|---------|-----------|---------------|-------------|
-| **Unsigned firmware updates** | Management controller or network device accepts firmware images without cryptographic signature verification | No code signing implemented in update mechanism | D4 |
-| **HTTP-based firmware distribution** | Firmware images downloaded over unencrypted HTTP, enabling MitM modification of firmware during transit | Update channel not secured with TLS | D4 |
-| **Firmware downgrade attack** | Management interface allows flashing older firmware versions that contain known vulnerabilities, bypassing rollback protection | No anti-rollback mechanism or version enforcement | D4, D5 |
-
----
-
-## §9. Cloud and Orchestration Control Plane Vulnerabilities
+## §8. Cloud and Orchestration Control Plane Vulnerabilities
 
 Cloud management consoles, Kubernetes control planes, and orchestration dashboards represent the modern equivalent of physical infrastructure management interfaces.
 
-### §9-1. Cloud Management Console Misconfigurations
+### §8-1. Cloud Management Console Misconfigurations
 
 | Subtype | Mechanism | Key Condition | Discrepancy |
 |---------|-----------|---------------|-------------|
@@ -365,7 +313,7 @@ Cloud management consoles, Kubernetes control planes, and orchestration dashboar
 
 Cloud control plane compromise grants near-complete control over the entire cloud infrastructure. CISA issued Binding Operational Directive 25-01 in December 2024, mandating federal agencies secure cloud environments due to widespread misconfiguration.
 
-### §9-2. Container Orchestration Management Exposure
+### §8-2. Container Orchestration Management Exposure
 
 | Subtype | Mechanism | Key Condition | Discrepancy |
 |---------|-----------|---------------|-------------|
@@ -378,7 +326,7 @@ Cloud control plane compromise grants near-complete control over the entire clou
 
 Tesla's AWS-hosted Kubernetes environment was compromised via a misconfigured Kubernetes Dashboard left exposed without authentication, leading to cryptomining operations on their infrastructure.
 
-### §9-3. CI/CD Management Interface Vulnerabilities
+### §8-3. CI/CD Management Interface Vulnerabilities
 
 | Subtype | Mechanism | Key Condition | Discrepancy |
 |---------|-----------|---------------|-------------|
@@ -390,43 +338,17 @@ Tesla's AWS-hosted Kubernetes environment was compromised via a misconfigured Ku
 
 ---
 
-## §10. OT/ICS/SCADA Management Interface Vulnerabilities
-
-Operational Technology management interfaces present unique challenges: they were designed for isolated networks, often run decades-old protocols, and directly control physical processes.
-
-### §10-1. HMI and SCADA Console Exposure
-
-| Subtype | Mechanism | Key Condition | Discrepancy |
-|---------|-----------|---------------|-------------|
-| **Internet-exposed HMI** | Human-Machine Interface consoles accessible from the internet, providing direct control over industrial processes | IT/OT convergence without proper segmentation | D1 |
-| **Unauthenticated PLC management** | Programmable Logic Controllers accessible via Modbus, S7comm, or EtherNet/IP without authentication, allowing logic modification | Industrial protocols designed without authentication | D2, D4 |
-| **SCADA historian web interface exposure** | SCADA historian databases (OSIsoft PI, Wonderware) with web management interfaces accessible beyond the OT network | Historian bridging IT and OT without access control | D1, D6 |
-| **Engineering workstation remote access** | Remote desktop or VPN access to engineering workstations that program PLCs, without proper access segmentation | Direct RDP/VPN to OT engineering stations | D1, D3 |
-
-As of January 2024, Shodan identified approximately 110,000 internet-facing ICS devices globally, with the United States accounting for 27% of the exposure. Most lack proper authentication mechanisms and are not updated.
-
-### §10-2. Industrial Protocol Weaknesses
-
-| Subtype | Mechanism | Key Condition | Discrepancy |
-|---------|-----------|---------------|-------------|
-| **Modbus/TCP without authentication** | Modbus protocol has no built-in authentication; any network-reachable client can read/write holding registers and coils | Modbus TCP accessible beyond intended network | D2, D4 |
-| **OPC UA misconfiguration** | OPC UA server configured with `None` security policy or self-signed certificates without validation, allowing unauthenticated access | Security policy not enforced in OPC UA configuration | D2, D4 |
-| **BACnet broadcast exposure** | Building automation BACnet protocol devices discoverable and controllable via broadcast, with no authentication by design | BACnet device on routable network | D1, D2, D4 |
-| **DNP3 without Secure Authentication** | Distributed Network Protocol used in power grid SCADA operates without authentication in its base specification | DNP3 Secure Authentication extension not deployed | D2, D4 |
-
----
-
 ## Attack Scenario Mapping (Axis 3)
 
 | Scenario | Architecture | Primary Mutation Categories | Chain Example |
 |----------|-------------|---------------------------|---------------|
 | **Initial Access** | Internet-facing management interface | §1 + §2 | Shodan discovery (§1-3) → Default credentials (§2-1) → Full admin access |
 | **Privilege Escalation** | Authenticated low-privilege user | §3 + §2-2 | Low-priv auth (§2) → Missing function-level authz (§3-1) → Admin-to-root escalation (§3-1) |
-| **Lateral Movement** | Compromised management plane | §8 + §9 + §4 | Compromised BMC (§8-1) → Credential extraction → Pivot to host OS and adjacent hosts |
+| **Lateral Movement** | Compromised management plane | §8 + §4 | Compromised BMC (§8-1) → Credential extraction → Pivot to host OS and adjacent hosts |
 | **Persistence** | Firmware-level implant | §8-3 + §7-2 | BMC firmware signature bypass (§8-1) → Malicious firmware installation (§8-3) → OS-independent persistence |
 | **Data Exfiltration** | Information disclosure chain | §6 + §5 | Actuator heapdump (§6-1) → Extract credentials → Access additional management planes |
-| **Infrastructure Takeover** | Cloud control plane | §9-1 + §3 | IAM self-escalation (§9-1) → Full cloud admin → Modify all resources and access controls |
-| **Supply Chain Compromise** | CI/CD management | §9-3 + §7 | Jenkins script console (§9-3) → Inject malicious code into build pipeline → Compromise all deployed artifacts |
+| **Infrastructure Takeover** | Cloud control plane | §8-1 + §3 | IAM self-escalation (§8-1) → Full cloud admin → Modify all resources and access controls |
+| **Supply Chain Compromise** | CI/CD management | §8-3 + §7 | Jenkins script console (§8-3) → Inject malicious code into build pipeline → Compromise all deployed artifacts |
 | **Physical Process Manipulation** | OT/ICS management | §10 + §1 + §2 | Internet-exposed HMI (§10-1) → No authentication (§10-2) → Direct manipulation of industrial process |
 
 ---
@@ -438,19 +360,19 @@ As of January 2024, Shodan identified approximately 110,000 internet-facing ICS 
 | §2-2 (auth bypass) + §3-1 (priv esc) | CVE-2024-0012 + CVE-2024-9474 (PAN-OS) | CVSS 9.3 + 6.9. Unauthenticated attacker gains root access on Palo Alto firewalls via management web interface. Actively exploited in the wild. |
 | §2-2 (path confusion auth bypass) | CVE-2025-0108 (PAN-OS) | Authentication bypass via double URL encoding + directory traversal. Chained with CVE-2024-9474 and CVE-2025-0111. CISA KEV listed. |
 | §2-2 (path traversal to unauthed handler) | CVE-2025-64446 (FortiWeb) | CVSS 9.8. Path traversal to internal CGI handler creates admin account in single request. Exploited in the wild. |
-| §9-1 (SSO signature bypass) | CVE-2025-59718 (FortiCloud SSO) | CVSS 9.1. Crafted SAML message bypasses SSO authentication. Exfiltration of config files with network topology and credentials. CISA KEV listed. |
+| §8-1 (SSO signature bypass) | CVE-2025-59718 (FortiCloud SSO) | CVSS 9.1. Crafted SAML message bypasses SSO authentication. Exfiltration of config files with network topology and credentials. CISA KEV listed. |
 | §5-1 (predictable session IDs) | DSA-2024-099, DSA-2024-295 (Dell iDRAC) | Predictable IPMI 2.0 session IDs in Dell iDRAC8 and iDRAC9 allow session hijacking. |
 | §8-1 (BMC buffer overflow) | CVE-2024-10238, CVE-2024-10239 (Supermicro BMC) | Stack-based buffer overflows in BMC firmware enable arbitrary code execution in BMC context. |
 | §8-1 (firmware signature bypass) | CVE-2025-7937 (Supermicro BMC) | Incomplete patch allows crafted firmware images to pass verification, enabling persistent BMC compromise. |
 | §2-1 (default credentials) | CVE-2025-59108 (dormakaba Access Manager) | Default `admin` password never forced to change. Unauthenticated remote access to building access management system. |
 | §2-1 (default credentials) | CVE-2025-0890 (Zyxel DSL CPE) | Default credentials for supervisor, admin, and zyuser accounts on DSL management interface. |
-| §9-2 (image builder defaults) | CVE-2024-9486 (Kubernetes Image Builder) | Default credentials baked into Kubernetes VM images during build process persist in production. |
-| §9-3 (CLI file read) | CVE-2024-23897 (Jenkins) | Critical arbitrary file read via Jenkins CLI. Enables extraction of secrets, credentials, and SSH keys. |
-| §9-3 (pipeline takeover) | CVE-2024-9164 (GitLab) | CVSS 9.6. Run CI/CD pipelines on arbitrary branches. |
+| §8-2 (image builder defaults) | CVE-2024-9486 (Kubernetes Image Builder) | Default credentials baked into Kubernetes VM images during build process persist in production. |
+| §8-3 (CLI file read) | CVE-2024-23897 (Jenkins) | Critical arbitrary file read via Jenkins CLI. Enables extraction of secrets, credentials, and SSH keys. |
+| §8-3 (pipeline takeover) | CVE-2024-9164 (GitLab) | CVSS 9.6. Run CI/CD pipelines on arbitrary branches. |
 | §4-3 (SNMP RCE) | CVE-2025-20352 (Cisco IOS/IOS XE) | SNMP vulnerability exploited to deploy rootkits. Active exploitation by threat actors ("Operation Zero Disco"). |
 | §6-1 (Actuator exposure) | Various HackerOne reports | Spring Boot Actuator `/heapdump` leaking database credentials and API keys. Multiple bug bounty payouts. |
 | §5-2 (CSP bypass → XSS) | CVE-2025-0376 (GitLab) | CVSS 8.7. CSP bypass enabling XSS on merge request pages — session token theft and repository modification. |
-| §9-1 (cloud misconfig) | Snowflake Breach (2024) | Stolen, never-rotated credentials compromised 100+ customers including AT&T, Ticketmaster, Santander Bank. |
+| §8-1 (cloud misconfig) | Snowflake Breach (2024) | Stolen, never-rotated credentials compromised 100+ customers including AT&T, Ticketmaster, Santander Bank. |
 | §8-2 (UEFI vulnerability) | CVE-2024-0762 (Phoenix SecureCore) | CVSS 7.5. TPM configuration buffer overflow in UEFI firmware affecting Intel Core processors. |
 | §1-1 (internet exposure) | CISA BOD 25-01 (Dec 2024) | US federal mandate to secure cloud environments due to widespread management interface exposure. |
 

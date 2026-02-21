@@ -1,3 +1,8 @@
+> **DEPRECATED** — Moved to `99-deprecated/`.
+> - Most XSSI vectors are neutralized by modern browser defenses: SameSite cookies (Lax default), CORB/ORB
+> - The document itself states "modern browser defenses have narrowed the attack surface significantly"
+> - Residual attack surface (JSONP abuse, etc.) can be briefly referenced in `csrf.md` or `xss.md`
+
 # Cross-Site Script Inclusion (XSSI) Mutation/Variation Taxonomy
 
 ---
@@ -136,11 +141,9 @@ Override the `Array` or `Object` constructor so that when the included script's 
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
-| **Array constructor override (classic)** | `Array = function(){exfil(arguments)}` — intercepts `[1,2,3]` parsing | Pre-2018 browsers; modern browsers patched |
-| **Object constructor override** | `Object = function(){exfil(this)}` — intercepts `{key: "val"}` construction | Pre-2018 browsers; modern browsers patched |
 | **Setter-based interception** | `Object.defineProperty(Object.prototype, 'key', {set: function(v){exfil(v)}})` | Target response uses known property name |
 
-The Array constructor override was the original XSSI attack (2006, Gmail). Modern browsers (post-2018) no longer allow overriding native constructors for cross-origin script parsing, but **legacy applications and older browser versions remain vulnerable**.
+Modern browsers (post-2018) no longer allow overriding native constructors for cross-origin script parsing, but setter-based interception remains viable when the target response uses known property names.
 
 ### §4-2. Prototype Chain Poisoning
 
@@ -226,7 +229,6 @@ When non-JavaScript data is included as a script, the parse error messages can r
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
-| **Error message content leakage** | `window.onerror` receives error message containing parts of the response data | Older browsers (IE9/10) provided verbose cross-origin error messages |
 | **Line number leakage** | Error line number reveals which line of the response caused the first syntax error | Response structure inference |
 | **Error type differentiation** | `SyntaxError` vs `ReferenceError` vs successful parse reveals data format | Different data shapes produce different error types |
 

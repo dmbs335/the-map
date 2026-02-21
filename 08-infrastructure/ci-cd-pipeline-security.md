@@ -187,24 +187,6 @@ Modern applications depend on hundreds of external packages. The dependency laye
 
 The **Shai-Hulud 2.0** campaign (November 2025) exploited npm `preinstall` lifecycle scripts, executing malicious payloads even when installation failed, compromising 25,000+ repositories.
 
-### §4-3. Transitive Dependency Attacks
-
-| Subtype | Mechanism | Key Condition |
-|---------|-----------|---------------|
-| **Deep Dependency Injection** | Compromise low-level transitive dependency several layers deep | Limited scrutiny of transitive dependencies |
-| **Dependency Update Hijacking** | Publish malicious update to transitive dependency | Automated dependency updates, no lock file |
-| **Peer Dependency Confusion** | Manipulate peer dependency resolution to inject malicious package | Complex peer dependency trees |
-| **Optional Dependency Exploitation** | Inject malicious code via optional or development dependencies | Dev dependencies installed in CI environment |
-
-### §4-4. Registry and Repository Manipulation
-
-| Subtype | Mechanism | Key Condition |
-|---------|-----------|---------------|
-| **Mirror Poisoning** | Compromise package registry mirrors used by CI/CD | CI configured to use untrusted mirrors |
-| **CDN Cache Poisoning** | Serve malicious package from CDN cache | CDN caching without integrity verification |
-| **Registry Misconfiguration** | Exploit exposed package registries with upload permissions | 2,100+ artifact registries found with upload access (2023) |
-| **Lockfile Bypass** | Modify dependency versions despite presence of lockfile | CI ignores lockfile or regenerates on build |
-
 ---
 
 ## §5. Identity & Access Control Layer
@@ -266,23 +248,6 @@ Build artifacts (container images, packages, binaries) are produced by CI and co
 | **API Key Leakage** | Discover registry API keys in public repositories or logs | Hardcoded registry credentials |
 | **Registry Impersonation** | Point CI to attacker-controlled registry mirror | DNS hijacking or configuration manipulation |
 
-### §6-3. Image and Container Manipulation
-
-| Subtype | Mechanism | Key Condition |
-|---------|-----------|---------------|
-| **Base Image Poisoning** | Compromise base images (Alpine, Ubuntu) in private registry | Base images pulled from untrusted sources |
-| **Layer Injection** | Insert malicious layers into container images | Multi-stage builds without layer verification |
-| **Container Scan Evasion** | Structure malicious code to evade vulnerability scanners | Scanners focus on known CVEs, miss novel malware |
-| **Image Squashing Bypass** | Hide malicious content in intermediate layers removed by squashing | Malicious content only in build-time layers |
-
-### §6-4. Software Bill of Materials (SBOM) Exploitation
-
-| Subtype | Mechanism | Key Condition |
-|---------|-----------|---------------|
-| **SBOM Falsification** | Generate incorrect SBOM hiding malicious dependencies | SBOM created by compromised build process |
-| **SBOM Reconnaissance** | Use publicly available SBOMs to map attack surface | SBOMs published without considering threat modeling |
-| **Dependency Mismatch** | Ship different dependencies than declared in SBOM | SBOM generated early in build, not from final artifact |
-| **Transitive Dependency Omission** | Omit vulnerable transitive dependencies from SBOM | SBOM tools fail to capture full dependency tree |
 
 ---
 
@@ -309,26 +274,6 @@ CI/CD jobs execute on runners, agents, or build nodes. Compromising the executio
 | **LD_PRELOAD Injection** | Preload malicious shared libraries to hook system calls | Linux runners without LD_PRELOAD restrictions |
 | **Tool Binary Replacement** | Replace legitimate build tools (git, npm, docker) with trojanized versions | Tools installed from untrusted sources or writable locations |
 | **Compiler Backdoor** | Compromise compiler to inject backdoors into all compiled code | Compiler from untrusted source (supply chain attack) |
-
-### §7-3. Resource Hijacking
-
-| Subtype | Mechanism | Key Condition |
-|---------|-----------|---------------|
-| **Cryptomining Injection** | Execute cryptocurrency miners using CI/CD compute resources | Long-running or unmetered CI jobs |
-| **Distributed C2 Infrastructure** | Use compromised runners as command-and-control servers | Runners have outbound internet access |
-| **Data Exfiltration Relay** | Proxy stolen data through CI/CD infrastructure to evade detection | CI egress not monitored |
-| **Compute Resource Exhaustion** | Execute resource-intensive tasks to cause denial of service | No resource limits on workflow execution |
-
-Ultralytics compromise (December 2024) shipped cryptomining payloads via trojanized GitHub Actions workflow.
-
-### §7-4. Environment-Specific Exploits
-
-| Subtype | Mechanism | Key Condition |
-|---------|-----------|---------------|
-| **Container Escape** | Break out of containerized CI environment to access host | Privileged containers or kernel vulnerabilities |
-| **Kubernetes Pod Compromise** | Exploit CI pods in k8s to access cluster resources | CI pods with service account tokens |
-| **Windows Reserved Filename Exploitation** | Use Windows reserved names (CON, PRN, NUL) to bypass security checks | Windows runners with vulnerable code paths |
-| **Cloud Metadata Service Access** | Access cloud metadata endpoints (169.254.169.254) from CI | Cloud-hosted runners without metadata restrictions |
 
 ---
 
@@ -393,8 +338,6 @@ Real-world exploitation combines mutations across multiple components to achieve
 | **Supply Chain Compromise** | Inject malicious code into build artifacts distributed to users | §4 (Dependencies) + §6 (Artifacts) + §1 (Pipeline) | End-user compromise, widespread malware distribution |
 | **Lateral Movement** | Use CI/CD access to pivot to production or internal networks | §5 (IAM) + §7 (Runner) + §3 (OIDC) | Production system access, data breach |
 | **Production Deployment Manipulation** | Modify or sabotage code deployed to production | §1 (Pipeline) + §6 (Artifacts) + §2 (Tags) | Service disruption, backdoor in production |
-| **Resource Abuse** | Hijack CI/CD infrastructure for cryptomining or C2 | §7 (Runner) + §1 (Workflow) | Cost increase, infrastructure compromise |
-| **Dependency Poisoning at Scale** | Publish malicious package consumed by thousands of projects | §4 (Dependency) + §6 (Registry) | Widespread supply chain impact |
 | **OIDC-Based Cloud Compromise** | Leverage OIDC federation to gain cloud access | §5 (OIDC) + §1 (PPE) + §3 (Claims) | AWS/GCP/Azure resource access |
 | **Self-Hosted Runner Worm** | Propagate malware across organization via shared runners | §7 (Runner) + §4 (preinstall) + §2 (Repos) | Organization-wide compromise |
 | **Cache Poisoning** | Inject malicious content into CI cache to affect future builds | §1 (Workflow) + §7 (Environment) | Persistent backdoor across builds |
@@ -418,7 +361,6 @@ Real-world incidents demonstrating taxonomy categories.
 | §1-2 + §3-1 + §6-1 | GhostAction Supply Chain Attack | 327 GitHub users, 817 repos, 3,325 secrets exfiltrated | Sep 2025 |
 | §1-1 + §2-1 | CVE-2024-5655, 9164, 6678 (GitLab) | Trigger pipelines as other users, arbitrary branch execution (CVSS 9.6-9.9) | 2024 |
 | §4-1 | NX Package npm Compromise | NPM token harvesting during package execution | Aug 2025 |
-| §6-1 + §6-2 | Misconfigured Registries | 250M artifacts exposed, 2,100+ registries with upload access | 2023-2024 |
 | §5-2 + §1-1 | OIDC Misconfigurations (OH-MY-DC) | Privilege escalation via OIDC + PPE (DEF CON 32) | Aug 2024 |
 
 ---
@@ -482,7 +424,6 @@ Organizations applying point solutions face recurring compromises because:
 - **Branch protection** is bypassed via GitHub Actions tokens or PPE
 - **Dependency scanning** misses supply chain attacks (dependency confusion, malicious updates to clean packages)
 - **SBOM generation** occurs too late or from compromised build environments
-- **Container scanning** focuses on CVEs, not novel malware or backdoors
 - **Access controls** are circumvented via privilege escalation (OIDC, token abuse)
 
 Each defensive control operates in isolation, while attackers chain mutations across **multiple layers** (§1 configuration + §3 secrets + §7 runner = full compromise).

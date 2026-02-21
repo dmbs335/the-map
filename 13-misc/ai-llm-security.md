@@ -313,7 +313,6 @@ Attacks targeting the infrastructure that hosts, serves, and manages AI models �
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
 | **API-Based Distillation** | Querying a proprietary model's API systematically to train a clone — demonstrated by DeepSeek's unauthorized distillation of GPT-3/4 via API outputs | Unrestricted API access with sufficient query budget |
-| **Side-Channel Extraction** | Using electromagnetic emissions, power analysis, or cache timing to extract model parameters from hardware | Physical or co-located access to inference hardware |
 | **Composite Extraction** | Combining information from multiple partial extraction attacks to reconstruct a more complete model — doubling extraction risk through attack composition | Access to multiple extraction primitives |
 | **Data-Free Model Extraction (MEGEX)** | Extracting model behavior through query access alone without any knowledge of training data — using gradient-based explainability features to improve extraction efficiency | Target model exposes explainability features (saliency maps, attention) |
 | **Embedding Inversion** | Reversing embedding vectors to reconstruct input text or training data — effective even at deep layers (L=24 of 32-layer models) | Access to embedding API or intermediate representations |
@@ -339,7 +338,6 @@ As LLMs evolve into multimodal systems processing text, images, audio, and video
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
 | **Adversarial Audio Perturbation** | Adding imperceptible noise to audio that causes speech-to-text or audio-understanding models to misinterpret content | Model processes audio input |
-| **Ultrasonic Command Injection** | Embedding commands in ultrasonic frequencies inaudible to humans but captured by microphones and processed by voice-enabled AI systems | AI system accepts audio from environment (smart speakers, voice assistants) |
 | **Audio-Text Cross-Modal Attack** | Targeting joint audio-text embeddings by perturbing audio to mislead models processing spoken QA or navigation | Multimodal model with audio encoder |
 
 ### §9-3. Cross-Modal Exploitation

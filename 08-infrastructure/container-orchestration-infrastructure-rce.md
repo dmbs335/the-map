@@ -94,31 +94,7 @@ Container build systems (BuildKit, Buildah, Kaniko) execute Dockerfiles/Containe
 
 Containers running with elevated privileges (--privileged flag, dangerous Linux capabilities, host namespace sharing, sensitive volume mounts) provide direct escape paths without requiring any vulnerability — the escape is by design. This category represents the most common real-world container breakout vector.
 
-### §2-1. Full Privileged Mode Escape
-
-The `--privileged` flag disables nearly all container isolation: all capabilities are granted, seccomp is disabled, AppArmor/SELinux is unconfined, and device access is unrestricted.
-
-| Subtype | Mechanism | Key Condition |
-|---|---|---|
-| **cgroup release_agent from privileged** | Mount the host's cgroup filesystem, create a child cgroup, set `notify_on_release=1` and `release_agent=/path/on/host/payload`, then trigger the release by moving processes out. The host kernel executes the payload as root | `--privileged`; mount propagation allowing host cgroup mount |
-| **/dev device access** | Privileged containers have access to all host block devices (`/dev/sda`, `/dev/nvme0n1`). Mount the host root partition: `mount /dev/sda1 /mnt` → full host filesystem access | `--privileged`; block devices visible |
-| **nsenter to host** | From a privileged container sharing the host PID namespace: `nsenter --target 1 --mount --uts --ipc --net --pid -- /bin/bash` drops directly into the host's init namespace | `--privileged` + `hostPID: true` |
-| **modprobe/insmod kernel module loading** | Privileged containers can load arbitrary kernel modules: `insmod rootkit.ko` achieves persistent kernel-level access | `--privileged` or `CAP_SYS_MODULE` |
-
-### §2-2. Dangerous Capability Exploitation
-
-Individual Linux capabilities, when granted without the full `--privileged` flag, still provide escape primitives.
-
-| Subtype | Mechanism | Key Condition |
-|---|---|---|
-| **CAP_SYS_ADMIN** | The "catch-all" capability enables mounting filesystems, creating namespaces, accessing BPF, and most privilege escalation paths. Effectively equivalent to `--privileged` for escape purposes | Pod SecurityContext granting CAP_SYS_ADMIN |
-| **CAP_SYS_PTRACE** | Allows attaching to processes in other containers sharing the same PID namespace via `ptrace()`. An attacker injects shellcode into any process on the node: `ptrace(PTRACE_ATTACH, target_pid)` → `ptrace(PTRACE_POKETEXT, ...)` → code injection | `CAP_SYS_PTRACE` + shared PID namespace (`shareProcessNamespace: true` or `hostPID: true`) |
-| **CAP_NET_ADMIN** | Enables modifying network interfaces, routing tables, and iptables rules. Combined with host network namespace, allows traffic interception, ARP spoofing, and DNS hijacking across the node | `CAP_NET_ADMIN` + `hostNetwork: true` |
-| **CAP_DAC_READ_SEARCH** | Bypasses file read permission checks, enabling `open_by_handle_at()` to access any file on any filesystem the kernel can see — including the host filesystem, even without explicit mounts | `CAP_DAC_READ_SEARCH`; `open_by_handle_at()` syscall (the "Shocker" exploit) |
-| **CAP_SYS_MODULE** | Allows loading kernel modules. A malicious kernel module provides unrestricted kernel-level access, persistence, and rootkit capabilities | `CAP_SYS_MODULE` without `--privileged` |
-| **CAP_BPF + CAP_PERFMON** | Combined, these enable loading arbitrary eBPF programs that can read/write kernel memory, intercept syscalls, and manipulate network traffic for all containers on the node | `CAP_BPF` + `CAP_PERFMON` (or the legacy `CAP_SYS_ADMIN` equivalent) |
-
-### §2-3. Host Mount Exploitation
+### §2-1. Host Mount Exploitation
 
 Sensitive host paths mounted into containers — whether intentionally or through misconfiguration — provide direct access to host resources.
 
@@ -129,16 +105,6 @@ Sensitive host paths mounted into containers — whether intentionally or throug
 | **PersistentVolume hostPath bypass** | When PodSecurityPolicy restricts `hostPath` in pod specs, an attacker with PV/PVC creation permissions creates a hostPath-type PersistentVolume, then mounts it via PersistentVolumeClaim — effectively bypassing the PSP restriction because PV objects are not validated against pod-level security policies | PV creation permissions; PSP not validating PV types (TOB-K8S-038) |
 | **kubelet pods directory mount** | Mounting `/var/lib/kubelet/pods` exposes service account tokens from every pod on the node. The attacker traverses the directory to extract tokens from privileged system accounts (e.g., kube-proxy, monitoring agents, ingress controllers) | hostPath mount to kubelet pods directory |
 | **containerd/CRI socket mount** | Mounting the containerd socket (`/run/containerd/containerd.sock`) or CRI socket provides container runtime API access. The attacker uses `ctr` or `crictl` to create privileged containers, exec into existing containers, or extract images with embedded secrets | Container runtime socket exposed inside pod |
-
-### §2-4. Host Namespace Sharing
-
-Sharing host namespaces breaks specific isolation dimensions, each enabling distinct attack patterns.
-
-| Subtype | Mechanism | Key Condition |
-|---|---|---|
-| **hostPID namespace** | `hostPID: true` makes all host processes visible from within the container. Enables: (1) reading environment variables of host processes via `/proc/<pid>/environ` (capturing passwords, API keys), (2) `ptrace` injection if capabilities allow, (3) signaling host processes (`kill -9`) | `hostPID: true` in pod spec |
-| **hostNetwork namespace** | `hostNetwork: true` places the pod on the host's network stack. Enables: (1) binding to node ports (including privileged ports like 443), (2) intercepting traffic to other pods on the same node, (3) accessing node-local services (kubelet on 10250, IMDS on 169.254.169.254) without network policy restrictions | `hostNetwork: true` in pod spec |
-| **hostIPC namespace** | `hostIPC: true` shares the host's IPC namespace (shared memory, semaphores, message queues). Enables reading from shared memory segments used by other processes, potentially including database shared buffers or inter-process communication channels | `hostIPC: true` in pod spec |
 
 ---
 
@@ -248,7 +214,6 @@ Service meshes (Istio, Linkerd) inject sidecar proxies that handle mTLS authenti
 |---|---|---|
 | **Sidecar mTLS certificate theft ("Sidecar Siphon")** | In sidecar-based service meshes, the application container and the Envoy sidecar share the same network namespace. A breached application container reads the sidecar's mTLS certificates from the shared volume or filesystem, then uses them to impersonate the service — making authenticated requests to any other service in the mesh | Istio with sidecar injection; shared network namespace between app and sidecar; service account token accessible |
 | **Service account token → CA certificate signing** | The sidecar's service account token enables performing a Certificate Signing Request (CSR) to the mesh CA (istiod). An attacker who obtains the SA token can request valid mTLS certificates for any service identity | Istio with in-cluster CA; service account token mounted in pod |
-| **x-envoy header manipulation** | Envoy considers all private IP addresses as internal by default and does not sanitize `x-envoy-*` headers from external sources with private IPs. Attackers manipulate these headers to bypass rate limiting, tracing, and routing decisions | Envoy/Istio ≤ 1.23.1 (CVE-2024-45806) |
 
 ---
 
@@ -263,10 +228,7 @@ Container registries (Docker Hub, Harbor, Quay, ACR, ECR, GCR) are trust anchors
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
 | **Image typosquatting** | Publishing malicious images with names resembling popular official images (e.g., `openjdk` vs `OpenJDK`, `golang` vs `Golang`, `alpline` vs `alpine`). 86.1% of detected typosquatted packages contain malware, with cryptocurrency theft as the predominant objective | Public registry (Docker Hub); no image signature verification; developer typing errors |
-| **"Imageless" container metadata poisoning** | Millions of registry entries contain no actual container image — only metadata descriptions with links to phishing sites, SEO spam, or malware download pages. These entries exploit Docker Hub's search and documentation features as a distribution mechanism | Docker Hub's permissive publishing model; over 4.6 million such entries identified (2019–2024) |
 | **Base image backdoor persistence** | Compromised or intentionally backdoored base images embed persistent malware in layers. The XZ Utils supply chain backdoor (CVE-2024-3094, CVSS 10.0) was found propagating through Docker Hub images as late as September 2025, surviving in dozens of derivative images long after the upstream fix | Public base images without signature verification; transitive dependency propagation |
-| **Subdomain takeover → registry hijack** | Deprovisioned cloud resources (S3 buckets, Azure Storage, GCP buckets) referenced by DNS records are reclaimed by attackers. Container registries or image storage hosted on hijacked subdomains serve malicious images to deployments referencing those domains | Kubernetes/Docker configs referencing deprovisioned subdomains; ~150 deprovisioned S3 buckets discovered serving 8M+ requests |
-| **Registry BOLA/access control bypass** | Authorization vulnerabilities in self-hosted registries allow users with limited roles to modify project metadata, delete images, or push replacement images | Harbor < 2.9.5 (CVE-2024-22278); insufficient access control validation |
 
 ### §6-2. Image Content Attacks
 
@@ -293,12 +255,6 @@ Docker Engine exposes an API for container management. When this API is accessib
 | **Docker Swarm botnet recruitment** | After discovering exposed Docker APIs, attackers join the target into an attacker-controlled Docker Swarm, deploying cryptocurrency miners and lateral movement tools across the swarm. The 2024 campaign used masscan and ZGrab for internet-wide scanning of Docker API ports | Exposed Docker API; Docker Swarm mode available |
 | **Self-propagating container malware** | Malicious containers running on exposed Docker APIs scan the internet for additional exposed APIs, creating worm-like propagation. The Dero cryptocurrency miner campaign (2025) used this technique to build a distributed mining network | Exposed Docker API; outbound network access from containers |
 
-### §7-2. Docker Desktop Local Escape
-
-| Subtype | Mechanism | Key Condition |
-|---|---|---|
-| **Docker Desktop API subnet exposure** | Containers on Docker Desktop can access the Docker Engine API at `http://192.168.65.7:2375` without authentication, regardless of whether Enhanced Container Isolation (ECI) is enabled. This allows any container to control all other containers, create new privileged containers, manage images, and access host files — achievable with or without Docker socket mounting | Docker Desktop < 4.44.3 on Windows/macOS (CVE-2025-9074; CVSS 9.3) |
-
 ---
 
 ## §8. Cluster Network & Lateral Movement
@@ -322,14 +278,6 @@ Kubernetes default networking allows unrestricted pod-to-pod communication. Afte
 | **Managed identity token theft** | In AKS, the Azure Instance Metadata Service exposes managed identity tokens. An attacker in any pod can request tokens for the node's managed identity, which may have permissions to Azure Key Vault, Azure Storage, or other cloud services | AKS with node-level managed identity; no pod identity isolation |
 | **GKE metadata concealment bypass** | Older GKE configurations expose node service account credentials via the metadata server. While Workload Identity is the recommended mitigation, clusters not using Workload Identity expose GCP IAM credentials to every pod on the node | GKE without Workload Identity; legacy metadata API enabled |
 
-### §8-3. CNI Plugin Vulnerabilities
-
-| Subtype | Mechanism | Key Condition |
-|---|---|---|
-| **Cilium WireGuard encryption bypass** | Traffic to/from Ingress and health endpoints is not encrypted when using Cilium's WireGuard transparent encryption with CRDs, potentially exposing sensitive traffic in transit | Cilium < 1.14.7 (CVE-2024-25630) |
-| **Cilium bugtool sensitive data leak** | `cilium-bugtool` exposes CA certificates, private keys, and API keys used in TLS inspection and Kafka network policies in its diagnostic output | Cilium < 1.15.6 (CVE-2024-37307) |
-| **Cilium Hubble UI CORS vulnerability** | Insecure CORS headers in the Hubble UI allow cross-origin information leakage, potentially exposing cluster topology and flow data to external attackers | Cilium Hubble UI (CVE-2025-23047) |
-
 ---
 
 ## §9. Cloud-Managed Kubernetes & Multi-Tenant Isolation
@@ -343,7 +291,6 @@ Cloud-managed Kubernetes services (EKS, AKS, GKE) introduce provider-specific at
 | **AKS TLS Bootstrap credential theft** | A vulnerability in Azure Kubernetes Service allowed attackers to leverage Azure WireServer to retrieve encryption keys used for decrypting provisioning scripts, which contain sensitive credentials for bootstrapping cluster nodes | AKS with vulnerable WireServer configuration (2024 disclosure) |
 | **EKS Pod Identity Agent exploitation** | The EKS Pod Identity Agent runs as a DaemonSet on every node. If an attacker compromises the agent's pod or its communication channel, they can intercept or forge identity tokens for any pod on the node | EKS with Pod Identity; agent compromise via container escape |
 | **GKE Autopilot policy bypass** | GKE Autopilot enforces security restrictions (no privileged pods, no hostPath mounts), but certain workload configurations can bypass these guardrails through pod mutation, init containers, or sidecar injection mechanisms | GKE Autopilot with specific workload types |
-| **kube-controller-manager SSRF** | A half-blind SSRF in kube-controller-manager when using the in-tree Portworx StorageClass allows authorized users to access unprotected endpoints in the control plane's host network | Kubernetes with Portworx StorageClass (CVE-2025-13281) |
 
 ### §9-2. Cross-Tenant Container Isolation Failure
 
@@ -354,16 +301,6 @@ In multi-tenant Kubernetes deployments, tenants share nodes and often share cont
 | **Shared kernel container escape → cross-tenant access** | A container escape vulnerability (§1) exploited on a shared node provides access to all pods co-located on that node, regardless of namespace or tenant. In multi-tenant clusters, this means access to other tenants' data, credentials, and workloads | Multi-tenant cluster with shared node pools; any container escape vulnerability |
 | **AI platform cross-tenant escape** | Researchers escaped from isolated customer containers on managed AI platforms (Replicate, Hugging Face) by exploiting container toolkit vulnerabilities (§1-3) and EKS misconfigurations. Post-escape, they accessed other customers' data — private repositories, models, datasets, and proprietary source code from thousands of organizations. On one platform, Redis task queue credentials led to cluster-wide access with 700+ visible nodes | AI inference platforms running multi-tenant GPU workloads; NVIDIA Container Toolkit vulnerability; EKS misconfigurations |
 | **Namespace-based isolation inadequacy** | Kubernetes namespaces provide only API-level logical separation — they do not provide kernel-level, network-level, or storage-level isolation. Attackers who compromise a pod in one namespace can access pods in all namespaces through default networking, shared node access, or cluster-scoped RBAC bindings | Namespace-as-tenant model without additional isolation (NetworkPolicies, node isolation, pod security) |
-
-### §9-3. Serverless Container Security Boundaries
-
-Serverless container platforms (AWS Fargate, Azure Container Instances, Google Cloud Run) shift the shared-responsibility model by managing the host OS and kernel.
-
-| Subtype | Mechanism | Key Condition |
-|---|---|---|
-| **Fargate task isolation bypass** | Each Fargate task has its own isolation boundary with dedicated kernel resources. However, vulnerabilities in the Fargate agent or the microVM hypervisor (Firecracker) could theoretically break this boundary. The isolation model differs fundamentally from traditional containers: escape requires hypervisor-level bugs, not kernel namespace bugs | AWS Fargate; undiscovered Firecracker vulnerabilities |
-| **Azure Container Instances escape ("Azurescape")** | A cross-account container escape in Azure Container Instances allowed breaking out of a malicious container into the multitenant Kubernetes cluster managing the service, potentially accessing other customers' containers and data | Azure Container Instances (disclosed 2021, jointly by Palo Alto/Microsoft; architectural mitigations since applied) |
-| **Cloud Run metadata access** | Cloud Run containers can access the GCP metadata server to obtain the service's IAM credentials. If the Cloud Run service account has overly broad permissions, a compromised container can access GCP resources beyond its intended scope | Cloud Run with overpermissioned service account; metadata server accessible |
 
 ---
 
@@ -380,7 +317,6 @@ Serverless container platforms (AWS Fargate, Azure Container Instances, Google C
 | **Monitoring Tool → Silent RCE** | Kubernetes with Prometheus/Datadog | §3-1 | Compromised monitoring pod with nodes/proxy GET → WebSocket exec in any pod → no audit trail |
 | **Cloud Identity Escalation** | EKS/AKS/GKE | §8-2, §9 | Pod SSRF → IMDS credential theft → IAM escalation → S3/RDS access → data exfiltration |
 | **Cross-Tenant AI Platform Breach** | Multi-tenant GPU cluster | §1-3, §9-2 | NVIDIA toolkit escape → host access → Redis credentials → all tenants' models and data |
-| **Developer Machine Compromise** | Docker Desktop | §7-2 | Malicious container → Docker API on 192.168.65.7 → privileged container → host file access |
 
 ---
 
@@ -399,14 +335,9 @@ Serverless container platforms (AWS Fargate, Azure Container Instances, Google C
 | §1-5 (BuildKit) | CVE-2024-23651, 23652, 23653 ("Leaky Vessels") | Build-time container escape; CVSS 8.7–10.0 |
 | §1-5 (Buildah) | CVE-2024-1753 | Mount source symlink → host filesystem access during build; CVSS 8.6 |
 | §3-1 (Windows log query) | CVE-2024-9042 | PowerShell command injection on Windows nodes via log query API |
-| §3-1 (SSRF) | CVE-2025-13281 | kube-controller-manager half-blind SSRF via Portworx StorageClass |
 | §4-1 (IngressNightmare) | CVE-2025-1974, 1097, 1098, 24514 | Unauth RCE → cluster-wide secrets; CVSS 9.8; 43% of cloud environments |
 | §4-3 (gitRepo) | CVE-2024-10220 | Node-level code execution via Git hooks; CVSS 8.1 |
-| §5-2 (Envoy header) | CVE-2024-45806 | x-envoy header manipulation from external sources; Istio affected |
 | §6-1 (supply chain) | CVE-2024-3094 (XZ Utils) | Backdoored base images propagating through Docker Hub; CVSS 10.0 |
-| §6-1 (registry) | CVE-2024-22278 (Harbor) | BOLA allowing unauthorized project metadata modification |
-| §7-2 (Docker Desktop) | CVE-2025-9074 | Container escape via unauthenticated Docker API on local subnet; CVSS 9.3 |
-| §8-3 (Cilium) | CVE-2024-25630, CVE-2024-37307 | WireGuard encryption bypass; sensitive data leak via bugtool |
 | §9-2 (cross-tenant) | Wiz/Palo Alto research (2024–2025) | AI platform multi-tenant escape; access to thousands of orgs' data |
 
 ---
@@ -489,7 +420,6 @@ The fundamental tension is that each structural solution imposes operational fri
 - Aqua Security: "Linux Kernel Vulnerability: Escaping Containers by Abusing Cgroups" — https://www.aquasec.com/blog/new-linux-kernel-vulnerability-escaping-containers-by-abusing-cgroups/
 - Aqua Security: "Leveraging Kubernetes RBAC to Backdoor Clusters" — https://www.aquasec.com/blog/leveraging-kubernetes-rbac-to-backdoor-clusters/
 - Docker: "Security Advisory: Multiple Vulnerabilities in runc, BuildKit, and Moby" — https://www.docker.com/blog/docker-security-advisory-multiple-vulnerabilities-in-runc-buildkit-and-moby/
-- The Hacker News: "Docker Fixes CVE-2025-9074" — https://thehackernews.com/2025/08/docker-fixes-cve-2025-9074-critical.html
 - InstaTunnel: "The Sidecar Siphon: Exploiting Identity Leaks in Service Mesh Architectures" — https://instatunnel.my/blog/the-sidecar-siphon-exploiting-identity-leaks-in-service-mesh-architectures
 - Kubernetes: "Ingress-nginx CVE-2025-1974: What You Need to Know" — https://kubernetes.io/blog/2025/03/24/ingress-nginx-cve-2025-1974/
 - Kubernetes: "CVE-2024-10220: Arbitrary Command Execution through gitRepo Volume" — https://discuss.kubernetes.io/t/security-advisory-cve-2024-10220-arbitrary-command-execution-through-gitrepo-volume/30571

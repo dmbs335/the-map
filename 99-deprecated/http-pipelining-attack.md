@@ -1,3 +1,8 @@
+> **DEPRECATED** — Moved to `99-deprecated/`.
+> - HTTP pipelining is disabled/abandoned in all major browsers (Chrome, Firefox, Safari)
+> - Document self-scopes as "post-HRS attacks", heavily overlapping with `http-request-smuggling.md`
+> - Key techniques (response queue poisoning, connection state attacks) are already covered in the smuggling taxonomy
+
 # HTTP Pipelining & Connection Reuse Attack Mutation Taxonomy
 
 ---

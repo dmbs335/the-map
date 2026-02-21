@@ -21,7 +21,7 @@ The taxonomy is organized along three orthogonal axes:
 | **Database Wire Protocol** | MongoDB, Redis, Memcached | Stored documents, credentials, query results from other sessions |
 | **Network Middlebox** | Firewalls, censorship systems, DPI appliances | Transit traffic from other users, DNS query payloads, routing metadata |
 
-**Axis 3 — Trigger Mechanism**: How the attacker induces the memory leak. Summarized in the Attack Scenario Mapping section (§6).
+**Axis 3 — Trigger Mechanism**: How the attacker induces the memory leak. Summarized in the Attack Scenario Mapping section (§5).
 
 ---
 
@@ -145,21 +145,7 @@ A reverse proxy or load balancer reuses a backend connection but fails to fully 
 
 ---
 
-## §5. Speculative Execution Side-Channel
-
-Microarchitectural attacks that leak memory across process or privilege boundaries via CPU cache timing. While not specific to web infrastructure, they affect web-facing services through shared hosting, cloud co-location, and JavaScript-accessible timing primitives.
-
-### §5-1. Browser-Exploitable Speculative Read
-
-| Subtype | Mechanism | Key Condition |
-|---------|-----------|---------------|
-| **Cross-origin memory read via Spectre** | JavaScript in a browser exploits speculative execution to read cross-origin memory from the same process (pre-Site Isolation) or from the renderer process's own address space. Leaked data includes DOM content, cookies, and HTTP response bodies from other origins sharing the process | Shared-process architecture without Site Isolation; high-resolution timer available (SharedArrayBuffer, performance.now) |
-
-**Note:** Site Isolation, Cross-Origin Opener Policy (COOP), Cross-Origin Embedder Policy (COEP), and `crossOriginIsolated` are the primary mitigations. The browser-side speculative execution attack surface is extensively covered in browser security model taxonomies and is noted here only for completeness.
-
----
-
-## §6. Attack Scenario Mapping (Axis 3)
+## §5. Attack Scenario Mapping (Axis 3)
 
 | Scenario | Architecture | Primary Mutation Categories | Typical Impact |
 |----------|-------------|---------------------------|----------------|
@@ -172,7 +158,7 @@ Microarchitectural attacks that leak memory across process or privilege boundari
 
 ---
 
-## §7. CVE / Bounty Mapping (2014–2025)
+## §6. CVE / Bounty Mapping (2014–2025)
 
 | Mutation Combination | CVE / Case | Year | Impact / Bounty |
 |---------------------|-----------|------|----------------|
@@ -193,7 +179,7 @@ Microarchitectural attacks that leak memory across process or privilege boundari
 
 ---
 
-## §8. Detection Tools
+## §7. Detection Tools
 
 | Tool | Type | Target | Core Technique |
 |------|------|--------|---------------|
@@ -207,7 +193,7 @@ Microarchitectural attacks that leak memory across process or privilege boundari
 
 ---
 
-## §9. Summary: Core Principles
+## §8. Summary: Core Principles
 
 ### Why Web Memory Disclosure Persists
 
