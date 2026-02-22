@@ -347,6 +347,7 @@ Unicode mutations that affect data processing, storage, comparison, and protocol
 | **MySQL `utf8` vs. `utf8mb4`** | MySQL's `utf8` encoding only supports 3-byte UTF-8 (BMP only). 4-byte characters (emoji, supplementary planes) are silently truncated, potentially enabling truncation attacks | MySQL table uses `utf8` instead of `utf8mb4` |
 | **Collation-Based Duplicate Key** | Two strings that differ in Unicode but are equal under the database collation cause unique constraint violations or unintended record overwrites | Database collation is less strict than application-level uniqueness checks |
 | **SQL Injection via Normalization** | `U+FF07` (fullwidth apostrophe) passes input sanitization but normalizes to `U+0027` (standard apostrophe) during NFKC normalization, breaking SQL string delimiters | Sanitization occurs before normalization |
+| **Surrogate → Replacement Character → Search Wildcard** | Unpaired Unicode surrogates (U+D800–U+DFFF) submitted as `\udc2a` are converted to U+FFFD (replacement character) by UTF-8 parsers, then simplified to `?` by downstream systems. In Solr and Elasticsearch, `?` functions as a single-character wildcard, enabling input validation bypass when literal wildcard characters (`*`, `?`) are filtered but surrogates are not | Backend uses Solr/Elasticsearch with wildcard query parsing; input validation filters literal wildcards but not Unicode surrogates; charset conversion pipeline converts invalid surrogates → U+FFFD → `?` |
 
 ### §8-4. Unicode in Protocol Headers
 

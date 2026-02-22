@@ -261,6 +261,10 @@ The deprecated `url.resolve()` performs relative URL resolution with no scheme v
 | **Duplicate key type confusion** | `querystring.parse('a=1&a=2')` → `{ a: ['1','2'] }` (array); `URLSearchParams.get('a')` → `'1'` (first value only). Code expecting a string receives an array, or vice versa | Application uses `if (param === 'admin')` — fails when param is an array |
 | **HPP via querystring** | `querystring.parse('role=user&role=admin')` → `{ role: ['user', 'admin'] }`. If `.includes('admin')` check is used, authorization passes; if `=== 'admin'`, it fails | Inconsistent type handling across authorization checks |
 | **Prototype pollution via qs** | Express with `extended: true` uses the `qs` package which supports nested object syntax: `role[__proto__][isAdmin]=true` | Express default middleware with `extended: true` |
+| **`]=` separator priority trick** | `qs` searches for `]=` before `=` to split key from value. If `]=` appears anywhere in a value (e.g., `redirect_uri=javascript:alert(1)//?x]=x`), `qs` uses that `]=` as the split point, destroying the intended key. `URLSearchParams` always splits at the first `=`, so the two parsers extract completely different key-value pairs from the same query string | Server uses `qs` (Express `extended`) to validate a parameter; client-side JS re-parses from `window.location.search` via `URLSearchParams` and acts on the divergent result |
+| **Bracket stripping differential** | `qs` treats `[redirect_uri]=value` identically to `redirect_uri=value` by stripping outer brackets during key parsing. `URLSearchParams` treats `[redirect_uri]` as a literal key distinct from `redirect_uri`. Attacker sends the safe value via `[redirect_uri]` (passes backend validation) while the malicious `redirect_uri` is only visible to the browser's `.get("redirect_uri")` | Server uses `qs`; client uses `URLSearchParams`; both read the same query string |
+| **parameterLimit exhaustion** | `qs` default `parameterLimit` is 1000 — parameters beyond this index are silently dropped. `URLSearchParams` has no limit. Attacker pads 1000+ junk `&p` parameters before the malicious `redirect_uri`, hiding it from the server while the browser processes the entire query string | Express with default `qs` configuration; no server-side limit override; client-side JS reads from `window.location.search` |
+| **Server-validate / client-reparse XSS** | Compound pattern: server validates a query parameter (e.g., `redirect_uri`) using `qs`, confirms it matches an allowlist, and renders a page where client-side JS re-parses from `window.location.search` via `URLSearchParams` and navigates to the result. Any of the above `qs`-vs-`URLSearchParams` differentials allows the server check to pass while the browser extracts a `javascript:` URI | Backend validation + client-side navigation using different query string parsers on the same raw URL |
 
 ---
 
@@ -1029,6 +1033,7 @@ fetch(userUrl, { agent }); // Validates RESOLVED IP, not hostname
 - vm2 sandbox escape history and deprecation — https://github.com/patriksimek/vm2/security/advisories
 - Snyk State of Open Source Security Reports 2022-2024
 - npm Manifest Confusion — Darcy Clarke, 2023
+- "When Two Parsers Disagree: Exploiting Query String Differentials for XSS" — Voorivex, 2025 — https://blog.voorivex.team/when-two-parsers-disagree-exploiting-query-string-differentials-for-xss
 
 ### CVE Databases
 - NVD: https://nvd.nist.gov/vuln/search?query=node.js

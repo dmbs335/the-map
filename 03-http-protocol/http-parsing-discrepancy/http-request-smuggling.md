@@ -494,6 +494,11 @@ The chunked encoding trailer section — an optional header section following th
 | **TERM.TRAIL** | Proxy ignores lone newlines in trailers; server interprets them as line terminators → pipelined request injected within trailer | Requires an **early-response gadget** (§1-2): AIOHTTP, Koa, Actix Web, and nginx/IIS under specific conditions. Google Classic ALB ($13,337 bounty) |
 | **TRAIL.TERM** | Reverse: server ignores lone newlines in trailers; proxy treats them as terminators → "request joining" where two legitimate requests are conflated into one | Bypasses Content-Length validation through trailer ambiguity |
 | **Forbidden headers in trailers** | Injecting `Content-Length`, `Transfer-Encoding`, `Host`, or other forbidden headers in chunked trailers → some servers process them, overriding earlier header values | Parser-specific; RFC explicitly forbids these headers in trailers but enforcement varies |
+| **TR.MRG (Trailer Merge)** | Intermediary unsafely merges trailer fields into the header section per RFC 9112 §7.1.2 → downstream component receives attacker-controlled headers invisible to upstream proxy. Distinct from request smuggling: no message boundary manipulation — the attack injects *headers* (e.g., `x-forwarded-for`, `Host`) that the proxy never inspected because they were in the trailer section | lighttpd (CVE-2025-12642), cpp-httplib (CVE-2025-53628), fasthttp (PR #2043), Boost.Beast (PR #3042), Falcon, PHP Built-in Server, libevent, Yahns, rubygems/protocol-http1 (won't fix). Enables ACL bypass, Host header spoofing (password reset poisoning), cache poisoning via legitimate cache keys. ~70 implementations tested |
+| **Unparsed trailers** | Server completely skips trailer parsing after `0\r\n` — reads only one line (first trailer or blank terminator) and closes the chunk body → remaining trailer content interpreted as start of next request | eventlet (CVE-2025-59822), cheroot. Proxy must correctly parse full trailer section for desync to occur |
+| **Early termination** | Server terminates trailer parsing at any `\r\n` line that lacks a colon, without waiting for blank `\r\n\r\n` terminator → bytes after that line become new request | http4s (CVE-2025-58068). Distinct from TERM.TRAIL (lone `\n` divergence) — this triggers on valid CRLF in non-header-like trailer content |
+| **Hide-Merge-Smuggle** | Parser accepts any character in trailer header names until colon is found → invalid trailer (no colon) causes parser to continue reading into next request's data as header name, consuming `\r\nPOST / HTTP/1.1\r\nHost:` as a single header name → second request's body becomes smuggled request | Eclipse GlassFish. Requires backend with lenient header name validation that does not reject lines without colons |
+| **Newline in trailer values** | Server allows `\n` in trailer header values → when intermediary accepts `\n\n` as request terminator, a trailer value containing `\n\n` splits the request — content after `\n\n` becomes new request | Puma. Short read timeout requires simultaneous transmission |
 
 
 
@@ -512,6 +517,7 @@ Mutations that exploit **protocol behaviors outside message grammar** — TCP co
 | **Connection reuse** | Residual bytes on a keep-alive connection concatenated with the next request — the foundational condition for all server-side HRS | Requires `Connection: keep-alive` (default in HTTP/1.1) and the proxy's failure to drain or close the connection after forwarding |
 | **Pipelining confusion** | Parsing boundary differences when multiple requests are serialized on a single connection | Distinguishing smuggling from legitimate pipelining is a key detection challenge. CVE-2023-25950 (HAProxy 2.6/2.7): HTX parser incorrectly merges pipelined requests |
 | **Connection header stripping** | `Connection: Transfer-Encoding` induces a proxy to strip TE as a hop-by-hop header → Back-End falls back to CL | Creates TE.CL without any TE obfuscation — the proxy itself removes the TE header |
+| **Connection header token parsing** | RFC 9110 allows comma-separated tokens in Connection (`Connection: close, te`), but ~30% of servers only recognize the literal string `connection: close` without parsing individual tokens → `te` token ignored, TE-related headers not stripped → amplifies trailer merge (§5-3 TR.MRG) and hop-by-hop attacks | lighttpd CVE-2025-12642: `Connection: close, te` forwarded intact; downstream server processes `close` but ignores `te`, failing to strip `TE: trailers` |
 | **Upgrade header abuse** | `Upgrade: h2c` for clear-text H2 (§4); `Upgrade: websocket` for protocol switch → bypasses Edge HTTP/1.1 validation | Some proxies blindly forward Upgrade headers without understanding the protocol switch implications |
 | **Expect: 100-continue** | Manipulating the server's `100 Continue` response timing to desynchronize body reading. Apache ignores the request body entirely when `Expect: 100-continue` is present — combining this with a proxy that forwards the body creates a framing mismatch without CL/TE manipulation | Vanilla Expect causes 0.CL desync (§1-4). Obfuscated variants (`Expect: y 100-continue`) bypass WAF detection. A second header block in the 100 Continue response can remove security headers |
 | **Varnish connection cleaning** | Varnish sanitizes residual bytes on the connection after processing each request — actively preventing the foundational condition for HRS by ensuring no leftover data can be concatenated with subsequent requests | Defensive mechanism: Varnish is inherently resistant to most server-side HRS because its connection-cleaning behavior removes the residual-byte prerequisite |
@@ -663,6 +669,7 @@ How the mutations above are **weaponized** under specific architectural conditio
 | **Cross-Protocol TLS Desync (Opossum)** | MitM + server supporting both implicit and opportunistic TLS → permanent response stream desync | §6-1 (TLS / Opossum) | Affects HTTP, SMTP, FTP, POP3 beyond HTTP; 3M+ hosts. CVE-2025-49812 |
 | **Response Desync / CGI Desync** | Proxy and origin disagree on response body boundaries or CGI output parsing → response queue misalignment | §8-4 (response/CGI divergence) | Response forgery, response stealing. 9 CVEs |
 | **Cache-Poisoned DoS (CPDoS) via Path Parsing** | Proxy and origin disagree on percent-encoded path normalization → cache stores error response for legitimate resource | §8-1 (path normalization divergence) | ATS interprets `/foo%2fbar` as `/foo/bar` for caching but Apache returns 404; cached error denies service to legitimate path (Gudifu). See also `web-cache-poisoning-and-deception.md` §3 |
+| **Header Smuggling via Trailer Merge** | Proxy inspects only headers; intermediary merges trailer fields into headers before forwarding downstream → attacker injects headers invisible to upstream (ACL bypass via `x-forwarded-for`, Host spoofing for password reset, cache key poisoning). No request boundary manipulation required | §5-3 (TR.MRG) + §6 (Connection token parsing) | HAProxy ACL bypass: `x-forwarded-for: 127.0.0.1` in trailers bypasses `req.fhdr(x-forwarded-for)` check; downstream receives it as a regular header. CVE-2025-12642 (lighttpd) |
 
 **Composite Payload — CL.TE → Response Queue Poisoning:**
 
@@ -723,6 +730,10 @@ Host: vulnerable.com\r\n
 | §5-1 (SPILL.TERM) | CVE-2025-43859 (h11/uvicorn/hypercorn) | Python ASGI server chunk body spill vulnerability |
 | §5-1 (SPILL.TERM) | CVE-2025-29904 (Ktor) | $300. Kotlin server chunk handling |
 | §5-3 (TERM.TRAIL) | Google Classic ALB | $13,337. Trailer section lone newline divergence |
+| §5-3 (TR.MRG) | CVE-2025-12642 (lighttpd 1.4.80) | Header smuggling + request smuggling via trailer merge. Connection header comma-separated token parsing (§6) amplifies the attack |
+| §5-3 (TR.MRG) | CVE-2025-53628 (cpp-httplib) | Header smuggling via unsafe trailer merge into header section |
+| §5-3 (Early termination) | CVE-2025-58068 (http4s) | Request smuggling via early trailer parsing termination — colon-less line triggers premature request completion |
+| §5-3 (Unparsed trailers) | CVE-2025-59822 (eventlet) | Request smuggling via complete trailer parsing skip — only one line read after `0\r\n` |
 | §1-2 (TE.0) | Google Cloud Load Balancer | $8,500 (Google VRP). TE not supported by back-end |
 | §1-3 (H2.CL) | Netflix (Netty library) | $20,000. Netty failed to validate CL against H2 frame length |
 | §1-3 (H2.TE) | Netlify CDN | Every hosted site vulnerable including Firefox start page |
@@ -818,6 +829,7 @@ All HTTP Request Smuggling mutations ultimately stem from **one fact**: HTTP/1.1
 | Graybox proxy (2024) | Coverage feedback from proxy *internals* | Critical CVEs in HAProxy and ATS invisible to blackbox approaches |
 | Response + CGI (2025) | Gray-box testing of response and CGI output parsing | Extended desync beyond requests; 9 CVEs in response handling |
 | 0.CL at scale + chunk extensions (2025) | Early response gadgets, double-desync, chunk extension mutations | $350K+ bounties, CVSS 9.9, C2 infrastructure weaponization |
+| Trailer section systematic (2026) | Targeted trailer parsing differential testing across ~70 implementations | TR.MRG header smuggling, unparsed trailers, early termination, hide-merge-smuggle; 4 CVEs, 12+ implementations |
 
 Six years of individual patches and regex-based defenses block only **known mutation fingerprints** without resolving the fundamental parser divergence. The structural solution requires three concurrent efforts: (1) **upstream HTTP/2 adoption** — eliminating framing mismatch by removing text-based length interpretation entirely (but as of 2025, Cloudflare downgrades H2→H1 internally, and Nginx/Akamai/CloudFront/Fastly lack upstream H2 support); (2) **opportunistic TLS deprecation** — eliminating TLS-layer desync; and (3) **RFC-strict normalization proxies** — enforcing a single interpretation at the network edge before requests reach heterogeneous backends. From a detection perspective, the necessary shift is from exploit-pattern matching to identifying **parser-primitive-level discrepancies themselves** — the approach embodied in HTTP Request Smuggler v3.0's V-H/H-V probing methodology.
 
@@ -862,10 +874,17 @@ Six years of individual patches and regex-based defenses block only **known muta
 - Cache Poisoning → C2 Side Channel research (2025). CL.0 desync weaponized for covert C2 via CDN global cache Location header poisoning. Targets: Akamai, Azure, Oracle CDN; `.mil`, `.gov`, `.cn` domains. Blog: `malicious.group`.
 - assured.se — *The Single-Packet Shovel: Digging for Desync-Powered Request Tunnelling* (2025). Combining single-packet parallelization with HTTP/2 downgrade for reliable request tunneling exploitation.
 
+### 2026 Research
+- Sebastiano Sartor — *Trailing Danger: Exploring HTTP Trailer Parsing Discrepancies* (2026). Systematic study of trailer section parsing across ~70 implementations via http-garden framework. Introduces TR.MRG (Trailer Merge) header smuggling: intermediaries unsafely merge trailers into headers per RFC 9112 §7.1.2, enabling ACL bypass, Host spoofing, and cache poisoning without request boundary manipulation. Novel mechanisms: unparsed trailers (eventlet CVE-2025-59822, cheroot), early parsing termination (http4s CVE-2025-58068), hide-merge-smuggle (GlassFish), newline in trailer values (Puma). CVE-2025-12642 (lighttpd), CVE-2025-53628 (cpp-httplib), plus 8+ additional affected implementations (fasthttp, Boost.Beast, Falcon, PHP Built-in Server, libevent, Yahns, rubygems/protocol-http1). Tools: `riphttp`, `riphttplib`, `Trailer-Merge-Lab`. Blog: `sebsrt.xyz`.
+
 ### CVEs
 
 | CVE | Component | Description |
 |---|---|---|
+| CVE-2025-59822 | eventlet | Request smuggling via unparsed trailers — complete trailer parsing skip, only one line read after `0\r\n` |
+| CVE-2025-58068 | http4s | Request smuggling via early trailer parsing termination — colon-less trailer line triggers premature request completion |
+| CVE-2025-53628 | cpp-httplib | Header smuggling via unsafe trailer merge (TR.MRG) into header section |
+| CVE-2025-12642 | lighttpd 1.4.80 | TR.MRG header + request smuggling via trailer merge. Connection header comma-separated token parsing divergence amplifies the attack chain |
 | CVE-2025-55315 | ASP.NET Core Kestrel | CVSS 9.9. Chunk extension bare `\n` handling divergence → request + response smuggling. $10K bounty. Affects .NET 8/9/10 |
 | CVE-2025-49812 | Apache HTTP Server ≤2.4.63 | TLS Upgrade Desync / Opossum. Permanent desync when `SSLEngine optional` enables opportunistic TLS. Apache deprecated opportunistic HTTP |
 | CVE-2025-32094 | Akamai CDN | 0.CL + CL whitespace obfuscation + obsolete line folding + Expect variants. ~$221K / 74 bounties / 65-day patch. Tens of millions of sites |
@@ -897,6 +916,9 @@ Six years of individual patches and regex-based defenses block only **known muta
 | http2smugl | `https://github.com/neex/http2smugl` |
 | Turbo Intruder | Burp Suite BApp Store (PortSwigger) |
 | DesyncCL0 | `https://github.com/riramar/DesyncCL0` |
+| riphttp | Trailer-aware HTTP client enabling trailer transmission across HTTP/1.1, HTTP/2, HTTP/3 (sebsrt.xyz) |
+| riphttplib | Protocol security testing library providing non-RFC-compliant HTTP abstractions and low-level framing APIs (sebsrt.xyz) |
+| Trailer-Merge-Lab | Vulnerable demo applications for trailer merge attacks (GitHub) |
 | HTTP Desync Guardian | AWS — request risk classification |
 
 ### Specifications

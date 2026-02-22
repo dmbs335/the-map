@@ -248,6 +248,22 @@ x|O:6:"Gadget":1:{s:7:"command";s:15:"id > /tmp/pwned";}
 | **Endorsed/ext directory** | `$JAVA_HOME/jre/lib/ext/` | JVM loads all JARs in ext directory | JVM restart required; rare in modern Java |
 | **Service provider config** | `META-INF/services/<interface>` | Java ServiceLoader discovers attacker implementation | Application uses ServiceLoader |
 
+### §4-6. Cross-Framework Template Write → RCE Comparison
+
+Web frameworks that use convention-over-configuration automatically discover and render template files from predictable directories. A file-write primitive targeting these paths achieves RCE through the framework's own rendering pipeline — the attacker never requests the file directly; the framework finds, compiles, and executes it when a matching route is triggered.
+
+| Framework | Extension | Search Path | Trigger Mechanism | Difficulty |
+|---|---|---|---|---|
+| **Rails** | `.erb`, `.html.erb` | `app/views/{controller}/{action}.html.erb` | Route request + implicit render (controller without explicit `render` call) | Medium |
+| **ASP.NET MVC** | `.cshtml`, `.vbhtml` | `~/Views/{Controller}/{Action}.cshtml` → `~/Views/Shared/` | Route request + View Engine search hierarchy (see `asp-dot-net.md` §5-2) | Medium |
+| **Express (EJS/Handlebars)** | `.ejs`, `.hbs` | `views/` (configurable via `app.set('views')`) | `res.render()` call; options injection can manipulate engine behavior | Easy |
+| **Laravel** | `.blade.php` | `resources/views/{name}.blade.php` | `view()` or `View::make()` triggers Blade compilation | Easy |
+| **Django** | N/A (explicit) | Templates require explicit registration in `TEMPLATES['DIRS']` | No implicit template discovery from filesystem conventions | Hard (requires config write) |
+| **Flask** | `.html` (Jinja2) | `templates/` or `__init__.py` in module directory | `render_template()` call; debug auto-reload re-imports modified modules | Hard (requires template call) |
+| **Spring (Thymeleaf)** | `.html` | `src/main/resources/templates/` or classpath | Controller return value matched to template name | Hard (classpath write required) |
+
+**Key principle:** frameworks designed for developer convenience (Rails, Laravel, ASP.NET MVC) automatically map file paths to executable code — an intentional feature that becomes an exploitation primitive when combined with any file-write vulnerability.
+
 ---
 
 ## §5. OS Credential & Authentication File Overwrite

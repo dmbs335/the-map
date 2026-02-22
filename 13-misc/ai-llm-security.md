@@ -245,6 +245,7 @@ The Model Context Protocol (MCP) and similar tool-integration frameworks enable 
 | **Command Injection via LLM Output** | LLM output containing shell commands, SQL, or API calls is executed by downstream systems without sanitization (§7-1 overlap) | Application passes LLM output to system execution without validation |
 | **MCP Remote RCE (CVE-2025-6514)** | Malicious MCP server sends crafted `authorization_endpoint` passed directly to system shell by mcp-remote OAuth proxy — 437K+ downloads affected | Application uses mcp-remote for MCP server authentication |
 | **Workflow Engine Exploitation** | Exploiting AI workflow platforms (n8n, LangChain) to achieve remote code execution through unsafe evaluation or deserialization — n8n CVE-2026-21858 rated CVSS 10.0 | AI integrated into workflow automation platforms |
+| **Workflow Expression Sandbox Escape** | Expressions supplied by authenticated users during workflow configuration are evaluated in an execution context not sufficiently isolated from the underlying runtime, enabling arbitrary code execution as the n8n process. Distinct from CVE-2026-21858 (unauthenticated); this requires authenticated workflow edit access (CVE-2025-68613, CWE-913) | n8n >= 0.211.0, < 1.122.0; authenticated user with workflow edit permissions |
 
 ---
 
@@ -443,6 +444,7 @@ Attacks that degrade the availability or dramatically increase the operational c
 | §6-3 (MCP RCE) | CVE-2025-6514 (mcp-remote) | Critical OS command injection via crafted `authorization_endpoint`. 437K+ downloads |
 | §6-2 (Agent impersonation) | CVE-2025-12420 (ServiceNow) | Admin impersonation via email-only input to AI agent API |
 | §6-3 (Workflow RCE) | CVE-2026-21858 (n8n) | CVSS 10.0. Unauthenticated RCE via AI workflow platform |
+| §6-3 (Workflow expression sandbox escape) | CVE-2025-68613 (n8n) | CRITICAL. Authenticated expression sandbox escape → RCE as n8n process. Affects n8n >= 0.211.0 |
 | §8-1 (Path traversal) | CVE-2024-39722 (Ollama) | Arbitrary file read via path traversal on model server |
 | §8-1 (Auth bypass) | CVE-2025-51471 (Ollama) | Authentication bypass on Ollama inference API |
 | §8-1 (DoS) | CVE-2024-39721 (Ollama) | Denial-of-service via crafted requests |

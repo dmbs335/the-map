@@ -113,6 +113,43 @@ The layered proxy architecture of ASP.NET deployments (reverse proxy → Kestrel
 | **0.CL Desync** | The front-end treats a request as having no body while Kestrel reads Content-Length bytes, creating a deadlock broken via early response gadgets (static files, Windows reserved filenames, redirects, `Expect: 100-continue`). | E1 | Front-end and Kestrel disagree on body presence. |
 | **Response Queue Poisoning** | After a successful smuggle, the attacker's injected request receives the response destined for a victim's subsequent request, enabling credential capture or session hijacking. | E2, E5 | Persistent connection reuse (HTTP/1.1 keep-alive). |
 
+### §2-4. Windows HTTP Service (httpapi.dll) Pre-auth Vulnerabilities
+
+Beyond IIS and Kestrel, dozens of Windows services — KDC Proxy, BranchCache, UPnP Host (`upnphost.dll`), WinRM, ADFS, RDP Gateway, BITS, OCSP — use the same `httpapi.dll` HTTP Server API to register URLs and handle HTTP requests via HTTP.sys. These services share a common request lifecycle: `HttpReceiveHttpRequest` → application processing → `HttpSendHttpResponse` / `HttpCancelHttpRequest`. Logic flaws in this lifecycle — particularly in error handling paths — create pre-authentication DoS and RCE vulnerabilities across the Windows HTTP service ecosystem (Black Hat USA, Cyber Kunlun Lab).
+
+**Three receiving mechanisms** exist, each with distinct vulnerability patterns:
+
+1. **Synchronous**: Single-threaded; service blocks in `HttpReceiveHttpRequest` until a request arrives, processes it, then loops back.
+2. **Asynchronous — WaitForMultipleObjects**: Single-threaded; `HttpReceiveHttpRequest` returns immediately (`0x3E5`), thread waits on event signal, then spawns handler.
+3. **Asynchronous — Callback (most common)**: Uses IO thread pool (`CreateThreadpoolIo` / `StartThreadpoolIo`); each thread handles one request. Used by IIS, Kerberos Proxy, RDP, WinRM, ADFS.
+
+#### Pre-auth DoS — Receive Stage
+
+| Subtype | Mechanism | Effect | Key Condition |
+|---------|-----------|--------|---------------|
+| **Synchronous handler infinite loop (CVE-2024-43512)** | When `HttpReceiveHttpRequest` returns `0xEA` (ERROR_MORE_DATA) because the initial buffer is too small, the handler should `realloc()` to the size indicated by `BytesReturned` and retry. In the Windows Standards-based Storage Management Service (`concrete.dll`), `BytesReturned` is never updated after the retry — it remains at 0 — causing `realloc(0)` and an infinite retry loop. The single-threaded service permanently stops processing any requests. | DoS | Single-threaded sync handler; `BytesReturned` variable not updated after `0xEA` retry. |
+| **Async WaitForMultipleObjects infinite loop (CVE-2025-27471)** | In UPnP Host (`upnphost.dll`), `HttpReceiveHttpRequest` is called with NULL for the `pBytesReceived` parameter (since it uses overlapped I/O). When `0xEA` is returned, the handler reads `BytesReturned` from a local variable that was initialized to 0 and never updated by the API (because `pBytesReceived` was NULL). `malloc(0)` is called, and the handler enters an infinite loop, permanently blocking the service. | DoS | Async WaitForMultipleObjects handler; `pBytesReceived` parameter is NULL; local `BytesReturned` never updated via `GetOverlappedResult` before retry. |
+| **Callback handler thread pool drain** | In callback-based services, each IO thread pool thread handles one request. The callback must call `StartThreadpoolIo` + `HttpReceiveHttpRequest` to spawn a handler for the next request before returning. If an error path returns without issuing this call (e.g., `CWSDHttpListener::HandleRequest` in `wsdapi.dll` returns on non-zero IoResult without calling `IssueReceiveRequest`), the thread exits. Repeated triggering drains all IO thread pool threads — the service permanently stops accepting requests. | DoS | Callback-based HTTP services; error return paths that skip `HttpReceiveHttpRequest` re-invocation. |
+
+#### Pre-auth DoS — Response Stage
+
+| Subtype | Mechanism | Effect | Key Condition |
+|---------|-----------|--------|---------------|
+| **HTTP.sys connection resource leak → kernel nonpaged pool exhaustion (CVE-2024-38149)** | HTTP.sys allocates connection structures in kernel nonpaged pool via `UxTlAllocateConnectionForLookaside`. These are freed only when the handler calls `HttpSendHttpResponse` or `HttpCancelHttpRequest`, triggering `UxTlFreeConnectionFromLookaside`. In BranchCache (`CTnoDownloadMgr::OnMessage`), malformed POST data (e.g., `MSG_NEGO_REQ` with invalid format) triggers `SystemError::ThrowHelper` exceptions. The exception handler does not call `HttpSendHttpResponse` or `HttpCancelHttpRequest` to disconnect. If the attacker also does not disconnect, the connection reference count never decreases, and the kernel nonpaged pool structure is never freed. Sustained exploitation exhausts kernel nonpaged pool, causing system hang or Blue Screen of Death (BSoD). | DoS (BSoD) | BranchCache service exposed; malformed POST data triggers exception in handler; handler omits response/cancel call; attacker holds connection open. |
+
+#### IIS ISAPI Extension Lifecycle — Reference Count Exhaustion / UAF
+
+| Subtype | Mechanism | Effect | Key Condition |
+|---------|-----------|--------|---------------|
+| **ISAPI_CONTEXT reference count exhaustion → persistent 503 (CVE-2024-38067)** | IIS initializes an `ISAPI_CONTEXT` structure per ISAPI extension with a reference count (max 0x1366). Each request increments the count via `ProcessIsapiRequest`. The extension must call `ServerSupportFunction` (`SSFDoneWithSession`) to invoke `ISAPI_CONTEXT::DereferenceIsapiContext` and decrement the count. In the OCSP ISAPI extension (`ocspisapi.dll`), the response path calls `SendResponseToClient` → `ServerSupportFunction` → `W3_RESPONSE::WriteEntityChunks` → `W3_RESPONSE::Flush`. If the unauthenticated attacker disconnects TCP before the OCSP response is sent, `Flush` fails and returns a negative error value. This causes the function to return without calling `PostCompletion` (which would close the session and decrement the ref count). The ref count never decreases; when it reaches 0x1366, the OCSP service permanently returns 503 Service Unavailable to all clients. | DoS, E4 (potential UAF→RCE) | IIS ISAPI extension service (OCSP, or any extension mishandling `ServerSupportFunction`); unauthenticated attacker disconnects before response. Incorrect reference counting can also lead to use-after-free RCE when pointer reference counts are mishandled. |
+
+#### Pre-auth RCE — Parsing & Handling Stage
+
+| Subtype | Mechanism | Effect | Key Condition |
+|---------|-----------|--------|---------------|
+| **KDC Proxy ASN1 encoding overflow (CVE-2024-43639)** | The KDC Proxy service (`kpssvc.dll`) receives Kerberos proxy requests over HTTP, decodes them, forwards to KDC, and encodes the response via `KpsPackProxyResponse` → `ASN1_Encode` → `ASN1BEREncCharString` → `ASN1BEREncLength`. A crafted KDC_PROXY_MESSAGE triggers an out-of-bounds write during ASN1 encoding (`mov byte ptr [rax], cl` writing past the allocated buffer), achieving pre-authentication remote code execution. | E4 | KDC Proxy Service enabled (common in Remote Desktop deployments); no authentication required; network-accessible HTTPS endpoint. |
+| **RDP Gateway use-after-free via connection ID confusion (CVE-2025-21309)** | The RDP Gateway service manages connections via a hash table keyed by connection ID. When a WebSocket client sends data referencing a connection ID (ConID1) that was previously associated with a different connection (Connection1) now freed, the handler retrieves a dangling pointer from the hash table. Subsequent operations (`memcpy` to `Connection2->recv_ov->buff`) write to freed memory, achieving a use-after-free condition exploitable for pre-authentication remote code execution. | E4 | RDP Gateway service exposed on HTTPS (port 443); WebSocket transport; connection ID reuse after deallocation. |
+
 ---
 
 ## §3. URL/Path Processing & Normalization
@@ -206,6 +243,10 @@ The Razor View Engine resolves views through a deterministic search hierarchy. C
 | **File Write → View Resolution RCE** | The View Engine searches `~/Views/{Controller}/{Action}.cshtml` → `~/Views/Shared/{Action}.cshtml`. Attacker exploits a path traversal file-write vulnerability to place a `.cshtml` file containing `@{ Process.Start("cmd.exe", "/c payload"); }` at a location in the search hierarchy, then triggers the route. The View Engine discovers, compiles, and executes the malicious view. | E4 | Arbitrary file-write primitive + routable controller action without explicit view path. |
 | **IIS Extension Whitelist Bypass** | IIS Request Filtering may block direct `.cshtml` access, but the View Engine accesses files through internal `File.Exists()` operations that completely bypass IIS filtering. Requesting the extensionless controller route (e.g., `GET /Controller/Action`) triggers internal `.cshtml` resolution without IIS ever seeing a `.cshtml` URL. | E4, E3 | IIS extension whitelist in place; file-write primitive available. |
 | **Area-Based View Resolution** | MVC Areas add additional search paths (`~/Areas/{Area}/Views/{Controller}/{Action}.cshtml`), expanding the set of writable locations that trigger compilation. | E4 | Application uses MVC Areas. |
+| **Custom ViewLocationFormats** | Applications can register custom search patterns via `ViewLocationFormats` and `AreaViewLocationFormats` on the `RazorViewEngine`, adding non-standard directories (e.g., `~/Themes/{2}/Views/{1}/{0}.cshtml`) to the search hierarchy. Each custom format is an additional writable target for file-write-to-RCE chains. | E4 | Application registers custom view location formats. |
+| **Alternative View Engine Exploitation** | ASP.NET MVC supports pluggable view engines beyond Razor: Spark (`.spark`), NHaml (`.haml`), and legacy WebForms (`.aspx`/`.ascx`). Each engine has its own search patterns and compilation behavior. Spark compiles view files containing `<viewdata>` and `${expression}` syntax; NHaml compiles Haml markup to assemblies. A file-write targeting these extensions achieves RCE through the same convention-based discovery mechanism. | E4 | Application uses a non-default view engine; attacker can write files with the corresponding extension. |
+
+**Key architectural insight:** IIS Request Filtering operates at the HTTP URL layer — it validates the *requested URL* against extension rules. The View Engine operates at the *internal file system* layer — it calls `File.Exists()` and `File.ReadAllText()` to locate and compile views. This boundary mismatch means extensionless controller routes (`GET /Controller/Action`) bypass all IIS extension-based restrictions while still triggering `.cshtml`/`.vbhtml` file discovery and compilation internally.
 
 ---
 
@@ -405,6 +446,7 @@ While XSS is a generic web vulnerability, ASP.NET has framework-specific pattern
 | **Account Takeover** | ASP.NET Core behind proxy | §2 (Request smuggling → session hijacking) + §6-2 (JWT manipulation) + §6-1 (Cookie replay) |
 | **Cache Poisoning** | CDN/Reverse Proxy + ASP.NET | §2-1 (Smuggling) + §3-3 (Path normalization discrepancy) + §2-2 (Host header injection) |
 | **Denial of Service** | ASP.NET Core with HTTP/3 | §2-3 (HTTP/3 resource exhaustion) + §9-2 (Billion Laughs XXE) |
+| **Windows HTTP Service Pre-auth DoS/RCE** | Windows services using httpapi.dll (KDC Proxy, BranchCache, UPnP, RDP Gateway, OCSP) | §2-4 (Receive/response stage logic flaws → persistent DoS, kernel BSoD, ISAPI ref count exhaustion, pre-auth RCE via ASN1 overflow or UAF) |
 | **Lateral Movement / SSRF** | Enterprise intranet | §9-1 (SOAPwn NTLM relay) + §9-2 (XXE SSRF) + §2-2 (Host header → routing-based SSRF) |
 | **WAF Bypass** | WAF + IIS + ASP.NET | §3-1 (Cookieless path manipulation) + §3-3 (Encoding bypasses) + §3-2 (8.3 filenames) |
 | **Supply Chain / Shared Hosting** | Multi-tenant IIS | §8 (Shared key ring) + §3-1 (App Pool escalation) + §7-3 (Middleware ordering) |
@@ -426,6 +468,12 @@ While XSS is a generic web vulnerability, ASP.NET has framework-specific pattern
 | §8-1 (Publicly disclosed machine keys) | Microsoft Security Blog Feb 2025 | 3,000+ public machine keys discovered. Active Godzilla webshell campaign in Dec 2024. |
 | §1-2 (Padding Oracle) | CVE-2010-3332 / MS10-070 | ViewState decryption via WebResource.axd differential errors. Foundation for modern ViewState attacks. |
 | §3-1 (Cookieless source disclosure) | PT SWARM Research 2024 | /bin DLL download via cookieless path + 8.3 enumeration. Source code disclosure in production applications. |
+| §2-4 (HTTP service receive stage DoS) | CVE-2024-43512 (Windows Standards-based Storage Management) | Pre-auth persistent DoS via synchronous handler infinite loop; `BytesReturned` not updated after `0xEA`. |
+| §2-4 (HTTP service receive stage DoS) | CVE-2025-27471 (UPnP Host) | Pre-auth persistent DoS via async handler infinite loop; `pBytesReceived` NULL → `BytesReturned` stays 0. |
+| §2-4 (HTTP service response stage DoS) | CVE-2024-38149 (BranchCache) | Pre-auth kernel nonpaged pool exhaustion → BSoD. Exception in handler → missing `HttpSendHttpResponse`/`HttpCancelHttpRequest`. |
+| §2-4 (ISAPI ref count exhaustion) | CVE-2024-38067 (OCSP via IIS) | Pre-auth persistent 503. TCP disconnect before response → `ISAPI_CONTEXT` ref count leak. Potential UAF→RCE. |
+| §2-4 (KDC Proxy ASN1 RCE) | CVE-2024-43639 (KDC Proxy Service) | Pre-auth RCE via out-of-bounds write in `ASN1BEREncLength` during Kerberos proxy response encoding. |
+| §2-4 (RDP Gateway UAF RCE) | CVE-2025-21309 (RDP Gateway) | Pre-auth RCE via use-after-free. Connection ID reuse after deallocation → dangling pointer → arbitrary write via `memcpy`. |
 
 ---
 
@@ -497,6 +545,7 @@ Until legacy ASP.NET Framework deployments are fully retired and applications co
 - OWASP: DotNet Security Cheat Sheet
 - guardrailsio/awesome-dotnet-security: Curated .NET security resource collection
 - Viettel Cybersecurity: "Deep understand ASPX file handling and some related attack vectors" (2022) — ASPX file processing exploitation and IIS handler mapping attack methodology
+- Qibo Shi, VictorV, Wei Xiao, Zhiniang Peng (Cyber Kunlun Lab): "Diving into Windows HTTP: Unveiling Hidden Preauth Vulnerabilities in Windows HTTP Services" (Black Hat USA) — Windows HTTP service framework (httpapi.dll/HTTP.sys) pre-auth DoS and RCE across KDC Proxy, BranchCache, UPnP Host, OCSP, RDP Gateway
 
 ---
 

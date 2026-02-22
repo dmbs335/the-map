@@ -285,6 +285,7 @@ Even after authentication, flaws in **authorization boundaries** allow access to
 | **Invitation System Abuse** | Tamper with the role/permission parameters in an invitation link to register with higher privileges | Role information included in invitation token without signing | D6 |
 | **Tenant Switching** | Tamper with the tenant identifier during registration/login to authenticate as a user of another organization | Insufficient multi-tenant isolation | D6 |
 | **Admin Registration Endpoint Exposure** | Admin-only registration endpoints (`/admin/register`, `/api/admin/signup`) accessible without authentication — Shopify bounty case | No access control implemented on admin endpoints | D4 |
+| **E-Commerce Checkout Session Hijack** | Payment/checkout module endpoints (e.g., `/checkout/express`, `/module/ps_checkout/ExpressCheckout`) create authenticated sessions based on email or order ID without verifying the requester's identity. An unauthenticated POST with a victim's email grants a full session for that account — the checkout flow becomes an alternate authentication channel (CVE-2025-61922, CVSS 9.1) | Checkout module creates sessions without identity verification; endpoint is unauthenticated | D1, D4 |
 
 ---
 
@@ -334,6 +335,7 @@ Passwordless authentication creates a new attack surface.
 | §1-3 (Mass Assignment) | Shopify Privilege Escalation | Unrestricted admin account creation. Role parameter manipulation in registration |
 | §1-2 (Invalid Email Registration) | HackerOne Signup Process | $3,750. Account creation with invalid emails containing special characters (%) |
 | §6-1 (Missing Authentication) | CVE-2024-5910 (Palo Alto Expedition) | CVSS 9.3. Missing authentication for critical function → admin ATO (this is a missing-authentication vulnerability, not Host Header Poisoning) |
+| §8-2 (E-Commerce Checkout Session Hijack) | CVE-2025-61922 (PrestaShop Checkout < 5.0.5) | CVSS 9.1. Zero-click ATO via Express Checkout endpoint: unauthenticated POST with victim email grants authenticated session |
 | §3-3 (JWT None Algorithm) | CVE-2025-6023 (Grafana) | High. Incomplete fix → path traversal + open redirect → Full ATO |
 | §3-3 + §4-2 (Session + MFA) | CVE-2025-1723 (ADSelfService Plus) | Session mismanagement enabling unauthorized access to user enrollment data when MFA not enabled |
 | §7-1 (Self-XSS → ATO) | Facebook Self-XSS Payments | $62,500. Self-XSS in payment flow chained to Full ATO |
@@ -412,6 +414,7 @@ Until these three principles are fully applied, Registration & Account Takeover 
 - Keepnet Labs — "SIM Swap Fraud 2025: Stats, Legal Risks & 360° Defenses"
 - Vectra AI — "The Hidden Risks of SMS-Based Multi-Factor Authentication"
 - AppOmni — "How to Handle Increased Account Takeover Risks from Recent Credential Dumps" (2025)
+- CVE-2025-61922: PrestaShop Checkout Express Checkout Account Takeover — https://dhakal-ananda.com.np/blogs/cve-2025-61922-analysis/
 - HackerOne Reports — Various bug bounty disclosures referenced in CVE/Bounty table
 
 ---

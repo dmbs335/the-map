@@ -61,7 +61,7 @@ Request smuggling exploits disagreements between front-end (WAF/proxy/load balan
 |---|---|---|
 | **Chunk Extension Abuse** | Append extensions to chunk headers (`a;extension=value\r\n`). Inconsistent handling of extensions between WAF and backend causes framing disagreement. CVE-2025-55315 (ASP.NET Core, CVSS 9.9) demonstrated this with high severity. | WAF and backend handle chunk extensions differently |
 | **Chunk Size Obfuscation** | Use leading zeros (`00000a`), whitespace around chunk size, or mixed-case hex (`0A` vs `0a`) in chunk size fields. | WAF's chunked parser is strict; backend is lenient (or vice versa) |
-| **Chunked Body with Trailer Headers** | Inject malicious headers in the trailer section after the final `0\r\n` chunk. Some backends merge trailer headers with request headers; the WAF may not inspect trailers. | Backend processes chunked trailer headers |
+| **Chunked Body with Trailer Headers** | Inject malicious headers in the trailer section after the final `0\r\n` chunk. Some intermediaries unsafely merge trailer fields into the header section (TR.MRG per RFC 9112 §7.1.2) before forwarding downstream — the WAF inspects only headers and never sees the trailer-injected values. Enables ACL bypass (`x-forwarded-for` in trailers bypasses HAProxy `req.fhdr` checks), Host header spoofing, and cache key poisoning without any request boundary manipulation. See `http-request-smuggling.md` §5-3 for full trailer mutation taxonomy | Backend or intermediary processes/merges chunked trailer headers; WAF does not inspect trailer section. CVE-2025-12642 (lighttpd), CVE-2025-53628 (cpp-httplib), 12+ implementations affected |
 
 ### §1-5. HTTP/2 Request Smuggling
 
@@ -286,6 +286,7 @@ Bypasses that avoid the WAF entirely by reaching the origin server through alter
 | **Backend Administrative Interfaces** | Access `/admin`, `/debug`, `/actuator`, `/server-status`, or framework-specific management endpoints that bypass or have reduced WAF rules. | Management endpoints have weaker WAF coverage |
 | **Server-Side Request Forgery (SSRF)** | Trigger the application to make internal requests to itself or other backend services, bypassing the WAF which only sits on the external perimeter. | Application has SSRF vulnerabilities |
 | **IPv6 vs. IPv4 Disparity** | If the WAF is configured only for IPv4, accessing the backend via its IPv6 address may bypass WAF inspection. | WAF is not configured for IPv6 traffic |
+| **WAF Implicit Path Exception** | Infrastructure paths such as `/.well-known/acme-challenge/` are evaluated on a separate internal code path that executes before customer-configured WAF rules, silently exempting these requests from all blocking controls. Once the request reaches the unprotected origin, application-level vulnerabilities (path traversal, LFI, header-based injection, SSRF) become directly exploitable. Generalizes to any vendor-internal allowlist for certificate validation, health checks, or API management paths (Cloudflare 0-day, fixed 2025-10-27) | CDN/WAF vendor creates implicit exceptions for infrastructure endpoints; origin server is directly reachable on the exempted path |
 
 ### §9-3. IP & Network-Level Evasion
 
@@ -340,6 +341,7 @@ Protocol-level bypasses are transport-agnostic — once a bypass channel is esta
 | §8-2 (H2C Smuggling) | Azure WAF H2C Bypass (Assetnote) | Global WAF bypass via HTTP/2 cleartext upgrade |
 | §4-1 (Multiple Content-Type) | CVE-2023-38199 | WAF and backend disagree on which Content-Type header takes precedence when duplicate headers are sent; discovered by WAFManis |
 | §2-2 (Header) + §6-1 (HPP) | WAFManis (IEEE S&P 2024) | 311 protocol-level evasion cases across 14 WAFs × 20 frameworks in 3 categories (PTC, MPS, RSG) |
+| §9-2 (WAF Implicit Path Exception) | Cloudflare ACME Path Bypass (fearsoff, 2025) | 0-day. `/.well-known/acme-challenge/` requests bypassed all customer WAF rules via implicit vendor exception. Origin exposure → downstream exploitation (traversal, LFI, header injection). Fixed 2025-10-27 |
 | §5-1 (Path Confusion) | ModSecurity v2/v3 Path Confusion (SicuraNext, 2024) | Multiple path confusion bugs enabling rule bypass on both v2 and v3 branches |
 | §9-1 (Origin IP) | Cloudflare Origin IP Bypass (HackerOne #1536299) | WAF bypass by sending requests directly to origin IP |
 
@@ -410,6 +412,7 @@ The fundamental challenge is that WAFs must **parse HTTP messages identically** 
 - When WAFs Go Awry: Common Detection & Evasion Techniques (MDSec, 2024) — https://www.mdsec.co.uk/2024/10/when-wafs-go-awry-common-detection-evasion-techniques-for-web-application-firewalls/
 - 0x09AL: Bypassing Web-Application Firewalls by Abusing SSL/TLS (2018) — https://0x09al.github.io/waf/bypass/ssl/2018/07/02/web-application-firewall-bypass.html
 - Awesome-WAF (0xInfection, GitHub) — https://github.com/0xInfection/Awesome-WAF
+- Cloudflare ACME WAF Bypass (fearsoff, 2025) — https://fearsoff.org/research/cloudflare-acme
 - 2026 WAF Security Test: Key Findings (Check Point) — https://blog.checkpoint.com/securing-the-cloud/waf-security-test-results-2026-why-prevention-first-matters-more-than-ever
 - Miggo Research: More than Half of Public Vulnerabilities Bypass Leading WAFs (2025) — https://www.helpnetsecurity.com/2025/12/18/miggo-research-waf-vulnerability-bypass/
 

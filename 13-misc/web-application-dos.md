@@ -308,6 +308,25 @@ Application-level DoS exploits business logic, configuration, or implementation 
 | **Infinite redirect loop** | Triggering redirect chains where URL A redirects to B, B redirects to C, and C redirects to A. Clients following redirects consume server resources for each hop, and server-side request following (e.g., URL preview fetching) enters infinite loops | Applications following redirects without hop limits; circular redirect configurations |
 | **Recursive function triggering** | Input that triggers deeply recursive application logic — recursive template rendering, recursive tree traversal for nested comments, recursive permission checking in hierarchical ACLs | Applications with unbounded recursion in business logic |
 
+### §8-4. Windows HTTP Service Implementation DoS
+
+Windows HTTP services built on the `httpapi.dll` / HTTP.sys framework (IIS, KDC Proxy, BranchCache, UPnP Host, WinRM, RDP Gateway, BITS, ADFS, etc.) share a common architecture where user-mode services call `HttpReceiveHttpRequest` to receive requests and `HttpSendHttpResponse` / `HttpCancelHttpRequest` to complete them. Logic flaws in this lifecycle — particularly in error handling paths — create persistent, unauthenticated denial of service that requires no sustained attacker connection and permanently disables the service until restart (Black Hat USA, Cyber Kunlun Lab).
+
+| Subtype | Mechanism | Key Condition |
+|---|---|---|
+| **Receive stage — synchronous handler infinite loop** | Single-threaded synchronous HTTP services call `HttpReceiveHttpRequest` in a loop. When the initial buffer is too small, the API returns `0xEA` (ERROR_MORE_DATA) with the required size in `BytesReturned`. If `BytesReturned` is not properly updated (e.g., the `pBytesReceived` parameter is NULL in the async variant), the handler `realloc()`s with size 0 and re-enters the receive loop indefinitely, never processing any further requests | CVE-2024-43512 (Windows Standards-based Storage Management Service); CVE-2025-27471 (UPnP Host — `upnphost.dll`); single-threaded sync/async-WaitForMultipleObjects handlers |
+| **Receive stage — callback handler thread pool drain** | Callback-based async HTTP services (the most common pattern: IIS, Kerberos Proxy, RDP, WinRM, ADFS) use IO thread pool threads, each handling one request. The callback must call `StartThreadpoolIo` + `HttpReceiveHttpRequest` to spawn a handler for the next request. If an error path returns without issuing this call, the current thread exits. Repeated triggering drains all threads from the IO thread pool, leaving no handler threads — the service permanently stops processing requests | HTTP services using `CreateThreadpoolIo` / `StartThreadpoolIo` callback model; error return paths that skip `HttpReceiveHttpRequest` re-invocation (e.g., WSDApi `CWSDHttpListener::HandleRequest`) |
+| **Response stage — HTTP.sys connection resource leak → kernel nonpaged pool exhaustion** | HTTP.sys allocates connection structures in kernel nonpaged pool via `UxTlAllocateConnectionForLookaside`. These are freed only when the handler calls `HttpSendHttpResponse` or `HttpCancelHttpRequest`, which triggers `UxTlFreeConnectionFromLookaside`. If the handler ends without either call (e.g., due to an unhandled exception), the connection reference count never decreases, the structure is never freed, and nonpaged pool memory leaks. Sustained exploitation exhausts kernel nonpaged pool, causing system hang or Blue Screen of Death (BSoD) | CVE-2024-38149 (BranchCache — `CTnoDownloadMgr::OnMessage`): malformed POST data triggers exception → service does not call `HttpSendHttpResponse`/`HttpCancelHttpRequest` → attacker keeps connection open → nonpaged pool leak per request |
+| **IIS ISAPI extension reference count exhaustion** | IIS initializes an `ISAPI_CONTEXT` structure per ISAPI extension with a reference count (max 0x1366). Each incoming request increments the count; the extension must call `ServerSupportFunction` (specifically `SSFDoneWithSession`) to decrement it via `ISAPI_CONTEXT::DereferenceIsapiContext`. If the extension fails to dereference — e.g., because `W3_RESPONSE::Flush` fails when the client disconnects before the response is sent, causing the `PostCompletion` path to be skipped — the count never decreases. When it reaches 0x1366, the ISAPI service permanently returns 503 Service Unavailable. The same mishandling can also cause use-after-free conditions leading to RCE | CVE-2024-38067 (OCSP via `ocspisapi.dll`): unauthenticated client disconnects TCP before OCSP status response → `W3_RESPONSE::Flush` fails → `PostCompletion` not called → ref count leak. Cross-reference: `asp-dot-net.md` §2-4 |
+
+**Impact characteristics**: These are all unauthenticated, require no sustained connection from the attacker, and cause **persistent** denial of service — the service permanently stops handling legitimate requests until manually restarted (or, in the BSoD case, the entire system crashes). A single malicious packet is sufficient for some variants.
+
+**Secure development considerations** (from the research):
+- Never exit a request handler without calling `HttpReceiveHttpRequest` (with RequestID = 0) to start listening for new requests
+- Always end every request handler by calling `HttpSendHttpResponse` or `HttpCancelHttpRequest`
+- Pay special attention to error returns `0xEA` (ERROR_MORE_DATA) and `0x4CD` — carefully handle variables and states after these errors
+- In ISAPI extensions, ensure `ServerSupportFunction` is called on all code paths including error paths
+
 ---
 
 ## §9. TLS/SSL Cryptographic Exhaustion
@@ -337,6 +356,7 @@ TLS handshakes and cryptographic operations are deliberately expensive. Attacker
 | **Client-Side Rendering DoS** | SPA with WebSocket | §6-1 + §6-2 | WebSocket connection saturation in browser → SSE connections consume all 6 HTTP/1.1 slots → page becomes unresponsive |
 | **Container/Cluster DoS** | Kubernetes infrastructure | §4-2 + §2-2 | YAML anchor bomb in K8s manifest → API server OOM → cluster control plane crash |
 | **Protocol-Level Infrastructure DoS** | Load balancer / reverse proxy | §2-2 + §2-3 | HTTP/2 MadeYouReset bypasses Rapid Reset mitigations → unbounded backend concurrency → origin server crash |
+| **Windows HTTP Service Persistent DoS** | Windows services using httpapi.dll (IIS, KDC Proxy, BranchCache, UPnP, WinRM, RDP Gateway) | §8-4 | Malformed POST to BranchCache → exception in handler → no HttpSendHttpResponse → kernel nonpaged pool exhaustion → BSoD |
 
 ---
 
@@ -371,6 +391,10 @@ TLS handshakes and cryptographic operations are deliberately expensive. Attacker
 | §7-1 (Next.js cache poisoning DoS) | CVE-2025-49826 (Next.js 15.1.0–15.1.8) | Cache poisoning via ISR/SSR route returning cached 204 |
 | §7-1 (IIS CPDoS) | CVE-2019-0941 (Microsoft IIS) | IIS DoS via cache-poisoned error responses |
 | §8-1 (Tomcat upload DoS) | Multiple (Apache Tomcat) | OutOfMemoryError via examples app upload without limits |
+| §8-4 (Windows HTTP receive stage DoS) | CVE-2024-43512 (Windows Standards-based Storage Management) | Pre-auth persistent DoS via synchronous handler infinite loop; single malicious packet |
+| §8-4 (Windows HTTP receive stage DoS) | CVE-2025-27471 (UPnP Host) | Pre-auth persistent DoS via async handler infinite loop; `BytesReturned` not updated |
+| §8-4 (Windows HTTP response stage DoS) | CVE-2024-38149 (BranchCache) | Pre-auth kernel nonpaged pool exhaustion → BSoD via missing `HttpSendHttpResponse` after exception |
+| §8-4 (IIS ISAPI ref count DoS) | CVE-2024-38067 (OCSP via IIS) | Pre-auth persistent 503 via ISAPI_CONTEXT reference count exhaustion; client TCP disconnect before response |
 
 ---
 
@@ -456,6 +480,7 @@ The fundamental challenge is that cost estimation must be cheaper than the opera
 - PortSwigger: "Top 10 Web Hacking Techniques of 2025" — https://portswigger.net/research/top-10-web-hacking-techniques-of-2025
 - Akamai: "DDoS Attack Trends in 2024 Signify That Sophistication Overshadows Size" — https://www.akamai.com/blog/security/ddos-attack-trends-2024-signify-sophistication-overshadows-size
 - Orange Tsai: "Let's Dance in the Cache — Destabilizing Hash Table on Microsoft IIS" (Black Hat USA 2022) — Hash table collision attacks weaponized against IIS output cache for cache poisoning
+- Cyber Kunlun Lab: "Diving into Windows HTTP: Unveiling Hidden Preauth Vulnerabilities in Windows HTTP Services" (Black Hat USA) — Systematic analysis of httpapi.dll/HTTP.sys attack surface across IIS, KDC Proxy, BranchCache, UPnP Host revealing pre-auth DoS via receive/response stage logic flaws and ISAPI_CONTEXT lifecycle issues
 
 ---
 

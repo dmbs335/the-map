@@ -149,7 +149,13 @@ Server-side validation often checks the first few bytes of a file (magic bytes/f
 | **PNG header injection** | Prepend `\x89PNG\r\n\x1a\n` followed by executable code | Same parser differential between content validator and execution engine |
 | **PDF header injection** | Prepend `%PDF-1.4` followed by embedded code or JavaScript | PDF parsers in browsers execute embedded JavaScript |
 
-### §3-2. Polyglot Files
+### §3-2. Content Detection Engine Bypass
+
+| Subtype | Mechanism | Key Condition |
+|---|---|---|
+| **libmagic recursion guard bypass** | libmagic's JSON detector (`is_json.c`) abandons classification when nesting exceeds ~500 levels (`if (lvl > 500) return 0`). Deeply nested JSON (501+ levels) causes the detector to fall back to ASCII text classification. Prepending PDF magic bytes (`%PDF-1.x ... %%EOF`) to the deeply nested JSON file causes libmagic to classify it as PDF instead. Enables polyglot files that bypass content-type-based security controls across all libmagic wrappers: PHP `finfo`, Python `python-magic`, Ruby, Go `magicmime`, Perl `File::LibMagic` | Server uses libmagic/`file` command for content type detection; attacker can control JSON nesting depth; file size <10MB (larger files trigger separate unreliability in libmagic) |
+
+### §3-3. Polyglot Files
 
 Files that are simultaneously valid in two or more formats, enabling them to pass validation for one format while being executable as another.
 

@@ -43,6 +43,7 @@ The `alg` field is set to `"none"` (or case variants), instructing the verifier 
 | **Case variation** | Use `"None"`, `"NONE"`, `"nOnE"` to bypass case-sensitive blocklists | Blocklist checks `alg` case-sensitively but the parser normalizes |
 | **Empty signature preservation** | Set `alg` to `"none"` but retain the trailing dot (e.g., `header.payload.`) | Parser requires three segments but doesn't enforce signature presence |
 | **Whitespace/encoding tricks** | Insert whitespace, null bytes, or alternate Base64 padding around `"none"` | Parser normalizes before comparison but blocklist checks the raw value |
+| **Unknown algorithm empty-signature bypass** | Set `alg` to an arbitrary unsupported value (e.g., `"zzz"`, `"foo"`). The library's signature computation function returns an empty string for unrecognized algorithms instead of raising an error. The attacker supplies an empty signature segment (trailing dot). Verification compares `"" == ""` and passes — a different code path from the `none` handler, which explicitly skips verification (CVE-2026-23993) | Library returns empty/default from signature computation for unknown algorithms; signature comparison does not reject empty values |
 
 **Example payload:**
 ```
@@ -355,6 +356,7 @@ JWS (signed) and JWE (encrypted) share the same compact serialization format —
 | §7-1 (Sign/encrypt confusion) | CVE-2023-51774 (json-jwt/Ruby) | Identity check bypass. Ruby json-jwt gem (< 1.16.6, < 1.15.3.1) vulnerable to sign/encrypt confusion allowing arbitrary claim forgery. |
 | §3-4 (PBES2 billion hashes) | CVE-2023-51775 (jose4j/Java) | DoS. Unbounded `p2c` parameter allows CPU exhaustion via 2^31 PBKDF2 iterations. Fixed in jose4j 0.9.4. |
 | §3-4 (PBES2 billion hashes) | CVE-2023-49290 (go-jose/Go) | DoS. Same PBES2 `p2c` exploitation. Fixed in go-jose v3.0.2. |
+| §1-1 (Unknown algorithm empty-signature) | CVE-2026-23993 (HarbourJwt) | Authentication bypass. `GetSignature()` returns empty string for unrecognized `alg` values; empty-vs-empty comparison passes verification. |
 | §5-1 / §6-3 (Token leakage) | Grafana Bug Bounty | JWT tokens in query parameters leaked to backend data sources via proxied requests. |
 | §6-3 (Replay / revocation) | HackerOne #3120790 (WakaTime) | Session replay. Logged-out tokens remain valid, enabling persistent access. |
 
@@ -391,6 +393,18 @@ JWS (signed) and JWE (encrypted) share the same compact serialization format —
 
 ---
 
+## §10-1. BaaS (Backend-as-a-Service) JWT Exposure
+
+Backend-as-a-Service platforms (Supabase, Firebase, Appwrite) expose database access via client-side JWT tokens. Unlike traditional architectures where server-side code enforces access control, BaaS platforms shift the security boundary to database-level policies — Row Level Security (RLS) in Supabase/PostgreSQL, Security Rules in Firebase. When these policies are misconfigured or absent, the publicly embedded JWT grants unrestricted access.
+
+| Subtype | Mechanism | Key Condition |
+|---|---|---|
+| **Missing Row Level Security (RLS)** | BaaS platforms embed an "anon" JWT in client-side JavaScript (intentionally public). Security depends entirely on per-table RLS policies. When RLS is not enabled or policies are not configured on one or more tables, the anon JWT grants unrestricted read/write access to those tables — including auth tokens, password reset tokens, PII, and credentials | Supabase/PostgreSQL-based BaaS; one or more tables without `ALTER TABLE ... ENABLE ROW LEVEL SECURITY` or without any policies defined |
+| **Service Role Key Exposure** | The `service_role` JWT (which bypasses all RLS) leaked via client-side code, `.env` files in public repositories, error messages, or build artifacts grants full admin database access equivalent to direct PostgreSQL superuser access | Service role key accessible to attacker; no network-level restriction on direct Supabase API access |
+| **Firebase Security Rules Misconfiguration** | Firebase Realtime Database and Firestore default to deny-all, but developers commonly set overly permissive rules during development (`".read": true, ".write": true`) and fail to restrict them before production. Any authenticated (or anonymous) user can read/write the entire database | Firebase project with permissive security rules; anonymous authentication enabled |
+
+---
+
 ## §11. Summary: Core Principles
 
 **The fundamental property that makes the JWT attack surface so expansive is the dual nature of the token as both a carrier of data and an instruction set for its own verification.** The JWT header is attacker-controlled yet dictates critical security decisions — which algorithm to use, where to find the verification key, how to interpret the payload. This inversion of control (the message instructing the verifier how to verify it) is the root cause of the entire §1 (algorithm manipulation) and §2 (header parameter injection) attack families. No other common authentication mechanism gives the client this level of influence over the verification process.
@@ -419,6 +433,7 @@ JWS (signed) and JWE (encrypted) share the same compact serialization format —
 - Wallarm: 340 Weak JWT Secrets — https://lab.wallarm.com/340-weak-jwt-secrets-you-should-check-in-your-code/
 - Intigriti: Exploiting JWT Vulnerabilities — https://www.intigriti.com/researchers/blog/hacking-tools/exploiting-jwt-vulnerabilities
 - Akamai: Analyzing Broken User Authentication Threats to JWT — https://www.akamai.com/blog/security-research/owasp-authentication-threats-for-json-web-token
+- PentesterLab: CVE-2026-23993 HarbourJwt Unknown Algorithm JWT Bypass — https://pentesterlab.com/blog/cve-2026-23993-harbourjwt-unknown-alg-jwt-bypass
 - JFrog: CVE-2022-21449 "Psychic Signatures" Analysis — https://jfrog.com/blog/cve-2022-21449-psychic-signatures-analyzing-the-new-java-crypto-vulnerability/
 - Traceable AI: JWTs Under the Microscope — https://www.traceable.ai/blog-post/jwts-under-the-microscope-how-attackers-exploit-authentication-and-authorization-weaknesses
 - Tom Tervoort (Secura): Three New Attacks Against JSON Web Tokens (BlackHat US 2023) — https://i.blackhat.com/BH-US-23/Presentations/US-23-Tervoort-Three-New-Attacks-Against-JSON-Web-Tokens.pdf
