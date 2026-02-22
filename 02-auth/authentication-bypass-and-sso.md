@@ -198,6 +198,8 @@ Architectural errors in how MFA is integrated into the authentication flow, allo
 | **User Agent Classification Bypass** | MFA enforcement policies exempt certain user agents classified as "unknown" (uncommon browsers, Python scripts, CLI tools) from MFA requirements | SSO policy does not enforce MFA for unrecognized user agents (Okta vulnerability, 2024) |
 | **TOCTOU in MFA Verification** | Race condition between MFA check and access grant allows requests that slip through during the verification window | MFA check and authorization are not atomic; concurrent request processing (CVE-2025-62004) |
 | **OpenID Connect MFA Enforcement Gap** | The RP (Relying Party) does not verify whether the IdP actually performed MFA during the OIDC authentication flow. The RP ignores the IdP's `acr` (Authentication Context Class Reference) or `amr` (Authentication Methods References) claims, or the IdP itself is misconfigured to issue those claims without requiring MFA — completely bypassing 2FA. An attacker registers a separate IdP with MFA disabled, or selectively targets an IdP flow with lax MFA policy | RP does not validate `acr`/`amr` claims in OIDC tokens; or IdP issues high-assurance-level claims without requiring MFA |
+| **Unauthenticated TOTP Rebinding** | TOTP/MFA setup endpoint does not require re-authentication or current MFA verification, allowing an attacker with session access to rebind the victim's TOTP secret to an attacker-controlled authenticator | TOTP enrollment/reset endpoint accessible without re-authentication; no verification of existing MFA device |
+| **Client-Side-Only MFA Enforcement** | MFA challenge implemented as a client-side JavaScript modal or overlay with no corresponding server-side verification — disabling JavaScript or intercepting the response removes the MFA gate entirely | MFA enforcement exists only in frontend code; backend grants full access after first-factor authentication regardless of MFA completion |
 
 ---
 
@@ -296,6 +298,12 @@ Attacks targeting SSO mechanisms in network appliances and security devices.
 |---------|-----------|---------------|
 | **FortiOS SSO Abuse** | Leveraging SSO trust mechanisms in FortiOS to bypass normal authentication flows, particularly through the RADIUS and FSSO (Fortinet Single Sign-On) agents | FortiOS with FSSO configured; attacker understands FSSO agent protocol |
 | **Device Registration Bypass** | Bypassing device compliance checks in conditional access policies by manipulating device registration or attestation claims in SSO flows | Conditional access based on device claims; claims not cryptographically bound |
+
+### §5-5. Multi-Backend Identity Collision
+
+| Subtype | Mechanism | Key Condition |
+|---------|-----------|---------------|
+| **LDAP-Local DB Registration Collision** | Application supports both LDAP and local database authentication. Attacker registers a local account with the same username as an existing LDAP user — the application merges both identities, granting the attacker access to the LDAP user's resources via locally set credentials | Dual authentication backend (LDAP + local DB) without identity deduplication or backend-binding enforcement |
 
 ---
 

@@ -116,6 +116,7 @@ Password reset is the **most frequent entry point** for ATO. Vulnerabilities ari
 | **Email Parameter Override** | Tamper with the `email` parameter in the reset request to the attacker's email to receive the reset token at the attacker's inbox | Server uses the request parameter email instead of session/token-bound email | D6 |
 | **Password Reset via OAuth Chain** | Cross-exploit the OAuth "forgot password" flow and the standard reset flow to bypass authentication | No state isolation between OAuth callback and password reset flows | D4 |
 | **Account Recovery Question Bypass** | Security question answers are empty, case-insensitive, or guessable from public information | Inherent weakness of security question-based recovery | D1 |
+| **Tokenless Direct Reset** | Password reset endpoint accepts email/username and new password directly without requiring a reset token — attacker submits the target's identifier to set an arbitrary password | Reset flow has no token verification step; password change endpoint trusts the user-supplied identifier alone | D4 |
 
 ---
 

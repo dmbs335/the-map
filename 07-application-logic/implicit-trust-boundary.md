@@ -161,6 +161,7 @@ JSON Web Tokens embed claims and algorithm metadata in their header and payload.
 | **KID Path Traversal** | `kid` (Key ID) parameter used in file path or database query; attacker injects traversal or SQLi payload | `kid` concatenated into file path or query without sanitization |
 | **Audience Confusion** | Token issued for Service A (audience) accepted by Service B because audience claim is not validated | Multi-service environment; services share signing keys but don't validate `aud` |
 | **Issuer Trust Without Verification** | Application trusts any token with a valid signature from a known issuer without checking if that issuer *should* issue tokens for this resource | Broad issuer trust; no per-resource issuer binding |
+| **Auth Assurance Level Blindness** | Token carries no claim distinguishing authentication assurance level (password-only vs. MFA-verified); a session obtained through basic password auth is accepted for MFA-protected administrative operations | Single token type for all auth levels; no `acr`/`amr` claim enforcement; privilege escalation bypasses MFA after session compromise |
 
 ### §4-2. OAuth/OIDC Trust Boundaries
 

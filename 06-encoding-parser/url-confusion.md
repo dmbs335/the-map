@@ -93,6 +93,7 @@ The `@` character separates optional userinfo from the host. Most modern systems
 | **Multi-@ Ambiguity** | Multiple `@` signs create disagreement about which marks the host boundary | `https://a@b@evil.com/` | Parsers differ on first-@ vs. last-@ rule |
 | **Userinfo with Credentials** | Stuffing credentials into userinfo to bypass length or content checks | `https://user:password@evil.com/` | Validator doesn't strip userinfo |
 | **Colon-@ Combination** | `localhost:\@evil.com` — colon interpreted as port separator by validator, but `:\` treated as path or ignored by fetcher | `http://localhost:\@evil.com/` | Parser differential on colon placement (CVE-2025-0454) |
+| **Encoded Backslash-@ (`%5c@`)** | `%5c@` combines URL-encoded backslash with userinfo delimiter; library decodes `%5c` to `\` then applies WHATWG backslash normalization, changing the effective host | `http://trusted.com%5c@evil.com/` | Library-specific decode-then-normalize order (unjs/ufo ≤ 1.5.3) |
 
 ### §2-2. Authority Boundary Confusion
 

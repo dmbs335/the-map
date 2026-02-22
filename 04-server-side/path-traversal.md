@@ -103,6 +103,7 @@ Exploit how systems resolve `.` (current directory) and `..` (parent directory) 
 | **Dot-Dot-Slash Variants** | Extra dots or slashes | `...//`, `.../`, `..../` | Incomplete regex patterns |
 | **Encoded Dots Only** | Encode dots, leave slashes | `%2e%2e/` or `.%2e/` | Asymmetric decoding |
 | **Reverse Nested** | Decoy sequences | `/.././` or `/...//` | Path normalization resolves decoy |
+| **Character-Substituted Dots** | Insert extra chars between dots | `.+./`, `.%20./` | Filter matches literal `../`; backend strips inserted char during normalization |
 
 ### §2-2. Separator Manipulation
 

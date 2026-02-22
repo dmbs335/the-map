@@ -162,6 +162,7 @@ When unkeyed headers influence dynamically generated URLs for JavaScript, CSS, o
 |---------|-----------|---------------|
 | **X-Forwarded-Scheme / X-Forwarded-Proto** | Injecting `X-Forwarded-Proto: http` causes origin to generate 301 redirect to HTTPS version with attacker-controlled host; cached redirect loops or redirects to malicious domain | Origin issues protocol-upgrade redirects based on unkeyed proto header |
 | **X-Forwarded-Port** | Injecting non-standard port causes malformed redirect URLs in cached response, resulting in DoS | Origin appends port from unkeyed header to redirect Location |
+| **X-Forwarded-Proto resource downgrade** | Injecting `X-Forwarded-Proto: http` causes origin to generate inline asset URLs with `http://` scheme; cached response serves all users resources over cleartext HTTP, enabling MitM-based script injection (UXSS) without controlling the host | Framework generates absolute asset URLs from proto header; CDN caches response; no subresource integrity |
 
 ### §3-4. Vary Header Evasion
 

@@ -116,6 +116,7 @@ The transition guard exists but does not cover all entry points to the protected
 | **Client-Side Guard Reliance** | State transition guard is enforced only in client-side code (JavaScript, mobile app), with no server-side validation | Server trusts that the client enforces the workflow |
 | **Middleware Ordering Gap** | Authentication/authorization middleware executes after a state-changing operation has already begun, creating a window where the operation proceeds without authorization | Middleware pipeline ordering does not match the logical dependency order |
 | **Microservice Trust Boundary** | Internal microservice accepts state-change requests without re-validating that the calling service's workflow state is correct | Inter-service calls lack workflow context propagation |
+| **Inconsistent Backend Enforcement** | Auth guard present on some but not all load-balanced backend instances; retrying the same request routes to an unprotected instance, intermittently bypassing authentication | Load-balanced or multi-instance deployment with inconsistent guard deployment |
 
 ### §2-2. Guard Condition Manipulation
 

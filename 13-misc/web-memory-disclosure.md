@@ -113,6 +113,14 @@ Image processing libraries (ImageMagick, libpng, libjpeg-turbo, GD) allocate out
 | **Image transcode heap bleed** | Server-side image processing (resize, crop, format conversion) allocates an output buffer sized for the target dimensions, then fills it with decoded/transformed pixel data. If the source image triggers an error mid-decode or contains truncated data, the output buffer is partially written — the remainder contains heap residuals (session tokens, API keys, prior request data) encoded as pixel values in the output image served to the requester | Server-side image processing with error-tolerant output (partial images served rather than errors); C/C++ image library without enforced buffer zeroing (ImageMagick, GD, Pillow C extensions) |
 | **Canvas pixel readback bleed** | Browser-side `<canvas>` API backed by GPU or C-native image decoders allocates pixel buffers for decoded images. When decoding a malformed image fails partway, `getImageData()` on the canvas returns uninitialized GPU/heap memory — leaking cross-origin pixel data or process memory to JavaScript. Server-side equivalents (Node.js canvas, Sharp/libvips) exhibit the same pattern during batch image processing | Malformed image triggering partial decode; canvas readback API accessible; image decoder does not zero output buffer on error |
 
+### §2-7. Input Sanitization Length Desync
+
+Input sanitization that removes characters (null bytes, control characters, disallowed sequences) changes the data length, but the pre-sanitization length is used for buffer allocation or response Content-Length. The gap between allocated size and actual content exposes residual heap memory.
+
+| Subtype | Mechanism | Key Condition |
+|---------|-----------|---------------|
+| **Null byte stripping length mismatch** | Server strips null bytes (`%00`) from the input string but uses the original pre-strip length to size the response buffer or set Content-Length. The response includes the shorter sanitized string followed by residual heap memory filling the length differential | Backend strips null bytes after length calculation; response length derived from input length rather than post-sanitization output length |
+
 ---
 
 ## §3. Use-After-Free / Freed Memory Access

@@ -280,6 +280,7 @@ The `/_next/image` endpoint is a server-side proxy by design — it fetches clie
 | **SVG Injection via Image Optimization** | When `dangerouslyAllowSVG: true` is enabled, the image optimizer serves SVG files containing embedded JavaScript, creating a stored XSS vector | `dangerouslyAllowSVG: true` in image configuration | **XSS** |
 | **Image URL SSRF with Host Override** | Manipulating the `Host` header in requests to the image optimization endpoint redirects server-side fetches | Next.js < 14.1.1; self-hosted deployments | **SSRF** |
 | **Content Injection via Image** | Attacker-controlled external image sources trigger file downloads with arbitrary content and filenames, enabling phishing | Next.js image optimization + external sources | **INFO** |
+| **Backslash URL Redirect** | `/_next/image` endpoint processes URL parameter containing backslash (`\`) that triggers an open redirect — WHATWG URL parsing converts `\` to `/`, altering the request target to an external domain | Self-hosted Next.js with permissive `images.remotePatterns`; WHATWG backslash normalization | **SSRF** |
 
 **Security Evolution**: `domains` (simple hostname list) → `remotePatterns` (protocol, hostname, port, pathname restrictions) → `search` restriction added → `localPatterns` added. Each tightening represents a previously discovered bypass.
 
