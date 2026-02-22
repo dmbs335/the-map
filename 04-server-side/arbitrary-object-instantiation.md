@@ -219,7 +219,7 @@ Server-Side Template Injection (SSTI) provides indirect paths to arbitrary class
 
 | Subtype | Engine | Technique |
 |---------|--------|-----------|
-| **MRO traversal (Jinja2/Python)** | Jinja2 | `''.__class__.__mro__[2].__subclasses__()` enumerates all loaded Python classes; attacker selects a class with dangerous `__init__` or methods (e.g., `subprocess.Popen`) |
+| **MRO traversal (Jinja2/Python)** | Jinja2 | `''.__class__.__mro__[1].__subclasses__()` enumerates all loaded Python classes; attacker selects a class with dangerous `__init__` or methods (e.g., `subprocess.Popen`). In Python 3, `str.__mro__` is `(str, object)` so index `[1]` reaches `object`. |
 | **Twig sandbox bypass** | Twig/PHP | Access to registered global objects or filters; `_self.env` leads to template cache manipulation |
 | **Freemarker built-in** | FreeMarker/Java | `<#assign ex="freemarker.template.utility.Execute"?new()>` instantiates and invokes arbitrary classes |
 | **Velocity reflection** | Velocity/Java | `$class.forName("java.lang.Runtime")` accesses Class objects directly |
@@ -351,7 +351,7 @@ AI frameworks serialize complex object graphs (model pipelines, agent chains, to
 | Mutation Combination | CVE / Case | Product | Impact / CVSS |
 |---------------------|-----------|---------|---------------|
 | §1-3 (config endpoint) + §3-2 | CVE-2024-24824 | Graylog | Arbitrary class instantiation via REST API; `java.io.File` → info leak. CVSS 8.8 |
-| §1-3 (JDBC properties) + §5-1 | CVE-2022-21724 | PostgreSQL JDBC (PgJDBC) | `socketFactory`/`sslFactory` parameters instantiate arbitrary classes. CVSS 8.5 |
+| §1-3 (JDBC properties) + §5-1 | CVE-2022-21724 | PostgreSQL JDBC (PgJDBC) | `socketFactory`/`sslFactory` parameters instantiate arbitrary classes. CVSS 9.8 (NVD) |
 | §1-1 (PHP new) + §3-1 (Imagick) | CVE-2022-31084 | LDAP Account Manager | Unauthenticated RCE via Imagick `vid:msl:` technique. CVSS 9.1 |
 | §1-1 (PHP new) + §3-1 (SimpleXMLElement) | CVE-2017-18357 | Shopware | Object instantiation → SimpleXMLElement → Blind XXE → file disclosure. Metasploit module available |
 | §1-1 (PHP new) + §5-1 | CVE-2024-27098 | GLPI | Authenticated SSRF via arbitrary object instantiation. CVSS 6.4 |

@@ -430,7 +430,7 @@ Techniques for identifying prototype pollution without causing denial of service
 |---|---|---|
 | §2-6 (RSC deserialization) | CVE-2025-55182 / CVE-2025-66478 (React/Next.js) | **CVSS 10.0**. Pre-auth RCE affecting React 19.0–19.2.0 and Next.js. Public exploits available; in-the-wild exploitation detected Dec 2025. |
 | §3-3 (tRPC FormData) | CVE-2025-68130 (@trpc/server) | Prototype pollution via `formDataToObject`. Affects tRPC 10.27.0–10.45.2, 11.0.0–11.7.0. Auth bypass, DoS. |
-| §1-1 (lodash) | CVE-2025-13465 (lodash) | Prototype pollution in `lodash.set`/`lodash.setWith` functions. |
+| §1-1 (lodash) | CVE-2025-13465 (lodash) | Prototype pollution in `_.unset`/`_.omit` functions (property deletion via crafted `__proto__` paths). |
 | §1-3 (dset path setter) | CVE-2024-21529 (dset) | Prototype pollution via `dset()` function, improper input sanitization. |
 | §7-2 (prototype method override) | CVE-2024-29016 (locutus) | `parse_str` security check bypassed by polluting `String.prototype.includes`. |
 | §1-1 (deep-merge) | CVE-2024-38986 (@75lb/deep-merge) | All versions vulnerable due to reliance on vulnerable lodash merge. |

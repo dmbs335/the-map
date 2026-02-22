@@ -300,7 +300,7 @@ After successful substitution, the attacker needs their malicious code to execut
 | Mutation Combination | CVE / Case | Impact / Bounty |
 |---------------------|-----------|----------------|
 | §1-1 + §5-2 | **PyTorch `torchtriton`** (Dec 2022) | Malicious PyPI package exfiltrated hostnames, usernames, env vars, `/etc/passwd`. 3,000+ downloads before removal. |
-| §3-2 (CocoaPods/Apple ecosystem) | **CVE-2024-38368** (CocoaPods, CVSS 9.3) | 1,800+ orphaned pods claimable via legacy "Claim Your Pods" process. 10-year exposure window (2014–2023). |
+| §3-2 (CocoaPods/Apple ecosystem) | **CVE-2024-38368** (CocoaPods, CVSS 9.3) | 1,800+ orphaned pods claimable via legacy "Claim Your Pods" process. 10-year exposure window (2014–2024). |
 | §3-2 (CocoaPods/Apple ecosystem) | **CVE-2024-38366** (CocoaPods, CVSS 10.0) | Insecure email verification enabled arbitrary code execution on the CocoaPods Trunk server. |
 | §3-2 (CocoaPods/Apple ecosystem) | **CVE-2024-38367** (CocoaPods, CVSS 8.2) | Session token theft via email verification redirect. |
 | §2-1 + §5-3 | **MavenGate** (Jan 2024) | 18%+ of Maven dependencies interceptable via expired domain GroupId hijacking. 200+ affected companies notified. |

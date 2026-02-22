@@ -537,7 +537,8 @@ socket.write(buf); // Leak to client
 | Node.js Version | `Buffer(number)` Behavior | Risk |
 |---|---|---|
 | 0.x — 5.x | Returns UNINITIALIZED memory (like `allocUnsafe`) | Critical: heap memory exposure |
-| 6.x+ | Returns ZERO-FILLED memory, deprecation warning | Low (fixed) |
+| 6.x — 9.x | Still returns UNINITIALIZED memory; deprecated in favor of `Buffer.alloc()`/`Buffer.allocUnsafe()`/`Buffer.from()` | Critical: deprecation warning but uninitialized memory persists |
+| 10.x+ | `--zero-fill-buffers` flag available; newer versions progressively enforce safer defaults | Use `Buffer.alloc()` for zero-filled buffers |
 | All versions | `Buffer(string)` creates buffer from string content | Type confusion if argument type is user-controlled |
 
 ```javascript
@@ -957,12 +958,12 @@ fetch(userUrl, { agent }); // Validates RESOLVED IP, not hostname
 | Node 8 (2017) | Null byte check added to `fs` path operations | No |
 | Node 10 (2018) | `crypto.createCipher()` deprecated | No |
 | Node 11 (2018) | `url.parse()` deprecated in favor of WHATWG `URL` | No |
-| Node 12 (2019) | `--max-http-header-size` default reduced to 16KB | No |
+| Node 12 (2019) | `--max-http-header-size` default 8KB (inherited from Node 11.6.0 security fix for CVE-2018-12121; later increased to 16KB in Node 13.13.0) | No |
 | Node 13 (2019) | `server.timeout` changed from 120000ms to **0** (no timeout) | **Yes — silent DoS protection removal** |
 | Node 15 (2020) | `unhandledRejection` default changed to `throw` (crash on unhandled) | **Yes** |
 | Node 18 (2022) | `server.requestTimeout` added (default: 300000ms). `fetch()` API available globally | No |
 | Node 20 (2023) | `--experimental-permission` flag introduced. Permission Model | No |
-| Node 21 (2023) | `--disable-proto` option added | No |
+| Node 12.17 (2020) | `--disable-proto` option added | No |
 | Node 22 (2024) | WebSocket support; Permission Model symlink fixes | No |
 
 ## Appendix C: Security Configuration Checklist

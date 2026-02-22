@@ -472,7 +472,7 @@ Attacks exploiting Spring's multipart file handling and resource serving mechani
 | §8-2 (STOMP ordering) | CVE-2025-41254 | 2025 | STOMP frame ordering bypass for unauthorized messages |
 | §1-1 (Gateway SpEL) | CVE-2025-41243 | 2025 | Spring Cloud Gateway environment attribute SpEL evaluation |
 | §6-3 (H2 JNDI) | CVE-2021-42392 | 2022 | RCE via JNDI lookup in H2 Database Console |
-| §8-1 (Gateway smuggling) | CVE-2021-22051 | 2021 | HTTP request smuggling in Spring Cloud Gateway |
+| §8-1 (Gateway URI validation bypass) | CVE-2021-22051 | 2021 | Code injection via URI scheme validation bypass in Spring Cloud Gateway, allowing routing to management endpoints |
 | §9-1 (Spring WS XXE) | CVE-2019-3773 | 2019 | XXE in Spring Web Services |
 | §9-1 (Integration XXE) | CVE-2019-3772 | 2019 | XXE in Spring Integration XML |
 | §5-1 (Heapdump) | HackerOne #1019367 | 2020 | Memory dump and env disclosure via exposed Actuator |

@@ -149,7 +149,7 @@ Attacking the CSP policy itself rather than bypassing it.
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **Header Injection for CSP Weakening** | Attacker injects additional CSP header with weaker policy; browser uses union | CRLF injection allows attacker to add Content-Security-Policy: script-src 'unsafe-inline' |
+| **Header Injection for CSP Weakening** | Attacker injects additional CSP header; however, browsers enforce **all** CSP headers independently (intersection, not union), so an injected weaker policy cannot weaken an existing strict policy. The real risk is injecting `Content-Security-Policy-Report-Only` for exfiltration, or injecting the **first** CSP header when none exists. | CRLF injection in response headers; no existing CSP policy, or targeting report-only exfiltration |
 | **Meta Tag CSP Override** | HTML meta CSP tag competes with HTTP header; browsers may apply both or prefer one | Attacker injects <meta http-equiv="Content-Security-Policy" content="script-src *"> |
 | **CSP Reporting Endpoint Injection** | Attacker controls report-uri endpoint, receiving reports containing sensitive data | CSP report-uri points to attacker domain; violations leak page content |
 | **Browser Extension CSP Modification** | Malicious extension modifies CSP headers via webRequest API (CVE-2025-9866 Chromium) | Extension has webRequestBlocking permission and weakens CSP |
@@ -210,7 +210,7 @@ These headers control whether a page can be framed, preventing clickjacking.
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **Double Framing X-FO: SAMEORIGIN** | X-Frame-Options: SAMEORIGIN prevents cross-origin framing but allows same-origin; attacker uses double iframe | Attacker frames attacker.com/intermediary which frames victim.com; both intermediary and victim think they're framed by same origin |
+| **Double Framing X-FO: SAMEORIGIN** | X-Frame-Options: SAMEORIGIN prevents cross-origin framing but allows same-origin; attacker uses double iframe | `attacker.com` (top) frames `victim.com/page-A` (intermediary) which frames `victim.com/page-B` (target); legacy browsers only checked the immediate parent's origin, so page-B sees page-A as same-origin and allows framing despite the top-level being attacker.com |
 | **Frame-Ancestors Null Origin** | CSP frame-ancestors validation doesn't properly reject null origin | Sandboxed iframe with null origin bypasses frame-ancestors check |
 | **Clickjacking on XFO Error Page** | Firefox native error page when X-FO blocks framing can itself be clickjacked (CVE-2024-5691) | Attacker frames the error page and performs clickjacking on it |
 | **Portal Element Frame Bypass** | The experimental `<portal>` element embeds cross-origin pages for seamless navigation transitions but does not respect `X-Frame-Options` or `CSP frame-ancestors` restrictions. An attacker uses `<portal src="https://victim.com">` to embed protected pages, enabling clickjacking on content that explicitly denies framing. Portal activation (user click) navigates the top-level context to the embedded page, and the attacker can overlay UI elements to trick users into activating the portal — performing actions on the victim site disguised as interactions with the attacker's page | Target browser supports `<portal>` element (Chrome experimental); victim page relies on X-Frame-Options or frame-ancestors for clickjacking protection without additional defenses (Securitum Research, 2019) |
@@ -296,7 +296,7 @@ DOM-based XSS occurs when client-side JavaScript writes attacker-controlled data
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **innerHTML Sink** | Attacker data written to element.innerHTML executes embedded scripts in some contexts | innerHTML with <img src=x onerror=alert(1)> or <svg onload=alert(1)> |
+| **innerHTML Sink** | Attacker data written to element.innerHTML triggers inline event handlers on injected elements (innerHTML never executes `<script>` elements per the HTML spec's "already started" flag) | innerHTML with `<img src=x onerror=alert(1)>` or `<svg onload=alert(1)>` |
 | **document.write() Sink** | document.write() with attacker data injects arbitrary HTML including script | document.write('<script>'+location.hash.substr(1)+'</script>') |
 | **eval() / Function() Sink** | Attacker data passed to eval() or Function() constructor executes as JavaScript | eval('var x = ' + location.search.substr(1)); // ?x=alert(1) |
 | **setTimeout/setInterval String Sink** | setTimeout/setInterval with string argument (not function) evaluates as JavaScript | setTimeout(location.hash.substr(1), 1000); // #alert(1) |
@@ -478,12 +478,12 @@ WebSocket provides bidirectional communication but doesn't enforce SOP by defaul
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
 | **Cross-Site WebSocket Hijacking (CSWSH)** | WebSocket handshake doesn't validate Origin header; attacker establishes connection from malicious site | Server accepts WebSocket connection without checking Origin or using session cookies for auth |
-| **WebSocket Authentication Bypass (CVE-2024-55591)** | Authentication bypass in Node.js WebSocket module (FortiOS/FortiProxy) allows remote super-admin access | Crafted WebSocket requests bypass authentication checks, CVSS 9.6 (actively exploited 2025) |
+| **WebSocket Authentication Bypass (CVE-2024-55591)** | Authentication bypass in FortiOS (7.0.0–7.0.16) / FortiProxy (7.0.0–7.0.19, 7.2.0–7.2.12) web management interface allows remote super-admin access via crafted WebSocket requests | Fortinet device with exposed management interface, CVSS 9.6 (actively exploited 2025) |
 | **WebSocket Message Injection** | Attacker sends malicious messages to victim's WebSocket connection | WebSocket message handler doesn't validate message source or format |
 | **WebSocket Smuggling** | Proxy and backend disagree on WebSocket handshake success; attacker smuggles HTTP requests through connection | Front-end proxy thinks handshake failed but backend accepts, keeping connection open for smuggled requests |
 | **GraphQL over WebSocket CSWSH** | GraphQL APIs over WebSocket vulnerable to CSWSH, enabling arbitrary API calls (2025 research) | GraphQL subscriptions over WebSocket without origin validation; attacker deletes victim's account |
 
-CVE-2024-55591 in Node.js WebSocket implementation represents one of the most critical WebSocket vulnerabilities (CVSS 9.6), with active exploitation in the wild allowing authentication bypass to super-admin privileges.
+CVE-2024-55591 in FortiOS/FortiProxy represents one of the most critical WebSocket vulnerabilities (CVSS 9.6), with active exploitation in the wild allowing authentication bypass to super-admin privileges.
 
 ### §9-3. Service Worker Exploitation
 
@@ -623,14 +623,14 @@ This table maps primary attack scenarios to the Security Mechanism categories wh
 |---------------------|-----------|----------------|
 | §2-4 + §6-3 | CVE-2024-47875 (DOMPurify) | Mutation XSS enabling CSP bypass and stored XSS via nested HTML elements |
 | §10-1 | CVE-2024-49038 (Microsoft Copilot Studio) | CVSS 9.3. PostMessage authentication bypass enabling cross-tenant data exfiltration |
-| §9-2 | CVE-2024-55591 / CVE-2025-24472 (Node.js WebSocket) | CVSS 9.6. Authentication bypass in WebSocket module granting super-admin privileges. Actively exploited in wild |
+| §9-2 | CVE-2024-55591 / CVE-2025-24472 (FortiOS/FortiProxy) | CVSS 9.6. Authentication bypass in Fortinet management interface via WebSocket, granting super-admin privileges. Actively exploited in wild |
 | §2-1 + §2-5 | CVE-2025-9866 (Chromium Extensions) | CSP bypass via crafted HTML page in Extensions implementation |
 | §1-1 | CVE-2025-8036 (Firefox 141) | CORS preflight responses cached across IP changes, bypassing origin checks |
 | §2-2 + §2-4 | CVE-2025-8032 (Firefox 141) | XSLT documents sidestep CSP restrictions |
 | §4-2 | CVE-2024-5691 (Firefox) | Iframe sandbox bypass via clickjacking on native XFO error page |
 | §8-1 | CVE-2024-30043 (SharePoint) | URL parsing confusion enabling XXE injection. Authentication bypass and RCE |
 | §8-1 | CVE-2025-25292 / CVE-2025-25291 (ruby-saml) | Parser differential in namespace/DOCTYPE handling enabling SAML authentication bypass |
-| §8-1 | CVE-2025-0938 (python-min) | URL parsing accepts square brackets in domain names, creating parser differential |
+| §8-1 | CVE-2025-0938 (CPython) | URL parsing in `urllib.parse` accepts square brackets in domain names, creating parser differential |
 | §10-1 | CVE-2025-26788 (StrongKey FIDO Server 4.10.0-4.15.0) | Account takeover of any registered user due to WebAuthn non-discoverable credential flow flaw |
 | §10-1 | CVE-2024-9956 (Google Chrome Android) | Chrome Bluetooth initiates PassKey authentication without user interaction, enabling credential capture |
 | §6-4 | CVE-2024-45801 (DOMPurify ≤ 3.0.8) | Prototype pollution bypassing SAFE_FOR_TEMPLATES profile, leading to stored XSS |

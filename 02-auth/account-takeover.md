@@ -261,7 +261,7 @@ Not ATO on their own, but XSS and CSRF serve as **core building blocks of ATO ch
 |---------|-----------|---------------|-------------|
 | **CSRF Email Change** | When the victim visits the attacker's page, an email change request is automatically sent, changing the account email to the attacker's email | No CSRF token on email change + no re-authentication required | D4 |
 | **CSRF Password Change** | Password change request has no CSRF protection and does not require the current password | No current password + no CSRF token required for password change | D4 |
-| **CORS Misconfiguration → Token Theft** | Overly permissive CORS policy (`Access-Control-Allow-Origin: *` with credentials) allows authenticated API calls and token theft from the attacker's site — Langflow CVE-2025-34291 case | CORS misconfiguration + `SameSite=None` cookies | D4, D7 |
+| **CORS Misconfiguration → Token Theft** | Overly permissive CORS policy (server dynamically reflects the `Origin` header in `Access-Control-Allow-Origin` with `Access-Control-Allow-Credentials: true`) allows authenticated API calls and token theft from the attacker's site — Langflow CVE-2025-34291 case. Note: `ACAO: *` with credentials is blocked by browsers per spec. | CORS misconfiguration + `SameSite=None` cookies | D4, D7 |
 
 ---
 

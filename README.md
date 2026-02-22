@@ -71,15 +71,15 @@ Each topic is a deeply structured Markdown reference document covering the full 
 | [**File Upload**](04-server-side/file-upload.md) | File upload restriction bypass mutations and content-type confusion |
 | [**Deserialization**](04-server-side/deserialization.md) | Deserialization gadget chains, format-specific attacks, and bypass taxonomy |
 | [**JNDI Injection**](04-server-side/jndi-injection.md) | JNDI lookup exploitation (Log4Shell class) and remote class loading |
-| [**RMI**](04-server-side/rmi.md) | Java Remote Method Invocation attack surface and registry abuse |
+| [**RMI**](99-deprecated/rmi.md) | Java Remote Method Invocation attack surface and registry abuse |
 | [**JDBC Attack**](04-server-side/jdbc-attack.md) | JDBC connection string injection and driver-specific exploitation |
 | [**JAAS Attack**](04-server-side/jaas-attack.md) | Java Authentication & Authorization Service bypass patterns |
 | [**Email Smuggling**](04-server-side/email-smuggling-and-parser-abuse.md) | Email header injection, SMTP smuggling, and parser abuse |
 | [**File Download**](04-server-side/file-download.md) | Arbitrary file download, forced download, and file access control bypass |
 | [**Arbitrary File Write → RCE**](04-server-side/arbitrary-file-write-to-rce.md) | Cross-platform arbitrary file write to RCE chain taxonomy |
 | [**Document & Media Processing RCE**](04-server-side/document-media-processing-library-rce.md) | Document/media processing library exploitation (ImageMagick, Ghostscript, etc.) |
-| [**JMX Attack**](04-server-side/jmx-attack.md) | Java Management Extensions attack surface and MBean abuse |
-| [**HTTP Pipelining Attack**](04-server-side/http-pipelining-attack.md) | HTTP pipelining abuse, response queue poisoning, and desync attacks |
+| [**JMX Attack**](99-deprecated/jmx-attack.md) | Java Management Extensions attack surface and MBean abuse |
+| [**HTTP Pipelining Attack**](99-deprecated/http-pipelining-attack.md) | HTTP pipelining abuse, response queue poisoning, and desync attacks |
 | [**Arbitrary Object Instantiation**](04-server-side/arbitrary-object-instantiation.md) | Arbitrary object instantiation and class loading exploitation |
 
 ### 05. Client-Side & UI
@@ -96,8 +96,8 @@ Each topic is a deeply structured Markdown reference document covering the full 
 | [**XS-Leak**](05-client-side/xs-leak.md) | Cross-site leak attacks and timing side-channels |
 | [**Mutation XSS (mXSS)**](05-client-side/mutation-xss.md) | DOM mutation-based XSS via sanitizer/parser differentials |
 | [**Universal XSS (uXSS)**](05-client-side/universal-xss.md) | Browser-level universal XSS vulnerabilities |
-| [**Cross-Site Script Inclusion (XSSI)**](05-client-side/cross-site-script-inclusion.md) | Cross-site script inclusion and JSONP data theft |
-| [**Relative Path Overwrite (RPO)**](05-client-side/rpo.md) | Relative path overwrite for stylesheet injection and content hijacking |
+| [**Cross-Site Script Inclusion (XSSI)**](99-deprecated/cross-site-script-inclusion.md) | Cross-site script inclusion and JSONP data theft |
+| [**Relative Path Overwrite (RPO)**](99-deprecated/rpo.md) | Relative path overwrite for stylesheet injection and content hijacking |
 | [**Desktop & Hybrid App Security**](05-client-side/desktop-hybrid-app-security.md) | Electron, CEF, and desktop/hybrid application security |
 
 ### 06. Encoding & Parser Differential
@@ -156,7 +156,6 @@ Each topic is a deeply structured Markdown reference document covering the full 
 | [**Sam Curry**](11-researchers/sam-curry.md) | Real-world business logic and API misconfig case studies |
 | [**Orange Tsai**](11-researchers/orange-tsai.md) | Advanced web exploitation and novel attack chains |
 | [**Frans Rosén**](11-researchers/frans-rosen.md) | Browser security and innovative client-side attacks |
-| [**LiveOverflow**](11-researchers/liveoverflow.md) | Security research insights and exploitation techniques |
 | [**Soroush Dalili**](11-researchers/soroush-dalili.md) | IIS exploitation and web application security research |
 
 ### 12. Product Security
@@ -241,7 +240,7 @@ the-map/
   ├── 08-infrastructure/         # Infrastructure & Supply Chain (8 topics)
   ├── 09-frameworks-and-languages/  # Framework & Language-specific (9 topics)
   ├── 10-recon-methodology/      # Reconnaissance & Methodology (3 topics)
-  ├── 11-researchers/            # Security researcher case studies (5 topics)
+  ├── 11-researchers/            # Security researcher case studies (4 topics)
   ├── 12-product-security/       # Product-specific security (7 topics)
   ├── 13-misc/                   # Miscellaneous (6 topics)
   ├── skills/                    # Claude Code skill definitions (9 skills)

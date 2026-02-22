@@ -6,7 +6,7 @@
 
 This taxonomy covers **protocol-level WAF bypass techniques** — mutations that exploit how HTTP requests are structured, parsed, framed, routed, and delivered at the transport and protocol layer. These bypasses are **payload-agnostic**: they work regardless of what attack payload (SQLi, XSS, RCE, etc.) is being delivered. The WAF is evaded not because it fails to recognize the malicious content, but because protocol-level discrepancies cause the WAF to see a different request than the backend does, or cause the request to bypass the WAF entirely.
 
-> **Companion document:** Payload-level bypass techniques (encoding, syntax obfuscation, grammar evasion, ML evasion) are covered in the [Payload-Level WAF Bypass Taxonomy](../waf-bypass/payload-level-waf-bypass.md).
+> **Companion document:** Payload-level bypass techniques (encoding, syntax obfuscation, grammar evasion, ML evasion) are covered in the [Payload-Level WAF Bypass Taxonomy](../../08-infrastructure/waf-bypass.md).
 
 ### Organizational Axes
 

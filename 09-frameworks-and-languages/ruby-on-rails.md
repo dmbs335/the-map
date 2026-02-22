@@ -474,12 +474,12 @@ Ruby's C extensions and built-in methods implemented in C operate outside Ruby's
 | Mutation Combination | CVE / Case | Impact / Bounty |
 |---------------------|-----------|----------------|
 | §1-2 (YAML Deserialization) | CVE-2013-0156 (Rails XML Parser) | Critical RCE; affected virtually all Rails 2/3 apps. Metasploit module available |
-| §1-1 + §1-4 (Marshal + Session Cookie) | CVE-2013-0277 + exploit/multi/http/rails_secret_deserialization | RCE via forged session cookie. Metasploit module |
+| §1-1 + §1-4 (Marshal + Session Cookie) | CVE-2013-0156 + exploit/multi/http/rails_secret_deserialization | RCE via forged session cookie when `secret_token` is known. CVE-2013-0277 is a separate Active Record serialized attribute vulnerability. Metasploit module |
 | §1-2 + §3 (YAML + Serialized Columns) | CVE-2022-32224 (Active Record) | RCE escalation when attacker has SQL injection + YAML-serialized columns |
 | §5-2 (Active Storage + MiniMagick) | CVE-2022-21831 (Active Storage) | Code injection via image transformation parameters |
 | §5-2 (Active Storage RCE) | CVE-2025-24293 (Active Storage) | RCE via unsafe transformation methods (apply, loader, saver) passed to MiniMagick |
 | §4-3 + §5-1 (Render File Traversal) | CVE-2019-5418 (Action View) | Arbitrary file read via Accept header + render file:. CISA KEV listed |
-| §1-1 (Active Storage Deserialization) | CVE-2019-5420 (Active Storage) | RCE via Marshal deserialization in Active Storage URL. CVSS 9.8 |
+| §1-1 (Predictable Secret in Dev Mode) | CVE-2019-5420 (Railties) | RCE via predictable `secret_key_base` in development mode — attacker derives the secret from the application name, forges session cookie with Marshal payload. CVSS 9.8 |
 | §4-3 (Render File) + §1-1 (Marshal) | CVE-2019-5418 + CVE-2019-5420 ("DoubleTap") | Chain: file read to extract secret → session cookie forgery → RCE |
 | §7-1 (Host Header Open Redirect) | CVE-2021-22881 (Action Pack) | Open redirect via Host Authorization middleware bypass |
 | §6-2 (CSRF Bypass) | CVE-2011-0447 (Rails CSRF) | CSRF protection circumvented via plugin/redirect combination |

@@ -443,7 +443,7 @@ Legacy or misconfigured operator alias systems allow injecting query operators t
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **Sequelize string operator aliases** | Before Sequelize 4.12, string aliases like `$gt`, `$like`, `$ne` in query parameters were automatically resolved to Sequelize operators. `{ "password": { "$like": "p%" } }` performs a LIKE query on the password field. (CVE-2019-10752) | Sequelize < 4.12 or `operatorAliases` not disabled |
+| **Sequelize string operator aliases** | Before Sequelize 5.0, string aliases like `$gt`, `$like`, `$ne` in query parameters were automatically resolved to Sequelize operators by default. `{ "password": { "$like": "p%" } }` performs a LIKE query on the password field. (CVE-2019-10748, CVE-2019-10749) | Sequelize < 5.0 with default `operatorAliases`, or explicitly enabled in 5.x+ |
 | **Sequelize parameter escaping** | Query `replacements` parameters not properly escaped, allowing arbitrary SQL injection through the ORM's parameterization layer. (CVE-2023-25813 / Sequelize < 6.19.1) | Sequelize versions with improper replacement escaping |
 
 ---
@@ -474,7 +474,7 @@ Legacy or misconfigured operator alias systems allow injecting query operators t
 | §4-2 (order_by alias injection) | CVE-2026-1312 (Django) | SQL injection through FilteredRelation + order_by with period characters. |
 | §1-3 (search on concealed fields) | CVE-2025-64748 (Directus) | Token and TFA secret leak through search on directus_users collection. |
 | §8-2 (Mongoose operator injection) | CVE-2025-23061 (Mongoose) | Arbitrary JavaScript execution via `$where` operator injection. |
-| §8-3 (Sequelize operator aliases) | CVE-2019-10748/10749/10752 (Sequelize) | SQL injection via unescaped JSON path keys on MySQL/MariaDB. |
+| §8-3 (Sequelize operator aliases) | CVE-2019-10748/10749 (Sequelize) | SQL injection via unescaped JSON path keys on MySQL/MariaDB and operator alias injection. |
 | §8-3 (Sequelize replacement escaping) | CVE-2023-25813 (Sequelize) | SQL injection through improper parameter escaping. |
 | §1-1 + §2-1 (filter injection + FK traversal) | CVE-2023-47117 (Label Studio) | Authenticated user leaks full password hash of any account. Chained with hardcoded SECRET_KEY for full admin compromise. |
 | §1-1 + §3-1 (filter injection + startswith) | CVE-2023-31133 (Ghost CMS) | ORM Leak in content API. |

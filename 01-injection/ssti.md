@@ -392,7 +392,7 @@ When specific characters are filtered (underscores, dots, brackets, quotes, etc.
 | §4-2 (Twig sandbox regex bypass) | CVE-2025-66294 | Grav CMS < 1.8.0-beta.27 | Authenticated RCE via nested `evaluate_twig()` bypassing regex sanitization |
 | §3-2 (Twig built-in) + §6-2 (CMS double render) | CVE-2025-32432 | Craft CMS 3.x–5.x | **Unauthenticated RCE (CVSS 10.0)**. ~13,000 vulnerable instances, ~300 compromised. Metasploit module available |
 | §4-1 (FreeMarker sandbox bypass) + §3-1 (`?api`) | CVE-2023-49964 | Alfresco | Authenticated RCE via ClassLoader chain through `?api` built-in |
-| §4-1 (FreeMarker application utility abuse) | CVE-2024-48962 | Apache OFBiz < 18.12.17 | Unauthenticated RCE via `GroovyUtil.eval()` through FreeMarker `Static` hash |
+| §4-1 (FreeMarker application utility abuse) | CVE-2024-48962 | Apache OFBiz < 18.12.17 | CSRF + SSTI leading to RCE via `GroovyUtil.eval()` through FreeMarker `Static` hash (requires authenticated user interaction) |
 | §3-1 (FreeMarker `?new`) | CVE-2016-4462 | Apache OFBiz 13.07.03 | RCE via `Execute` class instantiation |
 | §4-3 (Thymeleaf denylist gap) | Reported 2024 | Spring Boot 3.3.4 | RCE via `MethodUtils` (commons-lang3) bypassing Thymeleaf's package denylist |
 | §4-4 (Pebble sandbox bypass) | GHSL-2020-050 | Pebble Templates | RCE via `getClass()` case-sensitivity bypass (< 3.0.9) |

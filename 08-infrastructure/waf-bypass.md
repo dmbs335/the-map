@@ -6,7 +6,7 @@
 
 This taxonomy covers **payload-level WAF bypass techniques** — mutations that transform the attack payload itself so that the WAF's detection engine (signatures, regex, ML models) fails to recognize it as malicious, while the backend interpreter (SQL engine, JavaScript engine, shell, XML parser, etc.) still executes it. These bypasses are **detection-focused**: the request reaches the WAF normally and passes through it, but the payload evades recognition through encoding, obfuscation, syntax transformation, or exploitation of the detection engine's limitations.
 
-> **Companion document:** Protocol-level bypass techniques (request smuggling, header manipulation, content-type parsing, protocol upgrades, architectural bypasses) are covered in the [Protocol-Level WAF Bypass Taxonomy](../http-parsing-discrepancy/protocol-level-waf-bypass.md).
+> **Companion document:** Protocol-level bypass techniques (request smuggling, header manipulation, content-type parsing, protocol upgrades, architectural bypasses) are covered in the [Protocol-Level WAF Bypass Taxonomy](../03-http-protocol/http-parsing-discrepancy/protocol-level-waf-bypass.md).
 
 ### Organizational Axes
 

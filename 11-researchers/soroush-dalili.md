@@ -148,7 +148,7 @@ NTFS supports alternate data streams (metadata attached to files), accessed via 
 
 | Subtype | Mechanism | Affected Versions |
 |---------|-----------|------------------|
-| **::$DATA Extension Bypass** | Accessing `file.asp::$DATA` causes IIS to serve source code instead of executing ASP. IIS parses extension as `asp::$DATA` (not `.asp`), bypassing script handler mapping. | IIS 4/5 (classic vulnerability, 2000s) |
+| **::$DATA Extension Bypass** | Accessing `file.asp::$DATA` causes IIS to serve source code instead of executing ASP. IIS parses extension as `asp::$DATA` (not `.asp`), bypassing script handler mapping. | IIS 4/5 (classic vulnerability, 1998; MS98-003) |
 | **:$I30:$INDEX_ALLOCATION Auth Bypass** | Accessing `/protected:$I30:$INDEX_ALLOCATION/file.asp` causes IIS to check authorization on parent directory but serve file from protected directory. | IIS 5.1/6.0 |
 | **Directory Traversal via ADS** | Using `/../../target:stream` to traverse directories while evading path validation | IIS 6.0 |
 
@@ -400,7 +400,7 @@ This table maps mutation categories to real-world attack scenarios.
 | §1-3 (Chunk Extension Parsing) | CVE-2025-55315 (.NET) | HTTP smuggling in ASP.NET Core | 2025 |
 | §1-4 (OLF + OPTIONS) | CVE-2025-32094 (Akamai + IIS) | HTTP smuggling via obsolete line folding | 2025 |
 | §1-1 (TE.0 Desync) | Public research (Google Cloud) | Smuggling in GCP + IIS | 2024 |
-| §2-1 (::$DATA) | MS00-019 | Source code disclosure | 2000 |
+| §2-1 (::$DATA) | MS98-003 | Source code disclosure | 1998 |
 
 **Note**: Soroush Dalili contributed to $10k+ bug bounty (Tesla, Microsoft SQL Reporting Services, CVE-2020-0618).
 

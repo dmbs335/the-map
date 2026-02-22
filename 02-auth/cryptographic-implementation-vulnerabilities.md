@@ -68,17 +68,18 @@ AES-CBC provides confidentiality but **no integrity**. Without a separate MAC, c
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
 | **CBC Bit-Flipping** | In CBC decryption, `plaintext[n] = DECRYPT(ciphertext[n]) XOR ciphertext[n-1]`. Modifying byte `i` in block `n-1` directly XORs the same change into plaintext block `n`. Formula: `modified = original_byte XOR old_value XOR new_value`. | Attacker can intercept and modify ciphertext (cookies, URL params, API fields). No MAC/HMAC protects the ciphertext. |
-| **CBC Padding Oracle** | When a server reveals whether PKCS#7 padding is valid after decryption (via error messages, timing, or HTTP status codes), an attacker iteratively decrypts each byte by manipulating the preceding ciphertext block and observing the oracle response. Requires ~128 × block_count queries per block. | Server returns distinguishable responses for padding errors vs. application errors. Applies to any system decrypting CBC ciphertext from untrusted input. |
+| **CBC Padding Oracle** | When a server reveals whether PKCS#7 padding is valid after decryption (via error messages, timing, or HTTP status codes), an attacker iteratively decrypts each byte by manipulating the preceding ciphertext block and observing the oracle response. Requires ~128 × block_size (in bytes) queries per block (e.g., ~2,048 for AES-128). | Server returns distinguishable responses for padding errors vs. application errors. Applies to any system decrypting CBC ciphertext from untrusted input. |
 | **IV Manipulation (First Block)** | The IV functions as `ciphertext[0]` for the first block. If the IV is transmitted alongside the ciphertext (common in cookies, encrypted URL parameters), the attacker controls the XOR applied to the first plaintext block: `fake_iv = DECRYPT(block_1) XOR desired_plaintext`. | IV is not integrity-protected or is user-controllable. |
-| **IV Reuse / Predictable IV** | Reusing the same IV with the same key for different plaintexts leaks XOR of plaintexts: `C1 XOR C2 = P1 XOR P2` for the first block. Predictable IVs (e.g., sequential counters) enable chosen-plaintext attacks (BEAST attack pattern). | Static or predictable IV generation. Same key used across multiple encryptions. |
+| **IV Reuse / Predictable IV** | Reusing the same IV with the same key produces identical ciphertext for identical first plaintext blocks, leaking equality. Predictable IVs enable chosen-plaintext attacks (BEAST attack pattern). Note: the `C1 XOR C2 = P1 XOR P2` relation applies to CTR/stream ciphers, not CBC. | Static or predictable IV generation. Same key used across multiple encryptions. |
 
 **Example — CBC Bit-Flipping on Encrypted Cookie:**
 ```
-Original plaintext:  userid=12345&role=user
+Original plaintext:  userid=12345&role=guest
 Target plaintext:    userid=12345&role=admin
-Attack: XOR bytes at positions corresponding to "user" in the
-        preceding ciphertext block with (ord('u')^ord('a')),
-        (ord('s')^ord('d')), (ord('e')^ord('m')), (ord('r')^ord('i')).
+Attack: XOR bytes at positions corresponding to "guest" in the
+        preceding ciphertext block with (ord('g')^ord('a')),
+        (ord('u')^ord('d')), (ord('e')^ord('m')), (ord('s')^ord('i')),
+        (ord('t')^ord('n')).
 Side effect: The modified block decrypts to garbage, but the
              target block contains "role=admin".
 ```
@@ -108,7 +109,7 @@ Counter (CTR) mode and its authenticated variant GCM depend on nonce uniqueness.
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
 | **RC4 Bias Exploitation** | RC4's output bytes exhibit statistical biases. The second output byte has a 2/256 probability of being zero. With ~2^30 encryptions of the same plaintext (e.g., cookies sent in repeated HTTPS requests), biases allow recovery of plaintext bytes. | RC4 used in TLS (now deprecated). Same secret encrypted across many connections. |
-| **ChaCha20 Nonce Reuse** | ChaCha20 (like CTR mode) produces a deterministic keystream from (key, nonce). Nonce reuse yields two-time pad. Unlike GCM, ChaCha20-Poly1305 nonce reuse does not directly expose the Poly1305 key, but confidentiality is lost. | Same (key, nonce) pair reused. Relevant in custom implementations bypassing TLS. |
+| **ChaCha20 Nonce Reuse** | ChaCha20 (like CTR mode) produces a deterministic keystream from (key, nonce). Nonce reuse yields two-time pad. ChaCha20-Poly1305 nonce reuse also exposes the Poly1305 one-time key (derived from ChaCha20 block 0): authenticating two messages with the same key allows polynomial key recovery, compromising both confidentiality and authenticity — analogous to GCM nonce reuse exposing the GHASH key. | Same (key, nonce) pair reused. Relevant in custom implementations bypassing TLS. |
 
 ### §1-5. Encrypt-then-MAC Order Violations
 

@@ -115,7 +115,7 @@ Framework auto-escaping protects HTML content contexts but does *not* validate U
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
 | **javascript: URI in href** | User-controlled URLs in `<a href={userInput}>` allow `javascript:` protocol execution on click. React warns since v16.9 but does not block | Any dynamically rendered link with user-provided URL |
-| **javascript: URI in navigateTo** | Nuxt.js `navigateTo()` function with SSR accepts `javascript:` URLs that bypass protocol checks, executing arbitrary script on the client during hydration | Nuxt.js with SSR, user-controlled navigation targets (CVE-2024-34343) |
+| **javascript: URI in navigateTo** | Nuxt.js `navigateTo()` function with SSR accepts `javascript:` URLs that bypass protocol checks, executing arbitrary script on the client during hydration | Nuxt.js with SSR, user-controlled navigation targets |
 | **data: URI Injection** | `data:text/html` or `data:image/svg+xml` URIs containing embedded scripts bypass URL scheme allowlists that only check for `javascript:` | Incomplete URL validation (allowlist misses data: scheme) |
 
 ### §3-3. Template Injection
@@ -389,7 +389,7 @@ Framework development tools run with elevated privileges and may be inadvertentl
 | §5-3 + §6-2 (Astro Header SSRF/XSS) | CVE-2025-61925 / CVE-2025-64525 (Astro) | CVSS 6.5. SSRF + cache poisoning XSS via x-forwarded-* headers. CVE-2025-64525 is a bypass of the CVE-2025-61925 fix |
 | §2-2 (Astro Adapter Bypass) | CVE-2025-58179 (Astro) | Cloudflare adapter domain restriction bypass. SSRF + XSS |
 | §7-1 (Astro Source Map Leak) | CVE-2024-56159 (Astro) | Server source code exposure via sourcemaps in SSR mode. Affects Astro 5.0.3–5.0.6 |
-| §3-2 (Nuxt navigateTo XSS) | CVE-2024-34343 (Nuxt.js) | XSS via javascript: URL in navigateTo with SSR |
+| §3-2 (Nuxt navigateTo XSS) | GHSA-fh84-8j5f-fvpm (Nuxt.js) | XSS via javascript: URL in navigateTo with SSR |
 | §3-3 (Nuxt MDC XSS) | CVE-2025-24981 (Nuxt.js) | XSS via javascript: URL bypass in markdown parser. Affects @nuxtjs/mdc < 0.13.3 |
 | §9-4 (Nuxt DevTools RCE) | CVE-2025-52662 (Nuxt.js) | XSS → token theft → path traversal → file write → RCE chain in dev environments |
 | §3-4 (SvelteKit Search Param XSS) | CVE-2025-32388 (SvelteKit) | XSS via unsanitized search params in boot script |

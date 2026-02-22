@@ -30,7 +30,7 @@ These cross-cutting mechanisms appear throughout the taxonomy:
 Browser extensions (Chrome, Firefox, Edge, Safari) consist of three primary execution contexts:
 
 1. **Background Context** (Service Worker in MV3): Persistent privileged context with full extension API access
-2. **Content Scripts**: Injected into web pages, subject to page CSP but with extension API access
+2. **Content Scripts**: Injected into web pages in an isolated world; execute under the extension's own CSP (not the page's CSP), but DOM modifications they make to the page are subject to the page's CSP
 3. **Web-Accessible Resources**: Pages/scripts that can be loaded by web content
 
 Security boundaries exist between these contexts and between extensions and web pages. Most attacks exploit mismatches in how these boundaries are enforced across different components, browsers, or manifest versions.

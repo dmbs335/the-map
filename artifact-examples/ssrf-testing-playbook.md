@@ -1,6 +1,6 @@
 # SSRF Testing Playbook
 
-> **Companion document:** [SSRF Mutation/Variation Taxonomy](./ssrf.md)
+> **Companion document:** [SSRF Mutation/Variation Taxonomy](../04-server-side/ssrf.md)
 > **Purpose:** A systematic, phase-based procedure for discovering, confirming, escalating, and reporting Server-Side Request Forgery vulnerabilities in web applications.
 
 ---

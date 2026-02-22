@@ -83,7 +83,7 @@ Container build systems (BuildKit, Buildah, Kaniko) execute Dockerfiles/Containe
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
 | **BuildKit mount cache race** | A race condition during BuildKit's mount cache handling allows an attacker to manipulate the container's temporary directories during image building, achieving container breakout and host filesystem access | BuildKit ≤ 0.12.4 (CVE-2024-23651, "Leaky Vessels"; CVSS 8.7) |
-| **BuildKit arbitrary file deletion** | A flaw in BuildKit allows attackers to manipulate temporary directories to delete arbitrary files on the host system during image building | BuildKit ≤ 0.12.4 (CVE-2024-23652; CVSS 10.0) |
+| **BuildKit arbitrary file deletion** | A flaw in BuildKit allows attackers to manipulate temporary directories to delete arbitrary files on the host system during image building | BuildKit ≤ 0.12.4 (CVE-2024-23652; CVSS 9.1) |
 | **BuildKit GRPC privilege escalation** | Vulnerabilities in BuildKit's GRPC interface enable attackers to break out of containers during the image-building process by abusing build privileges | BuildKit ≤ 0.12.4 (CVE-2024-23653; CVSS 9.8) |
 | **Buildah mount source symlink** | During build-time volume processing, Buildah resolves mount sources without following symlinks. A specially-crafted image containing a symlink to the host root (`/`) as a mount source causes Buildah to mount the entire host filesystem into the build container | Buildah (CVE-2024-1753; CVSS 8.6); exploitable via malicious Containerfiles |
 | **Kaniko unprivileged build context** | Kaniko runs builds in userspace without a Docker daemon. While this reduces the attack surface, Kaniko builds execute in the same container that holds the build context — malicious Dockerfiles with `RUN` instructions execute arbitrary commands in the Kaniko container, which may have access to registry credentials, CI/CD secrets, or cloud identity metadata | Kaniko in CI/CD with mounted secrets or cloud identity |
@@ -332,7 +332,7 @@ In multi-tenant Kubernetes deployments, tenants share nodes and often share cont
 | §1-3 (OCI hook TOCTOU) | CVE-2024-0132 (NVIDIA CTK) | Container → host takeover; CVSS 9.0; demonstrated on Replicate, Hugging Face |
 | §1-4 (eBPF) | CVE-2021-3490, CVE-2021-31440 | eBPF verifier bypass → kernel memory access → container escape |
 | §1-4 (cgroup) | CVE-2022-0492 | cgroup release_agent → host code execution; still exploitable on cgroups v1 |
-| §1-5 (BuildKit) | CVE-2024-23651, 23652, 23653 ("Leaky Vessels") | Build-time container escape; CVSS 8.7–10.0 |
+| §1-5 (BuildKit) | CVE-2024-23651, 23652, 23653 ("Leaky Vessels") | Build-time container escape; CVSS 8.7–9.8 |
 | §1-5 (Buildah) | CVE-2024-1753 | Mount source symlink → host filesystem access during build; CVSS 8.6 |
 | §3-1 (Windows log query) | CVE-2024-9042 | PowerShell command injection on Windows nodes via log query API |
 | §4-1 (IngressNightmare) | CVE-2025-1974, 1097, 1098, 24514 | Unauth RCE → cluster-wide secrets; CVSS 9.8; 43% of cloud environments |

@@ -147,7 +147,7 @@ Within a single HTTP server (notably Apache httpd), different modules interpret 
 | **Handler confusion** | `mod_proxy` treats `r->filename` as a URL to proxy; a crafted request triggers proxy behavior on what should be a local file handler | Misconfigured `SetHandler` or `ProxyPass` with overlapping path patterns |
 | **`?`-based ACL bypass** | Appending `?` to a URL bypasses Apache's built-in `<Location>` ACL matching while the backend still serves the content | Apache ACL pattern matching doesn't account for query-string-prefixed path segments |
 
-This class yielded 9 new vulnerabilities and 20 exploitation techniques in a single Apache httpd audit (CVE-2024-38472 through CVE-2024-38477, addressed in httpd 2.4.60).
+This class yielded 9 new vulnerabilities and 20 exploitation techniques in a single Apache httpd audit (CVE-2024-38472 through CVE-2024-38477 in httpd 2.4.60, plus CVE-2024-39573, CVE-2024-39884, CVE-2024-40725 in subsequent patches).
 
 ### §3-3. Proxy ↔ Backend Normalization Mismatch
 

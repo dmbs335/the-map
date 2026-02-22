@@ -38,8 +38,8 @@ This table is the cornerstone of all HPP attacks. The discrepancy between any tw
 | **Python Tornado** | Last occurrence wins | `a = "2"` |
 | **Ruby on Rails / WEBrick** | Last occurrence wins (supports `&` and `;` delimiters) | `a = "2"` |
 | **Java JSP / Tomcat** | First occurrence wins | `a = "1"` |
-| **Spring MVC / Tomcat** | Concatenates all occurrences (comma-separated) | `a = "1,2"` |
-| **Node.js / Express** | Concatenates or creates array | `a = "1,2"` or `a = ["1","2"]` |
+| **Spring MVC / Tomcat** | `getParameter()` returns first occurrence; `getParameterValues()` returns `String[]` of all | `a = "1"` (default) or `a = ["1","2"]` (array binding) |
+| **Node.js / Express** | Creates array of all occurrences (via default `qs` parser) | `a = ["1","2"]` |
 | **Go (net/http Get)** | First occurrence wins | `a = "1"` |
 | **Go (net/http Query)** | Returns all as array | `a = ["1","2"]` |
 | **Perl / CGI** | Returns all as array | `a = ["1","2"]` |

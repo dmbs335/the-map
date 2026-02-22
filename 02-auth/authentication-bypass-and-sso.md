@@ -91,7 +91,7 @@ Defects in how credential-derived values are compared, leading to false positive
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
 | **Timing Side-Channel** | Non-constant-time comparison of password hashes or tokens leaks information about correct characters through response timing differences | High-precision timing measurement possible; comparison not using constant-time function |
-| **Type Juggling / Loose Comparison** | Weakly-typed languages (PHP, JavaScript) evaluate `"0" == 0 == false == null` as equal, bypassing password checks when magic hashes or null values are supplied | Loose equality (`==`) instead of strict equality (`===`) in credential comparison |
+| **Type Juggling / Loose Comparison** | Weakly-typed languages (PHP, JavaScript) evaluate `"0" == 0 == false` as equal. PHP additionally treats `null == false` and `null == 0` as true, but JavaScript does not (`null` only loosely equals `undefined`). Exploitable for bypassing password checks when magic hashes or type-confused values are supplied. | Loose equality (`==`) instead of strict equality (`===`) in credential comparison |
 | **Encoding Normalization Mismatch** | Different Unicode normalization forms for the same visual string produce different hash values, allowing pre-computed hashes to match unexpected inputs | Unicode normalization not applied consistently between registration and authentication |
 
 ---

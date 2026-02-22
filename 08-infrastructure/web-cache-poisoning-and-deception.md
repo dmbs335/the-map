@@ -356,7 +356,7 @@ These mutations target the **victim's browser cache** rather than shared server-
 
 ## §10. CDN Forwarding Request Inconsistencies & Amplification DoS
 
-CDNs modify client requests before forwarding them to origin servers — converting methods, stripping headers, and altering encoding negotiations. When these modifications increase the origin's response size relative to what the client receives, attackers can weaponize the CDN as an HTTP traffic amplifier. Systematic fuzzing of 22 CDN providers (REQSMINER, NDSS 2024) uncovered 74 amplification DoS vulnerabilities across three novel attack categories, with amplification factors reaching up to 1,920,000× under specific conditions.
+CDNs modify client requests before forwarding them to origin servers — converting methods, stripping headers, and altering encoding negotiations. When these modifications increase the origin's response size relative to what the client receives, attackers can weaponize the CDN as an HTTP traffic amplifier. Systematic fuzzing of 22 CDN providers (REQSMINER, NDSS 2025) uncovered 74 amplification DoS vulnerabilities across three novel attack categories, with amplification factors reaching up to 1,920,000× under specific conditions.
 
 ### §10-1. HEAD-to-GET Conversion Amplification (HeadAmp)
 
@@ -471,7 +471,7 @@ Each fix addresses a specific mutation — stripping one header, blocking one de
 - Mirheidari et al. — *Web Cache Deception Escalates!*, USENIX Security 2022
 - Guo et al. — *Internet's Invisible Enemy: Detecting and Measuring Web Cache Poisoning in the Wild*, ACM CCS 2024: https://dl.acm.org/doi/10.1145/3658644.3690361
 - Nguyen, Lo Iacono, Federrath — *Your Cache Has Fallen: Cache-Poisoned Denial-of-Service Attack*, ACM CCS 2019: https://cpdos.org/
-- Zheng, Li, Wang, Guo, Duan, Chen, Zhang, Shen — *REQSMINER: Automated Discovery of CDN Forwarding Request Inconsistencies and DoS Attacks with Grammar-based Fuzzing*, NDSS 2024: https://github.com/Konano/ReqsMiner
+- Zheng, Li, Wang, Guo, Duan, Chen, Zhang, Shen — *REQSMINER: Automated Discovery of CDN Forwarding Request Inconsistencies and DoS Attacks with Grammar-based Fuzzing*, NDSS 2025: https://github.com/Konano/ReqsMiner
 - Harel — *ChatGPT Account Takeover - Wildcard Web Cache Deception* (2024): https://nokline.github.io/bugbounty/2024/02/04/ChatGPT-ATO.html
 - zhero_web_security — *Next.js, Cache, and Chains: The Stale Elixir* (2024): https://zhero-web-sec.github.io/research-and-things/nextjs-cache-and-chains-the-stale-elixir
 - Berto et al. — *A Methodology for Web Cache Deception Vulnerability Discovery*, CLOSER 2024

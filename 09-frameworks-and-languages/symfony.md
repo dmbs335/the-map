@@ -51,8 +51,9 @@ User-controlled data reaches `unserialize()` through Symfony components that his
 |---------|-----------|---------------|--------|
 | **Remember-me cookie deserialization** | `remember_me` cookie passed user-controlled data directly to `unserialize()`, allowing arbitrary object injection | Symfony 2.7–4.2 with token-based remember-me (CVE-2019-10912) | RCE |
 | **Cache adapter deserialization** | `PhpArrayAdapter` and `TagAwareAdapter` deserialized attacker-controlled cache data without type filtering | Symfony 3.x–4.x cache components (CVE-2019-18889) | RCE |
-| **Serializer component mass assignment** | `Serializer::deserialize()` with user input to objects set all writable properties without restriction | Symfony 3.x–4.x Serializer (CVE-2019-18887) | AUTHZ |
-| **Security token deserialization** | Serialization-related flaw in security token handling allowed manipulation of authentication state | Symfony 4.4.x–6.x SecurityBundle (CVE-2023-46734) | ATO |
+| **Serializer component mass assignment** | `Serializer::deserialize()` with user input to objects set all writable properties without restriction | Symfony 3.x–4.x Serializer | AUTHZ |
+| **UriSigner timing attack** | Non-constant-time HMAC comparison in `UriSigner` enabled timing-based forgery of signed URLs | Symfony HttpKernel (CVE-2019-18887) | AUTHZ |
+| **WebhookController XSS** | Insufficient output escaping in the WebhookController component allowed cross-site scripting | Symfony 6.x (CVE-2023-46734) | XSS |
 
 ### §1-2. PHPGGC Gadget Chains — Symfony-Specific
 
@@ -91,7 +92,7 @@ PHAR archives contain serialized metadata that is automatically deserialized whe
 
 | Subtype | Mechanism | Key Condition | Impact |
 |---------|-----------|---------------|--------|
-| **File operation trigger** | Any of 30+ filesystem functions (`file_exists`, `is_file`, `getimagesize`, `fopen`, `stat`) on a `phar://` path triggers metadata deserialization | PHP < 8.0 (auto-deser enabled by default); attacker controls file path argument | RCE |
+| **File operation trigger** | Any of 30+ filesystem functions (`file_exists`, `is_file`, `getimagesize`, `fopen`, `stat`) on a `phar://` path triggers metadata deserialization | Attacker controls file path argument; `phar://` stream wrapper triggers `unserialize()` on all PHP versions (including 8.x) | RCE |
 | **Polyglot PHAR upload** | PHAR file crafted as valid JPEG/PNG to bypass upload filters while retaining PHAR functionality | Image upload + subsequent file operation on uploaded path (e.g., `getimagesize()`) | RCE |
 | **Symfony bundle exploitation** | LiipImagineBundle, VichUploaderBundle, and similar bundles call `getimagesize()` on uploaded files — exploitable with PHAR polyglots | Common Symfony image-processing bundles | RCE |
 
@@ -150,7 +151,7 @@ The `_fragment` route provides a framework-level endpoint that invokes arbitrary
 
 | Subtype | Mechanism | Key Condition | Impact |
 |---------|-----------|---------------|--------|
-| **Direct RCE via _fragment** | `FragmentListener` parses `_path` query param to extract `_controller` attribute, then invokes it as a PHP callable. HMAC over the full URL is verified using `APP_SECRET` | `_fragment` route enabled (default) + `APP_SECRET` known (CVE-2020-15094, CVSS 9.1) | RCE |
+| **Direct RCE via _fragment** | `FragmentListener` parses `_path` query param to extract `_controller` attribute, then invokes it as a PHP callable. HMAC over the full URL is verified using `APP_SECRET` | `_fragment` route enabled (default) + `APP_SECRET` known (CVE-2012-6431/CVE-2012-6432) | RCE |
 | **ESI injection escalation** | Stored XSS containing `<esi:include src="/_fragment?...">` triggers server-side fragment fetch through ESI-capable cache (Varnish, Symfony HttpCache) | ESI processing enabled + stored XSS + `APP_SECRET` known | RCE |
 | **Profiler-to-fragment chain** | Step 1: `/_profiler/latest?panel=config` extracts `APP_SECRET`. Step 2: Forge `_fragment` URL with extracted secret | Debug profiler accessible in production | RCE |
 
@@ -576,14 +577,13 @@ The security firewall runs at priority `8` on `kernel.request`. Any listener reg
 | §5-3 (X-Original-URL) | CVE-2018-14773 | 2018 | High | Request path override via header injection |
 | §5-1 (Proxy bypass) | CVE-2024-24569 | 2024 | High | Trusted proxy bypass via IPv6-mapped IPv4 |
 | §5-3 (Redirect) | CVE-2024-50345 | 2024 | Medium | Open redirect in `RedirectResponse` |
-| §10-2 (Debug info) | CVE-2024-51996 | 2024 | Medium | Information disclosure through error pages |
-| §4-1 (Template name injection) | CVE-2024-51996 | 2024 | High | Code injection via user-controlled template names |
+| §4-1 (Template name injection) | CVE-2024-51996 | 2024 | High | Code injection via user-controlled template names in Twig `Environment::render()` |
 | §6-3 (Auth bypass) | CVE-2023-46733 | 2023 | High | Session not invalidated in remember-me configs |
 | §6-3 (Cookie auth bypass) | CVE-2021-41268 | 2021 | High | Cookie-based session authentication bypass |
 | §3-1 (Firewall bypass) | CVE-2021-41267 | 2021 | Medium | Firewall bypass through `_fragment` URIs |
 | §6-3 (Session fixation) | CVE-2018-11385 | 2018 | High | Session fixation via authentication migration failure |
 | §6-3 (Open redirect) | CVE-2018-19790 | 2018 | Medium | Open redirect in `DefaultAuthenticationSuccessHandler` |
-| §8-1 (CSRF seeding) | CVE-2016-1902 | 2016 | High | Timing attack on CSRF + weak RNG |
+| §8-1 (CSRF seeding) | CVE-2016-1902 | 2016 | High | Weak RNG fallback (SecureRandom used `mt_rand()` when OpenSSL unavailable) |
 | §8-1 (CSRF removal) | CVE-2014-5245 | 2014 | Medium | CSRF bypass by removing token field entirely |
 
 ---

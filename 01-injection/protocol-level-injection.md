@@ -285,7 +285,7 @@ Protocol-level bugs can leak sensitive data from server memory, connection state
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
-| **MongoDB heap memory disclosure (MongoBleed)** | As detailed in §2-2: exploiting OP_COMPRESSED uncompressedSize mismatch to read uninitialized heap memory containing credentials, API keys, session tokens, and PII (CVE-2025-14847, CVSS 9.1, CISA KEV, actively exploited, public PoC) | MongoDB with compression; unauthenticated network access |
+| **MongoDB heap memory disclosure (MongoBleed)** | As detailed in §2-2: exploiting OP_COMPRESSED uncompressedSize mismatch to read uninitialized heap memory containing credentials, API keys, session tokens, and PII (CVE-2025-14847, CVSS 7.5/8.7, CISA KEV, actively exploited, public PoC) | MongoDB with compression; unauthenticated network access |
 | **Redis DEBUG OBJECT information leak** | `DEBUG OBJECT key` reveals internal encoding, refcount, serialization size, and LRU information. Combined with `KEYS *` or `SCAN`, this provides a complete inventory of the data store's contents and metadata | Redis without ACL restricting DEBUG commands |
 | **Redis CLIENT LIST connection information** | `CLIENT LIST` reveals all connected clients' IP addresses, ports, connection names, and currently executing commands — enabling reconnaissance of the application's internal architecture | Redis without ACL restricting CLIENT commands |
 | **Memcached stats information disclosure** | Memcached's `stats`, `stats items`, `stats cachedump` commands reveal key names, sizes, and access patterns. `stats` itself reveals version, uptime, connection count, and memory usage | Memcached without authentication (default configuration) |
@@ -355,7 +355,7 @@ Service protocol authentication mechanisms can be exploited through timing attac
 | §2-1 (pgx simple protocol) | CVE-2024-27289 (Go pgx v4) | SQL injection via simple protocol parameter pattern. |
 | §4-4 (PostgreSQL JDBC) | CVE-2024-1597 (PostgreSQL JDBC) | **CVSS 10.0.** preferQueryMode=SIMPLE SQL injection; affects Keycloak and hundreds of Java applications. |
 | §2-1 + §4-4 (psql UTF-8) | CVE-2025-1094 (PostgreSQL psql) | **Actively exploited.** Chained in BeyondTrust breach affecting 17+ enterprise customers including US Treasury. |
-| §2-2 (MongoDB compression) | CVE-2025-14847 (MongoDB, "MongoBleed") | **CVSS 9.1. CISA KEV. Actively exploited.** Unauthenticated heap memory disclosure; 213K+ exposed instances. Public PoC. |
+| §2-2 (MongoDB compression) | CVE-2025-14847 (MongoDB, "MongoBleed") | **CVSS 7.5 (v3.1) / 8.7 (v4.0). CISA KEV. Actively exploited.** Unauthenticated heap memory disclosure; 213K+ exposed instances. Public PoC. |
 | §2-3 (FastCGI overflow) | CVE-2025-23016 (libfcgi) | Integer overflow in parameter parsing → heap overflow → RCE on 32-bit systems. |
 | §2-3 (PHP-CGI argument injection) | CVE-2024-4577 (PHP-CGI Windows) | **CVSS 9.8. Actively exploited.** PHP-CGI argument injection via Windows Best-Fit character mapping. Widespread exploitation in 2025. |
 | §4-1 (Netty HTTP CRLF) | CVE-2025-67735 (Netty HttpRequestEncoder) | CRLF injection in URI → HTTP request smuggling or cross-protocol injection. |

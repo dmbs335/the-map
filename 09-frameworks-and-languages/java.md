@@ -550,7 +550,7 @@ Java uses signed 32/64-bit integers with silent wrapping (no exception on overfl
 | §2-2 (Log4j JDBC) | CVE-2021-44832 | 2021 | Medium (6.6) — RCE via JDBC Appender config |
 | §2-2 (Log4j 1.x) | CVE-2021-4104 | 2021 | High (7.5) — JMSAppender JNDI injection |
 | §2-2 (Logback JNDI) | CVE-2021-42550 | 2021 | Medium (6.6) — Logback insertFromJNDI RCE |
-| §3-5 (Psychic Signatures) | CVE-2022-21449 | 2022 | High (7.5) — ECDSA blank signature acceptance (JDK 15-17) |
+| §3-5 (Psychic Signatures) | CVE-2022-21449 | 2022 | High (7.5) — ECDSA blank signature acceptance (JDK 15, 16, 17 before 17.0.3, 18 before 18.0.1) |
 | §3-3 (FTP PASV SSRF) | CVE-2021-2341 | 2021 | Low (3.1) — SSRF via FTP PASV response |
 | §1-3 (Filter bypass) | CVE-2022-21248 | 2022 | Low (3.7) — Serialization filter bypass |
 | §10-1 (JMX RCE) | CVE-2016-3427 | 2016 | Critical (9.8) — JMX unauthenticated deserialization |

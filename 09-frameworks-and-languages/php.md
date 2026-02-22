@@ -186,7 +186,7 @@ PHP provides numerous functions and language constructs that evaluate strings as
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
 | **eval()** | Evaluates a string as PHP code; `eval($_GET['code'])` is direct RCE | User input reaches eval() argument |
-| **assert()** | Before PHP 7.0, `assert()` evaluates its argument as PHP code if it's a string, identical to `eval()` | PHP < 7.0; or `zend.assertions=1` in `.user.ini` |
+| **assert()** | `assert()` evaluates its argument as PHP code if it's a string, identical to `eval()`. String evaluation was deprecated in PHP 7.2 and **removed in PHP 8.0**. | PHP < 8.0 (string eval works through 7.x); deprecated warning in PHP 7.2+ |
 | **create_function()** | Internally uses `eval()` to create anonymous functions; code injection in the function body parameter achieves RCE | Deprecated in PHP 7.2; removed in PHP 8.0 |
 | **preg_replace() /e Modifier** | The `/e` modifier causes the replacement string to be evaluated as PHP code after regex substitution | Deprecated in PHP 5.5; removed in PHP 7.0 |
 
@@ -382,7 +382,7 @@ PHP's historical random number generators and cryptographic primitives contain p
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **mt_rand() Seed Recovery** | Given as few as 2 outputs of `mt_rand()`, the internal seed can be recovered without bruteforce using matrix inversion on the Mersenne Twister state | Application leaks mt_rand() outputs (e.g., in tokens, IDs) |
+| **mt_rand() Seed Recovery** | With sufficient consecutive outputs (~624 untempered 32-bit values), the MT19937 internal state can be recovered algebraically via matrix inversion over GF(2). With only a few outputs, the practical approach is brute-forcing the 32-bit seed space (see below). | Application leaks mt_rand() outputs (e.g., in tokens, IDs) |
 | **mt_rand() Seed Bruteforce** | The 32-bit seed space can be exhaustively searched in under 60 seconds on modern hardware; tool: `php_mt_seed` | Any single mt_rand() output is known |
 | **rand() LCG Prediction** | PHP's `rand()` uses a Linear Congruential Generator with known parameters; state is recoverable from sequential outputs | Application leaks rand() outputs |
 | **Session ID Entropy Leakage** | PHP session IDs may leak entropy from the internal LCG seed; recovered seed enables prediction of other random values in the same process | Session ID observable + mt_rand() used for security tokens |

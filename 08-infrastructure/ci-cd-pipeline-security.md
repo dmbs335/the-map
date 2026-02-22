@@ -454,7 +454,7 @@ The 2024-2025 attack wave (Shai-Hulud, tj-actions, Ultralytics) demonstrates tha
 ### Academic & Conference Research
 - OH-MY-DC: OIDC Misconfigurations in CI/CD (DEF CON 32, August 2024)
 - ARGUS: Static Taint Analysis of GitHub Workflows (USENIX Security 2023)
-- Poisoned Pipeline Execution research (MITRE ATT&CK T1677)
+- Poisoned Pipeline Execution research (Cider Security / Palo Alto Networks; related ATT&CK techniques: T1195 Supply Chain Compromise)
 - PromptPwnd: GitHub Actions AI Agent Vulnerabilities (Aikido Security, 2025)
 
 ### Industry Reports & Whitepapers

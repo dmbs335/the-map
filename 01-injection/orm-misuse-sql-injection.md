@@ -578,9 +578,9 @@ A fundamentally distinct attack class where the injection occurs not in SQL synt
 
 | Target | CVE | Mechanism |
 |---|---|---|
-| **PostgreSQL** | CVE-2025-1094 | Multibyte character encoding (e.g., `BIG5`, `SJIS`) causes quote escaping routines to fail when client and server encodings differ |
+| **PostgreSQL** | CVE-2025-1094 | UTF-8 validation flaw in `libpq` escape functions (`PQescapeLiteral`, `PQescapeIdentifier`, `PQescapeStringConn`) allows SQL injection through invalid UTF-8 byte sequences |
 
-**Mechanism:** When the PostgreSQL client library's escaping function processes multibyte characters, a trailing byte of a multibyte sequence can be `0x27` (single quote). If the client encodes in one charset and the server interprets in another, the escape routine may not recognize the quote, leaving it unescaped in the SQL string.
+**Mechanism:** PostgreSQL's `libpq` client library escape functions incorrectly process invalid UTF-8 byte sequences. An attacker can craft input containing invalid UTF-8 that causes the escape routine to fail to neutralize a syntactically significant single quote (`0x27`), leaving it unescaped in the resulting SQL string. This is distinct from the classic BIG5/SJIS/GBK multibyte trailing-byte technique — CVE-2025-1094 specifically targets UTF-8 validation logic.
 
 ---
 

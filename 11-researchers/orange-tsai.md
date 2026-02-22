@@ -693,7 +693,7 @@ Result: Pre-auth RCE (no Overall/Read permission needed)
 | §1-2 + §4-2 | Amazon Collaboration | Nuxeo/Amazon | Recognition • ACL bypass→EL injection→RCE | 2018 |
 | §8-1 | CVE-2019-1003000, CVE-2019-1003005, CVE-2019-1003029 | Jenkins | Pre-auth RCE via Groovy meta-programming | 2019 |
 | §7-1 | CVE-2019-1579 | Palo Alto GlobalProtect | Pre-auth RCE via format string (Uber case study) | 2019 |
-| §5-2 | CVE-2018-13382 | Fortinet SSL VPN | Pre-auth RCE via magic backdoor | 2019 |
+| §5-2 | CVE-2018-13382 | Fortinet SSL VPN | Pre-auth password reset via magic backdoor (Improper Authorization) | 2019 |
 | §5-3 | CVE-2020-15505 | MobileIron Core/Connector | Pre-auth RCE via path traversal + deserialization chain. APT-weaponized (CISA AA20-258A) | 2020 |
 | §5-1 | CVE-2021-26855, CVE-2021-27065 | Microsoft Exchange (ProxyLogon) | Pre-auth RCE • Pwnie Award 2021 Best Server-Side Bug | 2021 |
 | §5-1 | CVE-2021-34473, CVE-2021-34523, CVE-2021-31207 | Microsoft Exchange (ProxyShell) | **$200,000** • Pwn2Own Vancouver 2021 Master of Pwn | 2021 |

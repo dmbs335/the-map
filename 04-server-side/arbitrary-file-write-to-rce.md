@@ -77,7 +77,7 @@ Systemd provides a modern alternative to cron with richer execution semantics.
 |---|---|---|---|
 | **Scheduled task XML** | `C:\Windows\System32\Tasks\<name>` | Create XML task definition | Requires elevated privileges for system-level |
 | **Startup folder** | `C:\Users\<user>\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup\` | Drop `.bat`, `.vbs`, `.hta`, or `.lnk` | Fires on next user login |
-| **All Users startup** | `C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartMenu\Programs\Startup\` | Same as above, affects all users | Requires write to ProgramData |
+| **All Users startup** | `C:\ProgramData\Microsoft\Windows\Start Menu\Programs\Startup\` | Same as above, affects all users | Requires write to ProgramData |
 
 **HTA payload for startup folder** (bypasses some detection):
 ```html

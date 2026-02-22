@@ -311,7 +311,7 @@ These functions pass the entire command string to a shell interpreter (`/bin/sh 
 | **Python** | `os.system()`, `os.popen()`, `subprocess.call/run/Popen(shell=True)` | `/bin/sh -c` | `subprocess` with `shell=False` (default) is safe for §1 but vulnerable to §2 |
 | **Ruby** | `system("string")` (single-arg), backticks, `%x{}`, `exec("string")`, `IO.popen()` | `/bin/sh -c` | Multi-arg form `system("cmd", "arg")` avoids shell |
 | **Node.js** | `child_process.exec()`, `child_process.execSync()` | `/bin/sh -c` | Always invokes shell; `execFile` and `spawn` (default `shell:false`) are safer |
-| **Java** | `Runtime.exec(String)` (single-string form) | Tokenized then direct exec | Single-string form splits on whitespace, NOT shell-invoked, but confusing behavior leads to misuse |
+| **Java** | `Runtime.exec(String[])` with explicit shell: `{"sh","-c",input}` | `/bin/sh -c` (explicit) | `Runtime.exec(String)` single-string form is NOT shell-invoked (tokenizes on whitespace), but `Runtime.exec(new String[]{"/bin/sh","-c",input})` explicitly invokes shell |
 | **Perl** | `system("string")`, backticks, `open(FH, "\|cmd")`, `exec("string")` | `/bin/sh -c` | List form `system("cmd", @args)` bypasses shell |
 | **Go** | `exec.Command("sh", "-c", input)` | Explicit shell | `exec.Command("binary", args...)` is safe against §1; programmer must choose correctly |
 

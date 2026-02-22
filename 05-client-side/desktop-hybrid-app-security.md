@@ -16,6 +16,8 @@ These discrepancy types apply across all categories and explain *why* each mutat
 |------|---------------|-------------|
 | **V1** | Privilege Boundary Crossing | Renderer/web context gains access to main/native process capabilities |
 | **V2** | Context Isolation Bypass | JavaScript in the web world reaches into the isolated preload/native context |
+| **V3** | Data Protection Failure | Sensitive data (tokens, credentials, cookies) stored or transmitted without adequate protection |
+| **V4** | Insecure Default Configuration | Framework or runtime ships with security-relevant settings disabled by default |
 | **V5** | Code Integrity Violation | Unsigned or tampered code executes as if it were legitimate application code |
 | **V6** | Input Validation Failure | Untrusted input crosses a trust boundary without proper sanitization |
 | **V7** | Trust Boundary Confusion | The framework or app conflates trusted and untrusted origins/contexts |

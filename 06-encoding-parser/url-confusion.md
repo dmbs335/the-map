@@ -159,7 +159,7 @@ Manipulating the port component to bypass validation or redirect traffic.
 |---|---|---|---|
 | **Non-Standard Port Delimiter** | Some parsers accept port after hostname even without colon in edge cases | `http://evil.com 80/` | Whitespace-tolerant parser |
 | **Port Overflow** | Port numbers exceeding 65535 may wrap or be truncated | `http://evil.com:65537/` → port 1 | Integer overflow in port parsing |
-| **Port with Leading Zeros** | Octal interpretation of port number | `http://evil.com:080/` | Parser interprets leading-zero port as octal |
+| **Port with Leading Zeros** | Leading zeros in port numbers are treated as decimal (not octal) by all major URL parsers per WHATWG URL Standard; however, some non-compliant custom parsers may strip or misinterpret them, causing port mismatch between validator and actual connection | `http://evil.com:080/` | Discrepancy between validator and HTTP client in port parsing with leading zeros |
 | **Empty Port** | Explicit colon with no port number (`http://host:/path`) resolves to default port but may confuse validators | `http://evil.com:/path` | Validator expects port number after colon |
 | **Port-as-Userinfo** | Port position used to inject userinfo boundary | `http://trusted.com:80@evil.com/` | Validator extracts host:port before parsing `@` |
 

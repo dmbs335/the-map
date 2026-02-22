@@ -328,7 +328,7 @@ Browser-integrated PDF viewers (Chrome's PDFium, Firefox's PDF.js) run in specia
 | **Privileged API access** | Browser with privileged UI XSS (NTP, DevTools) | §6 |
 | **XSS → RCE escalation** | Electron app with nodeIntegration or WebView with JS bridge | §7 |
 | **Mobile account takeover** | In-app browser UXSS + address bar spoofing | §7-2 |
-| **Extension-mediated UXSS** | Vulnerable extension with broad permissions | §4-2 + §4-4 |
+| **Extension-mediated UXSS** | Vulnerable extension with broad permissions | §4-2 + §4-3 |
 | **Cache/CDN poisoning via UXSS** | UXSS combined with service worker registration | §2 + §4-1 |
 | **Phishing amplification** | UXSS + address bar spoofing on mobile | §7-2 |
 | **Sandbox escape** | UXSS as first stage for renderer compromise | §5 + §8 |
@@ -348,7 +348,7 @@ Browser-integrated PDF viewers (Chrome's PDFium, Firefox's PDF.js) run in specia
 | §3-1 + §3-2 (origin inheritance) | IE — CVE-2015-0072 | Full SOP bypass via iframe redirect + origin confusion |
 | §4-2 (SchemaRegistry) | CVE-2016-5168 (Chromium) | Persistent UXSS in all frames and tabs |
 | §4-3 (Adobe plugin) | Acrobat Reader plugin (2007) | UXSS via PDF URL parameter injection; first documented UXSS |
-| §4-4 (extension UXSS) | CVE-2024-49378 (Smartup) | UXSS in Edge/Firefox via extension |
+| §4-3 (extension UXSS) | CVE-2024-49378 (Smartup) | UXSS in Edge/Firefox via extension |
 | §5-1 (bindings check) | 94 Chromium UXSS bugs (2014–2018) | All mitigated by Site Isolation deployment |
 | §6-1 (NTP XSS) | Chromium NTP bug (2021) | XSS on New Tab Page with Mojo IPC access |
 | §6-3 (bookmark UXSS) | CVE-2016-5191 (Chromium) | UXSS via bookmark with user information |
@@ -360,7 +360,7 @@ Browser-integrated PDF viewers (Chrome's PDFium, Firefox's PDF.js) run in specia
 | §8-1 (XSLT) | WebKit XSLT UXSS (EDB-47237) | UXSS via XSLT and nested document replacements |
 | §8-2 (MHTML) | CVE-2014-1747 (Chromium) | UXSS from local MHTML file |
 | §8-2 (PDF viewer) | CVE-2024-4367 (PDF.js) | XSS via crafted PDF, CSP bypass |
-| §7-2 (Safari/WebKit) | CVE-2022-22587 (Safari) | $100,500 Apple bounty; full account takeover on every visited site |
+| §7-2 (Safari/WebKit) | Safari/WebKit UXSS (2022) | $100,500 Apple bounty; full account takeover on every visited site |
 | §8 + §4 (Payment manifest + SW registration) | CVE-2023-5480 (Chrome, Slonser 2024) | UXSS via manipulated payment manifest triggering JIT service worker registration in victim origin; Payment Handler API allows attacker to install malicious SW that executes JavaScript in any origin's context |
 
 ---

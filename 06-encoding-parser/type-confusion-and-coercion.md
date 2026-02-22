@@ -154,7 +154,7 @@ Several PHP standard library functions use loose comparison internally or have t
 |---|---|---|
 | **strcmp() with Array Input** | `strcmp()` returns `NULL` (not `0`) when given a non-string argument (e.g., array); `NULL == 0` is `true` under loose comparison | `strcmp($input, $secret) == 0` without strict comparison |
 | **in_array() Without Strict Flag** | Third parameter `strict` defaults to `false`; `in_array("abc", [0,1,2])` is `true` because `"abc" == 0` | Missing `true` as third argument |
-| **array_search() Loose Match** | Same behavior as `in_array()` but returns the matching key; `array_search(0, ["a","b","c"])` returns `0` (truthy) | Default loose comparison mode |
+| **array_search() Loose Match** | Same behavior as `in_array()` but returns the matching key; `array_search(0, ["a","b","c"])` returns `0` (falsy — index 0 is falsy in boolean context, so `if(array_search(...))` treats a valid match as no-match) | Default loose comparison mode |
 | **switch Statement Loose Matching** | `switch` uses loose comparison for case matching; `switch("any_string") { case 0: ... }` matches in PHP < 8.0 | Non-numeric string input matched against integer case |
 | **preg_match() Return Type** | Returns `1` (match), `0` (no match), or `false` (error); `false == 0` is `true`, so error is indistinguishable from no-match under loose comparison | Error condition treated as "no match" |
 | **json_decode() Type Injection** | Preserves JSON-native types (boolean, integer, null, array, object); `{"password": 0}`, `{"password": null}`, `{"password": []}` all bypass different comparison patterns | Application receives JSON and uses loose comparison on decoded values |
@@ -229,7 +229,7 @@ Different languages define different sets of "falsy" values, creating cross-lang
 | `false` | falsy | falsy | falsy | falsy |
 | `0` | falsy | falsy | falsy | **truthy** |
 | `""` | falsy | falsy | falsy | **truthy** |
-| `"0"` | **falsy** | falsy | **truthy** | **truthy** |
+| `"0"` | **falsy** | **truthy** | **truthy** | **truthy** |
 | `null`/`None`/`nil` | falsy | falsy | falsy | falsy |
 | `undefined` | — | falsy | — | — |
 | `[]` (empty array) | **falsy** | **truthy** | **falsy** | **truthy** |

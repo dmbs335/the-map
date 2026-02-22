@@ -39,7 +39,7 @@ The most classic and widely exploited IDOR vector. Applications that use auto-in
 
 ### §1-2. UUID / GUID Identifiers
 
-UUIDs (v4) are 128-bit random values with ~2^122 bits of entropy, making blind enumeration infeasible. However, the *perception* of security they provide often leads developers to skip authorization checks entirely, creating a false sense of protection that collapses when identifiers leak.
+UUIDs (v4) are 128-bit values with 122 bits of randomness (6 bits reserved for version/variant), yielding ~2^122 possible values, making blind enumeration infeasible. However, the *perception* of security they provide often leads developers to skip authorization checks entirely, creating a false sense of protection that collapses when identifiers leak.
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|

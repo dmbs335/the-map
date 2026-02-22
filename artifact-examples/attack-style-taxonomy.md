@@ -693,63 +693,63 @@
 
 | Source Document | Primary RC | Secondary RC | Key Techniques |
 |---|---|---|---|
-| [sql-injection](../sql-injection/sql-injection.md) | **RC1** | RC9 (blind extraction) | RC1.T01 |
-| [nosql](../nosql/nosql-injection.md) | **RC1** | RC9 (blind extraction) | RC1.T02 |
-| [command-injection](../command-injection/command-injection.md) | **RC1** | — | RC1.T03 |
-| [xss](../xss/xss.md) | **RC1** | RC2 (mXSS), CC2 (filter bypass) | RC1.T04 |
-| [ssti](../ssti/ssti.md) | **RC1** | — | RC1.T05 |
-| [el-injection](../el-injection/) | **RC1** | — | RC1.T06 |
-| [xxe](../xxe/xxe.md) | **RC1** | RC7 (SSRF via XXE) | RC1.T07 |
-| [ldap-xpath](../ldap-xpath/ldap-xpath.md) | **RC1** | — | RC1.T08 |
-| [graphql](../graphql/graphql.md) | **RC1** | RC4 (authz), RC9 (schema exposure) | RC1.T09 |
-| [jndi-injection](../jndi-injection/jndi-injection.md) | **RC1** | RC7 (resource reference) | RC1.T10 |
-| [http-header](../http-header/http-header.md) | **RC1** | RC2 (header parsing) | RC1.T11 |
-| [email](../email/) | **RC1** | RC2 (SMTP parsing) | RC1.T12 |
-| [prototype-pollution](../prototype-pollution/prototype-pollution.md) | **RC1** | RC6 (gadgets → RCE) | RC1.T13 |
-| [http-request-smuggling](../http-parsing-discrepancy/http-request-smuggling.md) | **RC2** | RC8 (trust boundary) | RC2.T01 |
-| [url-confusion](../url-confusion/url-confusion.md) | **RC2** | RC7 (SSRF/redirect) | RC2.T02 |
-| [unicode](../unicode/unicode.md) | **RC2** | CC1 (WAF evasion) | RC2.T03 |
-| [hpp](../http-parameter-pollution/hpp.md) | **RC2** | RC1 (injection enabler) | RC2.T04 |
-| [reverse-proxy-misrouting](../http-parsing-discrepancy/reverse-proxy-misrouting.md) | **RC2** | RC4 (ACL bypass), RC8 (trust) | RC2.T05 |
-| [cookie](../cookie/cookie.md) | **RC2** (parsing), **RC3** (session), **RC8** (scope) | CC5 (defense bypass) | RC2.T06, RC3.T07, RC8.T05 |
-| [saml](../saml/saml.md) | **RC3** | RC2 (parser diff), RC1 (XXE) | RC3.T02, RC2.T07 |
-| [web-cache-poisoning-and-deception](../web-cache-poisoning-and-deception/) | **RC2** | RC9 (cache deception) | RC2.T10, RC9.T06 |
-| [protocol-level-waf-bypass](../http-parsing-discrepancy/protocol-level-waf-bypass.md) | **RC2** | CC1 (WAF evasion) | RC2.T11 |
-| [http-censorship-bypass](../http-parsing-discrepancy/http-censorship-bypass.md) | **RC2** | — | RC2.T12 |
-| [jwt](../jwt/jwt.md) | **RC3** | RC4 (claim escalation) | RC3.T01 |
-| [oauth](../oauth/oauth.md) | **RC3** | RC7 (redirect), RC4 (scope) | RC3.T03 |
-| [authentication-bypass-and-sso](../authentication-bypass-and-sso/) | **RC3** | — | RC3.T04 |
-| [ato](../account-takeover/ato.md) | **RC3** | RC5 (CSRF → ATO) | RC3.T05–RC3.T09 |
-| [idor-bola](../idor-bola/idor-bola.md) | **RC4** | RC9 (enumeration) | RC4.T01 |
-| [mass-assignment](../mass-assignment/mass-assignment.md) | **RC4** | RC1 (prototype pollution) | RC4.T03 |
-| [cors-misconfiguration](../cors-misconfiguration/) | **RC4** | RC8 (cross-origin trust) | RC4.T04 |
-| [state-machine-violation](../state-machine-violation/) | **RC5** | — | RC5.T01 |
-| [web-race-condition](../web-race-condition/) | **RC5** | — | RC5.T02 |
-| [csrf](../csrf/csrf.md) | **RC5** | RC3 (session auth) | RC5.T03 |
-| [business-logic-vuln](../business-logic-bug/business-logic-vuln.md) | **RC5** | RC4 (authz), RC9 (info leak) | RC5.T04–RC5.T06, RC4.T02 |
-| [deserialization](../deserialization/deserialization.md) | **RC6** | RC1 (nested injection) | RC6.T01–RC6.T08 |
-| [ssrf](../ssrf/ssrf.md) | **RC7** | RC2 (URL parsing), RC8 (trust) | RC7.T01 |
-| [open-redirect](../open-redirect/) | **RC7** | RC3 (token theft) | RC7.T02 |
-| [file-upload](../file-upload/file-upload.md) | **RC7** (path), **RC2** (MIME) | RC5 (race), RC1 (XSS) | RC7.T03, RC2.T09 |
-| [rmi](../rmi/rmi.md) | **RC7** | RC6 (deserialization) | RC7.T04 |
-| [jdbc-attack](../jdbc-attack/jdbc-attack.md) | **RC7** | — | RC7.T05 |
-| [zip](../zip-archive/zip.md) | **RC7** (path), **RC2** (structure) | CC4 (validation) | RC7.T03, RC2.T08 |
-| [implicit-trust-boundary](../implicit-trust-boundary/) | **RC8** | RC4 (authz) | RC8.T01 |
-| [secondary-context-attack](../secondary-context-attack/) | **RC8** | RC7 (callback SSRF) | RC8.T02, RC8.T06 |
-| [dns-web-security](../dns-web-security/) | **RC8** | RC7 (rebinding → SSRF) | RC8.T03 |
-| [dependency-confusion](../dependency-confusion/) | **RC8** | — | RC8.T04 |
-| [websocket](../websocket/websocket.md) | **RC8** | RC5 (CSWSH ≈ CSRF) | RC8.T07 |
-| [jaas-attack](../jaas-attack/jaas-attack.md) | **RC8** | RC3 (auth bypass) | RC8.T08 |
-| [web-timing-attack](../web-timing-attack/) | **RC9** | — | RC9.T01, RC9.T03 |
-| [web-fingerprinting](../web-fingerprinting/) | **RC9** | — | RC9.T02, RC9.T08 |
-| [ui-redressing](../ui-redressing/ui-redressing.md) | **RC9** (pixel), CC7 (UI bypass) | RC5 (click → state change) | RC9.T07, CC7 |
-| [waf-bypass](../waf-bypass/payload-level-waf-bypass.md) | **CC1** | — | CC1 |
-| [web-fuzzing](../web-fuzzing/web-fuzzing.md) | **RM2** | — | RM2 |
-| [recon](../recon/) | **RM3** | — | RM3 |
-| [sam-curry](../sam-curry/sam-curry.md) | **RM4** | — | RM4 |
-| [ctf-exotic-tricks](../ctf-exotic-tricks/ctf-exotic-tricks.md) | RC1, RC2, RC3 | RC8 (sandbox escape), RC9 (crypto oracle) | Language type abuse, PHP filter chains, sandbox escape, crypto primitive abuse, regex exploitation |
-| [spring](../spring/spring.md) | RC1, RC4, RC6, RC7 | RC9 | Framework-specific |
-| [asp-dot-net](../asp-dot-net/asp-dot-net.md) | RC2, RC6, RC1 | RC4 | Framework-specific |
+| [sql-injection](../01-injection/sql-injection.md) | **RC1** | RC9 (blind extraction) | RC1.T01 |
+| [nosql](../01-injection/nosql-injection.md) | **RC1** | RC9 (blind extraction) | RC1.T02 |
+| [command-injection](../01-injection/command-injection.md) | **RC1** | — | RC1.T03 |
+| [xss](../01-injection/xss.md) | **RC1** | RC2 (mXSS), CC2 (filter bypass) | RC1.T04 |
+| [ssti](../01-injection/ssti.md) | **RC1** | — | RC1.T05 |
+| [el-injection](../01-injection/el-injection.md) | **RC1** | — | RC1.T06 |
+| [xxe](../01-injection/xxe.md) | **RC1** | RC7 (SSRF via XXE) | RC1.T07 |
+| [ldap-xpath](../01-injection/ldap-xpath.md) | **RC1** | — | RC1.T08 |
+| [graphql](../01-injection/graphql.md) | **RC1** | RC4 (authz), RC9 (schema exposure) | RC1.T09 |
+| [jndi-injection](../04-server-side/jndi-injection.md) | **RC1** | RC7 (resource reference) | RC1.T10 |
+| [http-header](../03-http-protocol/http-header.md) | **RC1** | RC2 (header parsing) | RC1.T11 |
+| [email](../04-server-side/email-smuggling-and-parser-abuse.md) | **RC1** | RC2 (SMTP parsing) | RC1.T12 |
+| [prototype-pollution](../01-injection/prototype-pollution.md) | **RC1** | RC6 (gadgets → RCE) | RC1.T13 |
+| [http-request-smuggling](../03-http-protocol/http-parsing-discrepancy/http-request-smuggling.md) | **RC2** | RC8 (trust boundary) | RC2.T01 |
+| [url-confusion](../06-encoding-parser/url-confusion.md) | **RC2** | RC7 (SSRF/redirect) | RC2.T02 |
+| [unicode](../06-encoding-parser/unicode.md) | **RC2** | CC1 (WAF evasion) | RC2.T03 |
+| [hpp](../03-http-protocol/http-parameter-pollution.md) | **RC2** | RC1 (injection enabler) | RC2.T04 |
+| [reverse-proxy-misrouting](../03-http-protocol/http-parsing-discrepancy/reverse-proxy-misrouting.md) | **RC2** | RC4 (ACL bypass), RC8 (trust) | RC2.T05 |
+| [cookie](../05-client-side/cookie.md) | **RC2** (parsing), **RC3** (session), **RC8** (scope) | CC5 (defense bypass) | RC2.T06, RC3.T07, RC8.T05 |
+| [saml](../02-auth/saml.md) | **RC3** | RC2 (parser diff), RC1 (XXE) | RC3.T02, RC2.T07 |
+| [web-cache-poisoning-and-deception](../08-infrastructure/web-cache-poisoning-and-deception.md) | **RC2** | RC9 (cache deception) | RC2.T10, RC9.T06 |
+| [protocol-level-waf-bypass](../03-http-protocol/http-parsing-discrepancy/protocol-level-waf-bypass.md) | **RC2** | CC1 (WAF evasion) | RC2.T11 |
+| [http-censorship-bypass](../03-http-protocol/http-parsing-discrepancy/http-censorship-bypass.md) | **RC2** | — | RC2.T12 |
+| [jwt](../02-auth/jwt.md) | **RC3** | RC4 (claim escalation) | RC3.T01 |
+| [oauth](../02-auth/oauth.md) | **RC3** | RC7 (redirect), RC4 (scope) | RC3.T03 |
+| [authentication-bypass-and-sso](../02-auth/authentication-bypass-and-sso.md) | **RC3** | — | RC3.T04 |
+| [ato](../02-auth/account-takeover.md) | **RC3** | RC5 (CSRF → ATO) | RC3.T05–RC3.T09 |
+| [idor-bola](../02-auth/idor-bola.md) | **RC4** | RC9 (enumeration) | RC4.T01 |
+| [mass-assignment](../02-auth/mass-assignment.md) | **RC4** | RC1 (prototype pollution) | RC4.T03 |
+| [cors-misconfiguration](../02-auth/cors-misconfiguration.md) | **RC4** | RC8 (cross-origin trust) | RC4.T04 |
+| [state-machine-violation](../07-application-logic/state-machine-violation.md) | **RC5** | — | RC5.T01 |
+| [web-race-condition](../07-application-logic/web-race-condition.md) | **RC5** | — | RC5.T02 |
+| [csrf](../05-client-side/csrf.md) | **RC5** | RC3 (session auth) | RC5.T03 |
+| [business-logic-vuln](../07-application-logic/business-logic-bug.md) | **RC5** | RC4 (authz), RC9 (info leak) | RC5.T04–RC5.T06, RC4.T02 |
+| [deserialization](../04-server-side/deserialization.md) | **RC6** | RC1 (nested injection) | RC6.T01–RC6.T08 |
+| [ssrf](../04-server-side/ssrf.md) | **RC7** | RC2 (URL parsing), RC8 (trust) | RC7.T01 |
+| [open-redirect](../05-client-side/open-redirect.md) | **RC7** | RC3 (token theft) | RC7.T02 |
+| [file-upload](../04-server-side/file-upload.md) | **RC7** (path), **RC2** (MIME) | RC5 (race), RC1 (XSS) | RC7.T03, RC2.T09 |
+| [rmi](../99-deprecated/rmi.md) | **RC7** | RC6 (deserialization) | RC7.T04 |
+| [jdbc-attack](../04-server-side/jdbc-attack.md) | **RC7** | — | RC7.T05 |
+| [zip](../06-encoding-parser/zip-archive.md) | **RC7** (path), **RC2** (structure) | CC4 (validation) | RC7.T03, RC2.T08 |
+| [implicit-trust-boundary](../07-application-logic/implicit-trust-boundary.md) | **RC8** | RC4 (authz) | RC8.T01 |
+| [secondary-context-attack](../08-infrastructure/secondary-context-attack.md) | **RC8** | RC7 (callback SSRF) | RC8.T02, RC8.T06 |
+| [dns-web-security](../13-misc/dns-web-security.md) | **RC8** | RC7 (rebinding → SSRF) | RC8.T03 |
+| [dependency-confusion](../08-infrastructure/dependency-confusion.md) | **RC8** | — | RC8.T04 |
+| [websocket](../03-http-protocol/websocket.md) | **RC8** | RC5 (CSWSH ≈ CSRF) | RC8.T07 |
+| [jaas-attack](../04-server-side/jaas-attack.md) | **RC8** | RC3 (auth bypass) | RC8.T08 |
+| [web-timing-attack](../07-application-logic/web-timing-attack.md) | **RC9** | — | RC9.T01, RC9.T03 |
+| [web-fingerprinting](../10-recon-methodology/web-fingerprinting.md) | **RC9** | — | RC9.T02, RC9.T08 |
+| [ui-redressing](../05-client-side/ui-redressing.md) | **RC9** (pixel), CC7 (UI bypass) | RC5 (click → state change) | RC9.T07, CC7 |
+| [waf-bypass](../08-infrastructure/waf-bypass.md) | **CC1** | — | CC1 |
+| [web-fuzzing](../10-recon-methodology/web-fuzzing.md) | **RM2** | — | RM2 |
+| [recon](../10-recon-methodology/recon.md) | **RM3** | — | RM3 |
+| [sam-curry](../11-researchers/sam-curry.md) | **RM4** | — | RM4 |
+| [ctf-exotic-tricks](../13-misc/ctf-exotic-tricks.md) | RC1, RC2, RC3 | RC8 (sandbox escape), RC9 (crypto oracle) | Language type abuse, PHP filter chains, sandbox escape, crypto primitive abuse, regex exploitation |
+| [spring](../09-frameworks-and-languages/spring.md) | RC1, RC4, RC6, RC7 | RC9 | Framework-specific |
+| [asp-dot-net](../09-frameworks-and-languages/asp-dot-net.md) | RC2, RC6, RC1 | RC4 | Framework-specific |
 
 ---
 

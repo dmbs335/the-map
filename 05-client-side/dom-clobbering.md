@@ -29,7 +29,7 @@ The root cause of all DOM Clobbering attacks is the **Named Property Access** me
 
 1. **Window Named Access**: Elements with `id` attributes (all 141+ HTML element types) and elements with `name` attributes (`embed`, `form`, `iframe`, `img`, `image`, `object`) are accessible as properties of the `window` object.
 2. **Document Named Access**: Elements with `id` or `name` attributes are accessible as properties of the `document` object, with named references taking **priority over built-in APIs**.
-3. **Priority Rule**: Named HTML element references are resolved **before** lookups of built-in APIs and developer-defined attributes on both `window` and `document`.
+3. **Priority Rule**: On `document`, named HTML element references override built-in APIs (due to `[LegacyOverrideBuiltIns]`). On `window`, built-in properties take priority over named element references — named access on `window` only works for properties not already defined on the Window interface.
 
 This means that `window.x` (or simply `x` in global scope) can be silently replaced by any element `<div id="x">`, and `document.cookie` can be shadowed by `<img name="cookie">`.
 
@@ -85,7 +85,7 @@ When two or more elements share the same `id` value, the browser creates an **HT
 |---------|-----------|---------------|
 | **Indexed collection** | `<a id="x">`, `<a id="x">` → `window.x[0]`, `window.x[1]` | Two+ elements share same id |
 | **Named collection property** | `<a id="x">`, `<a id="x" name="url" href="...">` → `window.x.url` | Second element has `name` attribute; creates two-level access |
-| **Iterable collection** | HTMLCollection supports `.forEach()` (Chrome) for enumeration of clobbered elements | Gadget code iterates over the clobbered value |
+| **Iterable collection** | HTMLCollection is iterable via `for...of` (has `Symbol.iterator`) but does **not** have a `.forEach()` method (unlike NodeList). Use `Array.from(collection).forEach()` or `for...of` for enumeration. | Gadget code iterates over the clobbered value |
 
 **Example — Two-Level Property via HTMLCollection:**
 ```html

@@ -387,7 +387,7 @@ Arbitrary code execution on server
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **XML External Entity (XXE)** | Python's default XML parsers (ElementTree, expatreader) resolve external entities, enabling file read, SSRF, and DoS | Application processes XML from untrusted sources without defusedxml |
+| **XML External Entity (XXE)** | Python's `xml.sax` (with custom entity resolver) and `lxml` (when configured to resolve entities) are vulnerable to XXE file read and SSRF. `ElementTree`/`expat` do **not** resolve external entities but are vulnerable to entity expansion DoS (Billion Laughs). | Application processes XML from untrusted sources without `defusedxml` |
 | **XML deserialization DoS** | Django's XML deserializer (used for fixtures and data import) exhibits algorithmic complexity on crafted XML with deeply nested or recursive entity definitions | Application uses Django's XML serializer with untrusted input |
 | **Billion laughs / XML bomb** | Recursive entity expansion exhausts memory | XML processing without entity limits |
 

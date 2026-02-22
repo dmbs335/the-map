@@ -343,7 +343,7 @@ Beyond code execution, JNDI injection (particularly via Log4Shell) enables data 
 | §5-1 (recursive lookup) | **CVE-2021-45105** (Log4j 2.16.0) | CVSS 5.9. DoS via uncontrolled recursion in lookup evaluation |
 | §5-1 (config lookup) | **CVE-2021-44832** (Log4j 2.17.0) | CVSS 6.6. RCE via JDBC Appender with attacker-controlled config |
 | §5-4 (IIOP + JNDI) | **CVE-2020-2551** (WebLogic) | Unauthenticated RCE via IIOP protocol JNDI lookup |
-| §5-4 (T3 + JNDI) | **CVE-2021-2394** (WebLogic) | RCE via T3 protocol deserialization (note: CVE-2021-35617 is a separate WebLogic Console component vulnerability) |
+| §5-4 (T3 + JNDI) | **CVE-2021-2394** (WebLogic) | RCE via T3 protocol deserialization (note: CVE-2021-35617 is a separate Coherence Container component IIOP vulnerability) |
 | §5-4 (OpaqueReference) | **CVE-2024-20931** (WebLogic) | Bypass of CVE-2023-21839 patch via `OpaqueReference.getReferent()` re-triggering JNDI |
 | §5-2 (REST API) | **CVE-2024-22319** (IBM ODM) | Unauthenticated RCE via JNDI injection in unprotected REST API |
 | §5-2 (JDBC URL) | **CVE-2024-49194** (Databricks JDBC) | CVSS 7.3. Command injection via `krbJAASFile` JDBC URL parameter |

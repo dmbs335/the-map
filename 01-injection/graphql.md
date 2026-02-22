@@ -397,7 +397,7 @@ GraphQL federation and gateway patterns introduce additional attack surfaces at 
 | §2-1 + §2-5 (depth + batching) | CVE-2024-40094 (graphql-java) | DoS via ExecutableNormalizedFields; introspection queries caused resource exhaustion in IBM WebSphere Liberty and Maximo |
 | §1-1 (introspection access control) | CVE-2024-50312 (OpenShift) | Information disclosure; unauthorized users retrieved full query/mutation list |
 | §2-2 (alias abuse) | CVE-2024-50311 (OpenShift) | DoS via alias batching in the GraphQL endpoint |
-| §4-2 (CSRF via GET) | CVE-2024-4994 (GitLab) | High-severity CSRF allowing arbitrary GraphQL mutation execution |
+| §4-2 (CSRF via multipart upload) | CVE-2024-4994 (GitLab) | High-severity CSRF allowing arbitrary GraphQL mutation execution via multipart/form-data (exempt from CORS preflight) |
 | §5-3 (mutation authz bypass) | CVE-2025-14592 (GitLab GLQL) | Critical unauthorized mutation execution across CE/EE versions |
 | §8-2 (WebSocket MITM) | CVE-2024-54147 (Altair GraphQL Client) | Missing HTTPS certificate validation on WebSocket connections; MITM interception of all queries |
 | §3-3 (SSRF via upload) | GHSA-x27p-wfqw-hfcc (Craft CMS) | SSRF via GraphQL asset upload mutation; cloud metadata access |

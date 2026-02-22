@@ -1,6 +1,6 @@
 # XSS Testing Checklist
 
-> **Companion document:** [XSS Mutation/Variation Taxonomy](./xss.md)
+> **Companion document:** [XSS Mutation/Variation Taxonomy](../01-injection/xss.md)
 > **Purpose:** A context-driven checklist for systematically discovering, confirming, and escalating Cross-Site Scripting vulnerabilities. Organized by **injection context** — because where your input lands determines which payloads work.
 
 ---

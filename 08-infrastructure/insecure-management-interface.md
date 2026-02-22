@@ -105,7 +105,7 @@ Logic flaws that allow complete circumvention of the authentication mechanism wi
 | **Cipher 0 / null authentication negotiation** | Protocol-level negotiation allows the client to request "no authentication" cipher suite (e.g., IPMI Cipher 0), which the server accepts | Protocol supports null auth as a valid option | D2, D4 |
 | **Race condition in authentication flow** | Concurrent requests can bypass authentication checks by exploiting time-of-check-to-time-of-use (TOCTOU) windows in session initialization | Multi-threaded auth handler with shared state | D2 |
 
-PAN-OS suffered three successive management interface authentication bypasses: CVE-2024-0012 (direct auth bypass), CVE-2025-0108 (path confusion via double URL encoding + directory traversal), and the FortiWeb CVE-2025-64446 (path traversal to internal CGI handler that trusted client-supplied identity). These were chained with privilege escalation for full system compromise.
+PAN-OS suffered successive management interface authentication bypasses: CVE-2024-0012 (direct auth bypass) and CVE-2025-0108 (path confusion via double URL encoding + directory traversal). Separately, Fortinet's FortiWeb suffered CVE-2025-64446 (path traversal to internal CGI handler that trusted client-supplied identity). All were chained with privilege escalation for full system compromise.
 
 ### §2-3. Brute Force and Credential Attacks
 
@@ -194,7 +194,7 @@ Management interfaces that use encryption but with weak or misconfigured TLS.
 | Subtype | Mechanism | Key Condition | Discrepancy |
 |---------|-----------|---------------|-------------|
 | **Self-signed or expired certificates** | Management interface uses a self-signed certificate, training operators to ignore certificate warnings and enabling MitM attacks | No PKI infrastructure for management plane | D4, D5 |
-| **Legacy TLS versions (TLS 1.0/1.1)** | Management interface supports deprecated TLS versions vulnerable to known attacks (BEAST, POODLE, CRIME) | Legacy compatibility maintained for older management clients | D4, D5 |
+| **Legacy TLS versions (TLS 1.0/1.1) and SSL 3.0** | Management interface supports deprecated TLS versions vulnerable to known attacks (BEAST for TLS 1.0 CBC, POODLE for SSL 3.0). CRIME exploits TLS-level compression and affects all TLS versions where compression is enabled | Legacy compatibility maintained for older management clients | D4, D5 |
 | **Weak cipher suites** | Management interface negotiates export-grade or RC4 ciphers, enabling passive or active decryption | Permissive cipher suite configuration | D4 |
 | **Missing certificate validation in management agents** | Management agents (on managed devices) do not validate the management server's certificate, enabling MitM between controller and agent | Agent trusts any certificate from management server | D4 |
 | **SSH host key not verified** | Operators connect to management SSH without verifying host key fingerprints, enabling MitM via SSH interception | No host key verification policy | D4 |
@@ -209,7 +209,7 @@ Management sessions are high-value targets because they represent authenticated,
 
 | Subtype | Mechanism | Key Condition | Discrepancy |
 |---------|-----------|---------------|-------------|
-| **Predictable session IDs** | Management interface generates session tokens using predictable algorithms (sequential counters, weak PRNGs), enabling session prediction | Weak session ID generation (e.g., Dell iDRAC IPMI session IDs — CVE-2024-099, CVE-2024-295) | D7 |
+| **Predictable session IDs** | Management interface generates session tokens using predictable algorithms (sequential counters, weak PRNGs), enabling session prediction | Weak session ID generation (e.g., Dell iDRAC IPMI session IDs — DSA-2024-099, DSA-2024-295) | D7 |
 | **Session fixation** | Attacker sets a known session ID before admin authentication; after login, the session retains the attacker-chosen ID | Session ID not regenerated after successful authentication | D7 |
 | **Missing session expiration** | Management sessions remain valid indefinitely or for excessively long periods, increasing the window for token theft | No idle timeout or absolute timeout configured | D7, D5 |
 | **Session token in URL** | Management interface passes session tokens in URL parameters, exposing them in browser history, proxy logs, and Referer headers | Legacy session management implementation | D7, D6 |
@@ -373,7 +373,7 @@ Tesla's AWS-hosted Kubernetes environment was compromised via a misconfigured Ku
 | §6-1 (Actuator exposure) | Various HackerOne reports | Spring Boot Actuator `/heapdump` leaking database credentials and API keys. Multiple bug bounty payouts. |
 | §5-2 (CSP bypass → XSS) | CVE-2025-0376 (GitLab) | CVSS 8.7. CSP bypass enabling XSS on merge request pages — session token theft and repository modification. |
 | §8-1 (cloud misconfig) | Snowflake Breach (2024) | Stolen, never-rotated credentials compromised 100+ customers including AT&T, Ticketmaster, Santander Bank. |
-| §8-2 (UEFI vulnerability) | CVE-2024-0762 (Phoenix SecureCore) | CVSS 7.5. TPM configuration buffer overflow in UEFI firmware affecting Intel Core processors. |
+| §8-2 (firmware vulnerability) | CVE-2024-0762 (Phoenix SecureCore) | CVSS 7.4. TPM configuration buffer overflow in UEFI firmware affecting Intel Core processors. |
 | §1-1 (internet exposure) | CISA BOD 25-01 (Dec 2024) | US federal mandate to secure cloud environments due to widespread management interface exposure. |
 
 ---

@@ -67,7 +67,7 @@ Non-standard multi-byte UTF-8 representations bypass validators expecting canoni
 
 | Subtype | Mechanism | Example Payload | Key Condition |
 |---------|-----------|-----------------|---------------|
-| **2-Byte Overlong Dot** | Dot as 2 bytes | `%c0%2e` or `%c0%ae` | UTF-8 decoder accepts non-minimal |
+| **2-Byte Overlong Dot** | Dot as 2 bytes | `%c0%ae` | UTF-8 decoder accepts non-minimal encoding (0xC0 0xAE decodes to U+002E `.`) |
 | **2-Byte Overlong Slash** | Slash as 2 bytes | `%c0%af` | Same as above |
 | **3-Byte Overlong** | Slash as 3 bytes | `%e0%80%af` | Deeper overlong tolerance |
 | **Mixed Overlong** | Combine with standard | `%c0%ae%c0%ae%c0%af` | Partial overlong rejection |

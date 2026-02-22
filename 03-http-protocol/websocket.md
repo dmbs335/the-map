@@ -115,7 +115,7 @@ RFC 6455 defines a binary framing layer with opcodes, masking, fragmentation, an
 
 ### §3-2. Masking Vulnerabilities
 
-Client-to-server frames MUST be masked (RFC 6455 §5.1) to prevent cache poisoning of intermediary proxies. The 32-bit masking key should be unpredictable for each frame.
+Client-to-server frames MUST be masked (RFC 6455 §5.3) to prevent cache poisoning of intermediary proxies. The 32-bit masking key should be unpredictable for each frame.
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|

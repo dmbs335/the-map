@@ -366,7 +366,7 @@ Given two signatures (r, s1) and (r, s2) for messages m1 and m2:
 - `k = HMAC(private_key, message)` but message is constant (e.g., health check signing, repeated API calls)
 - Poor entropy source during key generation (VM snapshot restore, container restart — entropy pool reset)
 - Deterministic ECDSA (RFC 6979) with identical inputs across different signing contexts
-- Sony PS3 ECDSA key extraction (used static `k = 4`)
+- Sony PS3 ECDSA key extraction (used a static/constant nonce `k` for all signatures; the value was not literally 4 despite popular myth — fail0verflow confirmed this at 27C3)
 
 **Partial nonce leak (LadderLeak, Minerva)**: Even leaking a few bits of the nonce per signature enables lattice-based private key recovery with enough signatures (~100 signatures with 2-bit leaks).
 
