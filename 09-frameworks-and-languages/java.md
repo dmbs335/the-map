@@ -523,6 +523,25 @@ Java uses signed 32/64-bit integers with silent wrapping (no exception on overfl
 | **CRLF injection in logs** | User input containing `\r\n` creates forged log entries indistinguishable from legitimate ones | No newline sanitization in log messages; text-based log format | INTEGRITY |
 | **SLF4J `{}` no-sanitize** | `logger.info("User: {}", username)` — `{}` substitution does NOT sanitize newlines (performance optimization, not security feature) | Common misconception that parameterized logging sanitizes input | INTEGRITY |
 
+### §13-4. Compile-Time Unicode Escape Processing
+
+The Java compiler processes `\uXXXX` Unicode escapes at the lexical level — before parsing, tokenizing, or interpreting string boundaries. This means a Unicode escape inside a string literal is resolved to its character *before* the compiler determines where the string ends. This is distinct from runtime string escapes (`\n`, `\t`) and from Trojan Source (BiDi) attacks that use directional override characters.
+
+| Subtype | Mechanism | Key Condition | Impact |
+|---|---|---|---|
+| **String boundary injection via `\u0022`** | `\u0022` compiles to literal `"` character at the lexical stage → closes the enclosing string literal, allowing injection of arbitrary Java statements between the closing and a subsequent opening `\u0022` | Java source code containing user-contributed or review-evading snippets | RCE |
+| **Code review evasion** | Source code containing `\u0022; Runtime.getRuntime().exec(cmd); \u0022` appears as a normal string constant in editors and review tools that do not pre-resolve Unicode escapes — visually innocuous code hides an RCE payload | Human or automated code review that does not expand `\uXXXX` sequences | RCE |
+| **Malicious Bambdas / contributed snippets** | Threat model: platforms accepting user-contributed Java code (e.g., Burp Suite Bambdas, plugin systems, online judges) where a snippet appears to be a harmless string but compiles to arbitrary code execution | Any system compiling untrusted Java source | RCE |
+
+**Example — hidden RCE in a string literal:**
+```java
+// In source code, this appears as a single string assignment with Unicode escapes:
+String s = "\u0022; Runtime.getRuntime().exec(new String[]{\u0022calc\u0022}); //\u0022";
+// After compile-time Unicode escape resolution (\u0022 → "), this becomes:
+// String s = ""; Runtime.getRuntime().exec(new String[]{"calc"}); //"";
+// Editors that do not resolve \uXXXX show the entire line as a string constant.
+```
+
 ---
 
 ## Attack Scenario Mapping
@@ -663,6 +682,7 @@ Java's security surface is the product of three interacting design forces:
 - Java Language Specification (JLS) — §4.6 Type Erasure, §5.1.7 Boxing Conversion, §4.10.3 Array Subtyping
 - OWASP XXE Prevention Cheat Sheet — Parser-specific hardening configurations
 - PortSwigger Research — XXE, SSRF, Deserialization
+- PortSwigger Research (Gareth Heyes) — "Hiding payloads in Java source code strings" (2024): https://portswigger.net/research/hiding-payloads-in-java-source-code-strings
 
 ---
 

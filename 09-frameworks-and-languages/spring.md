@@ -194,6 +194,10 @@ Discrepancies between how Spring Security and Spring MVC/WebFlux interpret the s
 | **Case sensitivity discrepancy** | URL path case handled differently between Security patterns and MVC handler mappings on case-insensitive filesystems | Windows deployment or case-insensitive URL matching | AUTHZ |
 | **Semicolon/path parameter stripping** | Spring MVC strips `;` path parameters before routing but Security evaluates the full URL | Servlet container preserving path parameters | AUTHZ |
 | **Un-normalized URL in WebFlux** | WebFlux Security not normalizing URLs before authorization evaluation | Spring WebFlux without `StrictServerWebExchangeFirewall` (CVE-2024-38821) | AUTHZ |
+| **Context-path prefix bypass** | When `server.servlet.context-path` is set, routing strips the context prefix and resolves traversals, but auth filters check the raw URI. `/login/../demo/admin/info` bypasses `startsWith("/admin")` checks while routing resolves to the `/admin/info` handler within the `/demo` context | Explicit `server.servlet.context-path` configured; auth filter checks raw `getRequestURI()` without context normalization | AUTHZ |
+| **Suffix pattern matching bypass** | Spring MVC's `useSuffixPatternMatch` (default `true` before v5.3.0-M1) routes `/handler.anything` to the same handler as `/handler`. Auth filter using `endsWith(".css")` to exclude static resources is bypassed by `/admin/info.css` | Spring < 5.3.0-M1 with default suffix matching; or explicitly enabled via `use-suffix-pattern=true` | AUTHZ |
+| **Newline in path segment** | Spring routing handles URL-encoded newlines (`%0a`, `%0d`) within path segments, routing `/admin%0a/info` to the `/admin/info` handler while auth filters performing literal string matching on the raw URI fail to match | Servlet container tolerating newlines in URI; auth using literal string comparison on raw path | AUTHZ |
+| **Whitespace trimming in path** | Spring MVC (before v5.2.2) trims whitespace from path segments during routing. `/%20admin/info` routes to `/admin/info` but auth filter checking `startsWith("/admin")` on raw URI doesn't match | Spring < 5.2.2 with default trimming behavior; auth filter uses `getRequestURI()` without trimming (CVE-2016-5007) | AUTHZ |
 
 ### §4-3. WAF/Proxy Path Confusion
 
@@ -301,6 +305,8 @@ Exploiting inconsistencies in how Spring Security matches URL patterns against i
 | **Double-wildcard prefix mismatch** | Un-prefixed `**` pattern in WebFlux Security configuration doesn't match as expected, creating gaps | Spring Security WebFlux with `**` pattern without leading `/` (CVE-2023-34034) | AUTHZ |
 | **Space trimming inconsistency** | Spring MVC trims spaces in path segments but Spring Security doesn't, allowing bypass with `/ admin/` | Path matching strictness difference (CVE-2016-5007) | AUTHZ |
 | **Generic type annotation detection flaw** | Method-level security annotations (`@PreAuthorize`, `@Secured`) on generic superclass/interface methods not properly detected | Parameterized types or unbounded generic superclasses (CVE-2025-41248, CVE-2025-41249) | AUTHZ |
+
+Zhang et al. (CCS '25) systematically studied URL-based authentication bypass across 529 Java web applications, identifying 13 routing features (removal, decoding, replacement, matching types) that interact with 3 vulnerable auth check patterns (`startsWith`, `endsWith`, `contains` on the raw URL path). Their tool UABScan discovered 94 vulnerabilities (35 0-days, 31 CVEs) with 80% precision. Context-path and semicolon features were the most commonly mishandled (48 and 40 vulnerable apps respectively). These routing-vs-authentication inconsistencies are detailed in §4-2.
 
 ### §7-2. Dispatch Type Bypass
 
@@ -565,6 +571,7 @@ The fundamental mitigation requires moving from **denylist-based security** (blo
 - SonicWall Threat Intelligence — CVE-2024-37084 analysis
 - Various HeroDevs, SentinelOne, Miggo vulnerability advisories (2024–2025)
 - wya.pl: "SpEL Casting and Evil Beans" (2022) — Systematic exploitation of Spring Bean access (`@beanName`) as gadget chains for SpEL injection
+- Qiyi Zhang et al.: "Be Aware of What You Let Pass: Demystifying URL-based Authentication Bypass Vulnerability in Java Web Applications" (CCS '25) — Systematic study of 13 routing features × 3 auth check patterns across 529 Java applications (Spring + Jersey/JAX-RS), discovering 94 UABVulns (31 CVEs). Also covers Jersey framework, which shares 6 routing features with Spring.
 
 ---
 

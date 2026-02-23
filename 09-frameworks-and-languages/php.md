@@ -242,6 +242,7 @@ The `disable_functions` directive prevents specific PHP functions from being cal
 | **LD_PRELOAD + imap_mail()** | Same technique using `imap_mail()` as the trigger | `imap` extension loaded; `putenv()` not disabled |
 | **LD_PRELOAD + error_log()** | `error_log()` with `message_type=1` (email) invokes sendmail, triggering LD_PRELOAD | `putenv()` and `error_log()` not disabled |
 | **PHP-FPM/FastCGI Abuse** | If PHP-FPM is accessible (commonly on port 9000), craft raw FastCGI packets setting `PHP_VALUE` to override `open_basedir` (but not `disable_functions`) and `SCRIPT_FILENAME` to execute arbitrary PHP files | PHP-FPM socket/port accessible |
+| **PHP-FPM PATH_INFO Buffer Underflow (CVE-2019-11043)** | When Nginx passes URIs containing `%0a` (newline) to PHP-FPM with `fastcgi_split_path_info`, the regex fails and `env_path_info` becomes empty. The buffer offset calculation `path_info = env_path_info + pilen - slen` underflows, writing a null byte before the intended buffer. This corrupts `fcgi_data_seg->pos`, causing subsequent `FCGI_PUTENV` calls to overwrite existing environment entries. An attacker forges an HTTP header (e.g., `HTTP_EBUT`) whose hash collides with `PHP_VALUE`, injecting `auto_prepend_file=php://input` for RCE | Nginx with `fastcgi_split_path_info`; no `try_files` or file existence check; PHP-FPM ≤ 7.3.10 / 7.2.23 |
 | **FFI (Foreign Function Interface)** | PHP 7.4+ FFI allows calling C functions directly: `FFI::cdef("int system(const char*)")->system("id")` | `ffi.enable=true`; FFI extension loaded |
 | **ImageMagick / Ghostscript** | If ImageMagick processes user images and Ghostscript is installed, specially crafted images can trigger command execution through Ghostscript's PostScript interpreter | ImageMagick + Ghostscript installed; image processing from user input |
 | **iconv/glibc Exploitation (CVE-2024-2961)** | Buffer overflow in glibc's iconv() when converting to ISO-2022-CN-EXT; exploitable through PHP's iconv extension or filter chains to achieve RCE | glibc < 2.40; PHP compiled with iconv |
@@ -448,6 +449,7 @@ libxml2 >= 2.9.0 (shipped with PHP 8.0+) disables external entity loading by def
 | §3-3 (Filter Chain Oracle) | CVE-2026-22200 (osTicket) | PHP filter chain injection in rich text fields; server file exfiltration via PDF export |
 | §2-2 (PHAR Deserialization) | WP Meta SEO PHAR Deser (2024) | PHAR deserialization → RCE via file operation on attacker-controlled phar:// path |
 | §10-1 (XXE) | WordPress 5.7 XXE (Sonar) | XXE in WordPress media library XML parsing |
+| §5-1 (PHP-FPM buffer underflow) | CVE-2019-11043 (PHP-FPM) | RCE via PATH_INFO buffer underflow → `fcgi_data_seg->pos` corruption → `PHP_VALUE` hash collision injection. Actively exploited in the wild |
 
 ---
 

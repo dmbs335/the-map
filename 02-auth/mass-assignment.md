@@ -92,6 +92,7 @@ Java's introspection model exposes `getClass()` on every object via `java.lang.O
 | **Module-based classLoader bypass** | `class.module.classLoader.*` — using JDK9+ `java.lang.Module` as an intermediate hop to bypass `class.classLoader` denylists | JDK 9+ runtime; denylist blocks `class.classLoader` but not `class.module.classLoader` (CVE-2022-22965) |
 | **ProtectionDomain traversal** | `class.protectionDomain.*` — accessing security policy and code source information | ProtectionDomain not included in the binding denylist |
 | **Nested POJO graph navigation** | `address.city.region.country.*` — following relationships across associated domain objects | Framework resolves nested property paths recursively without depth limit |
+| **Alternative path bypass of binding rules** | The same sensitive property is reachable via multiple nested property paths through the object graph. Data binding security rules (allowlist/denylist) are applied per-path, not per-destination-property. Path1 is blocked but Path2 reaches the same property unblocked — CVE-2023-46131 (Grails DoS) demonstrates this where DIVER discovered the unblocked alternative path automatically | Framework with multiple object graph paths to the same runtime property; security rules applied to paths, not destinations |
 
 The **module-based classLoader bypass** is the canonical example of why denylist approaches fail for nested property traversal. Spring Framework blocked `class.classLoader` after CVE-2010-1622, but when JDK 9 introduced `java.lang.Module` with its own `getClassLoader()` method, `class.module.classLoader` provided an alternative path to the same target. The denylist was structurally unable to anticipate this: it blocked a specific property path, not the *capability* of reaching the ClassLoader. The fix in Spring 5.3.18+ moved to an allowlist approach, restricting `Class` property descriptor access rather than enumerating forbidden paths.
 
@@ -105,6 +106,11 @@ Once an attacker reaches the ClassLoader through property chain navigation, mult
 | **URLClassLoader resource injection** | Modifying classpath entries or resource URLs through ClassLoader properties to load remote classes | ClassLoader exposes mutable URL/path properties |
 | **GroovyClassLoader code compilation** | Grails/Groovy environments expose `GroovyClassLoader` which can compile and execute arbitrary Groovy code from property values | Groovy-based framework; ClassLoader is GroovyClassLoader subtype (CVE-2022-35912) |
 | **Thread context ClassLoader swap** | Replacing the thread's context ClassLoader to influence class resolution for subsequent operations | Thread-local ClassLoader is settable through the property chain |
+| **Tomcat appBase reconfiguration (file read)** | `class.parent.appBase=/` — modifying Tomcat's Host `appBase` property to the filesystem root enables arbitrary file read (e.g., `/etc/passwd`) through the web application's static resource serving. This is a *read* primitive complementing the AccessLogValve *write* primitive | Tomcat deployment; `appBase` property reachable through the data binding object graph |
+| **Web container configuration corruption (WSDoS)** | Modifying container runtime properties — `defaultHostName`, `available` (set to `false`), `contextPath`, `virtualHosts`, `acceptedReceiveBufferSize` — through data binding corrupts the running container's configuration, causing immediate web service failure. Unlike file-write primitives, this directly corrupts the running state without creating artifacts on disk | Tomcat or Jetty; container configuration properties reachable through binding |
+| **OS-level DoS via thread exhaustion (OSDoS)** | Modifying Tomcat's `startStopThreads` property to an extreme value through data binding. Tomcat creates threads exceeding the OS process limit (`ulimit -u`), causing OS-level process exhaustion that affects all processes on the host — not just the web service. A single HTTP request crosses the JVM/OS boundary to deny service to the entire operating system | Tomcat deployment; `startStopThreads` reachable; no OS-level resource limit hardening |
+| **JVM crash via reflection metadata corruption** | Grails exposes `cachedMethod` — a `java.lang.reflect.Method` instance — through the data binding object graph. The `slot` sub-property is an internal JVM field indexing the method in the declaring class's method table. Modifying `slot` to an invalid value causes the JVM to crash with a segmentation fault when the method is subsequently invoked via reflection. Terminates the entire JVM process, not just the web service | Grails framework; `cachedMethod.slot` reachable; Groovy's reflection use ensures the corrupted method is invoked |
+| **Jetty container property manipulation** | Through data binding, Jetty's container properties (`path`, `contextPath`, `executable`, connector buffer sizes, `minThreads`) are reachable. Unlike Tomcat's AccessLogValve RCE primitive, Jetty exploitation targets different internal objects but achieves configuration corruption, DoS, or file access through the same data binding mechanism | Jetty as servlet container; data binding reaches container-internal objects |
 
 The Tomcat AccessLogValve primitive works through four coordinated property assignments:
 
@@ -159,6 +165,7 @@ Grails implements its own data binding layer independent of Spring's `BeanWrappe
 | **Command object auto-binding** | Grails command objects bind all request parameters by default; `bindable` constraints are opt-in | Developer uses command objects without explicit binding constraints |
 | **Domain class constructor binding** | `new DomainClass(params)` binds all parameters to the domain instance | Constructor-based binding in Grails controllers; no `bindable` constraint |
 | **bindData selective bypass** | `bindData(obj, params, [include: [...]])` allowlist can be misconfigured or bypassed through nested property syntax | Allowlist includes a parent property but the attacker navigates through it |
+| **Property alias bypass** | Groovy's property introspection resolves multiple names to the same underlying property (`classLoader` and `classLoader0` are aliases in Grails). A denylist blocking `classLoader` is bypassed by using `classLoader0`, as name-based filtering does not resolve aliases to their canonical property identity | Grails framework; denylist uses exact property name matching |
 
 CVE-2022-35912 affected Grails versions from 3.3.10 onward and critically did not require JDK 9+ — unlike Spring4Shell. This proved that the vulnerability class is inherent to the data binding *pattern*, not to a specific JDK API. The fix restricted ClassLoader-related property access in Grails' own binding code, but the underlying architecture — where binding defaults to open — remains.
 
@@ -355,6 +362,9 @@ Mass assignment does not always stop at the application object — when bound ob
 | **Arbitrary File Write** | Java frameworks on Tomcat | §2-2 (AccessLogValve manipulation to write webshell) |
 | **Denial of Service** | Any binding framework with deep nesting | §2-1 + §4-1 (recursive property resolution with deep nesting causing stack overflow or resource exhaustion) |
 | **Audit Trail Falsification** | Applications with bindable audit metadata | §1-3 (timestamp/author field manipulation) |
+| **Arbitrary File Read** | Java frameworks on Tomcat | §2-2 (appBase reconfiguration to serve filesystem root) |
+| **OS-Level Denial of Service** | Java frameworks on Tomcat | §2-2 (startStopThreads thread exhaustion crossing JVM/OS boundary) |
+| **JVM Process Crash** | Grails on any container | §2-2 (cachedMethod.slot reflection metadata corruption) |
 
 ---
 
@@ -373,6 +383,7 @@ Mass assignment does not always stop at the application object — when bound ob
 | §6-1 (constructor.prototype) | CVE-2024-21529 (dset) | Prototype pollution via improper sanitization in `dset` package |
 | §2-3 (OGNL double eval) | CVE-2020-17530 / S2-061 (Struts2) | Double OGNL evaluation leading to RCE; OGNL sandbox bypass |
 | §2-3 (OGNL injection) | CVE-2023-22527 (Confluence) | OGNL injection in Atlassian Confluence template injection leading to RCE |
+| §2-1 (alternative path bypass) | CVE-2023-46131 (Grails Framework) | DoS via alternative property path to a blocked property; DIVER discovered unblocked path automatically |
 | §2-1 + §2-2 (DIVER findings) | 81 vulnerabilities (Spring + Grails) | ISSTA 2024: automated discovery of 81 data binding vulnerabilities; 3 new CVEs assigned |
 
 ---

@@ -312,6 +312,14 @@ Exploiting specific sanitizer configuration options or API usage patterns that w
 | **RCDATA element ignorance** | Server-side parser treats `<noscript>`, `<noembed>` content differently than the browser due to missing scripting-flag context | Server-side parser cannot know client's scripting state |
 | **Encoding mismatch** | Server sanitizes with one character encoding assumption; client renders with another. Multi-byte character sequences consume or create delimiters | Encoding not explicitly synchronized between server and client |
 
+### §8-3. Browser-Native Sanitizer API Bypasses
+
+Bypasses targeting the browser's built-in Sanitizer API (`setHTML()`), which eliminates the serialize-parse roundtrip but may still have allowlist gaps for resource reference elements.
+
+| Subtype | Mechanism | Key Condition |
+|---|---|---|
+| **SVG `<use href>` element bypass** | `<svg><use href="//target.com/uploaded-malicious.svg#x"/></svg>` — The Sanitizer API blocks SVG imports via `data:` and relative URLs but permits same-origin absolute URLs in `<use href>`. An attacker uploads a malicious SVG file to the target origin (e.g., via file upload endpoint), then references it with an absolute URL. The `Content-Disposition: attachment` header on the uploaded file does not prevent SVG `<use>` reference processing. The core issue is that the Sanitizer API allowlist did not account for how browsers actually process absolute-URL SVG references, allowing attacker-controlled SVG content to be composed into the page | Firefox Sanitizer API implementation (2022); target origin must accept SVG file uploads |
+
 ---
 
 ## Attack Scenario Mapping (Axis 3)
@@ -360,6 +368,7 @@ Exploiting specific sanitizer configuration options or API usage patterns that w
 | §3-3 (noscript + namespace) | CVE-2023-23627 (rgrove/sanitize, Ruby) | noscript content parsed as markup instead of text |
 | §7-4 (Serializer coercion) | DOMPurify jsdom 19 (Parse Me Baby, 2024) | Serializer decodes and reflects text content; benign payloads become dangerous after sanitization |
 | §8-1 (Google Closure bypass) | closure-library sanitizer (2020) | noscript + title attribute escaping bypass |
+| §8-3 (SVG `<use href>` allowlist gap) | Firefox Sanitizer API bypass (PortSwigger, 2022) | SVG `<use href>` with same-origin absolute URL bypasses Sanitizer API allowlist; attacker-uploaded SVG composed into page |
 
 ---
 
@@ -368,7 +377,7 @@ Exploiting specific sanitizer configuration options or API usage patterns that w
 | Tool | Target Scope | Core Technique |
 |---|---|---|
 | **DOMPurify** (Sanitizer) | mXSS prevention | DOM-based sanitization; avoids serialize-parse roundtrip when using `RETURN_DOM`; regularly patched for new mXSS vectors |
-| **Sanitizer API** (Browser Built-in) | mXSS prevention | Browser-native `setHTML()` avoids roundtrip entirely by building DOM directly; immune to mXSS by design (Chrome Canary, Firefox Nightly) |
+| **Sanitizer API** (Browser Built-in) | mXSS prevention | Browser-native `setHTML()` avoids roundtrip entirely by building DOM directly; immune to mXSS by design but subject to allowlist gaps (e.g., SVG `<use href>` bypass in Firefox, see §8-3) (Chrome Canary, Firefox Nightly) |
 | **MutaGen** (Research) | Server-side sanitizer bypass via parsing differentials | HTML fragment generator focused on mutation-prone structures (23 transformations); tests 11 sanitizers across 5 languages. Found 16 bypasses and 19,843 coercion payloads (Parse Me Baby, IEEE S&P 2024) |
 | **Sanity Fuzzer** (Research) | Sanitizer mXSS | Differential testing: sanitize HTML, compare sanitizer DOM vs. browser `innerHTML` DOM for mutations |
 | **SonarSource mXSS Cheatsheet** (Reference) | mXSS payloads | Curated payload database organized by sanitizer and version with explained mechanisms |
@@ -409,6 +418,7 @@ Exploiting specific sanitizer configuration options or API usage patterns that w
 - Securitum Research. "Write-up of DOMPurify 2.0.0 bypass using mutation XSS." https://research.securitum.com/dompurify-bypass-using-mxss/
 - Securitum Research. "Mutation XSS via namespace confusion — DOMPurify < 2.0.17 bypass." https://research.securitum.com/mutation-xss-via-mathml-mutation-dompurify-2-0-17-bypass/
 - PortSwigger Research. "Bypassing DOMPurify again with mutation XSS." https://portswigger.net/research/bypassing-dompurify-again-with-mutation-xss
+- PortSwigger Research (Gareth Heyes). "Bypassing Firefox's HTML Sanitizer API." https://portswigger.net/research/bypassing-firefoxs-html-sanitizer-api
 - Flatt Security Research. "Bypassing DOMPurify with good old XML." https://flatt.tech/research/posts/bypassing-dompurify-with-good-old-xml/
 - kevin mizu. "Exploring the DOMPurify library: Bypasses and Fixes." https://mizu.re/post/exploring-the-dompurify-library-bypasses-and-fixes
 - kevin mizu. "Playing with DOMPurify's custom elements handling." https://mizu.re/post/playing-with-dompurify-ce-handling

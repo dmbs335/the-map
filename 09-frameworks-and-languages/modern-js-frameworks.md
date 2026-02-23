@@ -328,10 +328,13 @@ Content Security Policy is designed to prevent XSS, but framework-specific featu
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
 | **AngularJS Sandbox Escape** | AngularJS < 1.6 template expressions can be used to escape the sandbox and execute arbitrary JavaScript, bypassing CSP when AngularJS is loaded from a whitelisted CDN | CSP whitelisting AngularJS CDN; AngularJS < 1.6 |
+| **Transitive AngularJS Inclusion (Hidden CSP Bypass)** | Third-party scripts such as analytics platforms (e.g., Piwik PRO) bundle AngularJS 1.x as an internal dependency. When the site's CSP allows the third-party script, AngularJS is loaded as a transitive inclusion — unbeknownst to the site operator. Because AngularJS acts as a script gadget, an attacker who can inject HTML (e.g., via stored XSS or DOM injection) uses AngularJS template expressions like `{{constructor.constructor('alert(1)')()}}` to execute arbitrary JavaScript despite a strict CSP. The discovery methodology involves auditing third-party scripts' bundled dependencies for exploitable libraries | Site loads a third-party script that transitively bundles AngularJS 1.x; CSP allows the third-party origin; attacker has HTML injection primitive |
 | **JSONP Endpoint Exploitation** | When CSP whitelists a domain that hosts JSONP endpoints, attackers use JSONP callbacks to execute arbitrary JavaScript | CSP with broad domain whitelists (e.g., `*.googleapis.com`) |
 | **Whitelisted CDN Redirect** | If a whitelisted domain has an open redirect, attackers chain the redirect to another whitelisted domain's JSONP endpoint, bypassing CSP path restrictions (browsers validate host, not path during redirects) | CSP with multiple whitelisted domains, one having open redirect |
 | **Trusted Types Bypass** | Implementation errors in Trusted Types policies, combined with framework features like dynamic template compilation, can create bypass opportunities | Trusted Types with incomplete policy coverage |
 | **Framework Middleware CSP Removal** | Middleware bypass (§2-1) allows removal of CSP headers entirely, disabling all CSP protections for affected pages | CVE-2025-29927 + CSP set via middleware |
+
+The transitive AngularJS inclusion vector is particularly insidious because the vulnerable library is invisible to the site operator. A site may have no direct AngularJS dependency, enforce a strict CSP, and pass automated security audits — yet remain fully exploitable because a third-party analytics script (in the documented case, Piwik PRO) silently bundles AngularJS 1.x. The AngularJS library functions as a "script gadget": CSP permits the analytics script, the analytics script loads AngularJS, and AngularJS evaluates attacker-controlled template expressions outside CSP's enforcement scope. This elevates any HTML injection primitive to full JavaScript execution and highlights the need for auditing transitive JavaScript dependencies loaded by third-party tags.
 
 ### §9-3. CSRF in Modern SPAs
 
@@ -467,6 +470,7 @@ Framework development tools run with elevated privileges and may be inadvertentl
 - Semgrep: A Technical Deep Dive into JavaScript Vulnerability Detection
 - Sam Curry: "Exploiting Web3's Hidden Attack Surface: Universal XSS on Netlify's Next.js Library" (2022) — UXSS affecting Web3 applications via Next.js library vulnerability on Netlify
 - kibty, "how to hack discord, vercel and more with one easy trick" (2025) — Server-side MDX evaluation RCE in Mintlify (CVE-2025-67843). Cross-tenant static asset XSS, path traversal, deployment downgrade. $5,000 bounty. https://kibty.town/blog/mintlify
+- Gareth Heyes (PortSwigger Research), "Ambushed by AngularJS: a hidden CSP bypass in Piwik PRO" (2023) — Transitive AngularJS 1.x inclusion via analytics scripts enables CSP bypass through template injection. https://portswigger.net/research/ambushed-by-angularjs-a-hidden-csp-bypass-in-piwik-pro
 
 ---
 

@@ -408,6 +408,8 @@ When an AWS SDK client is initialized without explicit credentials (or credentia
 | §7-1 + §8-1 | **Shopify SSRF (HackerOne)** | 303 redirect bypass to cloud metadata. Significant bounty |
 | §8-1 + §1 | **EC2 IMDS campaign (March 2025)** | Systematic targeting of EC2 instances via SSRF for IAM credential theft |
 | §7-2 + §8 | **Oracle EBS CVE-2025-61882** | Weaponized by Cl0p ransomware; CISA KEV. Fortune 500 impact |
+| §5-1 + §3-2 | **CVE-2021-26855 (Microsoft Exchange, ProxyLogon)** | Pre-auth SSRF via cookie-based backend selection (`X-BEResource`). `UriBuilder` parsing bypass grants access to arbitrary backend ports with Exchange machine account Kerberos ticket. Chained with CVE-2021-27065 (file write) for pre-auth RCE. Pwnie Award 2021 |
+| §5-1 + §3-2 | **CVE-2021-34473 (Microsoft Exchange, ProxyShell)** | ACL bypass via backend routing manipulation → PowerShell backend elevation (CVE-2021-34523) → arbitrary file write (CVE-2021-31207). **$200,000** Pwn2Own Vancouver 2021 |
 
 ---
 

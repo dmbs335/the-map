@@ -475,6 +475,8 @@ This section maps injection techniques to exploitation scenarios based on data e
 | §1 + §7-1 (glob CLI exec) | CVE-2025-64756 | glob CLI (npm) | Command injection via `--cmd` flag when processing files with malicious names. |
 | §7-5 (BatBadBut Windows escaping bypass) | CVE-2024-24576 / CERT VU#123335 | Rust std, Node.js, PHP, Haskell + others | Critical RCE (CVSS 10.0). Array-based "safe" APIs invoke cmd.exe for .bat/.cmd, defeating backslash-based argument escaping. |
 | §1 + §7-1 (cloud infrastructure CLI) | CVE-2024-50603 | Aviatrix Controller | Unauthenticated RCE via `cloud_type` parameter injection in cloud gateway management API. CVSS 10.0. Actively exploited in the wild. |
+| §7-1 (format string → GOT overwrite) | CVE-2019-1579 (silently patched) | Palo Alto GlobalProtect SSL VPN | Pre-auth RCE via format string in `sslmgr` daemon. `scep-profile-name` parameter passed directly to `snprintf` as format string. Time-based detection via `%9999999c` (non-destructive delay). Exploitation: `%n` overwrites `strlen@GOT` → `system@PLT`, converting subsequent `strlen(input)` into `system(input)` |
+| §1-1 + §7-1 (DSSAFE.pm bypass) | CVE-2019-11539 | Pulse Secure Connect VPN | Post-auth command injection bypassing `DSSAFE.pm` hooks (which intercept `system()`, `open()`, backticks). Bypass: use tcpdump's `-r` flag to generate error message `tcpdump: [payload]: No such file or directory` — Perl interprets `tcpdump:` as GOTO label and evaluates the rest as code |
 
 ---
 

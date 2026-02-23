@@ -39,6 +39,9 @@ When the proxy and backend differ in whether, when, and how they resolve `/../` 
 | **Backend-preserves / Proxy-resolves** | Proxy normalizes path before ACL check, but backend receives the pre-normalized form via a different header or variable | Backend uses raw `REQUEST_URI` rather than the proxy-normalized path |
 | **Partial dot-segment resolution** | Proxy resolves `/../` but not `/..;/` or `/%2e%2e/`; backend resolves all forms | Backend treats encoded or decorated dot-segments as equivalent to literal `..` |
 | **Asymmetric `/..` handling** | Apache resolves `/path/..` to `/` but Nginx treats trailing `/..` as a literal path component | Multi-tier architecture with Apache behind Nginx or vice versa |
+| **Caddy fastcgi internal normalization traversal** | Caddy's `fastcgi` transport module internally normalized the request path before constructing the `SCRIPT_FILENAME` parameter. In versions ≤2.4.x, dot-segments were resolved without root-jail enforcement: `GET /../../../../../any/path/www/index.php` traversed out of the configured document root, allowing execution of arbitrary PHP files (Caddy PR #4207; no CVE assigned) | Caddy with `fastcgi` transport to php-fpm; versions ≤2.4.x |
+| **Kong path non-normalization (CVE-2021-27306)** | Kong (based on Nginx) did not normalize the request path before forwarding. `/public/../admin` forwarded as-is; backend normalizes to `/admin`, bypassing Kong's path-based ACL | Kong API Gateway before patch |
+| **Traefik / Envoy path non-normalization** | Traefik does not normalize the request path; path traversal sequences are forwarded to backends. Envoy's normalization is configuration-dependent — CVE-2019-9901 (< 1.9.1): path not normalized by default; later versions offer multiple normalization options that are complex to configure correctly | Traefik as gateway; Envoy without explicit normalization configuration |
 
 Example: `GET /public/..%2fadmin/config HTTP/1.1` — Nginx proxy sees literal path, applies ACL for `/public/`; Apache backend decodes `%2f` to `/`, resolves `..` → routes to `/admin/config`.
 
@@ -61,6 +64,9 @@ Example: `GET /safe/..;/admin/dashboard HTTP/1.1` — Proxy ACL matches `/safe/`
 | **Missing trailing slash redirect** | Proxy forwards `/admin` to backend; backend redirects to `/admin/` with sensitive info in redirect body | Proxy ACL blocks `/admin/` but not `/admin` (or vice versa) |
 | **Double-slash collapse differential** | Proxy preserves `//admin/secret`; backend collapses to `/admin/secret` | Backend applies slash deduplication; proxy does not |
 | **Backslash-to-forward-slash conversion** | Proxy preserves `\admin`; IIS/Windows backend converts to `/admin` | Windows-based backend behind Linux proxy |
+| **Raw byte path confusion (Nginx + Gunicorn)** | Nginx accepts raw bytes 0x01–0x20 (including TAB 0x09) in the URI path and forwards them as-is when `proxy_pass` has no trailing slash. Gunicorn reads the request path until the first whitespace character and accepts arbitrary strings as HTTP version. `GET /admin/<TAB>HTTP/1.1/../../../public/path HTTP/1.1` — Nginx normalizes the traversal portion for `location` match (sees `/public/path` → allowed), then forwards the raw path. Gunicorn stops at TAB → sees `/admin/` | Nginx `proxy_pass` without trailing slash; Gunicorn backend |
+| **Caddy normalization absence** | Caddy URL-decodes the path but does not normalize it (no dot-segment resolution, no slash collapsing, no case normalization). Access restriction bypass via `//admin/`, `/./admin/`, `/Admin/`. Combined with Caddy's fastcgi transport for php-fpm, the unnormalized path propagates to `SCRIPT_FILENAME` | Caddy reverse proxy with path-based access rules; backend expects normalized paths |
+| **CDN path normalization inconsistency** | CDN/cloud front-ends (AWS ALB, CloudFront, Fastly, CloudFlare, StackPath) evaluate access rules on the raw or partially-normalized path while the origin normalizes before routing. Bypasses include `//admin/`, `/Admin/`, `/%61dmin/`, `/aaa/../admin`. AWS ELB collapses `//` → `/` but forwards `///` as-is and forwards spaces in the path. CloudFront deletes spaces and conditionally switches between forwarding the initial vs. normalized path | CDN or cloud proxy as front-end with path-based access restrictions; origin normalizes paths differently |
 
 ### §1-4. Fragment and Query String Boundary Confusion
 
@@ -197,10 +203,12 @@ Beyond `Host`, many reverse proxies and backend frameworks use auxiliary headers
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
-| **Underscore/hyphen confusion** | Proxy blocks `X-Internal-Auth` but backend (e.g., PHP's `$_SERVER`) converts underscores: `X_Internal_Auth` bypasses proxy rule | PHP, CGI backends that normalize header names |
+| **Underscore/hyphen confusion** | Proxy blocks `X-Internal-Auth` but backend (e.g., PHP's `$_SERVER`) converts underscores: `X_Internal_Auth` bypasses proxy rule. Unlike Nginx (which drops underscore headers by default via `underscores_in_headers off`), Traefik, Caddy, and Envoy proxy both underscore and hyphenated headers without filtering. In a Caddy → fastcgi chain, `x_user: ADMIN` survives alongside a gateway-set `x-user: anonymous`, enabling the attacker to control the backend-visible identity header | PHP, CGI backends that normalize header names; Traefik, Caddy, or Envoy as proxy (which forward underscore headers by default) |
 | **Header name case sensitivity** | Proxy blocks `Transfer-Encoding` but allows `transfer-encoding` or `Transfer-encoding` — backend processes both | Proxy with case-sensitive header matching |
 | **Hop-by-hop header abuse** | `Connection: X-Important-Header` — proxy strips `X-Important-Header` as hop-by-hop, removing security-critical metadata | Backend relies on header that proxy strips via Connection |
 | **Line folding (obs-fold)** | Header value continues on next line with leading whitespace; proxy may interpret differently from backend | Legacy HTTP/1.1 obs-fold support differences |
+| **Envoy ext_authz header non-removal** | Envoy's `ext_authz` HTTP filter adds headers from the external auth service (e.g., `x-user: User_from_ext_auth`) via `allowed_upstream_headers` but does not remove pre-existing client-supplied headers with the same name. Attacker's `x-user: ADMIN` persists alongside the auth-injected header; backend may use the attacker's value depending on first-vs-last priority | Envoy with `ext_authz` filter; backend uses last-wins header priority |
+| **Go net/http trailing whitespace normalization (CVE-2019-16276)** | Go's `net/http` before 1.13.1 / 1.12.10 accepted headers with trailing whitespace before the colon (`x-user : ADMIN`). Go-based proxies (Traefik 1.7.7, Caddy) accepted the malformed header, stripped the trailing space during processing, and forwarded a valid `x-user: ADMIN`. An upstream gateway checking for `x-user` would not match `x-user ` (with space), failing to strip the attacker's value | Go-based proxy behind API gateway; Go runtime < 1.13.1 |
 
 ---
 
@@ -239,6 +247,7 @@ Misrouting through misconfigured proxy rules — the routing logic itself is the
 | **Overly broad proxy_pass** | `location /api/ { proxy_pass http://backend/; }` — request `/api/../admin` may normalize to `/admin` on backend | Nginx regex vs. prefix location matching ambiguity |
 | **Open proxy misconfiguration** | `<Proxy "*">` in Apache mod_proxy — allows CONNECT/GET to any host through the proxy | Apache misconfiguration; CONNECT method enabled |
 | **Regex capture group escape** | Proxy uses `location ~ /api/(.*)` and forwards `$1` to backend; attacker controls captured group content | Improper sanitization of regex-captured path components |
+| **Caddy `uri strip_prefix` absolute URI injection** | `route /prefix/* { uri strip_prefix /prefix/; reverse_proxy backend }` — request `GET /prefix/http://localhost/admin` becomes `GET http://localhost/admin` after prefix stripping. The backend receives an absolute URI, potentially interpreting the host component as the routing target instead of the original Host header | Caddy with `uri strip_prefix` directive; backend supporting absolute-form request targets |
 
 ### §7-2. Ingress Controller / Service Mesh Misrouting
 
@@ -296,6 +305,9 @@ Misrouting through misconfigured proxy rules — the routing logic itself is the
 | §2-1 (Host-based SSRF) | Yahoo Bug Bounty | $15,000. Routing-based SSRF via Host header manipulation |
 | §2-1 + §7-1 (Host SSRF + routing) | DoD networks (Cracking the Lens) | $30,000+. Systematic exploitation of reverse proxy misrouting across military infrastructure |
 | §7-1 (Nginx off-by-slash) | Multiple HackerOne reports | Path traversal via misconfigured Nginx alias directives |
+| §1-1 (path non-normalization) | CVE-2021-27306 (Kong) | Authentication bypass via path non-normalization in Kong API Gateway |
+| §1-1 (path non-normalization) | CVE-2019-9901 (Envoy < 1.9.1) | Access control bypass via unnormalized path; Envoy did not normalize by default |
+| §5-3 (header smuggling) | CVE-2019-16276 (Go net/http) | Header smuggling via trailing whitespace before colon; Go-based proxies (Traefik, Caddy) forwarded smuggled headers |
 
 ---
 
@@ -333,6 +345,7 @@ Misrouting through misconfigured proxy rules — the routing logic itself is the
 - James Kettle (PortSwigger): *Cracking the Lens: Targeting HTTP's Hidden Attack-Surface*, Black Hat USA 2017
 - James Kettle (PortSwigger): *Gotta Cache 'em All: Bending the Rules of Web Cache Exploitation*, Black Hat USA 2024
 - GrrrDog: *weird_proxies — Reverse Proxies Cheatsheet*, GitHub Wiki
+- GrrrDog: *Weird Proxies/2*, ZeroNights 2018+ — CDN/cloud normalization differentials, Caddy/Kong/Traefik/Envoy path handling, header smuggling via underscore/whitespace
 - Acunetix / Invicti: *A Fresh Look on Reverse Proxy Related Attacks*, 2021
 - ProjectDiscovery: *Abusing Reverse Proxies, Part 1: Metadata* and *Part 2: Internal Access*, 2023
 - Cloudflare: *Resolving a Request Smuggling Vulnerability in Pingora* (CVE-2025-4366), 2025

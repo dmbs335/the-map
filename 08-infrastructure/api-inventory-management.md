@@ -6,9 +6,9 @@
 
 API inventory management encompasses the systematic discovery, cataloging, tracking, and governance of all API endpoints across an organization's attack surface. This taxonomy organizes the entire management landscape along three orthogonal axes:
 
-1. **Discovery & Tracking Methods (§1-§6)** — The technical mechanisms used to identify and catalog APIs
-2. **API Inventory States (Table 1)** — The lifecycle and visibility status of discovered endpoints
-3. **Management Operations (§7)** — The governance activities performed on the inventory
+1. **Axis 1 — Discovery & Tracking Methods (§1-§6)** — The technical mechanisms used to identify and catalog APIs
+2. **Axis 2 — API Inventory States (Table 1)** — The lifecycle and visibility status of discovered endpoints
+3. **Axis 3 — Management Operations (§7)** — The governance activities performed on the inventory
 
 ### API Inventory States: Cross-Cutting Classification
 

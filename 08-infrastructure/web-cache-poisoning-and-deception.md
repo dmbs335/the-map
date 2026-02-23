@@ -11,6 +11,8 @@ Web cache attacks exploit **discrepancies** between how a **caching layer** (CDN
 
 Both attack families share the same root cause — **parser discrepancy between caching and serving components** — but differ in who generates the harmful content (attacker vs. victim) and the direction of information flow (attacker→victim vs. victim→attacker).
 
+WCD is not limited to authenticated pages or personal information. Public, unauthenticated pages frequently contain dynamically generated security tokens — CSRF tokens (37% of vulnerable sites), session identifiers (5%), OAuth state parameters (3%), and CSP nonces (1%) — that are equally valuable to attackers. Attacks targeting these tokens on public pages enable confused deputy attacks, session hijacking, Login CSRF, and CSP bypass without requiring victim authentication (Mirheidari et al., USENIX Security 2022 — 1188/10K sites vulnerable, 11.88%).
+
 ### Axis 1 — Mutation Target (Primary Structure)
 
 The taxonomy is organized by **what structural component of the HTTP request the attacker manipulates** to create the cache discrepancy. There are nine top-level categories:
@@ -26,7 +28,7 @@ The taxonomy is organized by **what structural component of the HTTP request the
 | 7 | Malformed Headers & Error Responses | Provoking cacheable error pages via oversized/invalid headers |
 | 8 | Framework & Application-Level Caches | Internal cache mechanisms, fragment caching, middleware bypass |
 | 9 | Client-Side & Browser Caches | Client-side desync, browser cache poisoning, service worker abuse |
-| 10 | CDN Forwarding Request Inconsistencies | HEAD→GET conversion, conditional/encoding header stripping causing amplification DoS |
+| 10 | CDN Forwarding Request Inconsistencies | HEAD→GET conversion, conditional/encoding header stripping causing amplification DoS; method/version/header/body forwarding inconsistencies causing CPDoS and WCP |
 
 ### Axis 2 — Discrepancy Type (Cross-Cutting)
 
@@ -70,7 +72,10 @@ The original web cache deception technique appends a static file extension to a 
 | **Dot-extension via delimiter** | `/account/profile;foo.css` — origin treats `;` as delimiter and serves `/account/profile`; cache sees `.css` and caches | Origin framework uses `;` as delimiter (e.g., Java Spring matrix variables) |
 | **Format extension stripping** | `/account/profile.css` — Ruby on Rails strips `.css` as format specifier and serves profile; cache caches as static CSS | Rails or similar framework that treats `.` as format delimiter |
 | **Null-byte truncation** | `/account/profile%00.js` — OpenLiteSpeed truncates at `%00`; cache sees `.js` extension | Origin server that treats encoded null byte as string terminator |
-| **Newline truncation** | `/account/profile%0a.css` — Nginx (in rewrite mode) truncates at `%0a`; cache sees `.css` | Nginx with specific rewrite configurations |
+| **Newline truncation** | `/account/profile%0a.css` — origin truncates at `%0a` (newline); cache sees `.css` extension and stores | General technique effective across many servers — not limited to Nginx rewrites; 44% of vulnerable sites used newline-based path confusion (Mirheidari et al. 2022) |
+| **Encoded fragment truncation** | `/account/profile%23nonexistent.css` — origin decodes `%23` to `#` and ignores fragment, serving `/account/profile`; cache sees `.css` extension in full URL and stores | Origin decodes `%23` to fragment delimiter before routing; cache does not decode before rule evaluation |
+| **Encoded slash confusion** | `/profile%2Fnot_a_file.css` — CDN treats `%2F` as literal path character and caches as `.css`; origin decodes to `/` creating new path segment, routing to `/profile` | CDN does not decode `%2F` before cache rule evaluation |
+| **Double-encoded delimiter confusion** | `/profile%25%33%46not_a_file.css` (double `?`), `%25%33%42` (`;`), `%25%32%33` (`#`), `%25%32%46` (`/`), `%25%30%41` (newline), `%25%30%30` (null) — CDN decodes one layer, still sees encoded delimiter as literal; origin decodes both layers, delimiter terminates/alters path | Multi-layer decoding: CDN performs single decode, origin performs double; 30–34% of vulnerable sites per technique (Mirheidari et al. 2022) |
 
 ### §1-2. Static Directory Rule Exploitation
 
@@ -143,7 +148,7 @@ Unkeyed header mutations exploit headers that **influence the origin server's re
 | **X-Forwarded-Host injection** | Attacker sends `X-Forwarded-Host: evil.com` — origin uses this header to generate absolute URLs in the response (meta tags, Open Graph, resource imports); cache stores response with attacker-controlled URLs | Origin reflects X-Forwarded-Host in response body; header is unkeyed |
 | **X-Host / X-Forwarded-Server** | Same mechanism via alternative forwarding headers; some frameworks check multiple host-related headers in priority order | Framework falls back to non-standard host headers |
 | **X-Original-URL / X-Rewrite-URL** | Origin uses these headers to override the request path entirely; attacker can make a cacheable URL return the response for a different path | IIS/ASP.NET or specific reverse proxy configurations |
-| **Duplicate Host header** | Two `Host` headers with different values — cache keys on one, origin routes on another | Proxy and origin disagree on which Host header to use |
+| **Duplicate Host header** | Two `Host` headers with different values — cache keys on one, origin routes on another. Nginx-specific: Nginx uses the 1st Host for virtual host routing but `fastcgi_pass` and `uwsgi_pass` receive the 2nd Host header value, enabling cache poisoning via attacker-controlled Host in the application response (password reset links, resource imports) | Proxy and origin disagree on which Host header to use; Nginx with `fastcgi_pass` or `uwsgi_pass` behind a cache that forwards duplicate Host headers |
 | **CDN-internal debug/pragma header** | CDN-specific internal headers (e.g., Akamai `Pragma: akamai-x-cache-on`, debug headers) are unkeyed and can alter origin or edge behavior — causing error responses, debug output, or altered content that gets cached. When the CDN's cache hierarchy propagates poisoned responses from a shared mid-tier cache to all edge nodes, a single poisoned request achieves **global** cache poisoning across every edge PoP simultaneously | CDN with unkeyed internal/debug headers; hierarchical cache architecture where edge nodes pull from shared parent cache (Tediosi, 2022 — all Akamai edge nodes poisoned via single request) |
 
 ### §3-2. Resource Import Poisoning
@@ -180,6 +185,12 @@ The `Vary` response header instructs caches to include additional request header
 |---------|-----------|---------------|
 | **Unkeyed cookie reflection** | Cookie value (e.g., language preference, tracking ID) is reflected in response body but excluded from cache key; attacker injects XSS via cookie | Application reflects cookie values in HTML; cache doesn't key on Cookie |
 | **Cookie-controlled routing** | Cookie determines A/B test variant or locale; cached variant served to all users regardless of their cookie | Cache ignores Cookie header; origin uses it for content determination |
+
+### §3-6. Range Header Smuggling
+
+| Subtype | Mechanism | Key Condition |
+|---------|-----------|---------------|
+| **Smuggled Range → cached partial response** | Cache proxy does not forward the `Range` header by default (e.g., Varnish). Attacker smuggles `Range` via HRS or header injection. Backend returns `206 Partial Content` with the attacker-specified byte range. Cache proxy sees a 2xx status and stores the partial response. Subsequent users receive only the selected portion of the body. Browsers render a single-range 206 identically to a 200 — same Content-Type, rendered inline — allowing the attacker to select a byte range that escapes the rendering context | Cache proxy strips Range but caches 2xx (including 206); backend supports Range; Range reachable via HRS or header injection |
 
 ---
 
@@ -299,6 +310,13 @@ Cache-Poisoned Denial of Service (CPDoS) attacks force the origin to generate an
 | **Header injection via CRLF** | Attacker injects `\r\nX-Injected: value` or `\r\n\r\n<html>malicious</html>` into a header — origin reflects injected headers/body; cache stores the split/modified response | Origin reflects header values without CRLF sanitization; cache stores full response |
 | **Set-Cookie injection** | CRLF injection adds `Set-Cookie: session=attacker` to cached response; all users receive attacker's session cookie | Same as above, targeting cookie headers |
 
+### §7-5. HTTP/2 CPDoS via Protocol Downgrade
+
+| Subtype | Mechanism | Key Condition |
+|---------|-----------|---------------|
+| **H2 meta-symbol header injection** | HTTP/2 binary framing permits characters in header names that are illegal in HTTP/1.1. After H2→H1 downgrade, these cause 400 errors on the backend. If the cache stores the error response, all subsequent users are denied service | H2 front-end → H1 backend; cache stores 4xx; front-end does not sanitize header names during downgrade |
+| **H2 oversized header expansion** | HPACK-compressed headers fit within H2 frame limits but expand beyond the backend's HTTP/1.1 header size limit after decompression. Backend returns 431; cache stores the error | H2 front-end with higher effective header limits than H1 backend; cache stores 4xx |
+
 ---
 
 ## §8. Framework & Application-Level Cache Mutations
@@ -389,6 +407,18 @@ CDNs modify client requests before forwarding them to origin servers — convert
 | **Missing CDN-Loop header** | Some CDNs do not implement the `CDN-Loop` header (RFC 8586), enabling attackers to chain multiple CDNs into forwarding loops that amplify requests exponentially | Target CDN does not add or check CDN-Loop; multiple CDNs can be chained |
 | **Range header stripping** | CDN removes the `Range` header; origin returns the full resource instead of the requested byte range, amplifying response size | CDN does not forward Range headers; 12 of 22 CDNs exhibited this behavior |
 
+### §10-5. Non-Amplification CDN Forwarding Inconsistencies
+
+Beyond DoS amplification, CDN forwarding request modifications create CPDoS, WCP, and smuggling vectors when the origin interprets the altered request differently than the client intended.
+
+| Subtype | Mechanism | Key Condition |
+|---------|-----------|---------------|
+| **Method conversion (non-standard → GET)** | CDN converts non-standard request methods (`LOCK`, `MERGE`, `MKACTIVITY`) to `GET` when forwarding, causing the origin to process an incorrect method even when it supports the original one — response content is returned unmodified, creating semantic mismatch between client intent and origin processing | CDN does not support the non-standard method; 2 of 22 CDNs (Aliyun, Qiniu Cloud) exhibited this behavior |
+| **HTTP version forwarding confusion** | CDN accepts non-standard HTTP versions (some allow 0.0–9.9) and normalizes them during forwarding — e.g., StackPath converts 0.0–0.9 to 0.9, Verizon converts 0.9/1.0 to 1.0. If the origin does not support the forwarded version, it returns 400/505 — enabling CPDoS if the error response is cached | CDN permits non-standard HTTP versions; origin rejects the forwarded version; error response is cacheable |
+| **Duplicate header semantic divergence** | CDNs handle duplicate headers with incompatible strategies: most forward all duplicates unchanged, but BunnyCDN merges values with semicolons (RFC violation), Google Cloud combines multiple `Host` headers with commas, and duplicate `Content-Length` handling varies (Aliyun/Fastly keep first, Tencent Cloud keeps last). Origin receiving RFC-violating merged values may return 4xx/5xx — CPDoS if cached | CDN applies non-standard duplicate header merging; origin cannot parse the merged value |
+| **Transfer-Encoding dechunking → pulse DoS** | CDNs that unchunk transfer-encoded data before forwarding (Aliyun, CDN77, Cloudflare, Gcore) buffer the entire chunked body. Attacker opens many connections, slowly sends large chunked payloads during connection lifetime, then terminates all simultaneously — the CDN forwards all buffered data to the origin at once, creating a concentrated bandwidth pulse | CDN dechunks before forwarding; attacker controls multiple concurrent connections |
+| **Fat request forwarding** | Most CDNs forward GET/HEAD request bodies unchanged to the origin (only Akamai and Azure strip them). Origins that reject bodies on GET/HEAD return 4xx — CPDoS if cached. Origins that accept them may process unintended parameters, enabling parameter override attacks | CDN does not strip message body from GET/HEAD; origin either rejects or processes the body |
+
 ---
 
 ## Attack Scenario Mapping (Axis 3)
@@ -404,6 +434,12 @@ CDNs modify client requests before forwarding them to origin servers — convert
 | **WAF/ACL Bypass** | WAF + origin with path confusion | §1 + §2 (path mutations) | Access control circumvention |
 | **Response Queue Hijack** | H2 front-end + H/1.1 back-end + cache | §9-2 (queue poisoning) | Cross-user data leakage |
 | **CDN Amplification DoS** | CDN stripping conditional/encoding headers + large origin resources | §10 (HeadAmp/CondAmp/AEAmp) | Origin server overload; up to 1,920,000× amplification |
+| **CDN Forwarding CPDoS** | CDN modifying method/version/headers during forwarding + cacheable error responses | §10-5 (method conversion, version confusion, duplicate header divergence, fat request forwarding) | CPDoS via cached 4xx/5xx; semantic mismatch between client intent and origin processing |
+| **CSRF Token Theft via WCD** | CDN + origin with CSRF tokens on public pages | §1 (path confusion) + §2 (normalization) | Confused deputy attack; attacker forges cross-site requests using victim's cached CSRF token. Most common WCD leak — 37% of vulnerable sites (Mirheidari et al. 2022) |
+| **CSP Nonce Theft via WCD** | CDN + origin with nonce-based CSP on cacheable pages | §1 (path confusion) | Attacker retrieves CDN-cached CSP nonce, bypasses Content-Security-Policy to inject inline scripts. Server-side CDN cache scenario distinct from browser disk cache nonce reuse (Mirheidari et al. 2022) |
+| **Login CSRF via OAuth State Theft** | CDN + origin with OAuth state on error/login pages | §1 (path confusion) | WCD caches page containing OAuth state parameter; attacker retrieves state and binds victim to attacker-controlled session via Login CSRF. Mozilla Thunderbird add-ons portal case (Mirheidari et al. 2022) |
+| **Reflected XSS → Stored XSS via WCD** | CDN with WCD + origin with reflected XSS | §1 (path confusion) + §3 (unkeyed headers) | WCD causes erroneous caching; reflected XSS payload (e.g., X-Forwarded-Host reflection) cached with response, escalating to stored XSS for all visitors. Payment processor case (Mirheidari et al. 2022) |
+| **Supply Chain WCD** | Shared SaaS vendor integration with WCD vulnerability | §1 (path confusion) | All customers integrating the vendor's platform inherit its WCD vulnerability. Single vendor caused 38% (456/1188) of all WCD findings in Alexa Top 10K — infrastructure misconfiguration propagation (Mirheidari et al. 2022) |
 
 ---
 
@@ -440,6 +476,21 @@ CDNs modify client requests before forwarding them to origin servers — convert
 | **Cache Deception Armor** (CDN Feature) | Defensive | WCD prevention (§1) | Cloudflare feature that validates the response Content-Type matches the cached extension |
 | **Varnish VCL** (Configuration) | Defensive | Cache key hardening (§3–§6) | Custom VCL rules to strip/normalize dangerous headers and parameters |
 | **REQSMINER** (Research) | Offensive/Research | CDN forwarding inconsistencies (§10) | UCT-based grammar fuzzing of CDN forwarding behavior; tested 22 CDNs, discovered 74 amplification DoS vulnerabilities |
+| **DE Methodology** (Research) | Offensive/Research | WCD detection at scale (§1) | Three-step detection: (1) dynamic content verification via page identicality, (2) WCD payload injection with randomized attack URLs, (3) cache MISS→HIT confirmation via header heuristics; no account or marker needed. Detected 1188 vulnerable sites in Alexa Top 10K (Mirheidari et al. USENIX Security 2022) |
+
+### Cache Status Header Reference
+
+| CDN / Cache | Header Name | Hit / Miss Values |
+|-------------|------------|-------------------|
+| Akamai | `X-Cache`, `server-timing` | `TCP_HIT` / `TCP_MISS`, `desc=HIT` / `desc=MISS` |
+| Cloudflare | `cf-cache-status` | `HIT` / `MISS` |
+| CloudFront | `x-cache` | `Hit from cloudfront` / `Miss from cloudfront` |
+| Fastly | `X-Cache` | `HIT` / `MISS` |
+| Google Cloud | `cdn_cache_status` | `hit` / `miss` |
+| Azure | `X-cache` | `TCP_HIT` / `TCP_MISS` |
+| Varnish | `X-Cache` | `HIT` / `MISS` |
+| Nginx | `X-Proxy-Cache` | `HIT` / `MISS` |
+| Squid | `X-Cache` | `HIT from *` / `MISS from *` |
 
 ---
 
@@ -461,6 +512,8 @@ Each fix addresses a specific mutation — stripping one header, blocking one de
 4. **Content-Type validation**: Verify that the response `Content-Type` matches the URL's implied type before caching (Cloudflare's Cache Deception Armor approach).
 5. **Sensitive endpoint protection**: Mark all authenticated/personalized responses with `Cache-Control: no-store, private` at the application layer, regardless of URL structure.
 
+**Caveat:** Cookie-based cache bypass (skip caching when session cookies are present) is insufficient for publicly accessible pages — unauthenticated requests carry no cookies, bypassing this defense entirely. Response-driven cacheability (`Cache-Control: no-store`) is more robust than cookie-presence checks (Mirheidari et al. 2022).
+
 ---
 
 ## References
@@ -469,10 +522,10 @@ Each fix addresses a specific mutation — stripping one header, blocking one de
 - PortSwigger Research — *Web Cache Entanglement: Novel Pathways to Poisoning* (2020): https://portswigger.net/research/web-cache-entanglement
 - PortSwigger Research — *Gotta Cache 'em All: Bending the Rules of Web Cache Exploitation* (2024): https://portswigger.net/research/gotta-cache-em-all
 - Mirheidari et al. — *Cached and Confused: Web Cache Deception in the Wild*, USENIX Security 2020
-- Mirheidari et al. — *Web Cache Deception Escalates!*, USENIX Security 2022
+- Mirheidari et al. — *Web Cache Deception Escalates!*, USENIX Security 2022 — Novel detection via page identicality + cache header heuristics; Alexa Top 10K: 1188 (11.88%) vulnerable; 37% leaked CSRF tokens, 5% session IDs, 3% OAuth state, 1% CSP nonces; demonstrated WCD on unauthenticated pages; supply chain propagation via shared SaaS vendors (456 sites from single vendor)
 - Guo et al. — *Internet's Invisible Enemy: Detecting and Measuring Web Cache Poisoning in the Wild*, ACM CCS 2024: https://dl.acm.org/doi/10.1145/3658644.3690361
 - Nguyen, Lo Iacono, Federrath — *Your Cache Has Fallen: Cache-Poisoned Denial-of-Service Attack*, ACM CCS 2019: https://cpdos.org/
-- Zheng, Li, Wang, Guo, Duan, Chen, Zhang, Shen — *REQSMINER: Automated Discovery of CDN Forwarding Request Inconsistencies and DoS Attacks with Grammar-based Fuzzing*, NDSS 2025: https://github.com/Konano/ReqsMiner
+- Zheng, Li, Wang, Guo, Duan, Chen, Zhang, Shen — *REQSMINER: Automated Discovery of CDN Forwarding Request Inconsistencies and DoS Attacks with Grammar-based Fuzzing*, NDSS 2024: https://github.com/Konano/ReqsMiner
 - Harel — *ChatGPT Account Takeover - Wildcard Web Cache Deception* (2024): https://nokline.github.io/bugbounty/2024/02/04/ChatGPT-ATO.html
 - zhero_web_security — *Next.js, Cache, and Chains: The Stale Elixir* (2024): https://zhero-web-sec.github.io/research-and-things/nextjs-cache-and-chains-the-stale-elixir
 - Berto et al. — *A Methodology for Web Cache Deception Vulnerability Discovery*, CLOSER 2024

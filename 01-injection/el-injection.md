@@ -371,6 +371,7 @@ Freemarker, Velocity, Thymeleaf unique exploitation.
 | §8-3 | CVE-2020-13942 (Apache Unomi) | CRITICAL. MVEL RCE in profile condition evaluation |
 | §5-3 + §8-2 | CVE-2017-5638 (Struts/Equifax) | CRITICAL. $50M+ data breach. OGNL injection via Content-Type header |
 | §4-1 + WAF bypass | Pulse Security Case Study | N/A. WAF bypass via ASCII character construction achieving RCE |
+| §1-3 + §3-2 | Nuxeo/JBoss Seam (Amazon, 2018) | Unauthenticated RCE via semicolon path parameter ACL bypass → Seam `actionMethod` double EL evaluation → blacklist bypass using array notation (`""["class"]` instead of `.getClass()`) |
 | §6-1 | PayPal Disclosure (Medium writeup) | Bug bounty. Internal information disclosure via implicit object access |
 
 ---

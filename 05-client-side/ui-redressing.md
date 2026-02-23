@@ -21,6 +21,7 @@ This taxonomy organizes the attack surface along three axes:
 | **Cross-origin rendering** | SVG filters/CSS applied to cross-origin iframe content | Same-Origin Policy (pixel-level) |
 | **Animation/transition abuse** | System UI animations exploited to overlay content | Android overlay detection (`FLAG_WINDOW_IS_OBSCURED`) |
 | **Extension DOM injection** | Manipulates UI elements injected by browser extensions into the page DOM | Page-level CSP, iframe protections |
+| **Non-iframe element framing** | `<object>`, `<embed>`, or `<portal>` embeds cross-origin page without using `<iframe>` | `<portal>` ignores XFO entirely (Securitum, 2019); `<object>`/`<embed>` alternative loading attributes may bypass XFO (Heyes, 2022); legacy frame-busting scripts |
 | **Sandbox attribute abuse** | HTML5 `sandbox` attribute disables frame-busting JavaScript | JavaScript-based frame busters |
 
 ### Fundamental Mechanism
@@ -72,6 +73,18 @@ When targets deploy JavaScript-based frame-busting code, attackers have multiple
 | **HTML5 sandbox attribute** | `<iframe sandbox="allow-forms allow-scripts">` disables top-level navigation, preventing `top.location` reassignment | Target relies on JavaScript frame-busting |
 | **Double-framing** | Embedding the victim iframe inside an intermediate frame; `parent.location` access triggers a security violation that silently fails | Target uses `parent.location` instead of `top.location` |
 | **`onBeforeUnload` cancellation** | Attacker page registers an `onbeforeunload` handler that prompts the user, potentially canceling the frame-buster's navigation | User clicks "Stay on Page" in the prompt |
+
+### §1-5. Non-Iframe Framing Vectors
+
+Alternative HTML elements that embed cross-origin pages without using `<iframe>` or `<frame>`. Note: modern browsers enforce `X-Frame-Options` for standard `<object data="...">` and `<embed src="...">` (the header covers `<frame>`, `<iframe>`, `<embed>`, and `<object>` per current browser implementations). However, alternative loading attributes discovered by Heyes (2022) may follow different code paths, and the experimental `<portal>` element is covered by neither XFO nor `frame-ancestors`.
+
+| Subtype | Mechanism | Key Condition |
+|---|---|---|
+| **`<object>` via `<param>` tag loading** | Chrome allows `<object><param name="url" value="https://target.com"></object>` to load a URL via `<param>` tags (also `name=code`, `name=movie`, `name=src`). While modern browsers enforce X-Frame-Options for standard `<object data="...">`, the `<param>`-based loading path may not trigger the same framing check — representing an alternative embedding vector (Heyes, 2022). JavaScript URLs do not work; data: URLs execute from null origin | Chrome; target accessible via `<param>` URL loading |
+| **`<embed>` via `code` attribute loading** | `<embed code="https://target.com">` uses the `code` attribute (distinct from standard `src`) to load content. Chrome and WebKit support this attribute, which follows a different loading path than `<embed src="...">` (Heyes, 2022) | Chrome or WebKit browser; `code` attribute supported |
+| **`<portal>` element embedding** | `<portal src="https://target.com">` (Chromium, experimental) provides a preview-style embedding surface for seamless page transitions. Portals ignore `X-Frame-Options` because embedded content is treated as a top-level browsing context rather than a frame (Bentkowski / Securitum, 2019; $10K bounty). CSP `frame-ancestors` also does not cover `<portal>` (the directive only specifies `<frame>`, `<iframe>`, `<object>`, `<embed>` per spec). Portal activation navigates the top-level context to the embedded page | Chromium with portal support enabled; target lacks additional clickjacking defenses beyond XFO/frame-ancestors |
+
+**Key distinctions:** (1) Modern browsers enforce `X-Frame-Options` for standard `<object data="">` and `<embed src="">` — the blanket claim that XFO "does not cover" these elements is outdated per RFC 7034 era. The Heyes 2022 research discovered alternative loading attributes (`<param>` tags, `code` attribute) that may circumvent XFO enforcement via different browser code paths. (2) Both `X-Frame-Options` and `CSP frame-ancestors` cover standard `<object>`/`<embed>` embedding in modern browsers. (3) The `<portal>` element is covered by neither XFO nor `frame-ancestors` (Securitum, 2019). Sites should deploy `Content-Security-Policy: frame-ancestors` as defense-in-depth.
 
 ---
 
@@ -403,6 +416,7 @@ Until browsers implement a universal "verified intent" primitive — analogous t
 - renwa: "The Underrated Bugs, Clickjacking, CSS Injection, Drag-Drop XSS, Cookie Bomb..." (2022) — Unified argument for the combined significance of systematically undervalued vulnerability classes
 - RenwaX23, "PermissionJacking Safari" (August 2025) — Clickjacking Safari TCC permission prompts via unfocused window interaction. https://github.com/RenwaX23/X/blob/master/safari_bug.md
 - Alberto F. de la Rosa, "Permission Hijacking at Scale" (2025) — Third-party support widget compromise for delegated browser permission inheritance at scale. https://albertofdr.github.io/post/permission-hijacking-2025/
+- Gareth Heyes (PortSwigger Research), "Framing without iframes" (2022) — Non-iframe embedding via `<object>`, `<embed>`, and `<portal>` elements that bypass X-Frame-Options. https://portswigger.net/research/framing-without-iframes
 
 ---
 

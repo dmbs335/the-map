@@ -62,6 +62,7 @@ Each topic is a deeply structured Markdown reference document covering the full 
 | [**Protocol-Level WAF Bypass**](03-http-protocol/http-parsing-discrepancy/protocol-level-waf-bypass.md) | Protocol-level WAF evasion via HTTP parsing differentials |
 | [**HTTP Censorship Bypass**](03-http-protocol/http-parsing-discrepancy/http-censorship-bypass.md) | HTTP-based censorship circumvention techniques |
 | [**HTTP/3 QUIC Protocol Smuggling**](03-http-protocol/http-parsing-discrepancy/http3-quic-protocol-smuggling.md) | HTTP/3 and QUIC protocol-level smuggling and parsing differentials |
+| [**TLS/SSL Security**](03-http-protocol/tls-security.md) | TLS/SSL mutation taxonomy, downgrade attacks, and certificate validation bypass |
 
 ### 04. Server-Side Attacks
 | Category | Description |
@@ -71,15 +72,12 @@ Each topic is a deeply structured Markdown reference document covering the full 
 | [**File Upload**](04-server-side/file-upload.md) | File upload restriction bypass mutations and content-type confusion |
 | [**Deserialization**](04-server-side/deserialization.md) | Deserialization gadget chains, format-specific attacks, and bypass taxonomy |
 | [**JNDI Injection**](04-server-side/jndi-injection.md) | JNDI lookup exploitation (Log4Shell class) and remote class loading |
-| [**RMI**](99-deprecated/rmi.md) | Java Remote Method Invocation attack surface and registry abuse |
 | [**JDBC Attack**](04-server-side/jdbc-attack.md) | JDBC connection string injection and driver-specific exploitation |
 | [**JAAS Attack**](04-server-side/jaas-attack.md) | Java Authentication & Authorization Service bypass patterns |
 | [**Email Smuggling**](04-server-side/email-smuggling-and-parser-abuse.md) | Email header injection, SMTP smuggling, and parser abuse |
 | [**File Download**](04-server-side/file-download.md) | Arbitrary file download, forced download, and file access control bypass |
 | [**Arbitrary File Write → RCE**](04-server-side/arbitrary-file-write-to-rce.md) | Cross-platform arbitrary file write to RCE chain taxonomy |
 | [**Document & Media Processing RCE**](04-server-side/document-media-processing-library-rce.md) | Document/media processing library exploitation (ImageMagick, Ghostscript, etc.) |
-| [**JMX Attack**](99-deprecated/jmx-attack.md) | Java Management Extensions attack surface and MBean abuse |
-| [**HTTP Pipelining Attack**](99-deprecated/http-pipelining-attack.md) | HTTP pipelining abuse, response queue poisoning, and desync attacks |
 | [**Arbitrary Object Instantiation**](04-server-side/arbitrary-object-instantiation.md) | Arbitrary object instantiation and class loading exploitation |
 
 ### 05. Client-Side & UI
@@ -96,8 +94,6 @@ Each topic is a deeply structured Markdown reference document covering the full 
 | [**XS-Leak**](05-client-side/xs-leak.md) | Cross-site leak attacks and timing side-channels |
 | [**Mutation XSS (mXSS)**](05-client-side/mutation-xss.md) | DOM mutation-based XSS via sanitizer/parser differentials |
 | [**Universal XSS (uXSS)**](05-client-side/universal-xss.md) | Browser-level universal XSS vulnerabilities |
-| [**Cross-Site Script Inclusion (XSSI)**](99-deprecated/cross-site-script-inclusion.md) | Cross-site script inclusion and JSONP data theft |
-| [**Relative Path Overwrite (RPO)**](99-deprecated/rpo.md) | Relative path overwrite for stylesheet injection and content hijacking |
 | [**Desktop & Hybrid App Security**](05-client-side/desktop-hybrid-app-security.md) | Electron, CEF, and desktop/hybrid application security |
 
 ### 06. Encoding & Parser Differential
@@ -129,6 +125,7 @@ Each topic is a deeply structured Markdown reference document covering the full 
 | [**Container & Orchestration RCE**](08-infrastructure/container-orchestration-infrastructure-rce.md) | Container escape, Kubernetes exploitation, and orchestration infrastructure RCE |
 | [**Developer Toolchain & Build System RCE**](08-infrastructure/developer-toolchain-build-system-rce.md) | Build tool, IDE plugin, and developer toolchain exploitation for RCE |
 | [**Secondary Context Attack**](08-infrastructure/secondary-context-attack.md) | Cross-context injection and inter-component trust abuse |
+| [**Insecure Management Interface**](08-infrastructure/insecure-management-interface.md) | Exposed admin panels, management interface exploitation, and default credential abuse |
 
 ### 09. Frameworks & Languages
 | Category | Description |
@@ -142,6 +139,8 @@ Each topic is a deeply structured Markdown reference document covering the full 
 | [**Next.js**](09-frameworks-and-languages/nextjs.md) | Next.js SSR/SSG security patterns and middleware bypass |
 | [**Modern JS Frameworks**](09-frameworks-and-languages/modern-js-frameworks.md) | React, Angular, Vue security patterns and SSR vulnerabilities |
 | [**ORM Leak**](09-frameworks-and-languages/orm-leak.md) | ORM information leakage and query manipulation patterns |
+| [**Java**](09-frameworks-and-languages/java.md) | Java standard library security — JDK core package attack surfaces and language-level design flaws |
+| [**Node.js**](09-frameworks-and-languages/nodejs.md) | Node.js runtime security — event loop, native module, and runtime-specific vulnerabilities |
 
 ### 10. Recon & Methodology
 | Category | Description |
@@ -157,6 +156,9 @@ Each topic is a deeply structured Markdown reference document covering the full 
 | [**Orange Tsai**](11-researchers/orange-tsai.md) | Advanced web exploitation and novel attack chains |
 | [**Frans Rosén**](11-researchers/frans-rosen.md) | Browser security and innovative client-side attacks |
 | [**Soroush Dalili**](11-researchers/soroush-dalili.md) | IIS exploitation and web application security research |
+| [**Ben Sadeghipour**](11-researchers/ben-sadeghipour.md) | Bug bounty methodology, recon techniques, and live hacking |
+| [**Harsh Jaiswal & Rahul Maini**](11-researchers/harsh-jaiswal-rahul-maini.md) | Pre-auth RCE, server-side exploitation chains, and Electron security |
+| [**Ron Chan**](11-researchers/ron-chan.md) | Bug bounty research techniques and web vulnerability discovery |
 
 ### 12. Product Security
 | Category | Description |
@@ -177,6 +179,17 @@ Each topic is a deeply structured Markdown reference document covering the full 
 | [**DNS Web Security**](13-misc/dns-web-security.md) | DNS rebinding, subdomain takeover, and resolver abuse |
 | [**Dynamic Rendering Engine Exploitation**](13-misc/dynamic-rendering-engine-exploitation.md) | Headless browser and dynamic rendering engine exploitation |
 | [**CTF Exotic Tricks**](13-misc/ctf-exotic-tricks.md) | Unconventional exploitation techniques from CTF competitions |
+| [**Web Memory Disclosure**](13-misc/web-memory-disclosure.md) | Web application memory disclosure via buffer over-read, uninitialized memory, and heap spraying |
+
+### 99. Deprecated
+| Category | Description |
+|---|---|
+| [**RMI**](99-deprecated/rmi.md) | Java Remote Method Invocation attack surface and registry abuse |
+| [**JMX Attack**](99-deprecated/jmx-attack.md) | Java Management Extensions attack surface and MBean abuse |
+| [**HTTP Pipelining Attack**](99-deprecated/http-pipelining-attack.md) | HTTP pipelining abuse, response queue poisoning, and desync attacks |
+| [**Cross-Site Script Inclusion (XSSI)**](99-deprecated/cross-site-script-inclusion.md) | Cross-site script inclusion and JSONP data theft |
+| [**Relative Path Overwrite (RPO)**](99-deprecated/rpo.md) | Relative path overwrite for stylesheet injection and content hijacking |
+| [**NAT Slipstreaming**](99-deprecated/nat-slipstreaming.md) | NAT slipstreaming via browser-based protocol confusion |
 
 ### Artifact Examples
 | Category | Description |
@@ -231,19 +244,20 @@ Every document in this repository was researched and synthesized using **Claude 
 the-map/
   ├── 01-injection/              # Injection attacks (16 topics)
   ├── 02-auth/                   # Authentication & Authorization (9 topics)
-  ├── 03-http-protocol/          # HTTP & Protocol Layer attacks (9 topics)
+  ├── 03-http-protocol/          # HTTP & Protocol Layer attacks (10 topics)
   │   └── http-parsing-discrepancy/  # HTTP parsing differential sub-category
-  ├── 04-server-side/            # Server-side vulnerabilities (15 topics)
-  ├── 05-client-side/            # Client-side & Browser attacks (14 topics)
+  ├── 04-server-side/            # Server-side vulnerabilities (12 topics)
+  ├── 05-client-side/            # Client-side & Browser attacks (12 topics)
   ├── 06-encoding-parser/        # Encoding & Parser differentials (4 topics)
   ├── 07-application-logic/      # Business logic vulnerabilities (6 topics)
-  ├── 08-infrastructure/         # Infrastructure & Supply Chain (8 topics)
-  ├── 09-frameworks-and-languages/  # Framework & Language-specific (9 topics)
+  ├── 08-infrastructure/         # Infrastructure & Supply Chain (9 topics)
+  ├── 09-frameworks-and-languages/  # Framework & Language-specific (11 topics)
   ├── 10-recon-methodology/      # Reconnaissance & Methodology (3 topics)
-  ├── 11-researchers/            # Security researcher case studies (4 topics)
+  ├── 11-researchers/            # Security researcher case studies (7 topics)
   ├── 12-product-security/       # Product-specific security (7 topics)
   ├── 13-misc/                   # Miscellaneous (6 topics)
-  ├── skills/                    # Claude Code skill definitions (9 skills)
+  ├── 99-deprecated/             # Deprecated topics (6 topics)
+  ├── skills/                    # Claude Code skill definitions (10 skills)
   ├── artifact-examples/         # Generated tooling examples & visualizations
   └── README.md
 ```

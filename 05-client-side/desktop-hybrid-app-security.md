@@ -276,6 +276,22 @@ Desktop hybrid apps have uniquely deep supply chains: npm/crate ecosystems for a
 
 ---
 
+## §8. Embedded Terminal Exploitation
+
+Hybrid desktop IDEs (VS Code, Cursor, Windsurf) embed full terminal emulators within the Electron renderer process. The terminal layer interprets raw byte sequences — including ASCII control characters originally designed for serial communication — as interactive editing commands, creating a semantic gap between what the user sees and what the shell executes.
+
+### §8-1. Terminal Control Character Injection
+
+ASCII control characters (SOH `\x01`, ETX `\x03`, EOT `\x04`, CR `\x0d`) were designed for serial line control but are reinterpreted by Readline-based terminals as editing shortcuts. When these characters appear in data that reaches the integrated terminal — via run configurations, filenames, or clipboard paste — the terminal processes them as keyboard input rather than literal text.
+
+| Subtype | Mechanism | Violation | Key Condition |
+|---------|-----------|-----------|---------------|
+| **Run configuration argument injection** | VS Code launch configuration files (`.vscode/launch.json`) with embedded control characters in `args` fields; terminal interprets `\x01` (Ctrl+A = move cursor to beginning), `\x0d` (Enter = execute), `\x03` (Ctrl+C = interrupt) as editing commands, enabling command reconstruction | V6, V1 | Workspace contains attacker-controlled run configuration; user executes the configuration |
+| **Drag-and-drop filename injection** | File with control characters embedded in its filename is dragged into the integrated terminal; terminal emits the filename including control bytes, which Readline interprets as cursor movement and execution shortcuts | V6, V1 | User drags a maliciously-named file into the VS Code terminal; macOS/Linux filesystems permit control characters in filenames |
+| **Terminal command reconstruction** | Attacker combines `\x01` (move to line start) with printable characters and `\x0d` (execute) to overwrite the visible command with a malicious one, then execute it before the user can react | V6 | Terminal uses Readline or compatible line editor that processes inline control characters |
+
+Platform impact varies: macOS and Ubuntu are fully vulnerable because their filesystems allow control characters in filenames and Bash/Zsh use Readline. Windows is partially mitigated by NTFS filename restrictions and PowerShell's non-Readline input handling, though run configuration injection remains viable.
+
 ---
 
 ## Attack Scenario Mapping (Axis 3)
@@ -289,6 +305,7 @@ Desktop hybrid apps have uniquely deep supply chains: npm/crate ecosystems for a
 | **W4: ASAR Persistence** | Local attacker + unvalidated ASAR | §4-1 |
 | **W6: Supply Chain RCE** | npm compromise → Electron app infection | §7-1 |
 | **W1: IPC Escalation** | XSS + overprivileged IPC handler | §1-1 + §2-1 |
+| **W1: Terminal Control Char → RCE** | VS Code terminal + malicious filename or run config | §8-1 |
 
 ---
 
@@ -307,6 +324,7 @@ Desktop hybrid apps have uniquely deep supply chains: npm/crate ecosystems for a
 | §4-1 (ASAR persistence) | Slack ASAR injection (pentest case) | Persistence via PowerShell payload in `electron.asar` |
 | §1 + §2 + §7-2 (IPC XSS → context isolation bypass → Chromium N-day chain) | Pwn2Own Vancouver 2023 — Microsoft Teams (Masato Kinugawa) | Full RCE via 3-bug chain: XSS in chat message → Electron context isolation bypass → sandbox escape via Chromium vulnerability |
 | §1-3 (Tauri scope bypass) | GHSA-q9wv-22m9-vhqh (Tauri) | Filesystem scope partially bypassable via special character escaping |
+| §8-1 (Terminal control char injection) | No CVE assigned (MSRC declined; workspace trust + user interaction) | RCE on macOS/Ubuntu via ASCII control characters in filenames or run configurations; Windows partially mitigated |
 
 ---
 
@@ -399,6 +417,7 @@ The most dangerous misconception in desktop hybrid app security is that **deskto
 - Wojciech Regula — Abusing Electron Apps on macOS: https://wojciechregula.blog/post/abusing-electron-apps-to-bypass-macos-security-controls/
 - Microsoft — Develop Secure WebView2 Apps: https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/security
 - "ElectroVolt — Pwning Popular Desktop Apps" (2022) — Systematic Electron exploitation techniques demonstrated against popular desktop applications
+- Gareth Heyes (PortSwigger Research) — "Drag and Pwnd: Leverage ASCII characters to exploit VS Code" (2025): https://portswigger.net/research/drag-and-pwnd-leverage-ascii-characters-to-exploit-vs-code
 
 ---
 

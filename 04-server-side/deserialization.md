@@ -201,6 +201,7 @@ Different serialization formats have distinct security properties. This section 
 | **Python Pickle Protocol** | Stack-based VM that can execute arbitrary Python functions during deserialization via `__reduce__`; security by design is impossible — any pickle from untrusted source is exploitable | `pickle.loads()` on untrusted data, any Python version |
 | **Ruby Marshal** | Binary format that reconstructs arbitrary Ruby objects; `Marshal.load()` on untrusted data enables RCE via gadget chains in loaded libraries | `Marshal.load()` on untrusted data |
 | **PHP serialize/unserialize** | Text-based but structurally binary format encoding type, length, and value; `unserialize()` triggers `__wakeup()` and `__destruct()` on reconstructed objects | `unserialize()` on untrusted data |
+| **Hessian (Java)** | Caucho's binary serialization format used by Spring Remoting, Apache Dubbo, and Caucho Resin. During `HashMap` reconstruction, the deserializer invokes `equals()`/`hashCode()` on attacker-controlled keys, triggering gadget chains through type confusion — distinct from `ObjectInputStream` because the entry point is map reconstruction rather than `readObject()` callbacks | Application exposes Hessian endpoint (e.g., `HessianServlet`, Dubbo RPC); gadget libraries on classpath (Spring AOP, ROME, commons-beanutils) |
 
 **Payload — Python Pickle RCE (minimal):**
 ```python

@@ -536,7 +536,7 @@ Targets that exploit browser or desktop application configuration for indirect c
 | §8-1 Git hooks via symlink | CVE-2025-48384 (Git) | RCE on clone; CISA KEV listed |
 | §8-1 Git hooks via CR injection | CVE-2025-48385 (Git) | Post-checkout hook execution |
 | §10-1 runc symlink race | CVE-2025-31133, CVE-2025-52565, CVE-2025-52881 (runc) | Container escape in Docker/K8s |
-| §10-1 Docker Compose path traversal | CVE-2025-xxxxx (Docker Compose < 2.40.2) | CVSS 8.9; arbitrary host file write |
+| §10-1 Docker Compose path traversal | CVE-2025-62725 (Docker Compose < 2.40.2) | CVSS 8.9; arbitrary host file write |
 | §3-1 .htaccess + path traversal | CVE-2024-46986 (Camaleon CMS) | Authenticated AFW→RCE |
 | §9-2 Ansible playbook write | CVE-2024-40629 (JumpServer) | RCE in Celery container as root |
 | §4-3 node-tar symlink | CVE-2021-37701, CVE-2021-37712 (node-tar) | Arbitrary file write + code execution |

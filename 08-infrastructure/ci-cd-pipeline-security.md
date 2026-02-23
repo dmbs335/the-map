@@ -275,6 +275,16 @@ CI/CD jobs execute on runners, agents, or build nodes. Compromising the executio
 | **Tool Binary Replacement** | Replace legitimate build tools (git, npm, docker) with trojanized versions | Tools installed from untrusted sources or writable locations |
 | **Compiler Backdoor** | Compromise compiler to inject backdoors into all compiled code | Compiler from untrusted source (supply chain attack) |
 
+### §7-3. Compile-Time Code Execution (Jenkins Groovy Meta-Programming)
+
+Jenkins validates Pipeline scripts via `GroovyClassLoader.parseClass()` for syntax checking, assuming AST parsing is safe without execution. However, Groovy's compile-time meta-programming features execute code during the parsing phase itself — before runtime sandboxes (Script Security Plugin) apply.
+
+| Subtype | Mechanism | Key Condition |
+|---------|-----------|---------------|
+| **@Grab/@GrabResolver dependency injection** | `@GrabResolver` redirects Grape's dependency source to an attacker-controlled Maven repository; `@Grab` downloads a malicious JAR during compile-time. The JAR's `META-INF/services/org.codehaus.groovy.plugins.Runners` entry auto-instantiates classes via `newInstance()`, executing the constructor as arbitrary code | CVE-2019-1003000; Jenkins Pipeline with Groovy CPS plugin; unauthenticated access to `/descriptorByName/.../checkScriptCompile` endpoint |
+| **@ASTTest annotation execution** | `@ASTTest` runs arbitrary Groovy assertions during the AST transformation phase of compilation, before any Script Security sandbox evaluation occurs | Groovy AST transformation hooks enabled; Pipeline script validation endpoint accessible |
+| **Stapler dynamic routing ACL bypass** | Jenkins' Stapler framework matches URL path tokens to public class methods recursively. `Object.getClass()` is accessible on all objects, enabling traversal from whitelisted paths (e.g., `/securityRealm/`) to arbitrary Descriptor endpoints — even when `ANONYMOUS_READ=false` | Jenkins with anonymous access disabled; Stapler routing not restricted to declared web methods |
+
 ---
 
 ## §8. Integration & Extension Layer
@@ -362,6 +372,7 @@ Real-world incidents demonstrating taxonomy categories.
 | §1-1 + §2-1 | CVE-2024-5655, 9164, 6678 (GitLab) | Trigger pipelines as other users, arbitrary branch execution (CVSS 9.6-9.9) | 2024 |
 | §4-1 | NX Package npm Compromise | NPM token harvesting during package execution | Aug 2025 |
 | §5-2 + §1-1 | OIDC Misconfigurations (OH-MY-DC) | Privilege escalation via OIDC + PPE (DEF CON 32) | Aug 2024 |
+| §7-3 | CVE-2019-1003000 (Jenkins Pipeline Groovy) | Pre-auth RCE via @Grab/@GrabResolver compile-time code execution. Bypasses Script Security Plugin entirely — code runs during parse phase, not runtime | 2019 |
 
 ---
 

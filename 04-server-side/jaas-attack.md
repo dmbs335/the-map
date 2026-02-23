@@ -12,6 +12,12 @@ JAAS is Java's pluggable authentication and authorization framework. Application
 
 The fundamental attack surface arises because **JAAS configuration externalizes class loading decisions**: which LoginModule is instantiated, what options it receives, and how its results are interpreted are all determined by configuration that may be influenced by semi-trusted users. When an attacker controls any part of this configuration chain — the LoginModule class name, its options, or the CallbackHandler — they can redirect authentication to trigger JNDI lookups, deserialize untrusted data, or chain multiple modules for file write + code execution.
 
+This taxonomy organizes the JAAS attack surface along three axes:
+
+1. **Axis 1 — Mutation Target (§1-§3)** — Which JAAS component is attacked: configuration injection (§1), LoginModule-specific chains (§2), or CallbackHandler exploitation (§3)
+2. **Axis 2 — Exploitation Mechanism** — The underlying vulnerability class leveraged: JNDI injection, deserialization, file write, credential interception
+3. **Axis 3 — Attack Scenario** — Real-world impact context: RCE, authentication bypass, credential theft, privilege escalation
+
 This taxonomy is based on the attack surface analysis presented at **Black Hat Europe 2024**: *"A Novel Attack Surface: Java Authentication and Authorization Service (JAAS)"*.
 
 ---

@@ -189,6 +189,7 @@ Different HTTP servers and frameworks use different characters as path delimiter
 | Subtype | Mechanism | Example | Key Condition |
 |---|---|---|---|
 | **Semicolon Delimiter (Java/Spring)** | Semicolons denote matrix parameters in Java frameworks; stripped by framework but included in cache key | `/admin/panel;.css` | Cache sees `.css` extension → caches; origin sees `/admin/panel` |
+| **Colon Path Stripping** | Custom Java frameworks strip `:` from path segments during routing; auth filter matches against the colon-containing raw URI and fails to trigger protection rules | `/admin:x/info` → routes to `/admin/info` | Custom routing framework with colon removal logic |
 | **Question Mark in Path** | `?` terminates the path component; but mod_proxy may forward it as part of filename | `/cgi-bin%3f.php` | Apache mod_proxy filename confusion (CVE-2024-38475) |
 | **Hash/Fragment in Server Path** | Server-side parsers may interpret `#` differently from clients (clients never send fragment) | URL validated with `#` to truncate the visible host | Validation parser processes fragment; fetcher ignores it |
 | **Null Byte Truncation** | `%00` terminates path in C-based parsers but not in higher-level languages | `/admin/secret%00.jpg` | C-based server truncates; app framework doesn't |

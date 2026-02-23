@@ -429,6 +429,7 @@ E2EE in web applications (messaging, cloud storage, collaboration tools) introdu
 | §3-2 (MD5 collision) | CVE-2024-3596 (BlastRADIUS) | RADIUS Response-Authenticator forgery via MD5 chosen-prefix collision. |
 | §3-4 (bcrypt truncation) | Okta incident (Oct 2024) | Cache key collision via bcrypt 72-byte truncation. Authentication bypass for passwords >72 bytes. |
 | §9-2 (E2EE implementation) | ETH Zurich (2024) | Sync, pCloud, Icedrive, Seafile: unauthenticated keys, fixed IVs, file injection. |
+| §1-2 (CBC padding oracle) | CVE-2021-31196 (Microsoft Exchange) | ProxyOracle: AES-CBC padding oracle on Exchange FBA cookies. Chained with reflected XSS (CVE-2021-31195) to steal HttpOnly cookies via SSRF redirect, then offline decryption recovers plaintext credentials. First 12 bytes predictable (`Basic ` in UTF-16), eliminating IV recovery. |
 
 ---
 

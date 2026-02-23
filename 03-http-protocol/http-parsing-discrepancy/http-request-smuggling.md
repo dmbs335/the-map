@@ -195,10 +195,10 @@ These attacks exploit the H2 *frame sequence grammar* rather than individual hea
 |---|---|---|
 | **Missing END_STREAM flag** | 25 | H2 requests sent without END_STREAM cause proxies to misinterpret stream completion — some wait indefinitely, others forward incomplete requests, others synthesize spurious content |
 | **No Mutation Filter** | 30 | Proxies that pass through malformed H2 frame fields (invalid pseudo-headers, illegal characters) without filtering — the downstream HTTP/1.1 parser encounters values the H2 layer should have rejected |
-| **No Mismatch Check** | 3 | Proxies that fail to validate consistency between H2 frame length and CL/TE headers, directly enabling H2.CL and H2.TE variants |
+| **No Mismatch Check** | 3 | Proxies that fail to validate consistency between H2 frame fields and HTTP/1 semantics. Includes CL/TE mismatch (enabling H2.CL and H2.TE variants) and the more severe case where OpenLiteSpeed converts non-empty DATA frames to HTTP/1 body without adding any Content-Length or Transfer-Encoding header — the upstream server sees headers end and treats the body as the next HTTP/1 request, guaranteeing HRS with any upstream |
 | **Mixed :authority and Host** | 1 | When both the `:authority` pseudo-header and the `Host` header are present with different values, proxies disagree on which to use for downstream routing — some prefer `:authority`, others prefer `Host`, creating host-header-based smuggling |
 | **Flawed Duplicate Validation** | 6 | OpenLiteSpeed's duplicate header validation flaw: specific duplicate pseudo-header combinations bypass validation and produce malformed HTTP/1.1 output |
-| **Pad Length Overflow** | 1 | Akamai-specific: oversized DATA frame padding length overflows internal buffers during H2→H1 conversion |
+| **Pad Length Overflow** | 1 | Akamai-specific: each padded DATA frame's payload is converted to one chunk in the HTTP/1 body, but the first byte of each chunk is set to the pad-length field value instead of the actual data — the entire request body can be reconstructed from pad-length fields rather than DATA payload, enabling WAF/censor bypass since the inspected H2 DATA contains innocuous bytes while the upstream HTTP/1 body carries the real payload |
 
 **Single-Packet H2 Tunneling.** The single-packet attack technique (originally developed for web race conditions) can be combined with H2→H1 downgrade desync to achieve high-reliability request tunneling. By coalescing multiple smuggled requests into a single TCP packet via HTTP/2 stream multiplexing, the attacker eliminates timing jitter between the front-end's H2 parsing and the back-end's H1 parsing — making desync-powered request tunneling as reliable as local exploitation. This synergy between race condition delivery mechanics and protocol-level desync converts theoretical H2 tunneling attacks into practical exploitation primitives.
 
@@ -570,6 +570,20 @@ Mutations in the request line (method, URI, HTTP version) and method-body associ
 
 
 
+### §7-1. TRACE Method Desync
+
+The HTTP TRACE method is defined to echo the received request back in the response body. While typically considered a low-risk information disclosure, TRACE creates a unique desync exploitation primitive when combined with request smuggling: the reflected headers become attacker-controlled response content.
+
+| Technique | Mechanism | Key Condition |
+|---|---|---|
+| **TRACE header reflection** | TRACE reflects the full request headers in the response body by default — attacker smuggles a TRACE request via any framing desync (§1) → backend reflects injected headers as response content | Apache (TRACE enabled by default), IIS, Tomcat — any server with TRACE enabled |
+| **Response smuggling via TRACE** | Reflected data from the smuggled TRACE request is concatenated with legitimate responses via response queue poisoning (Axis 3) → cache stores attacker-controlled content (e.g., malicious JavaScript) as a cached response for a legitimate URL | Requires TRACE + any framing desync + cache or shared connection |
+| **Response splitting via TRACE reflection** | Line breaks (`\r\n`) in injected headers survive TRACE reflection → reflected content contains valid HTTP response delimiters → attacker crafts arbitrary HTTP responses within the reflected body | Requires the reflected headers to preserve CRLF sequences and a downstream agent that parses the reflected content as HTTP |
+
+TRACE desync converts a traditionally low-severity method into a high-impact smuggling primitive because it provides a server-native mechanism to transform *request* content into *response* content — bridging the gap between request smuggling and response smuggling without requiring a separate response injection vulnerability.
+
+
+
 ---
 
 
@@ -793,6 +807,7 @@ Host: vulnerable.com\r\n
 | **h2cSmuggler** | H2C tunneling | Clear-text HTTP/2 upgrade automation |
 | **http2smugl** | HTTP/2 request smuggling | H2→H1 downgrade desync detection |
 | **Turbo Intruder** (Burp extension) | Timing / race-based | Pause-based desync, 0.CL exploit scripts (`0cl-find-offset`, `0cl-poc`, `0cl-exploit`), single-packet race conditions |
+| **HTTP Anomaly Rank** (Burp Suite 2025.10+, Turbo Intruder) | Large-scale HTTP response analysis | Statistical anomaly scoring: calculates response attributes (status code, content-type, word count, CRC32) with stability weighting — attributes that rarely change get low weight, frequently varying attributes get high weight. O(N) complexity enables efficient processing of large-scale smuggling detection results |
 | **DesyncCL0** | Client-side desync (CSD) | CL.0 browser-powered desync detection |
 
 ### Defensive Tools
@@ -856,6 +871,7 @@ Six years of individual patches and regex-based defenses block only **known muta
 - Martin Doyhenard — *Response Smuggling: Pwning HTTP/1.1 Connections* (DEF CON 29, 2021). Systematic exploitation of HTTP/1.1 response queues via crafted request sequences; demonstrated session hijacking, DoS, and cross-user response capture through response pipeline desynchronization.
 - James Kettle — *Browser-Powered Desync Attacks: A New Frontier in HTTP Request Smuggling* (Black Hat USA 2022 / DEF CON 30). Client-Side Desync (CSD), Pause-based desync, CL.0. Compromised Amazon, Apache, Akamai, Varnish, web VPNs. Introduced browser connection pool poisoning and desync worms.
 - James Kettle — *HTTP/1.1 Must Die: The Desync Endgame* (Black Hat USA 2025 / DEF CON 33). 0.CL with Early Response Gadgets, double-desync (0.CL→CL.0 conversion), Expect-based desync (vanilla and obfuscated), V-H/H-V discrepancy detection methodology, HTTP Request Smuggler v3.0. $350K+ bounties across Akamai (CVE-2025-32094, ~$221K / 74 bounties / 65-day patch), Cloudflare (24M websites, $7K), Netlify, T-Mobile ($12K), GitLab ($7K), LastPass ($5K), EXNESS ($7.5K). All bounties donated to charity. Published `http1mustdie.com`.
+- PortSwigger Research — *Making desync attacks easy with TRACE* (2024): `https://portswigger.net/research/trace-desync-attack`. TRACE method reflects request headers in response body by default (Apache, IIS, Tomcat); smuggling a TRACE request via desync converts request-side smuggling into response-side content injection — enabling cache poisoning with malicious JavaScript and response splitting via CRLF in reflected headers.
 
 ### Systematic Fuzzing Research
 
@@ -873,6 +889,7 @@ Six years of individual patches and regex-based defenses block only **known muta
 - Robert Merget, Nurullah Erinola, Marcel Maehren, Lukas Knittel, Sven Hebrok, Marcus Brinkmann, Juraj Somorovsky, Jörg Schwenk — *Opossum Attack: Cross-Protocol TLS Desync* (2025). Permanent desync via implicit + opportunistic TLS coexistence. 3M+ hosts affected. CVE-2025-49812 (Apache ≤2.4.63). Affects HTTP, SMTP, FTP, POP3, LMTP, NNTP. Bypasses ALPACA countermeasures. Site: `opossum-attack.com`.
 - Cache Poisoning → C2 Side Channel research (2025). CL.0 desync weaponized for covert C2 via CDN global cache Location header poisoning. Targets: Akamai, Azure, Oracle CDN; `.mil`, `.gov`, `.cn` domains. Blog: `malicious.group`.
 - assured.se — *The Single-Packet Shovel: Digging for Desync-Powered Request Tunnelling* (2025). Combining single-packet parallelization with HTTP/2 downgrade for reliable request tunneling exploitation.
+- PortSwigger Research — *Introducing HTTP Anomaly Rank* (2025): `https://portswigger.net/research/introducing-http-anomaly-rank`. Statistical anomaly scoring algorithm for HTTP response analysis; calculates response attributes (status code, content-type, word count, CRC32) with stability weighting — attributes that rarely change receive low weight, frequently varying attributes receive high weight. O(N) complexity enables efficient processing of large-scale smuggling detection results. Integrated into Turbo Intruder and Burp Suite 2025.10+.
 
 ### 2026 Research
 - Sebastiano Sartor — *Trailing Danger: Exploring HTTP Trailer Parsing Discrepancies* (2026). Systematic study of trailer section parsing across ~70 implementations via http-garden framework. Introduces TR.MRG (Trailer Merge) header smuggling: intermediaries unsafely merge trailers into headers per RFC 9112 §7.1.2, enabling ACL bypass, Host spoofing, and cache poisoning without request boundary manipulation. Novel mechanisms: unparsed trailers (eventlet CVE-2025-59822, cheroot), early parsing termination (http4s CVE-2025-58068), hide-merge-smuggle (GlassFish), newline in trailer values (Puma). CVE-2025-12642 (lighttpd), CVE-2025-53628 (cpp-httplib), plus 8+ additional affected implementations (fasthttp, Boost.Beast, Falcon, PHP Built-in Server, libevent, Yahns, rubygems/protocol-http1). Tools: `riphttp`, `riphttplib`, `Trailer-Merge-Lab`. Blog: `sebsrt.xyz`.
@@ -906,6 +923,7 @@ Six years of individual patches and regex-based defenses block only **known muta
 |---|---|
 | T-Reqs | `https://github.com/bahruzjabiyev/t-reqs` |
 | FRAMESHIFTER | `https://github.com/bahruzjabiyev/frameshifter` |
+| H2FUZZ | `https://github.com/Gavazzi1/h2fuzz` |
 | HDiff | `https://github.com/mo-xiaoxi/HDiff` |
 | HTTP Garden | `https://github.com/narfindustries/http-garden` |
 | Gudifu | `https://github.com/bahruzjabiyev/gudifu-fuzzer` |
