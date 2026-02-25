@@ -413,6 +413,7 @@ Race conditions are timing-adjacent — they exploit the same concurrent-request
 | **nowafpls** | Exploitation | WAF bypass via timing (§1-5) | Timing-discovered WAF bypass techniques |
 | **SQLMap (time-based)** | Exploitation | Blind SQL injection (§1-3) | Automated time-based blind SQL injection with adaptive delay detection |
 | **Raccoon Attack Tool** | Research | TLS timing (§4) | Timing attack against DH key exchange in TLS |
+| **ANOTA (WATCH.CON)** | Research | Constant-time verification (§1-2) | Statistical testing (Dudect algorithm) of annotated function execution time across inputs; detects non-constant-time operations on sensitive data (e.g., Python `==` for password comparison); integrated into annotation-based fuzzing (NDSS 2026) |
 
 ---
 
@@ -466,3 +467,4 @@ Incremental defenses fail because timing leakage emerges at every layer of the s
 - CVE-2024-13176 (OpenSSL ECDSA timing) — https://www.sentinelone.com/vulnerability-database/cve-2024-13176/
 - CVE-2024-25191 (php-jwt timing) — https://www.cvedetails.com/cve/CVE-2024-25191/
 - SonarSource: "Disclosing information with a side-channel in Django" (2022) — Timing side-channel vulnerabilities in Django framework leaking sensitive data
+- ANOTA: Identifying Business Logic Vulnerabilities via Annotation-Based Sanitization (NDSS 2026) — https://dx.doi.org/10.14722/ndss.2026.240938

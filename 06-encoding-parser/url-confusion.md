@@ -363,6 +363,7 @@ Attacks exploiting the gap between URL validation time and URL fetch time, parti
 | §5-4 + §5-2 (Confusion Attacks) | CVE-2024-38477 | Apache HTTP Server | mod_proxy crash via malicious request |
 | §3-1 + §2-1 (Authority Confusion) | CVE-2024-22262 | Spring Framework UriComponentsBuilder | Open redirect + SSRF via URL parser bypass |
 | §2-1 + §1-3 (Colon-@ Trick) | CVE-2025-0454 | AutoGPT | SSRF via `localhost:\@google.com` parser confusion |
+| §1-1 (Leading Whitespace) | CVE-2023-24329 | Python urllib (`urlparse`) | Leading whitespace causes `urlparse` to return empty scheme, bypassing scheme-based blocklists; enables SSRF filter bypass (ANOTA motivating example, NDSS 2026) |
 | §3-3 (Bracket Confusion) | CVE-2025-0938 | Python urllib | Square brackets in hostname cause parser differential |
 | §5-2 (URI Parser Bypass) | CVE-2025-29914 | Coraza WAF | URLs starting with `//` bypass WAF rules |
 | §7-1 + §2-1 (Fragment+Authority) | CVE-2024-30043 | Microsoft SharePoint | URL parsing confusion → XXE |

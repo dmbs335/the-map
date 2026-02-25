@@ -429,6 +429,7 @@ When an AWS SDK client is initialized without explicit credentials (or credentia
 | **SSRF-PayloadMaker** | Host mangling | Generates 80,000+ hostname/IP mutation combinations |
 | **Singularity of Origin** | DNS rebinding framework | Automated DNS rebinding attack platform |
 | **SSRFSeek** | LLM-based SSRF detection | Static analysis using LLM for PHP applications |
+| **ANOTA+FUZZER** (Research) | SSRF via annotation-based sanitization | Developer annotates allowed/blocked network schemes and hosts via `SYSCALL.NETWORK.BLOCK` annotations; runtime eBPF monitor detects policy violations during fuzzing. Rediscovered label-studio SSRF (CVE-2023-47116) and discovered a bypass of its official patch — patch relied on remote-user-supplied file type, allowing obfuscated extension to evade check (NDSS 2026) |
 
 ### Defensive Tools
 

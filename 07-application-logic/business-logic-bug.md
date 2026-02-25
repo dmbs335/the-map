@@ -493,6 +493,7 @@ Business logic vulnerabilities that are specific to particular industry vertical
 | **Nuclei** (Template-based) | Known vulnerability patterns | Community-maintained templates for common business logic patterns |
 | **Custom Abuse Case Frameworks** (Manual) | Domain-specific business logic | Threat modeling with abuse case development per OWASP methodology |
 | **Imperva / AWS WAF Advanced** (Runtime) | Runtime business logic abuse detection | Behavioral baselining and stateful inspection to detect logic abuse patterns |
+| **ANOTA** (Research, Python) | CWE Top 40 business logic vulnerabilities (27/40 entries) | Human-in-the-loop annotation-based sanitization — developer defines intended behavior via four annotation types (SYSCALL, TAINT, WATCH, EXECUTION); runtime policy monitor enforces policies during fuzzing via eBPF syscall tracing + modified CPython taint propagation; detected 22 zero-days (17 CVEs) in projects including Home Assistant, Apache Airflow, Apache Superset (NDSS 2026) |
 
 ---
 
@@ -505,6 +506,8 @@ The entire spectrum of business logic vulnerabilities stems from a single fundam
 ### Why Incremental Patches Fail
 
 Business logic vulnerabilities resist systematic elimination because they are **semantically defined** — you cannot identify them without understanding what the application is *supposed* to do, which no automated tool can fully capture. Each fix addresses a specific assumption violation, but the assumption space is combinatorially vast. Fixing a coupon race condition doesn't prevent a cart manipulation bug; patching a price tampering issue doesn't address a workflow bypass. Moreover, new features continually introduce new state transitions and business rules, each with their own assumption surface. The 59% year-over-year increase in API business logic attacks (2023→2024) reflects this expanding attack surface as applications grow in complexity.
+
+A systematic analysis of fuzzing sanitizers against the CWE Top 40 (ANOTA, NDSS 2026) quantifies this blind spot: **27 of the 40 most dangerous software weaknesses require business logic context** for detection. These fall into two categories: *Unaddressed Weaknesses* — where no sanitizer exists at all (e.g., CWE-862 Missing Authorization, CWE-287 Improper Authentication, CWE-269 Improper Privilege Management) — and *Narrowly-Addressed Weaknesses* — where existing sanitizers rely on language-specific heuristics with limited generalizability (e.g., Atropos for PHP-only file uploads, ODDFuzz for Java-only deserialization, EDEFuzz requiring a rendered GUI). Standard fuzzers with traditional crash-based oracles detect **zero** business logic bugs even when supplied with vulnerability-triggering inputs, confirming that the sanitizer — not the input generator — is the bottleneck.
 
 ### The Structural Solution
 
@@ -531,7 +534,7 @@ A principled defense requires operating at the **design level**, not the impleme
 - PortSwigger Web Security Academy: Business Logic Vulnerabilities — https://portswigger.net/web-security/logic-flaws
 - Rapid7 Top 10 Business Logic Attack Vectors Whitepaper — https://information.rapid7.com/top-10-business-logic-vectors-whitepaper.html
 - HackerOne Top Business Logic Reports — https://github.com/reddelexc/hackerone-reports/blob/master/tops_by_bug_type/TOPBUSINESSLOGIC.md
-- Anota: Identifying Business Logic Vulnerabilities (arXiv 2024) — https://arxiv.org/pdf/2512.20705
+- Anota: Identifying Business Logic Vulnerabilities via Annotation-Based Sanitization (NDSS 2026) — https://dx.doi.org/10.14722/ndss.2026.240938
 - SlowMist 2024 Blockchain Security Report — https://www.slowmist.com/report/2024-Blockchain-Security-and-AML-Annual-Report(EN).pdf
 - PayloadsAllTheThings: Business Logic Errors — https://swisskyrepo.github.io/PayloadsAllTheThings/Business%20Logic%20Errors/
 

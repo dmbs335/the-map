@@ -38,7 +38,8 @@ This taxonomy organizes the web fuzzing attack surface along three orthogonal ax
 | **Out-of-Band (OOB)** | External callback triggered (DNS, HTTP) by injected payload | Blind SSRF, blind XSS, blind injection |
 | **DOM Inspection** | Injected marker appears in rendered page DOM | Reflected/stored XSS detection |
 | **Error/Exception Parsing** | Database errors, stack traces, runtime exceptions in response body | SQL injection, command injection, crash discovery |
-| **Taint Tracking** | Fuzzed input reaches security-sensitive sink function | White-box directed vulnerability validation |
+| **Taint Tracking** | Fuzzed input reaches security-sensitive sink function; also trackable for business logic (sensitive variable leakage to logs/responses via annotation-defined sources and sinks) | White-box directed vulnerability validation; sensitive data exposure detection |
+| **Policy Violation (Annotation-Based)** | Developer-annotated policies (syscall constraints, data flow rules, access control assertions, code execution guards) are enforced at runtime; violations promoted to crashes for fuzzer feedback | Business logic vulnerability detection — authorization, data leakage, SSRF, path traversal, file upload bypass, timing side-channels (ANOTA, NDSS 2026) |
 
 ---
 
@@ -557,6 +558,8 @@ Targets WebSocket connections that maintain persistent, bidirectional communicat
 | **EvoMaster** (Kotlin) | REST, GraphQL, gRPC | AI-driven, white/grey/black-box system-level test generation |
 | **GraphQLer** (Python) | GraphQL | Context-aware dependency-graph traversal with IDOR detection |
 | **PHUZZ** (Python/PHP) | PHP web applications | Coverage-guided grey-box fuzzing with transparent instrumentation |
+| **Atheris** (Python, Google) | Python application fuzzing | Coverage-guided native Python fuzzer; instruments CPython bytecode + libFuzzer for native extensions; used as ANOTA's fuzzing backend |
+| **ANOTA+FUZZER** (Python/Rust, Research) | Python business logic vulnerabilities (CWE Top 40) | Annotation-based sanitization + Atheris; developer annotations define runtime policies, eBPF-based syscall monitor + CPython taint tracking enforce them; 22 zero-days found (NDSS 2026) |
 | **Atropos** (C/Python) | PHP web applications | Snapshot-based, feedback-driven with database state restoration |
 | **Predator** (Python) | PHP web applications (directed) | Taint-guided directed fuzzing for vulnerability validation |
 | **SSRFmap** (Python) | SSRF | Automatic SSRF fuzzing from Burp request files |
@@ -583,6 +586,7 @@ Targets WebSocket connections that maintain persistent, bidirectional communicat
 | **Gudifu** | HTTP parsing discrepancy discovery | Guided differential fuzzing targeting parsing discrepancies |
 | **FuzzCache** | Web fuzzing optimization | Software-based data cache achieving 3-4x throughput increase |
 | **CrawlMLLM** | Crawler-guided fuzzing | MLLM-assisted web crawling for comprehensive attack surface discovery |
+| **ANOTA Policy Monitor** (Python/Rust, eBPF) | Runtime business logic policy enforcement | eBPF tracepoints (`raw_syscalls:sys_enter/sys_exit`) for language-agnostic syscall monitoring (~3,000 LoC Rust, ~5% overhead) + modified CPython interpreter for taint propagation and object access control (~10% overhead for full variable taint tracking); total framework ~5,500 LoC (NDSS 2026) |
 | **The Fuzzing Book** (Interactive) | Fuzzing education | Interactive textbook with runnable Python examples of all major fuzzing techniques |
 
 ---
@@ -614,6 +618,7 @@ A structural solution requires either (1) unifying the parsing and security enfo
 - Fuzzing Frameworks for Server-side Web Applications: A Survey (IJIS 2024) — https://link.springer.com/article/10.1007/s10207-024-00979-w
 - Deriving Semantics-Aware Fuzzers from Web API Schemas (ICSE 2022) — https://arxiv.org/abs/2112.10328
 - SSRFuzz: Where URLs Become Weapons — Automated Discovery of SSRF Vulnerabilities (IEEE S&P 2024) — https://ieeexplore.ieee.org/document/10646755
+- ANOTA: Identifying Business Logic Vulnerabilities via Annotation-Based Sanitization (NDSS 2026) — https://dx.doi.org/10.14722/ndss.2026.240938
 - Racing and Fuzzing HTTP/3: Open-sourcing QuicDraw (CyberArk, 2025) — https://www.cyberark.com/resources/threat-research-blog/racing-and-fuzzing-http-3-open-sourcing-quicdraw
 - CrawlMLLM: An MLLM-Assisted Web Crawler Approach for Web Application Fuzzing (Applied Sciences, 2025) — https://www.mdpi.com/2076-3417/15/2/962
 - Beyond the Limit: Expanding Single-Packet Race Condition (Flatt Security, 2024) — https://flatt.tech/research/posts/beyond-the-limit-expanding-single-packet-race-condition-with-first-sequence-sync/
