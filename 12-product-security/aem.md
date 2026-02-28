@@ -103,6 +103,7 @@ AEM's DefaultGetServlet renders JCR nodes in multiple formats (JSON, XML) with c
 | **Children enumeration** | Special selectors enumerate child nodes at configurable depth | `/.childrenlist.json`, `/content.children.400.json` |
 | **Tidy output** | The `.tidy` selector produces pretty-printed JSON, easing automated parsing | `/content.tidy.3.json` |
 | **Infinity selector** | The `.infinity` selector returns the entire subtree — also a DoS vector | `/content.infinity.json` |
+| **Resource binary retrieval** | The `.res` format returns the raw binary content of a JCR node's `jcr:data` property, enabling direct file download | `/content/dam/secret.pdf/jcr:content/renditions/original/jcr:content.res` |
 
 **Sensitive JCR Paths**:
 - `/etc` — may contain passwords, API keys, encryption keys
@@ -130,7 +131,7 @@ AEM's QueryBuilder provides a SQL-like interface to search JCR content. When exp
 |---------|-----------|---------|
 | **User enumeration via QueryBuilder** | Query the /home path for all user nodes | `path=/home&p.hits=full&p.limit=-1` |
 | **File discovery** | Search for uploaded files across the repository | `type=nt:file&nodename=*.zip` |
-| **Write permission check** | Determine which paths are writable by the current user | `hasPermission=jcr:write&path=/content` |
+| **Write permission check** | Determine which paths are writable by the current user; also accepts `jcr:addChildNodes` and `jcr:modifyProperties` for granular permission probing | `hasPermission=jcr:write&path=/content` |
 | **PII harvesting** | Search for form submissions containing personal data | `path=/content/usergenerated&type=nt:unstructured` |
 | **Feed servlet variant** | Alternative endpoint that returns results in Atom/RSS format | `/bin/querybuilder.feed.servlet` |
 
@@ -171,6 +172,7 @@ AEM ships with dozens of built-in Sling servlets and CQ components. Many provide
 | **Reporting services** | `ReportingServicesServlet` | Internal reporting data; also SSRF vector (§5-3) |
 | **WCM suggestions** | `WCMSuggestionsServlet` | Reflected XSS vector (§7-1) |
 | **Merge metadata** | `MergeMetadataServlet` | Reflected XSS; metadata about DAM assets |
+| **Audit log exposure** | `AuditLogServlet` | Audit trail records containing user actions, timestamps, and internal operation details |
 
 ### §3-2. Content Manipulation Servlets
 
@@ -264,16 +266,16 @@ Internal servlets with SSRF capabilities that can be chained to achieve RCE.
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **SitecatalystServlet SSRF** | Accepts a URL parameter and makes server-side requests | Accessible through Dispatcher bypass |
-| **AutoprovisioningServlet SSRF** | Similar SSRF capability through provisioning functionality | AEM versions before AEM-6.2-SP1-CFP7 on Jetty |
-| **SSRF-to-RCE chain** | SSRF used to interact with a fake AEM instance to join topology, then exploit reverse replication | Requires crafted external AEM server (via `aem_ssrf2rce.py`) |
+| **SitecatalystServlet SSRF** | Accepts a URL parameter and makes blind server-side POST requests; supports CRLF/LF injection in parameters, enabling arbitrary HTTP header control and HTTP request smuggling | Accessible through Dispatcher bypass; smuggling tested on Jetty |
+| **AutoprovisioningServlet SSRF** | Similar blind POST SSRF capability through provisioning functionality; also supports CRLF/LF header injection for HTTP smuggling | AEM versions before AEM-6.2-SP1-CFP7 on Jetty |
+| **SSRF-to-RCE chain** | SSRF with CRLF header injection used to smuggle a PUT request to `TopologyConnectorServlet` on localhost, joining a fake AEM topology and triggering reverse replication for code execution | Requires crafted external AEM server (via `aem_ssrf2rce.py`) |
 
 ### §5-3. Reporting and Analytics Servlets
 
 | Subtype | Mechanism | CVE |
 |---------|-----------|-----|
-| **ReportingServicesServlet SSRF** | Content Insight proxy forwards requests to arbitrary URLs | CVE-2018-12809 |
-| **SalesforceSecretServlet SSRF** | Salesforce integration servlet leaks secrets or makes arbitrary requests | CVE-2018-5006 |
+| **ReportingServicesServlet SSRF** | Content Insight proxy forwards requests to arbitrary URLs; domain validation bypassable via URL-encoded fragment (`%23`) — e.g., `url=http://169.254.169.254%23/api1.omniture.com/a` causes validation to see the whitelisted domain while the request targets the attacker-specified host | CVE-2018-12809 |
+| **SalesforceSecretServlet SSRF** | Salesforce integration servlet makes POST requests to attacker-controlled URLs; same `%23` fragment bypass applies to domain validation | CVE-2018-5006 |
 
 ### §5-4. SSRF as Dispatcher Bypass
 
@@ -332,6 +334,7 @@ AEM has been affected by a massive volume of XSS vulnerabilities — 225 of 254 
 | **WCMDebugFilter XSS** | Debug filter reflects URL components (CVE-2016-7882) | Script injection in URL path/parameters |
 | **Selector/suffix reflection** | Sling URL components (selectors, suffix) reflected in rendered pages | Script in selector position of URL |
 | **SWF-based XSS** | Flash files in AEM (SWF) act as XSS vectors when serving user-controlled parameters | Legacy SWF files under `/etc/clientlibs` |
+| **SetPreferences page XSS** | User preferences page reflects input parameters without encoding | Script injection via preference values |
 
 ### §7-2. Stored XSS via Content Injection
 
@@ -400,7 +403,7 @@ The most critical AEM RCE discovered to date, stemming from Apache Struts2 devel
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **Fake AEM topology join** | Use SSRF (§5) to make the AEM instance connect to an attacker-controlled fake AEM server, join the topology, then exploit reverse replication for code execution | SSRF via SitecatalystServlet or AutoprovisioningServlet; AEM < 6.2-SP1-CFP7 on Jetty |
+| **Fake AEM topology join** | Use SSRF with CRLF injection (§5-2) to smuggle a PUT request to `TopologyConnectorServlet` on localhost (default: accessible only locally); the target AEM instance joins the attacker-controlled topology, automatically creating a reverse replication agent that replicates malicious nodes (e.g., JSP webshells) from the fake AEM server to the Publish instance | SSRF via SitecatalystServlet or AutoprovisioningServlet with CRLF header injection; AEM < 6.2-SP1-CFP7 on Jetty |
 | **Internal service exploitation** | Use SSRF to reach internal management APIs (JMX, OSGi console) on localhost | Any SSRF vector + internal management ports accessible on localhost |
 
 ---
@@ -434,6 +437,7 @@ The most critical AEM RCE discovered to date, stemming from Apache Struts2 devel
 | **Infinity JSON dump** | Request the entire JCR tree in JSON format | `/.ext.infinity.json?tidy=true` |
 | **Unlimited QueryBuilder** | Remove result limits causing full repository serialization | `/bin/querybuilder.json?type=nt:base&p.limit=-1` |
 | **Unlimited GQL search** | GQL query with no result limit | `/bin/wcm/search/gql.servlet.json?query=type:base%20limit:..-1` |
+| **Asset search wildcard** | Asset search servlet with wildcard query triggers expensive repository scan | `/content.assetsearch.json?query=*&start=0&limit=10`, `/..assetsearch.json?query=*&start=0&limit=10` |
 
 ### §10-2. Background Service Abuse
 
@@ -493,6 +497,16 @@ The most critical AEM RCE discovered to date, stemming from Apache Struts2 devel
 | **Burp AEM Scanner** (thomashartm) | Burp Suite extension for AEM | Fingerprinting and active scanning for AEM misconfigurations and vulnerabilities |
 | **Nuclei AEM templates** | AEM vulnerability detection | YAML-based templates for automated scanning of known AEM CVEs and misconfigurations |
 
+### AEM Instance Fingerprinting Patterns
+
+Confirming that a target runs AEM before launching specific checks. These URLs produce distinctive responses (JSON node dumps, servlet status pages) that are unique to AEM's Sling/JCR stack. Each path should be tested with standard Dispatcher bypass suffixes (`/a.css`, `/a.html`, `/a.ico`, `/a.png`, `;%0aa.css`).
+
+| Probe Category | Paths |
+|---------------|-------|
+| **JCR node dump** | `/.json`, `/.1.json`, `/.ext.json`, `/.childrenlist.json`, `/.4.2.1...json` |
+| **Servlet status** | `/system/sling/loginstatus`, `/system/bgservlets/test.json` |
+| **Content paths** | `/content.json`, `/content.1.json`, `/bin.json` |
+
 ### Defensive / Hardening
 
 | Tool | Target Scope | Core Technique |
@@ -530,7 +544,7 @@ A defense-in-depth approach is required: (1) **Dispatcher hardening** using full
 - [Assetnote/hopgoblin — GitHub](https://github.com/assetnote/hopgoblin)
 - [Bugcrowd LevelUp — AEM Hacker: Approaching AEM Webapps](https://www.bugcrowd.com/resources/levelup/aem-hacker-approaching-adobe-experience-manager-webapps/)
 - [Mikhail Egorov — Securing AEM Webapps by Hacking Them (adapt.to 2019)](https://adapt.to/2019/presentations/adaptto2019-securing-aem-webapps-by-hacking-them-mikhail-egorov.pdf)
-- [Mikhail Egorov — Hunting for Security Bugs in AEM Webapps](https://www.slideshare.net/0ang3el/hunting-for-security-bugs-in-aem-webapps-129262212)
+- [Mikhail Egorov — Hunting for Security Bugs in AEM Webapps (Hacktivity 2018)](https://www.slideshare.net/0ang3el/hunting-for-security-bugs-in-aem-webapps-129262212)
 - [Pen Test Partners — Quick Wins with AEM](https://www.pentestpartners.com/security-blog/quick-wins-with-adobe-experience-manager/)
 - [Perficient — AEM Security: Sling Resolution](https://blogs.perficient.com/2022/10/11/how-good-is-your-aem-security-sling-resolution/)
 - [Perficient — AEM Security: XSS](https://blogs.perficient.com/2022/10/04/how-good-is-your-aem-security-xss/)
