@@ -202,7 +202,7 @@ TLS server authentication depends on X.509 certificates, Certificate Authorities
 | **DNS Hijack / Takeover for DV** | Attacker compromises the target domain's DNS (registrar compromise, dangling CNAME, NS hijack) and responds to the CA's DNS-01 challenge. | DNS-based domain validation. Vulnerable DNS configuration. |
 | **CA Internal Compromise** | Attacker gains access to a CA's signing infrastructure (DigiNotar 2011, Symantec issues, let's-encrypt-specific attacks). Enables issuance of certificates for any domain. | CA operational security failure. Trust store including compromised CA. |
 | **Email DV Exploitation** | Some CAs perform DV via email to addresses like `admin@domain.com`. Attacker who controls such an email address (domain takeover, email misconfiguration) obtains certificates. | Email-based domain validation. Vulnerable email routing. |
-| **Accidental Issuance** | Misconfigured email accounts or administrative errors leading to certificate issuance for domains the requester doesn't control. Microsoft's 2025 incident where a misconfigured email led to a fake SSL certificate for `live.fi`. | CA process errors. Insufficient domain ownership verification. |
+| **Accidental Issuance** | Misconfigured email accounts or administrative errors leading to certificate issuance for domains the requester doesn't control. The 2015 `live.fi` incident: a researcher registered `hostmaster@live.fi` via Windows Live, then requested a DV certificate from Comodo — the CA's email-based validation accepted the administrative address, issuing a fraudulent certificate for Microsoft's domain. | CA process errors. Email-based DV with registrable administrative addresses. |
 
 ### §4-3. Certificate Revocation Failures
 
@@ -421,7 +421,7 @@ Over 50% of web traffic through Cloudflare used PQ key agreement (X25519Kyber768
 |---|---|---|
 | **Passive Eavesdropping** | Network observer recording encrypted traffic | §1-2 (RC4), §2-1 (RSA key exchange), §2-2 (weak DH), §10-1 (HNDL) |
 | **Active MitM** | Attacker intercepting and modifying handshake | §1-1 (version downgrade), §1-2 (cipher downgrade), §4-1 (cert validation bypass), §5-3 (renegotiation injection) |
-| **Session Hijacking** | Stealing or resuming another user's TLS session | §5-1 (session resumption), §5-2 (0-RTT replay), §8-1 (SSL stripping) |
+| **Session Hijacking** | Stealing or resuming another user's TLS session | §5-1 (session resumption), §5-2 (0-RTT replay), §8-3 (SSL stripping) |
 | **Certificate Forgery** | Obtaining fraudulent certificates to impersonate servers | §4-2 (BGP hijack DV, CA compromise), §4-4 (CT bypass) |
 | **Denial of Service** | Exploiting TLS for resource exhaustion | §5-3 (renegotiation DoS), §3-4 (decompression DoS), §7-2 (parser bugs) |
 | **Privacy Deanonymization** | Identifying users/content through TLS metadata | §6-1 (SNI surveillance), §6-4 (TLS fingerprinting), §9-1 (website fingerprinting) |

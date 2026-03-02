@@ -52,9 +52,8 @@ These attacks manipulate HTTP/2's stream lifecycle to create resource exhaustion
 | Subtype | Mechanism | Key Condition | CVE/Reference |
 |---------|-----------|---------------|---------------|
 | **HTTP/2 Rapid Reset** | Client opens stream, sends request, immediately sends RST_STREAM to cancel, repeats at high rate. Server allocates resources before cancellation, causing DoS. | Target doesn't enforce stream creation rate limits independent of cancellation rate. | CVE-2023-44487 (record: 398M rps) |
-| **MadeYouReset (Max Streams Bypass)** | Attacker sends GOAWAY frame followed by SETTINGS frame with SETTINGS_MAX_CONCURRENT_STREAMS=0. This breaks the max concurrent streams limit through protocol-compliant frame ordering. | Server processes SETTINGS after GOAWAY without proper validation. | CVE-2025-55163 |
+| **GOAWAY + SETTINGS Frame Attack** | Send GOAWAY frame immediately followed by SETTINGS frame with SETTINGS_MAX_CONCURRENT_STREAMS=0. Exploits protocol-compliant frame ordering to bypass max concurrent streams limits. Originally discovered in Envoy/Istio (ISTIO-SECURITY-2021-008, affects Istio 1.10.0–1.10.3, 1.11.0); generalized as "MadeYouReset" (CVE-2025-55163) affecting broader HTTP/2 implementations. | Server processes SETTINGS after GOAWAY without proper validation. | CVE-2025-55163 / ISTIO-SECURITY-2021-008 |
 | **gRPC-Go Stream Exhaustion** | Send requests and immediately cancel them. Valid per HTTP/2 spec, but gRPC-Go launches concurrent method handlers exceeding configured max stream limit. | Affects gRPC-Go < 1.56.3, < 1.57.1, < 1.58.3. Fixed in 1.59.0. | GMS-2023-3788 |
-| **GOAWAY + SETTINGS Frame Attack** | Send GOAWAY frame immediately followed by SETTINGS frame with SETTINGS_MAX_CONCURRENT_STREAMS=0. Causes Envoy (Istio sidecar) to terminate abnormally. | Affects Istio 1.10.0-1.10.3, 1.11.0 with Envoy sidecar. | ISTIO-SECURITY-2021-008 |
 
 **Cross-reference**: Stream exhaustion often combines with metadata attacks (§3-1) for amplification.
 
@@ -78,7 +77,7 @@ Protobuf is the serialization format for gRPC. Mutations target message structur
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **Recursive Protobuf Parsing (CVE-2025-4565)** | Send protobuf message with deeply nested or cyclic recursive elements. Pure-Python protobuf backend doesn't limit recursion depth, causing stack exhaustion. | Target uses protobuf Pure-Python backend. Disclosed June 16, 2025. |
+| **Recursive Protobuf Parsing (CVE-2025-4565)** | Send protobuf message with deeply nested or cyclic recursive elements. Pure-Python protobuf backend doesn't limit recursion depth, causing stack exhaustion. | Target uses protobuf Pure-Python backend. |
 | **Varint Integer Overflow** | Exploit varint encoding (variable-length integers in protobuf). Send extremely large varint causing integer overflow in length calculations. Can lead to buffer overflows or memory corruption. | Protobuf implementation doesn't validate varint size before conversion. |
 | **Unknown Field Injection** | Protobuf allows unknown fields (forward compatibility). Inject fields not in .proto schema but processed by backend logic. Can bypass validation or trigger hidden functionality. | Application processes protobuf messages without strict schema enforcement. |
 | **Default Value Confusion** | Omit required fields relying on default values. In proto3, all fields are optional with defaults (0, "", false). Can cause logic errors if backend assumes presence. | Backend logic doesn't distinguish between explicitly set vs default values. |
@@ -101,7 +100,7 @@ gRPC metadata is implemented as HTTP/2 headers. Mutations exploit metadata handl
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
 | **Authentication Header Injection** | Inject or manipulate authentication metadata (e.g., `authorization`, custom token headers). If service doesn't validate metadata source, attacker can forge credentials. | Service trusts metadata without cryptographic validation or origin verification. |
-| **Hardcoded Token Exploitation** | Target uses hardcoded static authentication token in metadata. RustFS example: token "rustfs rpc" hardcoded in source, accepted by all deployments. Single grpcurl command grants full access. | Hardcoded credentials in code, non-rotatable tokens. | CVE-2025-68926 (CVSS 9.8, RustFS) |
+| **Hardcoded Token Exploitation** | Target uses hardcoded static authentication token in metadata. See §5-1 for detailed exploitation (CVE-2025-68926, RustFS). | Hardcoded credentials in code, non-rotatable tokens. | CVE-2025-68926 — details in §5-1 |
 | **Metadata Timeout Manipulation** | Set excessive timeout values in `grpc-timeout` metadata header. Can cause resource holding attacks where server holds connections/resources for extended periods. | Service honors client-specified timeouts without upper bound. |
 | **Binary Metadata Encoding Bypass** | Binary metadata values must end with `-bin` suffix and are base64-encoded. Craft metadata keys without `-bin` but containing binary data, or vice versa. Can trigger parser errors or bypass validation. | Implementation doesn't strictly enforce `-bin` suffix convention. |
 
@@ -238,7 +237,7 @@ This table maps attack scenarios to the primary mutation categories that enable 
 | **Authentication Bypass** | Services relying on token/credential-based auth | §3-1 (metadata injection), §5-1 (auth bypass), §6-1 (plaintext) | CVE-2025-68926 (RustFS hardcoded token) |
 | **Authorization Bypass & Privilege Escalation** | Service mesh policies, RBAC systems, tRPC middleware | §5-2 (authz policy), §7-2 (type bypass), §8-2 (Istio) | Istio fragment/host bypass, tRPC prototype pollution |
 | **Information Disclosure & Enumeration** | Production services with debug features, public APIs | §4 (service discovery), §3-2 (HPACK poisoning), §6-1 (plaintext) | - |
-| **Injection Attacks (SQL/Command/XSS)** | Backend services with database/shell/rendering | §7-3 (insufficient validation), §2-1 (unknown field injection) | - |
+| **Injection Attacks (SQL/Command/XSS)** | Backend services with database/shell/rendering | §7-1/§7-2 (insufficient validation), §2-1 (unknown field injection) | - |
 | **Man-in-the-Middle & Interception** | Unencrypted or weak TLS deployments | §6-1 (transport security), §3-2 (HPACK), §8-1 (gRPC-Web gateway) | CVE-2022-21654 (mTLS reuse) |
 | **Service Mesh Exploitation** | Kubernetes, Istio, Envoy deployments | §8-2 (service mesh), §1-1 (stream management), §6-1 (TLS downgrade) | ISTIO-SECURITY-2021-008, CVE-2020-11080 |
 | **API Misconfiguration Exploitation** | Development artifacts in production, over-permissive configs | §4-2 (tRPC panel), §4-1 (gRPC reflection), §6-1 (plaintext) | - |

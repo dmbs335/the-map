@@ -108,7 +108,7 @@ x=1\r\n
 \r\n
 ```
 
-Front-End processes chunk size `5c` (92 bytes) → forwards entire message. Back-End reads 4 bytes via CL (`5c\r\nG`) → treats `POST / HTTP/1.1...` as a new request.
+Front-End processes chunk size `5c` (92 bytes) → forwards entire message. Back-End reads 4 bytes via CL (`5c\r\n`) → the remaining body starting from `GPOST / HTTP/1.1...` is treated as the beginning of a new request.
 
 
 

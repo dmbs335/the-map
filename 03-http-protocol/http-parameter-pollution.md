@@ -58,7 +58,7 @@ The foundational HPP technique: submitting the same parameter name multiple time
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
 | **First-vs-Last Precedence Split** | WAF validates the first occurrence; backend processes the last (or vice versa). Attacker places benign value in the validated position and malicious value in the processed position. | Two components with opposite precedence (e.g., Flask WAF + PHP backend) |
-| **Concatenation Exploitation** | ASP.NET or Spring MVC concatenates duplicates with commas. Attacker splits a payload across parameters so each fragment is individually benign but the concatenated result is malicious. | Backend uses ASP.NET, Spring MVC, or Node.js concatenation |
+| **Concatenation Exploitation** | ASP.NET/IIS natively concatenates duplicate parameters with commas. Attacker splits a payload across parameters so each fragment is individually benign but the concatenated result is malicious. (Note: Spring MVC does **not** concatenate — `getParameter()` returns first value, `getParameterValues()` returns array. Node.js/Express creates arrays, not comma-joined strings.) | Backend uses ASP.NET/IIS comma concatenation |
 | **Array Promotion** | Submitting duplicates causes the backend to create an array where scalar was expected, triggering type confusion in downstream logic. | Go, Perl, Zope, or Express array-mode parsing |
 | **Selective Parameter Shadowing** | An attacker-supplied duplicate overrides a hardcoded or hidden parameter set by the application (e.g., `role=user` hardcoded, attacker adds `role=admin`). | Application appends user input to a base query string containing fixed parameters |
 
@@ -164,7 +164,7 @@ Escaping from a JSON string value to inject new key-value pairs at the object le
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
 | **Duplicate Element Override** | Submitting duplicate XML elements where the parser processes the first or last: `<role>user</role><role>admin</role>`. | XML processing without schema validation |
-| **Attribute Duplication** | Duplicate XML attributes: `<user role="user" role="admin">`. Behavior varies by parser. | Lenient XML parser that doesn't reject duplicate attributes |
+| **Attribute Duplication** | Duplicate XML attributes: `<user role="user" role="admin">`. XML 1.0 spec (Section 3.1, Well-Formedness Constraint: Unique Att Spec) **explicitly prohibits** duplicate attributes — conforming parsers MUST reject this. Only exploitable against non-conforming or lenient parsers (e.g., some SAX parsers in permissive mode, HTML-tolerant XML parsers). | Non-conforming XML parser that violates the uniqueness constraint |
 | **CDATA Injection** | Breaking out of a value context using CDATA sections to inject new elements. | XML constructed via string concatenation |
 
 ### §3-4. GraphQL Parameter Pollution

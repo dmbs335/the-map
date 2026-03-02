@@ -43,7 +43,7 @@ Cross-Site WebSocket Hijacking is the WebSocket analog of Cross-Site Request For
 | Browser | SameSite Default | Third-Party Cookie Policy | CSWSH Status |
 |---|---|---|---|
 | Chrome 130+ | Lax | Restricted (but exceptions exist) | Blocked for `SameSite=Lax/Strict`; exploitable if `SameSite=None` |
-| Firefox (ETP) | None (but Total Cookie Protection active) | Partitioned per-site | Effectively blocked by Total Cookie Protection |
+| Firefox (ETP) | Lax (default since Firefox 103, 2022) + Total Cookie Protection | Partitioned per-site | Effectively blocked by SameSite=Lax default + Total Cookie Protection |
 | Safari | Lax | ITP blocks third-party cookies | Blocked for most scenarios |
 
 Despite browser-level mitigations, CSWSH remains exploitable in 2025 when: (a) auth cookies explicitly set `SameSite=None` (common for cross-origin auth services), (b) targets are on private/localhost networks, or (c) XSS exists on a sibling subdomain.
@@ -241,8 +241,7 @@ Many applications use WebSocket as a transport for higher-level protocols (STOMP
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
-| **Event Name Type Confusion** | Sending Socket.IO packets where the event name is an object instead of a string; server calls `eventName.toString()` on the object, which throws an uncaught exception and crashes the Node.js process | Socket.IO < 4.6.2 (CVE-2023-32695) |
-| **Object Event Name DoS** | Crafted packets override the `toString()` method on the event name object, causing a crash when the EventEmitter resolves the handler | Socket.IO < 4.6.2 |
+| **Event Name Type Confusion** | Sending Socket.IO packets where the event name is an object instead of a string; server calls `eventName.toString()` on the object, which throws an uncaught exception and crashes the Node.js process. Variant: crafted packets override the `toString()` method on the event name object for targeted crash when the EventEmitter resolves the handler | Socket.IO < 4.6.2 (CVE-2023-32695) |
 | **Namespace Injection** | Connecting to unauthorized Socket.IO namespaces that expose privileged event handlers or data streams | Missing per-namespace authentication/authorization |
 | **Binary Attachment Manipulation** | Socket.IO's binary attachment mechanism can be abused to inject unexpected binary data or trigger deserialization vulnerabilities | Server processes binary attachments without type validation |
 | **Engine.IO Polling Fallback Exploitation** | When WebSocket is unavailable, Socket.IO falls back to HTTP long polling; this fallback may have different security characteristics (vulnerable to standard HTTP CSRF, different auth handling) | Inconsistent security policy between WS and polling transports |

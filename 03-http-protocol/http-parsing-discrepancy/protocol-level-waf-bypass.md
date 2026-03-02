@@ -337,7 +337,7 @@ Protocol-level bypasses are transport-agnostic — once a bypass channel is esta
 | §9-1 (Origin IP Exposure) | BreakingWAF (Zafran, 2025) | Affects 40%+ of CDN/WAF-protected sites including JPMorganChase, Visa, Intel |
 | §5-1 (Path Normalization / Percent-Encoded Query Delimiter) | CVE-2024-1019 (ModSecurity 3.0.0–3.0.11) | CVSS 8.6. URL path payload hidden from WAF path rules via percent-encoded `?` |
 | §2-1 (Framework Header) + §9-2 (Alternate Endpoint) | CVE-2025-29927 (Next.js middleware bypass) | Authorization middleware bypass via `x-middleware-subrequest` header |
-| §4-2 (Multipart/Boundary) + §4-1 (Content-Type Confusion) | WAFFLED (ACSAC 2025) | 1,207 bypasses across AWS WAF, Azure, Cloud Armor, Cloudflare, ModSecurity |
+| §4-2 (Multipart/Boundary) + §4-1 (Content-Type Confusion) | WAFFLED (ACSAC 2025) | 1,207 bypasses tested against 5 WAFs (AWS WAF, Azure, Cloud Armor, Cloudflare, ModSecurity); AWS WAF was the only vendor not bypassed due to strict RFC-compliant parsing |
 | §8-2 (H2C Smuggling) | Azure WAF H2C Bypass (Assetnote) | Global WAF bypass via HTTP/2 cleartext upgrade |
 | §4-1 (Multiple Content-Type) | CVE-2023-38199 | WAF and backend disagree on which Content-Type header takes precedence when duplicate headers are sent; discovered by WAFManis |
 | §2-2 (Header) + §6-1 (HPP) | WAFManis (IEEE S&P 2024) | 311 protocol-level evasion cases across 14 WAFs × 20 frameworks in 3 categories (PTC, MPS, RSG) |
