@@ -179,7 +179,7 @@ Exploiting DHCP's integration with DNS dynamic updates — particularly in Activ
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
-| **DHCP DNS Dynamic Update spoofing** | DHCP servers in Active Directory environments perform DNS dynamic updates on behalf of clients. An attacker sends crafted DHCP requests with arbitrary hostnames, causing the DHCP server to create or overwrite DNS A/AAAA records for those names — effectively achieving unauthenticated DNS record injection | AD-integrated DHCP with DNS dynamic updates enabled (default); no DHCP name protection configured; Akamai research found 57% of monitored AD networks vulnerable |
+| **DHCP DNS Dynamic Update spoofing** | DHCP servers in Active Directory environments perform DNS dynamic updates on behalf of clients. An attacker sends crafted DHCP requests with arbitrary hostnames, causing the DHCP server to create or overwrite DNS A/AAAA records for those names — effectively achieving unauthenticated DNS record injection | AD-integrated DHCP with DNS dynamic updates enabled (default); no DHCP name protection configured; Akamai research (Dec 2023): 40% of monitored networks ran vulnerable DHCP config; 57% had DHCP on a domain controller (worst case — enables unauthenticated ADIDNS record overwriting) |
 | **Machine account DNS record poisoning** | In AD environments, authenticated domain machines can update their own DNS records. A compromised or attacker-controlled machine modifies its DNS record to point to a different IP, enabling MitM against services that resolve that hostname | Domain-joined machine compromised; DNS scavenging not aggressive enough to detect changes |
 
 ### §4-4. BGP-Based DNS Traffic Hijacking
@@ -189,7 +189,7 @@ Exploiting BGP route announcements to intercept DNS traffic at the network routi
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
 | **BGP prefix hijack of resolver IP** | Announce a more-specific BGP route for a public DNS resolver's IP prefix (e.g., 1.1.1.1/32), diverting DNS queries from all users routing through the hijacker's AS to attacker-controlled infrastructure | BGP peering access; target resolver uses globally routable IP; no RPKI/ROA enforcement on transit networks |
-| **BGP hijack for CA validation interception** | Temporarily hijack the target domain's IP prefix via BGP during a Certificate Authority's domain validation process, intercepting the HTTP-01 or DNS-01 challenge to obtain a fraudulent TLS certificate | CA validates from limited network vantage points; BGP hijack active during validation window; no multi-perspective validation (Cloudflare 1.1.1.1 incident, June 2024) |
+| **BGP hijack for CA validation interception** | Temporarily hijack the target domain's IP prefix via BGP during a Certificate Authority's domain validation process, intercepting the HTTP-01 or DNS-01 challenge to obtain a fraudulent TLS certificate | CA validates from limited network vantage points; BGP hijack active during validation window; no multi-perspective validation (Birge-Lee et al., 2018 — demonstrated practical BGP attacks against DV certificate issuance; Let's Encrypt adopted multi-perspective validation in response) |
 
 ---
 
