@@ -333,7 +333,7 @@ Specialized UI redressing techniques targeting specific platform features and so
 | **Data Exfiltration** | Sensitive page content, tokens | §6 (SVG pixel stealing) + §4 (Drag-and-drop) |
 | **Social Manipulation** | Like/Follow/Share actions | §1 (Classic framing) + §9-1 |
 | **Mobile Permission Grant** | Android permission dialogs, device admin | §7-2 (TapTrap) + §7-1 (Overlay) |
-| **WAF/Warning Bypass** | Browser warnings, security dialogs | §6-3 (SVG warning suppression) + §5 |
+| **WAF/Warning Bypass** | Browser warnings, security dialogs | §6-2 (SVG warning suppression) + §5 |
 | **Self-XSS Enablement** | Inject script into victim's context | §4-1 (Drag injection) + §1-2 (Iframe cropping) |
 
 ---
