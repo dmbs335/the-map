@@ -229,6 +229,18 @@ GraphQL endpoints present unique CSRF surfaces due to their flexible input handl
 | **Case Sensitivity Exploitation** | Some validators check Content-Type case-sensitively (e.g., accepting `Application/Json` but rejecting `application/json`). | D4 | Case-sensitive string comparison for Content-Type |
 | **Charset Manipulation** | Including unexpected charset values (e.g., `application/x-www-form-urlencoded; charset=ibm500`) may cause the server to misinterpret the body encoding while still processing it. | D4 | Server honors charset parameter in unexpected ways |
 
+### §3-4. Single-Page Application (SPA) CSRF Patterns
+
+SPAs that use JSON APIs with Bearer token authentication (tokens stored in `localStorage` or `sessionStorage`) are generally immune to CSRF because credentials are not automatically attached by the browser. However, several architectural patterns reintroduce CSRF surfaces in SPA contexts.
+
+| Subtype | Mechanism | Discrepancy | Key Condition |
+|---------|-----------|-------------|---------------|
+| **Cookie fallback in hybrid auth** | SPA uses Bearer tokens for API calls but falls back to cookie-based session authentication for specific endpoints (file uploads, SSO callbacks, legacy routes). The cookie-based endpoints lack CSRF tokens because the development team assumes "we use JWT, not cookies" | D1 + D6 | Mixed auth strategy: some endpoints use cookies, others use Bearer tokens; cookie endpoints lack CSRF protection |
+| **Token-in-cookie SPA pattern** | SPA stores the access token in an `HttpOnly` cookie (for XSS protection) instead of `localStorage`. This reintroduces automatic credential attachment — the cookie is sent on every request including cross-origin, making the API susceptible to standard CSRF | D6 | Access token in `HttpOnly` cookie with `SameSite=None` (for cross-origin API calls); no CSRF token layer |
+| **CORS misconfiguration + token theft** | SPA API has permissive CORS (`Access-Control-Allow-Origin: *` or reflected origin with credentials). Attacker reads the API response cross-origin, extracts the Bearer token or CSRF token from the response body, and uses it in subsequent forged requests | D5 + D6 | CORS allows cross-origin credential-bearing reads; token exposed in API response |
+| **SPA framework auto-CSRF gap** | SPA frameworks (React, Vue, Angular) may automatically include CSRF tokens for form submissions but not for `fetch()`/`XMLHttpRequest` API calls made by client-side routing or state management libraries. Developers assume the framework handles CSRF globally, but programmatic API calls bypass the framework's CSRF layer | D1 | Framework provides CSRF protection for `<form>` submissions but not for JS-initiated requests; developers unaware of gap |
+| **Pre-rendered / SSR hydration CSRF** | Server-Side Rendered (SSR) SPAs (Next.js, Nuxt, SvelteKit) generate HTML with embedded CSRF tokens during server rendering. After hydration, client-side routing bypasses the server-rendered form, and subsequent state-changing requests omit the CSRF token because the SPA router doesn't refetch it | D1 + D8 | SSR framework embeds CSRF token in initial HTML; client-side navigation after hydration doesn't refresh the token |
+
 ---
 
 ## §4. Origin and Referer Validation Bypass

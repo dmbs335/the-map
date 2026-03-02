@@ -346,7 +346,7 @@ Bypasses targeting the browser's built-in Sanitizer API (`setHTML()`), which eli
 | §1-2 (SVG style mutation) | DOMPurify < 2.0.1 (Securitum, 2019) | Chrome 77 mXSS via `<svg></p><style>` mutation |
 | §1-4 (Comment mutation in MathML) | DOMPurify < 2.1 (PortSwigger, 2020) | Comment-based mXSS bypass; text node check didn't cover comments |
 | §1-4 (CDATA in foreign content) | DOMPurify < 2.1 Firefox variant (PortSwigger, 2020) | Firefox-specific CDATA-based mXSS bypass |
-| §5-1 (Nesting depth flattening) | CVE-2024-47875 (DOMPurify < 3.1.3) | Nesting-based mXSS; critical severity |
+| §5-1 (Nesting depth flattening) | CVE-2024-47875 (DOMPurify < 3.1.3) | Nesting-based mXSS; high severity (CVSS 7.1) |
 | §8-1 (Template regex bypass) | CVE-2025-26791 (DOMPurify < 3.2.4) | Incorrect template literal regex; mXSS when `SAFE_FOR_TEMPLATES` enabled |
 | §8-1 (Custom element handling) | DOMPurify 3.0.8 bypass (kevin mizu, 2024) | Permissive `CUSTOM_ELEMENT_HANDLING` + emptied `FORBID_CONTENTS` |
 | §3-3 (noscript scripting-flag) | CVE-2020-6802 (Bleach) | mXSS via noscript parsing differential; Bleach deprecated partly due to this class |

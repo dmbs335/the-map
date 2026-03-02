@@ -8,6 +8,19 @@ Desktop hybrid applications embed a web rendering engine (Chromium, system WebVi
 
 The taxonomy below classifies every known mutation by **what structural component is targeted** (Axis 1), cross-referenced against the **type of security boundary violated** (Axis 2) and the **weaponization scenario** (Axis 3).
 
+### Axis 1 — Mutation Target (Primary Structure)
+
+| Code | Target Component | Description |
+|------|-----------------|-------------|
+| **§1** | IPC Bridge & Message Channels | Inter-process communication layer between renderer and main/native process |
+| **§2** | Preload Script & Context Bridge | Privileged bridging scripts that expose native APIs to the web context |
+| **§3** | Navigation & URL Handling | Custom protocol handlers, deep links, shell.openExternal, and WebContents navigation |
+| **§4** | Update Mechanisms | Auto-update channels, signature validation, and version enforcement |
+| **§5** | Credential & Data Storage | Local token storage, session management, and cookie/secret persistence |
+| **§6** | CSP & Web Security Controls | Content Security Policy, CORS, and Same-Origin Policy in hybrid contexts |
+| **§7** | Supply Chain & Dependencies | npm/crate ecosystem packages and embedded browser engine patch lifecycle |
+| **§8** | Embedded Terminal | Terminal emulators within hybrid IDEs that interpret control characters |
+
 ### Axis 2 — Security Boundary Violation Types (Cross-Cutting)
 
 These discrepancy types apply across all categories and explain *why* each mutation works:
@@ -260,7 +273,7 @@ Desktop hybrid apps have uniquely deep supply chains: npm/crate ecosystems for a
 
 | Subtype | Mechanism | Violation | Key Condition |
 |---------|-----------|-----------|---------------|
-| **Direct dependency hijacking** | Widely-used npm packages (e.g., `debug`, `chalk` — Sept 2025 incident affecting 2.6B weekly downloads) compromised via maintainer phishing | V6 | Application depends on compromised package |
+| **Direct dependency hijacking** | Widely-used npm packages compromised via maintainer token theft or phishing (e.g., Shai-Hulud worm — Aug–Sept 2025, 796 packages, 20M+ weekly downloads affected) | V6 | Application depends on compromised package |
 | **Typosquatting** | Malicious packages with names similar to popular Electron utilities published to npm | V6 | Developer installs wrong package |
 | **Dependency confusion** | Private package names squatted on public npm registry; build system fetches malicious public version | V6 | Mixed private/public registry configuration |
 | **Post-install script execution** | npm package `postinstall` scripts execute arbitrary code during `npm install`, before any review | V6 | Unrestricted lifecycle script execution |
@@ -273,6 +286,19 @@ Desktop hybrid apps have uniquely deep supply chains: npm/crate ecosystems for a
 | **Chromium N-day in Electron** | Known Chromium vulnerability patched upstream but not yet in the Electron release; attackers target the gap window | V8 | Electron version pinned to vulnerable Chromium |
 | **CEF version freeze** | CEF-based apps (Steam, game launchers) may run Chromium versions months behind, accumulating known vulnerabilities | V8 | Infrequent CEF updates; complex update pipeline |
 | **WebView2 runtime lag** | WebView2 uses the system Edge installation, which updates independently but may be delayed by enterprise policies | V8 | Corporate environment blocking Edge updates |
+
+### §7-3. DLL Hijacking and Sideloading
+
+Electron and CEF-based applications on Windows are particularly susceptible to DLL hijacking because they ship with a complex dependency tree of DLLs that the OS loader resolves at runtime using a predictable search order.
+
+| Subtype | Mechanism | Violation | Key Condition |
+|---------|-----------|-----------|---------------|
+| **Application directory DLL hijacking** | Attacker places a malicious DLL (e.g., `version.dll`, `dbghelp.dll`, `WINMM.dll`) in the application's installation directory. When the Electron app launches, the Windows loader finds the attacker's DLL before the legitimate system DLL due to search order precedence (application directory is searched before system directories) | V5, V1 | Attacker has write access to the application directory (user-writable install path, shared network drive, or download folder execution) |
+| **DLL sideloading via proxy** | Attacker creates a proxy DLL that forwards all legitimate function calls to the real DLL while injecting malicious code at load time. This is harder to detect than simple hijacking because the application functions normally | V5 | Application loads DLLs without verifying their digital signatures; proxy DLL exports match the target DLL's export table |
+| **Electron unsigned DLL loading** | Electron's bundled Chromium and Node.js load numerous DLLs at startup without signature verification. An attacker can substitute any unsigned DLL in the dependency chain (e.g., `ffmpeg.dll`, `libEGL.dll`, `libGLESv2.dll`) | V5, V4 | Electron does not enforce DLL signature verification by default; application directory is writable |
+| **Tauri/WRY WebView2 loader hijacking** | Tauri apps on Windows use WebView2 (Edge runtime). The WebView2Loader.dll is resolved at runtime and can be hijacked if an attacker-controlled copy exists in the search path | V5 | WebView2Loader.dll loaded from application directory before system path |
+
+**Mitigation**: Use `SetDefaultDllDirectories(LOAD_LIBRARY_SEARCH_SYSTEM32)` or `SetDllDirectory("")` at app startup to restrict DLL search order. Sign all shipped DLLs and verify signatures at load time. Install to `Program Files` (requires admin, not user-writable) rather than `%APPDATA%` or `%LOCALAPPDATA%`.
 
 ---
 
@@ -320,9 +346,9 @@ Platform impact varies: macOS and Ubuntu are fully vulnerable because their file
 | §4-1 (ASAR integrity bypass) | CVE-2024-46992 (Electron) | ASAR integrity check bypassable by content modification |
 | §4-1 (ASAR integrity bypass) | CVE-2025-55305 (Electron) | ASAR integrity bypass via resource modification |
 | §7-2 (Chromium N-day patch gap) | CVE-2025-4609 (Chromium) | $250,000 bounty; sandbox escape → RCE; affected Cursor and Windsurf |
-| §7-1 (npm supply chain) | npm Shai-Hulud worm (Sept 2025) | 18 packages, 2.6B weekly downloads; self-propagating malware |
+| §7-1 (npm supply chain) | npm Shai-Hulud worm (Aug–Sept 2025) | 796 packages compromised, 20M+ weekly downloads affected; self-propagating via npm token theft with post-install scripts; Shai-Hulud 2.0 introduced refined package targeting and evasion |
 | §4-1 (ASAR persistence) | Slack ASAR injection (pentest case) | Persistence via PowerShell payload in `electron.asar` |
-| §1 + §2 + §7-2 (IPC XSS → context isolation bypass → Chromium N-day chain) | Pwn2Own Vancouver 2023 — Microsoft Teams (Masato Kinugawa) | Full RCE via 3-bug chain: XSS in chat message → Electron context isolation bypass → sandbox escape via Chromium vulnerability |
+| §1 + §2 + §7-2 (IPC → context isolation bypass → Chromium N-day chain) | Pwn2Own Vancouver 2023 — Microsoft Teams (Viettel Cyber Security) | Full RCE via 2-bug chain: improper MessagePorts configuration in Electron renderer compromise → Chromium sandbox escape |
 | §1-3 (Tauri scope bypass) | GHSA-q9wv-22m9-vhqh (Tauri) | Filesystem scope partially bypassable via special character escaping |
 | §8-1 (Terminal control char injection) | No CVE assigned (MSRC declined; workspace trust + user interaction) | RCE on macOS/Ubuntu via ASCII control characters in filenames or run configurations; Windows partially mitigated |
 

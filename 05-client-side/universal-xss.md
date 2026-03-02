@@ -240,7 +240,19 @@ DevTools operates with the highest privilege level when attached to a page — i
 
 **Key insight:** Code running within a DevTools instance attached to a page can script **any** page regardless of origin or privilege level. Unlike extensions using the debugger API (which detach when targeting privileged pages), DevTools maintains attachment.
 
-### §6-3. Bookmark and Reading Mode Exploitation
+### §6-3. Firefox Privileged about: Pages
+
+Firefox's `about:` pages (e.g., `about:reader`, `about:newtab`, `about:addons`) run with chrome-level privileges and have access to internal Firefox APIs via `Components.utils` and the `ChromeOnly` WebIDL annotation. XSS in these contexts enables full browser takeover — not just cross-origin access but arbitrary file system access, extension installation, and browser configuration modification.
+
+| Subtype | Mechanism | Key Condition |
+|---------|-----------|---------------|
+| **Reader mode XSS** | Firefox Reader View (`about:reader?url=...`) re-renders article content in a privileged about: context. If sanitization of the extracted article content is incomplete, attacker-controlled markup can execute JavaScript with chrome privileges (M6, M7) | Attacker crafts a page whose article extraction output bypasses Firefox's reader mode sanitizer |
+| **about:newtab content injection** | Firefox's new tab page renders content from Activity Stream with privileged access. Injection into the Activity Stream data (e.g., via compromised Pocket recommendations or manipulated top sites) can achieve chrome-context XSS (M6, M7) | Attacker influences content rendered on the new tab page |
+| **about:addons script injection** | The add-on manager page processes extension metadata (names, descriptions) that may contain unsanitized HTML. Malicious extension metadata can trigger XSS in the about:addons privileged context (M6) | Attacker publishes extension with crafted metadata; user views extension details |
+
+**Key distinction from Chromium**: Firefox's about: pages share a single privileged process and have direct access to XPCOM/XPConnect interfaces. Unlike Chrome's WebUI (which uses Mojo IPC and Trusted Types), Firefox's privileged page isolation has historically relied on content sanitization rather than process-level separation.
+
+### §6-4. Bookmark and Reading Mode Exploitation
 
 Browsers process bookmark URLs and reading-mode content in contexts that may have elevated trust.
 
@@ -316,6 +328,17 @@ Browser-integrated PDF viewers (Chrome's PDFium, Firefox's PDF.js) run in specia
 
 **Example (CVE-2024-4367):** Vulnerable PDF.js library allowed XSS through crafted PDFs, enabling `top.document.domain` access from the PDF context.
 
+### §8-3. MHTML Processing Exploitation
+
+MHTML (MIME HTML) is a web page archive format that bundles HTML, CSS, images, and scripts into a single file using MIME multipart encoding. When browsers render MHTML files, the origin assignment and content isolation of the archived resources can create UXSS conditions.
+
+| Subtype | Mechanism | Key Condition |
+|---------|-----------|---------------|
+| **Local MHTML origin confusion** | An MHTML file loaded from the local filesystem (`file://`) renders archived web content. If the browser assigns the archived content the origin of the original URL rather than a local/opaque origin, scripts within the archive can access cross-origin resources. (M3, M4) | Browser renders MHTML content with the original remote origin instead of an opaque or file: origin. |
+| **MHTML Content-Location spoofing** | MHTML uses `Content-Location` headers within MIME parts to reference the original URL of each resource. A crafted MHTML file with manipulated `Content-Location` values can cause the browser to associate archived content with an attacker-chosen origin. (M3) | Browser trusts Content-Location headers in MHTML parts for origin determination without validation. |
+
+**Example (CVE-2014-1747):** A crafted local MHTML file in Chromium could execute scripts with the origin of the archived page, enabling cross-origin data theft from any website whose content was archived.
+
 ---
 
 ## Attack Scenario Mapping (Axis 3)
@@ -351,16 +374,18 @@ Browser-integrated PDF viewers (Chrome's PDFium, Firefox's PDF.js) run in specia
 | §4-3 (extension UXSS) | CVE-2024-49378 (Smartup) | UXSS in Edge/Firefox via extension |
 | §5-1 (bindings check) | 94 Chromium UXSS bugs (2014–2018) | All mitigated by Site Isolation deployment |
 | §6-1 (NTP XSS) | Chromium NTP bug (2021) | XSS on New Tab Page with Mojo IPC access |
-| §6-3 (bookmark UXSS) | CVE-2016-5191 (Chromium) | UXSS via bookmark with user information |
+| §6-4 (bookmark UXSS) | CVE-2016-5191 (Chromium) | UXSS via bookmark with user information |
 | §7-1 (WebView UXSS) | CVE-2020-6506 (Android) | Universal XSS in Android WebView; all apps affected |
 | §7-1 (WebView SOP bypass) | CVE-2014-6041 (Android < 4.4) | SOP bypass in Android default browser |
 | §7-2 (in-app browser) | CVE-2024-5739 (LINE iOS) | UXSS in LINE in-app browser |
 | §7-2 (iOS semi-UXSS) | CVE-2019-17004 (Firefox iOS) | Semi-UXSS affecting Firefox for iOS |
-| §7-3 (Electron) | CVE-2020-16608 | RCE via XSS in Electron application |
+| §7-3 (Electron) | CVE-2020-16608 (Notable 1.8.4) | RCE via XSS in Notable markdown editor (Electron); attacker-crafted note triggers script execution escalating to Node.js RCE |
 | §8-1 (XSLT) | WebKit XSLT UXSS (EDB-47237) | UXSS via XSLT and nested document replacements |
-| §8-2 (MHTML) | CVE-2014-1747 (Chromium) | UXSS from local MHTML file |
+| §8-3 (MHTML) | CVE-2014-1747 (Chromium) | UXSS from local MHTML file |
 | §8-2 (PDF viewer) | CVE-2024-4367 (PDF.js) | XSS via crafted PDF, CSP bypass |
 | §7-2 (Safari/WebKit) | Safari/WebKit UXSS (2022) | $100,500 Apple bounty; full account takeover on every visited site |
+| §6-3 (Firefox about: page) | CVE-2019-11728 (Firefox) | Insufficient sanitization in about:reader allowed XSS in privileged context |
+| §6-3 (Firefox about: page) | CVE-2023-4057 (Firefox) | Memory safety bugs in Firefox privileged contexts allowing potential chrome-level code execution |
 | §8 + §4 (Payment manifest + SW registration) | CVE-2023-5480 (Chrome, Slonser 2024) | UXSS via manipulated payment manifest triggering JIT service worker registration in victim origin; Payment Handler API allows attacker to install malicious SW that executes JavaScript in any origin's context |
 
 ---

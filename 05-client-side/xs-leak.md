@@ -61,6 +61,7 @@ Exploits JavaScript's single-threaded event loop to measure cross-origin script 
 | **Event Loop Blocking** | Attacker measures delay in event queue by observing when messages/events are processed; cross-origin heavy computation blocks shared event loop | **Mitigated by Site Isolation** (Chromium) and Project Fission (Firefox) which separate origins into different threads |
 | **Busy Event Loop via Same-Site Iframe** | Bypasses Site Isolation: opens target window with expensive JS, embeds same-site iframe, measures iframe load time as proxy for target's execution duration | Works because same-site frames share event loop despite process isolation |
 | **Service Worker Timing** | Service worker intercepts navigation, starts timer, returns early response (204 No Content), measures time until main page completes | Bypasses process isolation; SW timing affected by target page's JS blocking |
+| **SharedArrayBuffer High-Resolution Timer** | A `SharedArrayBuffer` shared between main thread and a Web Worker provides a high-resolution timing primitive. The worker increments a counter in a tight loop; the main thread reads the counter before and after an operation to measure duration with sub-microsecond precision — far exceeding `performance.now()` resolution (which is clamped to 5–100μs). This restores Spectre-class timing attacks and dramatically improves the precision of all execution timing leaks | Requires `Cross-Origin-Embedder-Policy: require-corp` and `Cross-Origin-Opener-Policy: same-origin` headers (crossOriginIsolated context) to access `SharedArrayBuffer`; these headers are the defense-gating mechanism |
 | **jQuery/CSS Selector Timing** | Injects expensive CSS selectors (e.g., `:has(:has(:has(*)))`) that short-circuit on match failure; timing reveals DOM structure | Requires CSS injection or selector execution in target context |
 | **ReDoS (Regular Expression DoS)** | Injects exponential-time regex into target page; execution time varies with input data, leaking content via runtime variance | Requires regex injection vulnerability; timing reveals input matching patterns |
 
@@ -114,7 +115,18 @@ Counts the number of `<iframe>` elements in a cross-origin window to infer page 
 
 **Defense**: `Cross-Origin-Opener-Policy: same-origin` prevents `window.open()` from returning window reference; `X-Frame-Options: DENY` prevents iframe embedding.
 
-### §2-2. Window References (window.opener, frames[])
+### §2-2. window.name Cross-Navigation Leak
+
+The `window.name` property persists across navigations, including cross-origin navigations. When a page sets `window.name` (e.g., for session management, analytics, or framework internal state), an attacker who subsequently navigates the window to their own page can read the retained value.
+
+| Subtype | Mechanism | Key Condition |
+|---------|-----------|---------------|
+| **Cross-origin name persistence** | Attacker opens victim page via `window.open()` or navigates an iframe to victim origin, waits for victim page to set `window.name`, then navigates the window back to attacker origin and reads `windowRef.name`. The value persists across the cross-origin navigation boundary | Victim page sets `window.name` with sensitive data (session tokens, user IDs, internal state); attacker can navigate the window |
+| **Framework state leakage** | Some JavaScript frameworks and libraries use `window.name` as a cross-page data transport mechanism (e.g., `window.name` transport in older jQuery plugins, Dojo toolkit). An attacker navigating away from the framework-powered page can read the serialized state data | Application uses `window.name` for data transport; no cleanup of `window.name` on `beforeunload` |
+
+**Defense**: Applications should avoid storing sensitive data in `window.name`. Reset `window.name` to empty string on page unload. `Cross-Origin-Opener-Policy: same-origin` prevents cross-origin window references.
+
+### §2-3. Window References (window.opener, frames[])
 
 Exploits properties accessible on cross-origin window objects.
 
@@ -124,7 +136,7 @@ Exploits properties accessible on cross-origin window objects.
 | **frames[] Enumeration** | `window.frames[0]`, `window.frames[1]` accessible cross-origin; count reveals number of child frames | Similar to §2-1; combined with other leaks to infer state |
 | **Closed Window Detection** | `windowRef.closed` returns `true` if window closed; reveals navigation or user action | Used in timing attacks to detect when popup/window closes after operation |
 
-### §2-3. Navigation State (history.length)
+### §2-4. Navigation State (history.length)
 
 Observes `history.length` to infer navigation count, revealing redirect chains or user interaction.
 
@@ -197,7 +209,7 @@ Inferring response size through various side-channels.
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
 | **ETag Presence/Absence** | Observes whether `ETag` header present via 431-error oracle (§4-1) or other side-channels | `res.end()` may omit ETag; full response includes ETag; presence reveals code path taken |
-| **Content-Disposition Download** | Detects `Content-Disposition: attachment` via `history.length` (§2-3) or download prompt | Reveals resource intended as download vs. inline display |
+| **Content-Disposition Download** | Detects `Content-Disposition: attachment` via `history.length` (§2-4) or download prompt | Reveals resource intended as download vs. inline display |
 | **X-Frame-Options Detection** | Attempts iframe embedding; if blocked, X-Frame-Options present | Binary oracle for framing protection; rarely state-dependent |
 
 ---
@@ -289,7 +301,7 @@ Requires CSS injection on target page; uses selectors as content oracles.
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **Visited Link Styling** | `:visited` pseudo-class historically leaked browsing history via `getComputedStyle()`; now heavily restricted | **Largely mitigated**; remaining vectors: timing via layout recalculation |
+| **Visited Link Styling** | `:visited` pseudo-class historically leaked browsing history via `getComputedStyle()`; now heavily restricted. **Chrome 136+ (April 2025)** introduced triple-key `:visited` partitioning: a link is styled as visited only if the user clicked it from the *same* (top-level site, frame origin, link URL) tuple. This eliminates cross-site history inference via `:visited` entirely — a link visited on `a.com` will not appear visited on `b.com` | **Largely mitigated** in Chrome 136+; remaining vectors in other browsers: timing via layout recalculation. Safari and Firefox have not yet adopted triple-key partitioning |
 | **Rendering Timing** | CSS selector complexity (e.g., `:has(:has(:has(*)))`) causes measurable rendering delays; timing reveals DOM structure | Requires ability to trigger reflow/repaint |
 
 ---
@@ -327,7 +339,7 @@ This section maps the structural leak categories (§1–§8) to real-world attac
 
 | Scenario | Objective | Architecture/Conditions | Primary Mutation Categories | Example Combination |
 |----------|-----------|-------------------------|----------------------------|---------------------|
-| **User De-anonymization** | Determine precise user ID or identity on target site | Target site uses predictable user IDs in URLs, element IDs, or redirects | §2-3 (Navigation State), §5-1 (ID Attribute), §8-1 (postMessage) | Focus-based ID brute-force (§5-1) + postMessage user broadcasts (§8-1) |
+| **User De-anonymization** | Determine precise user ID or identity on target site | Target site uses predictable user IDs in URLs, element IDs, or redirects | §2-4 (Navigation State), §5-1 (ID Attribute), §8-1 (postMessage) | Focus-based ID brute-force (§5-1) + postMessage user broadcasts (§8-1) |
 | **Login/Session Detection** | Infer if user is authenticated to target site | Different responses (status, size, frame count) for auth vs. unauth | §1-1 (Network Timing), §2-1 (Frame Count), §3-1 (Error Events) | Script tag oracle (§3-1): 200 if logged in, 401 if not |
 | **XS-Search (Search Query Inference)** | Leak user's search terms or results existence on target site | Search results page structure varies with results presence/content | §1-2 (Execution Timing), §2-1 (Frame Count), §3-3 (CORP), §7-1 (CSS Injection) | CSS attribute selector (§7-1) brute-forces search input value char-by-char |
 | **Browsing History Inference** | Determine which sites/pages user has visited | Browser cache retains visited resources | §1-3 (Cache Timing), §7-2 (Visited Links) | **Mitigated by partitioned cache (§1-3)**; historical `:visited` timing |
@@ -354,7 +366,7 @@ This section maps the structural leak categories (§1–§8) to real-world attac
 |---------------------|-----------|-----------------|------|
 | §5-1 (ID Attribute Focus) + §8-1 (postMessage) | **Facebook User De-anonymization** (Youssef Sammouda, 4 bugs) | Cross-site user ID leak, Meta employee detection, cross-platform fingerprinting | 2024-2025 |
 | §7-1 (CSS Attribute Selector) | **Imgur De-anonymization Attack** (HackerOne #723175) | IMDEA Software Institute disclosed flaw affecting Imgur users via CSS-based XS-Leak | ~2019 |
-| §4-1 (ETag Length) + §2-3 (history.length) | **Cross-Site ETag Length Leak** (SECCON CTF 14, Arkark blog) | Novel oracle via 431 errors; Top 10 Web Hacking Techniques 2025 | 2025 |
+| §4-1 (ETag Length) + §2-4 (history.length) | **Cross-Site ETag Length Leak** (SECCON CTF 14, Arkark blog) | Novel oracle via 431 errors; Top 10 Web Hacking Techniques 2025 | 2025 |
 | §1-4 (Connection Pool Prioritization) | **XSS-Leak: Leaking Cross-Origin Redirects** (Takeshi Kaneko) | Chrome connection-pool oracle leaks redirect hostnames; Top 10 2025 | 2025 |
 | §1-3 (Cache Timing) + §3-1 (Error Events) | **Massive XS-Search on Google Products** (terjanq) | Inferred Gmail search terms, Drive files, Calendar events via combined timing + frame counting | ~2020 |
 | §8-1 (postMessage) + §5-1 (ID) + §7-1 (CSS) | **Intigriti December CTF** (XS-Leaks + postMessage XSS chain) | Chained XS-Leaks, DOM clobbering, CSP bypass, postMessage to achieve XSS with one click | 2024 |
@@ -392,7 +404,7 @@ This section maps the structural leak categories (§1–§8) to real-world attac
 
 | Defense Header/API | Protected Leaks | Deployment Notes |
 |-------------------|-----------------|------------------|
-| **Cross-Origin-Opener-Policy: same-origin** (COOP) | §2-1 (Frame Counting), §2-2 (Window References), §8-1 (postMessage) | Prevents `window.open()` from returning reference; breaks legitimate popups if not carefully deployed |
+| **Cross-Origin-Opener-Policy: same-origin** (COOP) | §2-1 (Frame Counting), §2-2 (window.name), §2-3 (Window References), §8-1 (postMessage) | Prevents `window.open()` from returning reference; breaks legitimate popups if not carefully deployed |
 | **Cross-Origin-Resource-Policy: same-origin** (CORP) | §3-1 (Error Events), §4-1 (Resource Size) | Blocks cross-origin resource loading; may break CDNs or third-party integrations |
 | **X-Frame-Options: DENY / SAMEORIGIN** | §2-1 (Frame Counting), §5-1 (ID Attribute), §7-1 (CSS Injection in iframe) | Legacy framing protection; CSP `frame-ancestors` preferred |
 | **SameSite=Strict / Lax Cookies** | All categories (limits authenticated state leakage) | Prevents cookies on cross-site requests; Lax allows top-level navigation, Strict blocks all |

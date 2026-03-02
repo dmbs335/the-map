@@ -83,6 +83,7 @@ Direct cross-origin resource access bypassing SOP through protocol-level or brow
 | **CSS Cross-Origin Leak** | CSS can load cross-origin resources and leak information through timing, error events, or computed styles | Font-face, @import, background-image leak authentication status |
 | **WebSocket Cross-Origin** | WebSocket handshake doesn't enforce SOP; servers may not validate Origin header (CSWSH) | WebSocket connection from attacker.com to victim.com succeeds without CSRF token |
 | **DNS Rebinding** | Attacker domain resolves to internal IP after victim loads page, bypassing same-origin check | Attacker controls DNS with low TTL, switching from external IP to 127.0.0.1 |
+| **0.0.0.0 Day (Localhost Bypass)** | Browsers allowed web pages to make requests to `0.0.0.0`, which maps to localhost (`127.0.0.1`) on macOS and Linux. This bypassed all existing localhost protections — PNA (Private Network Access), Chrome's `localhost` blocking, and Firefox's CORS-RFC1918 — because `0.0.0.0` was not classified as a private/local address. Attacker pages could reach local development servers (Selenium WebDriver, Pytorch TorchServe, etc.) via `fetch('http://0.0.0.0:port/')` (Oligo Security, Aug 2024) | macOS or Linux host running local services; browser treats `0.0.0.0` as non-private address; 18-year-old bug across Chrome, Firefox, Safari |
 | **Document.domain Mutation** | Legacy document.domain setter allows same-site but different-origin pages to access each other | Both pages set document.domain to common parent (both deprecated but still present) |
 | **Navigation API History Leak** | Chrome's Navigation API (`navigation.entries()`) exposed cross-origin URL information through navigation history entries, leaking full URLs of previously visited cross-origin pages (CVE-2022-4908) | Chrome with Navigation API enabled; victim navigates to cross-origin pages before attacker reads entries |
 
@@ -329,7 +330,7 @@ DOM clobbering exploits HTML's ability to create named properties on the global 
 | **Clobbering for CSP Bypass** | Clobbering configuration objects used in script loading logic bypasses CSP | DOMPurify vulnerability: <form id="sanitizer"><input name="removed" value="<img src=x onerror=alert(1)>"> |
 | **Clobbering for XSS** | Clobbering variables used in innerHTML/eval sinks enables XSS | <a id="userConfig"><a id="userConfig" name="htmlTemplate" href="cid:&quot;onerror=alert(1)//"> |
 
-PortSwigger research found that approximately 10% of top 5K websites are vulnerable to DOM clobbering, including major platforms like GitHub, Trello, and Wikibooks.
+Khodayari & Pellegrino (IEEE S&P 2023, "It's (DOM) Clobbering Time") found that approximately 9.8% of top 5K websites are vulnerable to DOM clobbering, including major platforms like GitHub, Trello, and Wikibooks.
 
 ### §6-3. Mutation XSS (mXSS)
 
@@ -598,7 +599,7 @@ JavaScript engine (V8, SpiderMonkey, JavaScriptCore) bugs enable arbitrary code 
 | **Use-After-Free** | Memory freed but pointer still used, enabling arbitrary memory read/write | Garbage collector frees object while reference still exists |
 | **ArrayBuffer/TypedArray Exploitation** | Incorrect bounds checking on ArrayBuffer or TypedArray | Out-of-bounds write in Uint32Array overwrites adjacent memory |
 
-Chrome reported over 50 critical vulnerabilities in 2024, including actively exploited zero-days like CVE-2024-7971 and CVE-2024-7965. Differential fuzzing tools like JIT-Picker (2024) discovered 32 previously unknown bugs in JavaScript engines, earning a $10,000 Mozilla bug bounty.
+Chrome reported over 50 high-severity and critical vulnerabilities in 2024, including actively exploited zero-days like CVE-2024-7971 and CVE-2024-7965. Differential fuzzing tools like JIT-Picker (2024) discovered 32 previously unknown bugs in JavaScript engines, earning a $10,000 Mozilla bug bounty.
 
 ### §11-3. Supply Chain and Dependency Attacks
 
@@ -786,17 +787,17 @@ Defensive practitioners should assume that **isolation boundaries will be breach
 48. [Chrome Extensions Vulnerability Exposes API Keys | Cybersecurity News](https://cybersecuritynews.com/chrome-extensions-vulnerability-exposes-api-keys/)
 49. [Same Origin Method Execution (SOME) | Ben Hayak](https://www.benhayak.com/2015/06/same-origin-method-execution-some.html)
 50. [Bypass CSP Using WordPress by Abusing Same Origin Method Execution | Octagon](https://octagon.net/blog/2022/05/29/bypass-csp-using-wordpress-by-abusing-same-origin-method-execution/)
-49. [Harvesting Browser Credentials: DPAPI Exploitation | HawkEye](https://hawk-eye.io/2025/08/harvesting-browser-credentials-the-dpapi-exploitation-threat/)
-50. [JIT-Ppcking: differential fuzzing of JavaScript engines | RUB-Repository](https://hss-opus.ub.ruhr-uni-bochum.de/opus4/frontdoor/index/index/year/2024/docId/10992)
-51. [New HTTP/2 Vulnerability Exposes Web Servers to DoS | The Hacker News](https://thehackernews.com/2024/04/new-http2-vulnerability-exposes-web.html)
-52. [New Vulnerability Bypasses HTTP/2 Security and Launches XSS | CyberPress](https://cyberpress.org/new-vulnerability-allows-hackers-to-bypass-http-2-security/)
-53. [HTTP/3 connection contamination | PortSwigger Research](https://portswigger.net/research/http-3-connection-contamination)
-54. [Exploiting HTTP/2 CONTINUATION frames for DoS | Snyk](https://snyk.io/blog/exploiting-http-2-continuation-frames-dos-attacks/)
-55. [Burp Suite vs. OWASP ZAP | PyNT](https://www.pynt.io/learning-hub/burp-suite-guides/burp-suite-vs-zap-features-key-differences-limitations)
-56. [The State of Browser Security Report 2025 | Keep Aware](https://keepaware.com/resources/guides/state-of-browser-security-report-2025)
-57. [Browser Security Landscape Transformed in 2025 | Security Boulevard](https://securityboulevard.com/2025/06/browser-security-landscape-transformed-in-2025/)
-58. [Looking back at our Bug Bounty program in 2024 | Meta Engineering](https://engineering.fb.com/2025/02/13/security/looking-back-at-our-bug-bounty-program-in-2024/)
-59. Ben Hayak — "Same Origin Method Execution (SOME)" (DEF CON 2015): JSONP callback endpoints abused to invoke arbitrary same-origin JavaScript methods, bypassing CSP. Reapplied in octagon.net WordPress CSP bypass (2022).
-60. GitHub — "GitHub's post-CSP journey" (Mike West & GitHub Security, 2017): Documents the iterative real-world deployment of CSP on a large-scale production application — migrating from whitelist-based CSP to nonce-based policy, adopting `strict-dynamic`, eliminating `unsafe-inline`, and addressing breakage from third-party scripts. A key case study demonstrating that CSP deployment is a multi-phase operational challenge, not a one-time header addition.
-61. Wi et al. — "DiffCSP: Finding Browser Bugs in Content Security Policy Enforcement through Differential Testing" (NDSS 2023): First differential testing framework for CSP enforcement; 29 security bugs across Chrome/Firefox/Safari; 10 root cause categories; https://github.com/WSP-LAB/DiffCSP
-62. [Fickle PDFs: exploiting browser rendering discrepancies | PortSwigger Research](https://portswigger.net/research/fickle-pdfs-exploiting-browser-rendering-discrepancies) — Zakhar Fedotkin (2024): PDF widget annotations render differently across browsers (Safari vs Chrome vs Firefox), enabling financial document fraud and AI-human discrepancy attacks from a single unmodified file.
+51. [Harvesting Browser Credentials: DPAPI Exploitation | HawkEye](https://hawk-eye.io/2025/08/harvesting-browser-credentials-the-dpapi-exploitation-threat/)
+52. [JIT-Ppcking: differential fuzzing of JavaScript engines | RUB-Repository](https://hss-opus.ub.ruhr-uni-bochum.de/opus4/frontdoor/index/index/year/2024/docId/10992)
+53. [New HTTP/2 Vulnerability Exposes Web Servers to DoS | The Hacker News](https://thehackernews.com/2024/04/new-http2-vulnerability-exposes-web.html)
+54. [New Vulnerability Bypasses HTTP/2 Security and Launches XSS | CyberPress](https://cyberpress.org/new-vulnerability-allows-hackers-to-bypass-http-2-security/)
+55. [HTTP/3 connection contamination | PortSwigger Research](https://portswigger.net/research/http-3-connection-contamination)
+56. [Exploiting HTTP/2 CONTINUATION frames for DoS | Snyk](https://snyk.io/blog/exploiting-http-2-continuation-frames-dos-attacks/)
+57. [Burp Suite vs. OWASP ZAP | PyNT](https://www.pynt.io/learning-hub/burp-suite-guides/burp-suite-vs-zap-features-key-differences-limitations)
+58. [The State of Browser Security Report 2025 | Keep Aware](https://keepaware.com/resources/guides/state-of-browser-security-report-2025)
+59. [Browser Security Landscape Transformed in 2025 | Security Boulevard](https://securityboulevard.com/2025/06/browser-security-landscape-transformed-in-2025/)
+60. [Looking back at our Bug Bounty program in 2024 | Meta Engineering](https://engineering.fb.com/2025/02/13/security/looking-back-at-our-bug-bounty-program-in-2024/)
+61. Ben Hayak — "Same Origin Method Execution (SOME)" (DEF CON 2015): JSONP callback endpoints abused to invoke arbitrary same-origin JavaScript methods, bypassing CSP. Reapplied in octagon.net WordPress CSP bypass (2022).
+62. GitHub — "GitHub's post-CSP journey" (Mike West & GitHub Security, 2017): Documents the iterative real-world deployment of CSP on a large-scale production application — migrating from whitelist-based CSP to nonce-based policy, adopting `strict-dynamic`, eliminating `unsafe-inline`, and addressing breakage from third-party scripts. A key case study demonstrating that CSP deployment is a multi-phase operational challenge, not a one-time header addition.
+63. Wi et al. — "DiffCSP: Finding Browser Bugs in Content Security Policy Enforcement through Differential Testing" (NDSS 2023): First differential testing framework for CSP enforcement; 29 security bugs across Chrome/Firefox/Safari; 10 root cause categories; https://github.com/WSP-LAB/DiffCSP
+64. [Fickle PDFs: exploiting browser rendering discrepancies | PortSwigger Research](https://portswigger.net/research/fickle-pdfs-exploiting-browser-rendering-discrepancies) — Zakhar Fedotkin (2024): PDF widget annotations render differently across browsers (Safari vs Chrome vs Firefox), enabling financial document fraud and AI-human discrepancy attacks from a single unmodified file.
