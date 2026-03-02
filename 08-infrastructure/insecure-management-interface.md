@@ -352,7 +352,7 @@ Tesla's AWS-hosted Kubernetes environment was compromised via a misconfigured Ku
 | **Data Exfiltration** | Information disclosure chain | §6 + §5 | Actuator heapdump (§6-1) → Extract credentials → Access additional management planes |
 | **Infrastructure Takeover** | Cloud control plane | §8-1 + §3 | IAM self-escalation (§8-1) → Full cloud admin → Modify all resources and access controls |
 | **Supply Chain Compromise** | CI/CD management | §8-3 + §7 | Jenkins script console (§8-3) → Inject malicious code into build pipeline → Compromise all deployed artifacts |
-| **Physical Process Manipulation** | OT/ICS management | §10 + §1 + §2 | Internet-exposed HMI (§10-1) → No authentication (§10-2) → Direct manipulation of industrial process |
+| **Physical Process Manipulation** | OT/ICS management | §1 + §2 | Internet-exposed HMI (§1-1) → No authentication (§2-1) → Direct manipulation of industrial process |
 
 ---
 

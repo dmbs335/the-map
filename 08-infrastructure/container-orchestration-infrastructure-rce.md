@@ -151,7 +151,7 @@ Every pod receives an automatically mounted service account token at `/var/run/s
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
 | **Default service account overpermission** | The `default` service account in a namespace is bound to cluster-admin or broad ClusterRoles. Every pod in that namespace inherits cluster-admin access through its auto-mounted token | RBAC binding giving cluster-admin to default service accounts |
-| **Token volume mount traversal** | From a compromised pod with access to `/var/lib/kubelet/pods` (via hostPath mount), an attacker traverses to extract service account tokens from every pod on the node, including system-critical pods (kube-proxy, monitoring agents, ingress controllers) | hostPath mount to kubelet pods directory (§2-3) |
+| **Token volume mount traversal** | From a compromised pod with access to `/var/lib/kubelet/pods` (via hostPath mount), an attacker traverses to extract service account tokens from every pod on the node, including system-critical pods (kube-proxy, monitoring agents, ingress controllers) | hostPath mount to kubelet pods directory (§2-1) |
 | **Long-lived non-expiring tokens** | Legacy Kubernetes (pre-1.24) creates non-expiring service account tokens stored as Secrets. These tokens remain valid indefinitely even after the associated pod is deleted, and can be extracted from etcd, logs, or environment variables | Kubernetes < 1.24 or clusters with legacy token creation; tokens persisted in Secrets |
 | **RBAC Buster persistence** | An attacker creates a ClusterRoleBinding from a compromised pod, binding a new service account to cluster-admin. This binding persists even after the initial misconfiguration is fixed, providing permanent backdoor access | Service account with ClusterRoleBinding creation permissions |
 
@@ -309,7 +309,7 @@ In multi-tenant Kubernetes deployments, tenants share nodes and often share cont
 | Scenario | Architecture | Primary Mutation Categories | Attack Chain Example |
 |---|---|---|---|
 | **Single Container Escape** | Any container runtime | §1, §1-4 | Malicious image exploits runc mount race (§1-1) → host filesystem access → persistent backdoor |
-| **Privileged Container → Node Takeover** | Kubernetes/Docker with misconfig | §2 | Privileged pod + Docker socket mount (§2-3) → create new privileged container → host root |
+| **Privileged Container → Node Takeover** | Kubernetes/Docker with misconfig | §2 | Privileged pod + Docker socket mount (§2-1) → create new privileged container → host root |
 | **Pod Compromise → Cluster Takeover** | Kubernetes | §3, §4, §8 | Application vuln → compromised pod → overpermissioned SA token (§3-4) → cluster-admin → all secrets |
 | **Unauthenticated Cluster Compromise** | Kubernetes with Ingress NGINX | §4-1 | IngressNightmare annotation injection → NGINX RCE → SA token → cluster-wide secret exfiltration |
 | **Build Pipeline Compromise** | CI/CD with container builds | §1-5, §6 | Malicious Dockerfile in PR → BuildKit race condition → host access during build → credential theft |

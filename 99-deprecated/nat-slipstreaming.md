@@ -260,8 +260,8 @@ In certain architectural scenarios, the attack scope extends beyond a single NAT
 | **Full victim machine scan** | Any NAT with SIP ALG | §1 + §2-1 + §3-1 (repeated) + §5-1 | Attacker maps all services on victim |
 | **Internal network device compromise** | NAT with H.323 ALG | §1 + §2 + §3-2 + §4-2 + §5-1 | Attacker reaches any device on LAN |
 | **IoT/unmanaged device targeting** | NAT with H.323 ALG + IoT network | §1 + §3-2 + §6-2 | Attacker accesses cameras, printers, SCADA |
-| **Mass exploitation via ads** | Any vulnerable NAT + ad network | §6-3 + all prior stages | Broad-scale internal network probing |
-| **Lateral movement enablement** | Enterprise NAT + segmented network | §3-2 + §6-2 + §6-3 | External attacker gains network foothold |
+| **Mass exploitation via ads** | Any vulnerable NAT + ad network | §6-2 + all prior stages | Broad-scale internal network probing |
+| **Lateral movement enablement** | Enterprise NAT + segmented network | §3-2 + §6-2 | External attacker gains network foothold |
 
 ---
 
@@ -289,7 +289,7 @@ In certain architectural scenarios, the attack scope extends beyond a single NAT
 | §4-2 (STUN port bypass) | CVE-2021-23961 | Firefox (< 85.0) | Browser restricted port list bypass via WebRTC |
 | §4-2 (STUN port bypass) | CVE-2021-1799 | Safari / WebKit (< 14.0.3) | Browser restricted port list bypass |
 | §1-1 (ICE candidate leak) | CVE-2021-21210 | Chrome | WebRTC IP address leak enabling internal IP discovery |
-| §5-3 (conntrack helper) | — | Linux kernel nf_conntrack_sip | Automatic ALG activation without session validation (pre-4.7 default) |
+| §5-1 (conntrack helper) | — | Linux kernel nf_conntrack_sip | Automatic ALG activation without session validation (pre-4.7 default) |
 
 ---
 

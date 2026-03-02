@@ -356,7 +356,7 @@ Presented at Ekoparty, Hackitivity, and NoNameCon 2020 with Rajanish Pathak. Cov
 | File-Based RCE | Upload traversal, log injection, race conditions | §5 |
 | Desktop App RCE | Electron-based applications | §7 |
 | Infrastructure Compromise | Cloud, SSH, containers | §8 |
-| WAF/Filter Bypass | Encoding, format confusion, expression indirection | §1-4 (patch bypass), §2-1 (Unicode/sandbox bypass) |
+| WAF/Filter Bypass | Encoding, format confusion, expression indirection | §1-1 (patch bypass), §2-1 (Unicode/sandbox bypass) |
 
 ---
 

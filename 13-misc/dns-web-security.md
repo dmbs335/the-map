@@ -173,6 +173,24 @@ Attacks targeting the DNS hosting layer rather than the registrar.
 | **Zone transfer information disclosure (AXFR)** | Request a full zone transfer from a misconfigured authoritative DNS server, obtaining the complete inventory of all DNS records including internal hostnames and IPs | Server allows AXFR from any source; provides reconnaissance data for further attacks (CVE-1999-0532, still prevalent) |
 | **Dynamic DNS update exploitation** | Exploit insecure dynamic DNS update configurations to inject or modify DNS records without authentication | DNS server allows unauthenticated dynamic updates; common in poorly configured BIND installations |
 
+### §4-3. DHCP-Based DNS Record Spoofing
+
+Exploiting DHCP's integration with DNS dynamic updates — particularly in Active Directory environments — to inject arbitrary DNS records without authentication.
+
+| Subtype | Mechanism | Key Condition |
+|---|---|---|
+| **DHCP DNS Dynamic Update spoofing** | DHCP servers in Active Directory environments perform DNS dynamic updates on behalf of clients. An attacker sends crafted DHCP requests with arbitrary hostnames, causing the DHCP server to create or overwrite DNS A/AAAA records for those names — effectively achieving unauthenticated DNS record injection | AD-integrated DHCP with DNS dynamic updates enabled (default); no DHCP name protection configured; Akamai research found 57% of monitored AD networks vulnerable |
+| **Machine account DNS record poisoning** | In AD environments, authenticated domain machines can update their own DNS records. A compromised or attacker-controlled machine modifies its DNS record to point to a different IP, enabling MitM against services that resolve that hostname | Domain-joined machine compromised; DNS scavenging not aggressive enough to detect changes |
+
+### §4-4. BGP-Based DNS Traffic Hijacking
+
+Exploiting BGP route announcements to intercept DNS traffic at the network routing layer, enabling large-scale DNS manipulation without compromising any DNS infrastructure.
+
+| Subtype | Mechanism | Key Condition |
+|---|---|---|
+| **BGP prefix hijack of resolver IP** | Announce a more-specific BGP route for a public DNS resolver's IP prefix (e.g., 1.1.1.1/32), diverting DNS queries from all users routing through the hijacker's AS to attacker-controlled infrastructure | BGP peering access; target resolver uses globally routable IP; no RPKI/ROA enforcement on transit networks |
+| **BGP hijack for CA validation interception** | Temporarily hijack the target domain's IP prefix via BGP during a Certificate Authority's domain validation process, intercepting the HTTP-01 or DNS-01 challenge to obtain a fraudulent TLS certificate | CA validates from limited network vantage points; BGP hijack active during validation window; no multi-perspective validation (Cloudflare 1.1.1.1 incident, June 2024) |
+
 ---
 
 ## §5. DNS as Covert Data Channel (Tunneling & Exfiltration)

@@ -213,6 +213,9 @@ Server-side template engines are designed to render trusted templates with untru
 | **Direct Template Concatenation** | User input inserted directly into template string: `render("Hello " + userInput)` instead of `render("Hello {{name}}", {name: userInput})` | Developer concatenates user input into template rather than passing as context variable |
 | **Sandbox Escape** | Template engine sandbox restricts available objects, but attacker traverses object graph to reach `os.system()` or equivalent | Sandbox doesn't fully restrict access to runtime internals; MRO traversal possible (Jinja2, Twig, Freemarker) |
 | **WAF Filter Bypass via String Construction** | Attacker builds restricted strings from arithmetic operations, list indices, or encoding to bypass pattern-based WAF rules | WAF uses regex/string matching; template engine allows dynamic string construction |
+| **Double Rendering / Recursive Evaluation** | Template output is itself rendered as a template again — user input in the first pass becomes template code in the second pass, crossing from data to code context twice | Template engine configured to render output recursively; or CMS stores user content that is re-evaluated as template |
+| **Template Inclusion via User Input** | User controls which template file is loaded via path parameter (e.g., `{% include user_input %}`), crossing from the data context into template-file selection — effectively converting path traversal into code execution | Template inclusion directive accepts user-controlled values; no allowlist on includable templates |
+| **Prototype Pollution → Template RCE** | In Node.js, prototype pollution injects properties (e.g., `__proto__.type`, `__proto__.block`) that template engines (Pug, Handlebars, EJS) evaluate as template directives during compilation, crossing from object data into template code execution | Node.js application with prototype pollution vector; template engine accesses polluted prototype properties during compilation (CVE-2022-29078, CVE-2023-33592) |
 
 ### §5-3. Query Language Trust
 
@@ -223,6 +226,9 @@ GraphQL, SQL, LDAP, and other query languages have trust boundaries between quer
 | **GraphQL Introspection Disclosure** | Introspection queries expose full schema including internal types, deprecated fields, and hidden mutations | Introspection enabled in production (default in many frameworks); CVE-2024-50312 |
 | **GraphQL Depth/Complexity Bypass** | Attacker crafts deeply nested or aliased queries that exceed intended limits through regex bypass (`__schema` with special characters) or fragmented queries | Depth limits implemented via regex pattern matching rather than AST analysis |
 | **Batch Query Abuse** | Multiple mutations sent in single request bypass per-request rate limits or authorization checks | Batching enabled; authorization checked per-request not per-operation |
+| **ORM Raw Expression Injection** | ORM methods that accept raw SQL expressions or operator objects (e.g., Sequelize `Op.gt`, Django `extra()`, Rails `where("name = '#{input}'")`) reintroduce injection within a "parameterized" query interface — developers trust the ORM to handle escaping, but raw expression APIs bypass it | ORM provides raw/literal query APIs alongside safe APIs; developer uses raw API with user input |
+| **Stored Procedure Dynamic SQL** | Stored procedures construct SQL dynamically via string concatenation (`EXEC sp_executesql @sql`), reintroducing injection within the "trusted" database layer — application trusts that calling a stored procedure is inherently safe | Stored procedures use dynamic SQL construction; application passes user input as procedure parameters that become part of dynamic query |
+| **NoSQL Operator Injection** | MongoDB/NoSQL query operators (`$gt`, `$regex`, `$where`, `$ne`) injected through JSON request parameters bypass the query-structure vs. parameter-value boundary because the query language's structure and data share the same JSON format | JSON-based API passes request body directly to NoSQL query; no type validation separating operators from values |
 
 ---
 
@@ -288,6 +294,9 @@ Applications that perform security checks only on the client side implicitly tru
 | **Client-Only Input Validation** | Validation exists only in JavaScript; attacker sends requests directly to API bypassing browser | No server-side validation; client-side checks treated as security controls |
 | **Hidden Field / Disabled Element Trust** | Application trusts that hidden form fields or disabled inputs cannot be modified | Server processes all submitted values without verifying they match expected state |
 | **Client-Side Access Control** | UI elements hidden via CSS/JS for unauthorized users, but API endpoints lack authorization checks | Authorization enforced by hiding buttons/links rather than server-side checks |
+| **Client-Side Rate Limiting** | Rate limits enforced only in JavaScript (countdown timers, attempt counters stored in `localStorage`, disabled submit buttons) — attacker bypasses by calling API directly or clearing storage | No server-side rate limiting; client-side countdown or attempt counter treated as security enforcement |
+| **Response Manipulation for Access Control** | Client-side routing/rendering trusts HTTP response status codes or JSON fields (`{"role": "user"}`) to determine access level — intercepting proxy changes `403`→`200` or `"role": "admin"` to bypass restrictions | Authorization decisions made client-side based on API response content; server does not re-verify authorization on protected operations |
+| **Client-Side Cryptographic Trust** | Application performs encryption, token generation, or signature verification in client-side JavaScript and trusts the result — attacker modifies crypto logic, skips verification, or extracts keys from JavaScript source | Cryptographic operations in browser JavaScript treated as tamper-proof; keys embedded in client-side code |
 
 ---
 

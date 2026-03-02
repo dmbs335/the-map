@@ -211,8 +211,8 @@ Reconnaissance is a prerequisite for most RMI attacks. This category covers tech
 | **Unauthenticated RCE (Pre-JEP 290)** | Legacy JDK, any RMI endpoint | §1-1 + §2-1 + §6-1 |
 | **Unauthenticated RCE (Post-JEP 290)** | Modern JDK, custom services without filters | §3-1 + §3-2 |
 | **Deserialization Filter Bypass** | JEP 290 enabled, pre-8u241 | §1-2 (An Trinh / JRMPClient) |
-| **JMX-based RCE** | JMX exposed without authentication | §4-1 (MLet loading) |
-| **JNDI Injection Chain** | Application with JNDI lookup sink | §5-1 + §5-2 |
+| **JMX-based RCE** | JMX exposed without authentication | §4 (MLet loading) |
+| **JNDI Injection Chain** | Application with JNDI lookup sink | §5 |
 | **SSRF-to-Internal-RMI** | Web app SSRF + internal RMI services | §7-1 + §2-2 |
 | **Lateral Movement** | Compromised host in RMI-using environment | §8-1 → §3 or §4 |
 | **Supply Chain / Build System** | CI/CD using JMeter/Gradle/Maven with RMI | §3-3 + §6 |
@@ -228,7 +228,7 @@ Reconnaissance is a prerequisite for most RMI attacks. This category covers tech
 | §5-2 (Log4Shell) + §5-1 | **CVE-2021-44228** (Apache Log4j) | CVSS 10.0. Unauthenticated RCE via JNDI lookup in log messages. One of the most impactful vulnerabilities in history; RMI was one of three JNDI vectors exploited in the wild |
 | §3-1 + §2-1 | **CVE-2025-42944** (SAP NetWeaver RMI-P4) | CVSS 10.0. Unauthenticated RCE via insecure deserialization in the RMI-P4 module (port 50004/50014). No authentication, no filtering |
 | §1-1 + §4-1 | **CVE-2025-20354** (Cisco Unified CCX) | Critical. Unauthenticated file upload and RCE via improper authentication in the Java RMI process, executed with root privileges |
-| §7-3 (IIOP) + §5-1 | **CVE-2020-2551** (Oracle WebLogic) | CVSS 9.8. Unauthenticated RCE via IIOP protocol with malicious JNDI lookup |
+| §7-2 (IIOP) + §5 | **CVE-2020-2551** (Oracle WebLogic) | CVSS 9.8. Unauthenticated RCE via IIOP protocol with malicious JNDI lookup |
 | §1-2 (UnicastRef bypass) | **CVE-2019-2684** (Oracle JDK) | JEP 290 registry filter bypass via UnicastRef gadget; patched in 8u241 |
 | §5-1 + §5-2 | **CVE-2024-28213** (nGrinder) | RCE via insecure deserialization in RMI communication; part of a chain of 6 CVEs |
 | §6-1 (Codebase) | **CVE-2011-3556** (Oracle JDK) | Classic RMI codebase exploitation; the vulnerability that led to `useCodebaseOnly=true` becoming default |
