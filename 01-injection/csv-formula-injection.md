@@ -201,7 +201,7 @@ The most feature-rich and most targeted application. Attack surface includes DDE
 
 | Feature | Attack Relevance | Version Notes |
 |---|---|---|
-| **DDE** | Full OS command execution (§2-1) | Disabled by default in Office 2021+/365. Enabled by default in older versions. |
+| **DDE** | Full OS command execution (§2-1) | Disabled by default since December 2017 security updates (KB4053440 for Word, February 2018 for Excel) across Office 2007–2016. Office 2019/2021/365 ship with DDE disabled. Older unpatched installations remain vulnerable. |
 | **WEBSERVICE** | Auto-execute HTTP requests, client-side SSRF (§2-2) | Available since Excel 2013. Windows only. |
 | **FILTERXML** | Structured XML extraction from WEBSERVICE responses (§2-3) | Available since Excel 2013. Windows only. |
 | **HYPERLINK** | Click-triggered data exfiltration (§2-1) | All versions. No security prompt. |

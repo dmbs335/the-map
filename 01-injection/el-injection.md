@@ -161,7 +161,7 @@ Building strings without literal quotes by constructing characters programmatica
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **ASCII Code Point Conversion** | `true.toString().charAt(0).toChars(67)[0].toString()` produces `'C'` | Bypasses quote blacklists |
+| **ASCII Code Point Conversion** | `T(java.lang.Character).toString(T(java.lang.Character).toChars(67)[0])` produces `'C'`. Note: `toChars()` is a **static** method on `Character` class, not an instance method on `char` primitive | Bypasses quote blacklists |
 | **Concatenation Chains** | `.concat()` methods to build strings from individual characters | Quote filtering in place |
 | **Boolean String Extraction** | `true.toString().charAt(0)` yields `'t'`, `false.toString()` yields `'f'` | No string literals allowed |
 

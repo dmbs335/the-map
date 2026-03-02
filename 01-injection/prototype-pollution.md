@@ -381,7 +381,7 @@ Defenses against prototype pollution often involve input sanitization, but many 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
 | **Asynchronous trigger** | Pollution occurs on one request; gadget triggers on a later, unrelated request | Prototype pollution persists in Node.js process memory |
-| **Cross-worker pollution** | Worker threads share prototype chain with main thread | Application uses `worker_threads` |
+| **Cross-context pollution via shared objects** | Objects passed between contexts (e.g., via `workerData`, `postMessage` with `SharedArrayBuffer`, or `child_process.fork()` pre-fork memory) can carry polluted prototypes. Note: Node.js `worker_threads` use **isolated V8 heaps** — `Object.prototype` is NOT shared between workers. Pollution crosses contexts only through explicitly transferred/cloned objects | Application passes objects between execution contexts without deep-cloning to a clean prototype |
 | **Third-party dependency trigger** | Pollution source is in application code; gadget is in an unrelated dependency | Complex dependency graph with shared prototype chain |
 
 ---

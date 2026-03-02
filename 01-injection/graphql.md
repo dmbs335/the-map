@@ -140,6 +140,8 @@ GraphQL itself is a query language layer — the actual data fetching happens in
 
 ### §3-1. SQL Injection via GraphQL Arguments
 
+> For the full SQL injection mutation taxonomy — including blind, second-order, ORM-layer, and encoding-based variants — see [`sql-injection.md`](sql-injection.md) and [`orm-misuse-sql-injection.md`](orm-misuse-sql-injection.md).
+
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
 | **Direct argument injection** | Injecting SQL payloads through query/mutation arguments (e.g., `user(name: "' OR 1=1 --")`) that are directly concatenated into SQL queries by resolvers | Resolver uses string concatenation for SQL construction |
@@ -147,6 +149,8 @@ GraphQL itself is a query language layer — the actual data fetching happens in
 | **Nested input object injection** | Exploiting deeply nested input types where inner fields are less likely to be validated (e.g., `createUser(input: { address: { city: "'; DROP TABLE--" } })`) | Inconsistent input validation across nested input types |
 
 ### §3-2. NoSQL Injection
+
+> For the full NoSQL injection mutation taxonomy — including MongoDB, Redis, Elasticsearch, Cassandra, and protocol-level variants — see [`nosql-injection.md`](nosql-injection.md).
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
@@ -163,12 +167,16 @@ GraphQL itself is a query language layer — the actual data fetching happens in
 
 ### §3-4. OS Command Injection
 
+> For the full command injection mutation taxonomy — including filter evasion, encoding bypass, and platform-specific variants — see [`command-injection.md`](command-injection.md). For template injection via resolvers, see [`ssti.md`](ssti.md).
+
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
 | **Resolver shell execution** | Injecting shell commands through arguments that are passed to `exec()`, `system()`, or similar functions in resolvers (e.g., `convertFile(filename: "file.pdf; cat /etc/passwd")`) | Resolver uses user input in shell commands |
 | **Template injection through resolvers** | Injecting template syntax (e.g., `{{7*7}}` for Jinja2) through arguments that pass through server-side template engines | Resolver outputs pass through a template engine without sanitization |
 
 ### §3-5. Cross-Site Scripting (XSS) via GraphQL
+
+> For the full XSS mutation taxonomy — including injection contexts, encoding differentials, DOM-based variants, and defense bypass techniques — see [`xss.md`](xss.md).
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|

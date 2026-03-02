@@ -277,7 +277,7 @@ Encoding-based mutations target the gap between what a WAF/IDS can parse and wha
 |---------|-----------|---------|
 | **Hex character references** | `&#x25;` for `%`, `&#x73;` for `s` | Bypass keyword filters for `SYSTEM`, `ENTITY`, etc. |
 | **Decimal character references** | `&#37;` for `%`, `&#115;` for `s` | Alternative to hex encoding |
-| **Keyword obfuscation** | Encode `SYSTEM` as `S&#x59;STEM` or `&#83;&#89;&#83;&#84;&#69;&#77;` | Bypass WAF rules matching literal `SYSTEM` keyword |
+| **Keyword obfuscation (limited)** | Encode `SYSTEM` as `S&#x59;STEM` or `&#83;&#89;&#83;&#84;&#69;&#77;`. **Caveat:** Per XML 1.0 spec (§2.3, §4.4), character references are expanded only in **character data and attribute values**, NOT within DTD keyword tokens (`SYSTEM`, `ENTITY`, etc.). This bypass works only against **non-conformant parsers** that erroneously expand character references before tokenizing DTD keywords. Spec-conformant parsers will reject this as a syntax error | Bypass WAF rules matching literal `SYSTEM` keyword; requires non-conformant XML parser |
 
 ### §5-4. CDATA Wrapping
 
@@ -294,7 +294,7 @@ Encoding-based mutations target the gap between what a WAF/IDS can parse and wha
 |---------|-----------|--------|
 | **XML comments in DOCTYPE** | `<!DOCTYPE foo [<!-- comment --><!ENTITY xxe SYSTEM "file:///etc/passwd">]>` | Break WAF pattern matching |
 | **Newlines within declarations** | Split `<!ENTITY` across multiple lines | WAF may only inspect first N bytes or first line |
-| **Null bytes** | Insert null bytes between tokens | Some WAFs truncate at null bytes; XML parser skips them |
+| **Null bytes** | Insert null bytes between tokens | Some WAFs truncate at null bytes. **Note:** Null bytes (`\x00`) are **illegal in XML 1.0** and cause a well-formedness error in spec-conformant parsers. This bypass works only against non-conformant implementations that silently skip or strip null bytes |
 
 ---
 
@@ -321,7 +321,7 @@ Java has the broadest XML processing ecosystem and, historically, the most permi
 
 | Aspect | Behavior |
 |--------|----------|
-| **PHP < 8.0** | `libxml_disable_entity_loader(false)` is default; XXE is possible |
+| **PHP < 8.0** | External entity loading is **enabled by default** (the entity loader is NOT disabled). Applications must call `libxml_disable_entity_loader(true)` to harden against XXE |
 | **PHP >= 8.0** | External entity loading disabled by default; `libxml_disable_entity_loader()` deprecated |
 | **`LIBXML_NOENT` flag** | Explicitly enables entity substitution — re-introduces XXE even in PHP 8.0+ |
 | **`simplexml_load_string()` with options** | Passing `LIBXML_NOENT` as option makes it vulnerable |
@@ -429,7 +429,7 @@ XXE alone rarely achieves remote code execution, but it serves as a powerful pri
 |-------|-----------|----------|
 | **XXE → PHP expect://id** | §3-4 (`expect://` wrapper) | PHP with `expect` extension |
 | **XXE → Phar deserialization** | XXE reads `phar://` URI triggering unserialization → gadget chain → RCE | PHP |
-| **XXE → PHP filter chain (CVE-2024-2961)** | XXE + iconv filter chain bug → arbitrary file write → RCE | PHP (patched in PHP 8.x) |
+| **XXE → PHP filter chain (CVE-2024-2961)** | XXE + glibc `iconv` buffer overflow (ISO-2022-CN-EXT encoding) → heap corruption → controlled memory overwrite → RCE. Note: the exploitation mechanism is a **heap buffer overflow**, not an arbitrary file write | PHP on glibc-based systems (patched in glibc 2.40) |
 | **XXE → credential theft → admin access → RCE** | Read config files containing credentials → authenticate as admin → upload webshell | Any platform |
 | **XXE → SSRF → internal service exploit** | XXE triggers SSRF to vulnerable internal service | Any platform with vulnerable internal services |
 | **Nested deserialization → XXE (CVE-2024-34102)** | Deserialization of crafted object triggers XML parsing with XXE | Magento/Adobe Commerce (PHP) |

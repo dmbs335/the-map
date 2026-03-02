@@ -51,7 +51,7 @@ LDAP search filters use prefix notation with explicit boolean operators: `(&(con
 |---------|-----------|---------|--------|
 | **AND filter tautology** | Injecting `*` as both username and password creates a universally-true filter | `(&(uid=*)(password=*))` | AUTH |
 | **OR filter injection** | Inserting `)(|(&` to introduce an OR branch that always matches | `user=*)(|(&` + `pass=*)(&` | AUTH |
-| **NOT filter negation** | Using `!(condition)` to invert restriction logic | `admin)(!(&#(1=0` | AUTH, PRIV |
+| **NOT filter negation** | Using `!(condition)` to invert restriction logic, forcing authentication to succeed by negating a universally-false condition | `admin)(!(userPassword=nonexistent` | AUTH, PRIV |
 | **Filter termination with garbage** | Closing the legitimate filter early and appending syntactically-valid but semantically-empty clauses | `user=admin)(&)` + `pass=x)` | AUTH |
 | **Multiple filter injection** | Injecting a complete second filter after closing the first; behavior depends on server implementation (§8-1) | `user=x)(|(uid=*` | AUTH, DISC |
 | **Null byte truncation** | Appending `%00` (null byte) to truncate the remainder of the filter, discarding password checks | `user=admin)%00` | AUTH |
@@ -86,7 +86,7 @@ The LDAP filter wildcard `*` matches zero or more characters in an attribute val
 | **Suffix wildcard matching** | Testing `*suffix` patterns to discover values by their ending characters | `(mail=*@corp.com)` | DISC |
 | **Substring wildcard matching** | Combining prefix and suffix wildcards to locate values containing known substrings | `(description=*admin*)` | DISC |
 | **samAccountName enumeration** | Injecting `(samAccountName=*)` to dump all Active Directory user objects | URL parameter → `(samAccountName=*)` | DISC |
-| **Binary search with wildcards** | Using lexicographic comparison with wildcards to perform binary search over attribute values, reducing query count from O(n) to O(log n) | Test `(password>=M*)` then narrow range | BLIND |
+| **Binary search with lexicographic comparison** | Using LDAP's `greaterOrEqual` (`>=`) and `lessOrEqual` (`<=`) operators for binary search over attribute values, reducing query count from O(n) to O(log n). Note: `>=` compares complete values, not wildcards — `(password>=M)` matches entries with password lexicographically >= `"M"` | Test `(password>=M)` then narrow: `(password>=Ma)`, etc. | BLIND |
 
 ### §2-2. XPath Wildcard Node Selection
 
@@ -238,7 +238,7 @@ LDAP authentication typically works by constructing a filter like `(&(uid=INPUT)
 | Subtype | Mechanism | Example | Impact |
 |---------|-----------|---------|--------|
 | **Wildcard credential bypass** | Both fields set to `*` matches any entry with non-empty uid and password | `uid=*` + `password=*` → `(&(uid=*)(userPassword=*))` | AUTH |
-| **Known-user password bypass** | Username is a known valid user; password field is injected to be ignored | `uid=admin)(|(password=` + `password=anything))` | AUTH |
+| **Known-user password bypass** | Username is a known valid user; password field is injected with a tautology so the filter matches regardless. Given template `(&(uid=%s)(userPassword=%s))`, inject into uid to introduce OR logic that ignores the password | `uid=admin)(|(uid=*` + `password=anything)` → `(&(uid=admin)(|(uid=*)(userPassword=anything)))` | AUTH |
 | **Filter comment-out** | Closing the filter early and using null byte or comment to discard the password check | `uid=admin)%00` | AUTH |
 | **Universal match with OR** | Injecting OR logic that matches all entries | `uid=*)(uid=*))(|(uid=*` | AUTH |
 | **Negation-based bypass** | Using NOT to negate a false condition, creating a true match | `uid=admin)(!(password=nonexistent` | AUTH |

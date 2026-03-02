@@ -239,7 +239,7 @@ Elasticsearch's JSON-based Query DSL can be exploited when user input is interpo
 |---------|-----------|-----------------|---------------|
 | **Template Injection** | Mustache templates using `{{{...}}}` (triple braces) do not escape values, allowing JSON structure manipulation. | `{{{userInput}}}` where input is `","query":{"match_all":{}},"_source":["password"],"foo":"` | Unescaped template interpolation |
 | **Query DSL Manipulation** | Injecting additional query clauses via string concatenation in query builders. | Escaped JSON breaking out of `match` into `bool`/`should` | Query built via string interpolation |
-| **Script Injection** | Elasticsearch's Painless scripting (or deprecated Groovy) can be exploited for code execution. | `{"script":{"source":"Runtime.getRuntime().exec('cmd')"}}` | Scripting enabled; user input reaches script context |
+| **Script Injection** | Elasticsearch's Painless scripting language is sandboxed and blocks `java.lang.Runtime` access. Exploitation targets **deprecated Groovy scripting** (Elasticsearch < 1.6 with dynamic scripting enabled) or specific sandbox bypass CVEs (e.g., CVE-2021-22144, CVE-2023-31419 in Watcher context). | Legacy Groovy: `{"script":"java.lang.Runtime.getRuntime().exec('cmd')"}` ; Painless is safe against direct RCE by design | Dynamic scripting enabled (legacy); or specific Painless sandbox bypass CVE present |
 
 ### §5-6. Redis Command Injection
 
@@ -349,7 +349,7 @@ When responses are identical regardless of query result, timing side channels en
 |---------|-----------|-----------------|---------------|
 | **sleep() Direct** | MongoDB's `sleep()` function in `$where` causes a measurable delay when the injection point is reached. | `{"$where":"sleep(5000)"}` | Confirms injection exists; SSJI enabled |
 | **Conditional sleep()** | `sleep()` triggered only when a data-dependent condition is true. | `{"$where":"if(this.password[0]=='a'){sleep(5000)}"}` | Per-character extraction via timing |
-| **Busy-Wait Loop** | JavaScript while-loop checking `new Date()` provides more portable timing than `sleep()`. | `function(x){var w=new Date(new Date().getTime()+5000);while(x.password[0]==='a'&&w>new Date()){}}(this)` | Environments where `sleep()` is unavailable |
+| **Busy-Wait Loop** | JavaScript while-loop checking `new Date()` provides more portable timing than `sleep()`. Must return `true` to include the document in results — without a return value, the function returns `undefined` (falsy) and the document is excluded. | `function(x){var w=new Date(new Date().getTime()+5000);while(x.password[0]==='a'&&w>new Date()){}; return true;}(this)` | Environments where `sleep()` is unavailable |
 | **Heavy Computation** | CPU-intensive operations (regex backtracking, large loops) cause measurable delay without explicit sleep functions. | `{"$where":"var i=0;while(i<1000000){i++};return this.x=='a'"}` | `sleep()` disabled but JS execution permitted |
 | **N1QL Timing** | Nested queries with CPU-intensive operations in Couchbase cause detectable delays. | Nested SELECT with complex ENCODE_JSON operations | Couchbase deployment with N1QL |
 

