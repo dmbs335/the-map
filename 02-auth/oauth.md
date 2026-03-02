@@ -303,7 +303,7 @@ OAuth servers expose multiple endpoints (authorization, token, registration, dis
 | Subtype | Mechanism | Key Condition | Discrepancy |
 |---------|-----------|---------------|-------------|
 | **User enumeration** | `/.well-known/webfinger` endpoint returns HTTP 200 for existing users and 404 for non-existent ones, enabling username enumeration | Unauthenticated WebFinger endpoint with differential responses | D1 |
-| **LDAP injection via WebFinger** | The `resource` parameter in WebFinger requests is embedded unescaped into LDAP queries. Attacker uses LDAP wildcards (`*`) and filter injection to extract password hashes character by character | WebFinger backed by LDAP directory without input sanitization (CVE in ForgeRock OpenAM) | D1 |
+| **LDAP injection via WebFinger** | The `resource` parameter in WebFinger requests is embedded unescaped into LDAP queries. Attacker uses LDAP wildcards (`*`) and filter injection to extract password hashes character by character | WebFinger backed by LDAP directory without input sanitization (CVE-2021-29156 in ForgeRock OpenAM) | D1 |
 
 ### §9-4. Token Endpoint Attacks
 
@@ -383,19 +383,19 @@ The key insight is that OAuth/OIDC flows are inherently **cross-origin navigatio
 | §3-2 (First-party app abuse) | ConsentFix/AuthCodeFix (2025) | Azure CLI and Azure PowerShell pre-consented apps exploitable for tenant-wide privilege escalation |
 | §4-1 (Mutable claim confusion) | Google OAuth domain reuse (2024) | Failed startup domains expose millions of accounts. $1,337 Google VRP bounty |
 | §10-2 (MCP authorization endpoint injection) | CVE-2025-6514 (mcp-remote) | RCE via malicious MCP server. 558,846 affected downloads |
-| §9-3 (LDAP injection via WebFinger) | CVE in ForgeRock OpenAM | Password hash extraction via character-by-character LDAP wildcard injection |
+| §9-3 (LDAP injection via WebFinger) | CVE-2021-29156 (ForgeRock OpenAM) | Password hash extraction via character-by-character LDAP wildcard injection |
 | §8-3 (Device code phishing) | Storm-2372 / ShinyHunters campaigns (2024-2025) | Enterprise-wide compromise of Google, Qantas, and dozens of major organizations. MFA bypass |
 | §7-2 (Supply chain token compromise) | UNC6395/Drift-Salesforce (2025) | Single stolen OAuth token provided access to 700+ customer Salesforce instances |
-| §2-1 (PKCE downgrade) | OAuth 2.1 / RFC 9700 (2025) | PKCE now mandatory for all clients; non-PKCE flows formally deprecated |
+| §2-1 (PKCE downgrade) | OAuth 2.1 (draft-ietf-oauth-v2-1) (2025) | PKCE now mandatory for all clients; non-PKCE flows formally deprecated |
 | §4-2 (Audience injection) | Disclosed to IETF OAuth WG (Jan 2025) | New attack class affecting OAuth 2.0, OIDC, FAPI, CIBA, and multiple extensions. Coordinated multi-standard fix effort |
 | §10-1 (Cross-app attacks) | USENIX Security '25 | 11 of 18 major integration platforms vulnerable to COAT; 5 to CORF. Microsoft, Google, Amazon affected |
 | §1-1 (Redirect URI validation bypass) | Multiple HackerOne reports | Numerous $X,XXX+ bounties for redirect_uri bypasses across major platforms |
 | §9-1 (Proxy auth bypass) | CVE-2025-54576 (OAuth2-Proxy) | Authentication bypass in OAuth2-Proxy; fixed in v7.11.0 |
-| §10-3 (SAML/OAuth bypass) | CVE-2024-4985 (GitHub Enterprise Server) | Authentication bypass via SAML/OAuth in GitHub Enterprise Server |
+| §10-3 (SAML assertion bypass) | CVE-2024-4985 (GitHub Enterprise Server) | SAML-only vulnerability — encrypted assertion wrapping bypass; not an OAuth flaw. Cross-ref: `saml.md` S1-3. Included here because GHES exposes both SAML and OAuth login surfaces |
 | §4-1 (Multi-tenant app over-provisioning) | BingBang (Wiz Research, 2023) | Unauthorized access to internal Microsoft applications including Bing.com search result manipulation and Office 365 XSS via over-provisioned Azure AD multi-tenant apps |
 | §1-1 (Whitespace injection) | draw.io OAuth Token Leakage (2023) | OAuth token leakage via whitespace bypass in redirect_uri validation |
 | §1-1 (Path confusion) | ACM CCS "OAuth Path Confusion" (2023) | redirect_uri validation bypass via URL parser differentials on path component interpretation |
-| §2-2 (Token leakage via public key) | Azure B2C Crypto Misuse (Praetorian, 2023) | RSA public key extracted from JWKS endpoint used to forge encrypted refresh tokens → full account compromise on Azure AD B2C tenants. See `cryptographic-implementation-vulnerabilities.md` §2-2 |
+| §2-2 (Token forgery via JWKS public key) | Azure B2C Crypto Misuse (Praetorian, 2023) | RSA public key extracted from JWKS endpoint used to forge encrypted refresh tokens → full account compromise on Azure AD B2C tenants. See `cryptographic-implementation-vulnerabilities.md` §2-2 |
 
 ---
 
@@ -432,7 +432,7 @@ The 2024-2025 wave of device code phishing attacks illustrates this perfectly: t
 
 ### The Structural Solution
 
-A truly structural solution would require three properties that current OAuth deployments largely lack: **(1) sender-constrained tokens** (DPoP, mTLS-bound tokens) that cryptographically bind tokens to their intended holder, **(2) universal PKCE + issuer verification** (now mandated in OAuth 2.1 / RFC 9700) that prevents code interception and mix-up attacks, and **(3) continuous authorization evaluation** that moves beyond one-time consent to real-time policy enforcement over token usage, scope consumption, and behavioral anomalies. Until all three are ubiquitous, the taxonomy above will continue to grow.
+A truly structural solution would require three properties that current OAuth deployments largely lack: **(1) sender-constrained tokens** (DPoP, mTLS-bound tokens) that cryptographically bind tokens to their intended holder, **(2) universal PKCE + issuer verification** (now mandated in OAuth 2.1 (draft-ietf-oauth-v2-1)) that prevents code interception and mix-up attacks, and **(3) continuous authorization evaluation** that moves beyond one-time consent to real-time policy enforcement over token usage, scope consumption, and behavioral anomalies. Until all three are ubiquitous, the taxonomy above will continue to grow.
 
 ---
 

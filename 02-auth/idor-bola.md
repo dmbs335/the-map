@@ -47,6 +47,7 @@ UUIDs (v4) are 128-bit values with 122 bits of randomness (6 bits reserved for v
 | **UUID leakage via error messages** | Application returns UUIDs in error responses (e.g., "User `abc-def-123` not found") | Verbose error messages expose internal identifiers |
 | **UUID leakage via client-side code** | JavaScript source, HTML comments, or API responses embed UUIDs of other users' objects | Frontend leaks identifiers that backend trusts as "unguessable" |
 | **UUIDv1 timestamp prediction** | UUIDv1 encodes timestamp and MAC address; if generation time is known, the UUID space can be narrowed dramatically | Application uses UUIDv1 instead of UUIDv4; attacker knows approximate creation time |
+| **Time-sortable ID prediction (Snowflake, KSUID, ULID)** | IDs like Discord Snowflake encode millisecond timestamps; extracting the time component narrows the enumeration range to a feasible window. Similar to UUIDv1 but used in modern web APIs | Application uses time-sortable identifiers without additional authorization checks |
 | **Weak PRNG UUID generation** | UUID generated with weak random source (e.g., `Math.random()` in JavaScript) can be predicted | Custom UUID generation with insufficient entropy |
 | **UUID format downgrade** | Swapping a UUID with a simple integer (e.g., `id=1` instead of `id=550e8400-...`) and the backend accepts both formats | Backend ORM/DB accepts multiple ID formats without distinguishing them |
 
@@ -60,7 +61,7 @@ Applications sometimes encode or hash identifiers to obscure them, treating the 
 | **Reversible encryption** | Identifiers encrypted with a static or leaked key; attacker decrypts, modifies, and re-encrypts | Symmetric encryption with key exposed in client-side code or configuration leak |
 | **Hash collision / rainbow table** | Short or low-entropy inputs hashed (e.g., MD5 of sequential integers); attacker pre-computes hash table | Hash of predictable input (e.g., `MD5(user_id)`) without salt or secret key |
 | **HMAC without authorization** | Object references protected by HMAC but the application checks only HMAC validity, not ownership | Valid HMAC token for object X does not guarantee that user A should access object X |
-| **JWT-embedded object ID** | Object identifier embedded in a JWT claim; modifying the claim (with weak/none algorithm or key confusion) changes the referenced object | JWT validation flaw combined with object ID in payload (see §4-4) |
+| **JWT-embedded object ID** | Object identifier embedded in a JWT claim; modifying the claim (with weak/none algorithm or key confusion) changes the referenced object | JWT validation flaw combined with object ID in payload (see [jwt.md](jwt.md)) |
 
 ### §1-4. String-Based and Semantic Identifiers
 
@@ -195,7 +196,7 @@ GraphQL's flexible query structure introduces unique IDOR surfaces absent in RES
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **Protobuf field number manipulation** | Modifying field numbers in serialized protobuf messages to reference different objects | gRPC services expose object IDs in protobuf fields without authorization |
+| **Protobuf field value manipulation** | Manipulating object identifier values in protobuf-encoded gRPC requests to reference different objects | gRPC services expose object IDs in protobuf fields without authorization |
 | **Service method access** | Calling an internal gRPC service method (e.g., `AdminService.GetUser`) that lacks authorization because it's "internal" | Service mesh trusts all internal callers; no per-method authorization |
 
 ### §4-4. Webhook and Callback Vectors
@@ -349,7 +350,7 @@ The deployment architecture of modern applications creates authorization gaps at
 |---------------------|-----------|----------------|
 | §1-1 + §4-1 (Sequential ID + REST sub-resource) | CVE-2024-1313 (Grafana) | Dashboard snapshot access by unauthenticated users in Grafana (20M+ users). Patch in v10.4.1 |
 | §1-1 + §5-3 (Sequential ID + multi-tenant) | CVE-2024-46528 (KubeSphere v3.4.1/v4.1.1) | Low-privileged users access sensitive Kubernetes cluster resources across tenants |
-| §4-1 + §5-1 (REST endpoint + horizontal access) | CVE-2023-3285 through CVE-2023-3290 (Easy!Appointments) | 6 BOLA vulnerabilities in this CVE range. Full patient/appointment data access |
+| §4-1 + §5-1 (REST endpoint + horizontal access) | CVE-2023-3285 through CVE-2023-3290 (Easy!Appointments) | 6 BOLA vulnerabilities in this CVE range. Full customer/appointment data access |
 | §4-1 + §8-1 (REST + microservice trust) | CVE-2024-22278 (Harbor) | BOLA in cloud-native container registry; unauthorized access to container images and repositories |
 | §1-1 + §2-1 (Sequential ID + path param) | CVE-2024-56404 (One Identity Manager 9.x) | Identity management system IDOR; access to identity records across the enterprise |
 | §2-3 + §5-2 (Body param + mass assignment) | CVE-2024-1626 (Lunary AI) | IDOR in AI platform allowing unauthorized data access |

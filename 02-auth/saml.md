@@ -1,5 +1,7 @@
 # SAML Vulnerability Mutation/Variation Taxonomy
 
+> **Scope boundary:** This document covers SAML-specific mutation vectors (XML signature wrapping, parser differentials, canonicalization, assertion manipulation). Related: [authentication-bypass-and-sso.md](authentication-bypass-and-sso.md) (SSO trust architecture), [jwt.md](jwt.md) (JWT/OIDC), [cryptographic-implementation-vulnerabilities.md](cryptographic-implementation-vulnerabilities.md) (crypto primitives)
+
 ---
 
 ## Classification Structure
@@ -7,6 +9,19 @@
 Security Assertion Markup Language (SAML) is an XML-based open standard for exchanging authentication and authorization data between identity providers (IdPs) and service providers (SPs). Its reliance on XML as a transport format — combined with a complex trust model involving cryptographic signatures, multi-party message passing, and diverse library ecosystems — creates an exceptionally broad mutation surface. Vulnerabilities in SAML do not stem from a single flaw but from the fundamental tension between XML's structural flexibility and the rigid guarantees that digital signatures are supposed to provide.
 
 This taxonomy organizes the entire SAML attack surface along three axes. **Axis 1 (Mutation Target)** defines *what structural component* of the SAML protocol is being attacked — this is the primary organizational axis. **Axis 2 (Discrepancy Type)** describes *what kind of mismatch or gap* enables the attack — this cross-cutting axis explains why each mutation works. **Axis 3 (Attack Scenario)** maps *where and how* the mutation is weaponized in real-world deployments.
+
+### Axis 1: Mutation Target Summary
+
+| Category | Target |
+|----------|--------|
+| **S1** | XML Signature Wrapping (XSW) |
+| **S2** | Parser Differentials |
+| **S3** | Canonicalization Exploitation |
+| **S4** | Signature Validation Bypass |
+| **S5** | XML Injection / Entity Attacks |
+| **S6** | Assertion Content / Protocol Attacks |
+| **S7** | Cryptographic / Infrastructure Attacks |
+| **S8** | Implementation-Specific Parsing Flaws |
 
 ### Axis 2: Discrepancy Types (Cross-Cutting)
 
@@ -123,7 +138,7 @@ XML Canonicalization (C14N) is the process of transforming XML into a canonical 
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **Comment Injection Identity Spoofing** | XML comments within `<NameID>` (e.g., `admin@legit.com<!-->.evil.com`) are stripped during C14N, so the signature verifies against `admin@legit.com.evil.com`. But the SP's text extraction may stop at the comment boundary, extracting only `admin@legit.com`. (CVE-2017-11427, CVE-2017-11428) | SP extracts text using first text node rather than full concatenated text content |
+| **Comment Injection Identity Spoofing** | XML comments within `<NameID>` (e.g., `admin@legit.com<!-- -->.evil.com`) are stripped during C14N, so the signature verifies against `admin@legit.com.evil.com`. But the SP's text extraction may stop at the comment boundary, extracting only `admin@legit.com`. Note: the original exploit payload `<!---->` (empty comment) relies on lenient parser behavior; strict XML parsers require at least a space or character between `<!--` and `-->`. (CVE-2017-11427, CVE-2017-11428) | SP extracts text using first text node rather than full concatenated text content |
 | **CDATA Section Differential** | CDATA sections (`<![CDATA[...]]>`) are resolved to text during C14N but may be preserved or split by certain parsers during text extraction, altering the effective value the SP processes. | Parser-specific CDATA handling in text extraction |
 | **Insignificant Whitespace Injection** | Whitespace between XML elements is insignificant per schema but may be preserved differently by various C14N modes (C14N 1.0 vs. C14N 1.1 vs. exclusive C14N). This can alter digest values or create processing divergence. | Mixed C14N algorithm versions across signer and verifier |
 
@@ -327,7 +342,7 @@ Beyond parser differentials, individual library implementations contain unique p
 | S2-1 + S2-3 (Parser Differential + DOCTYPE ATTLIST) | CVE-2025-25291, CVE-2025-25292 (ruby-saml) | CVSS 8.8. Account takeover via Nokogiri/REXML divergence. Fixed in ruby-saml 1.12.4, 1.18.0. Impacted GitLab (patched 17.9.2, 17.8.5, 17.7.7) |
 | S3-3 (DigestValue/SignatureValue Comment Injection — SAMLStorm) | CVE-2025-29775, CVE-2025-29774 (xml-crypto) | Critical auth bypass in Node.js SAML ecosystem. xml-crypto <= 6.0.0, affecting 500k+ weekly downloads (node-saml, samlify, saml2-js) |
 | S8-1 (libxml2 Caching Abuse) | CVE-2025-23369 (GitHub Enterprise) | SAML auth bypass on GitHub Enterprise via libxml2 canonicalization quirk |
-| S1-3 (Encrypted Assertion Wrapping) | CVE-2024-9487, CVE-2024-4985 (GitHub Enterprise Server) | Unauthenticated site administrator access. Only when encrypted assertions enabled |
+| S1-3 (Encrypted Assertion Wrapping) | CVE-2024-4985 (GitHub Enterprise Server) | CVSS 10.0. Initial critical finding: unauthenticated site administrator access when encrypted assertions enabled. CVE-2024-9487 was a subsequent related bypass of the incomplete fix for CVE-2024-4985, exploiting the same encrypted assertion wrapping vector through a different code path |
 | S1-2 + S8-2 (Assertion Wrapping + XPath Scope Failure) | CVE-2025-47949 (samlify) | Critical auth bypass + admin impersonation. samlify < 2.10.0 |
 | S4-1 + S6-2 (Missing Signature + Identity Manipulation) | CVE-2024-45409 (ruby-saml / GitLab) | Auth bypass via improper verification of SAML Response signature. Exploited in the wild against GitLab |
 | S4-3 (Signature Validation Logic) | CVE-2024-8698 (Keycloak) | SAML signature verification bypass enabling auth bypass and privilege escalation |
@@ -350,7 +365,7 @@ Beyond parser differentials, individual library implementations contain unique p
 | **SAMLExtractor** | SP endpoint discovery | Extracts SAML consumer URLs from target applications for further testing |
 | **samltool.io** (Online) | SAML message debugging | Decode, inspect, and verify SAML assertions, signatures, and certificates |
 | **Invicti / Acunetix** (DAST) | XXE, signature validation, XSW | Automated SAML security scanning including XXE and signature bypass detection |
-| **jwt_tool** (adapted) | SAML token inspection | While primarily for JWT, some modes support SAML assertion analysis |
+| **jwt_tool** | JWT-specific tool; limited SAML utility | Designed for JWT token manipulation and testing; occasionally referenced for SAML assertion inspection but does not support SAML-specific attacks (XSW, C14N, XML signature). Use SAML Raider instead for SAML-specific testing |
 | **ADFSDump / ADFSRelay** | Golden SAML key extraction | Extract SAML signing certificates and keys from AD FS servers for Golden SAML detection/testing |
 | **AADInternals** (PowerShell) | Entra ID/Azure AD SAML | Export SAML signing certificates, test Silver SAML scenarios, federation configuration manipulation |
 | **PayloadsAllTheThings** (Repository) | Reference payloads | Curated SAML injection payloads: XSW1-8, XXE, XSLT, comment injection, signature stripping templates |

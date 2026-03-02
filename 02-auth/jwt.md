@@ -127,6 +127,16 @@ The `jwk` header embeds a public key directly within the token.
 | **Nested JWT confusion** | Set `cty` to `"JWT"` to trigger nested token processing on a non-nested token | Server follows `cty` blindly, enabling double-decoding or processing changes |
 | **Deserialization via `cty`** | Set `cty` to `"application/x-java-serialized-object"` or `"text/xml"` to trigger unsafe deserialization or XXE processing of the payload | Server uses `cty` to determine payload deserialization strategy |
 
+### §2-6. Token Type (`typ`) Confusion
+
+The `typ` header parameter declares the media type of the JWT. RFC 7519 defines `"JWT"` as the standard value, while OAuth 2.0 and OIDC specifications introduce differentiated types (`"at+jwt"` for access tokens per RFC 9068, `"dpop+jwt"` for DPoP proof tokens per RFC 9449). When receivers do not validate the `typ` header, tokens issued for one purpose can be substituted for another.
+
+| Subtype | Mechanism | Key Condition |
+|---|---|---|
+| **ID Token / Access Token confusion** | Use an OIDC ID Token (`typ` absent or `"JWT"`) where an OAuth 2.0 Access Token (`"at+jwt"`) is expected, or vice versa. Both are signed by the same issuer with the same key, but carry different claims and authorization semantics. An ID Token presented as an access token grants the attacker the identity claims as authorization claims, bypassing scope restrictions. | Same issuer/key for ID Tokens and Access Tokens; receiver does not validate `typ` to distinguish token purpose; no audience cross-check between token types |
+| **DPoP proof substitution** | Present a standard JWT where a DPoP proof (`"dpop+jwt"`) is expected, or inject a DPoP proof where a bearer token is expected, exploiting the lack of `typ` enforcement to bypass sender-constrained token requirements | Server accepts DPoP-bound endpoints without verifying `typ: "dpop+jwt"` in the proof JWT; or fails to reject non-DPoP tokens at DPoP-protected endpoints |
+| **Missing `typ` validation** | Omit the `typ` header entirely or set it to an unexpected value (e.g., `"JWT"` instead of `"at+jwt"`). Many libraries and frameworks do not check `typ` at all, treating all structurally valid JWTs identically regardless of their intended purpose | Library/framework default configuration does not enforce `typ` checking; application does not add custom `typ` validation logic |
+
 ---
 
 ## §3. Cryptographic Implementation Flaws
@@ -335,12 +345,12 @@ JWS (signed) and JWE (encrypted) share the same compact serialization format —
 | **SSRF** | Server fetches remote resources from JWT headers | §2-2 (`jku` injection) + §2-4 (`x5u` injection) |
 | **Remote Code Execution** | Unsafe deserialization or command injection | §2-1 (`kid` command injection) + §2-5 (`cty` deserialization) |
 | **Denial of Service** | Resource-constrained server | §3-2 (invalid curve) + §3-4 (PBES2 billion hashes) + §7-3 (memory exhaustion) |
-| **Token Forgery via Type Confusion** | Asymmetric signing with public key exposure (OIDC) | §7-1 (sign/encrypt confusion, polyglot token) |
+| **Token Forgery via Type Confusion** | Asymmetric signing with public key exposure (OIDC) | §7-1 (sign/encrypt confusion, polyglot token) + §2-6 (`typ` confusion) |
 | **WAF/Gateway Bypass** | Security appliance in front of application | §7-2 (encoding tricks) + §1-1 (case variants) |
 
 ---
 
-## §9. CVE / Bounty Mapping (2022–2025)
+## §9. CVE / Bounty Mapping (2022–2026)
 
 | Mutation Combination | CVE / Case | Impact / Bounty |
 |---|---|---|
@@ -374,12 +384,12 @@ JWS (signed) and JWE (encrypted) share the same compact serialization format —
 | **hashcat** (`-m 16500`) | HMAC secret cracking | Offline brute force / dictionary / rule-based attacks against HS256/HS384/HS512 secrets |
 | **jwtfuzz** (Rust) | Fuzzing and malformation | Generates malformed tokens: null signatures, swapped algorithms, psychic signatures, encoding edge cases |
 | **JWTForge** | OAuth2/OIDC testing | JWT vending service generating customizable tokens for fuzzing authentication systems |
+| **Burp JWT Scanner** (Extension) | Automated vulnerability detection | Scans for none algorithm, algorithm confusion, weak secrets, header injection in intercepted traffic |
 
 ### Defensive Tools
 
 | Tool | Target Scope | Core Technique |
 |---|---|---|
-| **Burp JWT Scanner** (Extension) | Automated vulnerability detection | Scans for none algorithm, algorithm confusion, weak secrets, header injection in intercepted traffic |
 | **JWTLens** | Token analysis and visualization | Decodes, analyzes, and highlights security issues in JWT structure and claims |
 | **OWASP WSTG JWT Tests** | Penetration testing methodology | Structured checklist covering all JWT attack vectors for manual security assessment |
 
@@ -393,7 +403,7 @@ JWS (signed) and JWE (encrypted) share the same compact serialization format —
 
 ---
 
-## §10-1. BaaS (Backend-as-a-Service) JWT Exposure
+## §11. BaaS (Backend-as-a-Service) JWT Exposure
 
 Backend-as-a-Service platforms (Supabase, Firebase, Appwrite) expose database access via client-side JWT tokens. Unlike traditional architectures where server-side code enforces access control, BaaS platforms shift the security boundary to database-level policies — Row Level Security (RLS) in Supabase/PostgreSQL, Security Rules in Firebase. When these policies are misconfigured or absent, the publicly embedded JWT grants unrestricted access.
 
@@ -405,11 +415,11 @@ Backend-as-a-Service platforms (Supabase, Firebase, Appwrite) expose database ac
 
 ---
 
-## §11. Summary: Core Principles
+## §12. Summary: Core Principles
 
 **The fundamental property that makes the JWT attack surface so expansive is the dual nature of the token as both a carrier of data and an instruction set for its own verification.** The JWT header is attacker-controlled yet dictates critical security decisions — which algorithm to use, where to find the verification key, how to interpret the payload. This inversion of control (the message instructing the verifier how to verify it) is the root cause of the entire §1 (algorithm manipulation) and §2 (header parameter injection) attack families. No other common authentication mechanism gives the client this level of influence over the verification process.
 
-**Incremental fixes fail because the attack surface is combinatorial.** Fixing `alg: none` doesn't prevent algorithm confusion. Fixing algorithm confusion doesn't prevent `kid` injection. Fixing `kid` injection doesn't prevent `jku` SSRF. Each mutation target (§1–§7) is independently exploitable, and combinations create novel attack chains (e.g., `jku` bypass + algorithm confusion + claim manipulation). Libraries must implement a "deny-by-default" posture across *all* header parameters simultaneously, which many fail to do — evidenced by recurring CVEs across different libraries year after year (2015 through 2025).
+**Incremental fixes fail because the attack surface is combinatorial.** Fixing `alg: none` doesn't prevent algorithm confusion. Fixing algorithm confusion doesn't prevent `kid` injection. Fixing `kid` injection doesn't prevent `jku` SSRF. Each mutation target (§1–§7) is independently exploitable, and combinations create novel attack chains (e.g., `jku` bypass + algorithm confusion + claim manipulation). Libraries must implement a "deny-by-default" posture across *all* header parameters simultaneously, which many fail to do — evidenced by recurring CVEs across different libraries year after year (2015 through 2026).
 
 **The structural solution requires four architectural principles:** (1) **Server-side algorithm pinning** — never read the algorithm from the token; configure it at the application level. (2) **Closed key resolution** — never fetch, embed, or dynamically resolve keys from token headers; use a pre-configured, immutable key store. (3) **Explicit token type enforcement** — always enforce whether JWS or JWE is expected; never use a unified decode() interface that auto-detects token type. The sign/encrypt confusion and polyglot token attacks (§7-1) demonstrate that collapsing signing and encryption into a single code path converts a proof-of-authenticity check into a mere decryption check, which anyone with the public key can pass. (4) **Stateful lifecycle management** — accept that purely stateless JWTs cannot support revocation, replay prevention, or session binding; augment with server-side state (token blacklists, refresh token rotation, `jti` tracking) for any use case requiring these properties. The PBES2 billion hashes DoS (§3-4) underscores that even the RFC specifications themselves have protocol-level gaps — unbounded computation parameters — that no library can fix without deviating from the standard.
 

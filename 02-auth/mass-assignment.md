@@ -48,7 +48,7 @@ The attacker adds parameters corresponding to authorization-related fields that 
 | **Account status manipulation** | Modifying `status=active`, `email_verified=true`, `banned=false` to bypass account lifecycle controls | Status fields are writable through the binding layer |
 | **Tier/plan escalation** | Setting `subscription_tier=enterprise` or `quota=unlimited` on pricing-sensitive objects | Commercial attributes are part of the same model bound to user input |
 
-This is the "textbook" mass assignment scenario and remains the most frequently reported variant in bug bounty programs. The GitHub mass assignment incident (2012) — where a researcher escalated privileges on any GitHub repository by injecting a `public_key` parameter — demonstrated its real-world severity. The OWASP API Security Top 10 (2023 edition) merged this category with Excessive Data Exposure under **API3:2023 Broken Object Property Level Authorization (BOPLA)**, recognizing that both stem from inadequate per-property access control.
+This is the "textbook" mass assignment scenario and remains the most frequently reported variant in bug bounty programs. The GitHub mass assignment incident (2012) — where researcher Egor Homakov injected his SSH public key into the Rails core team's GitHub organization via a `public_key` parameter, allowing him to push arbitrary commits to the Rails repository — demonstrated its real-world severity. The OWASP API Security Top 10 (2023 edition) merged this category with Excessive Data Exposure under **API3:2023 Broken Object Property Level Authorization (BOPLA)**, recognizing that both stem from inadequate per-property access control.
 
 ### §1-2. Financial and Business Logic Field Tampering
 
@@ -214,6 +214,32 @@ Laravel uses `$fillable` (allowlist) and `$guarded` (denylist) model properties 
 | **JSON column nesting bypass** | JSON column expressions (`settings->theme`) bypass guarded checks in certain Laravel versions | Laravel < 6.18.35 / 7.x < 7.24.0; JSON column nesting in request |
 | **forceFill / forceCreate abuse** | Methods that explicitly bypass fillable/guarded checks used with user-controlled data | Developer passes `$request->all()` to `forceFill()` |
 | **$fillable over-inclusion** | Allowlist includes fields that should not be user-writable (e.g., `user_id`, `role_type`) | Manual `$fillable` declaration includes sensitive attributes |
+
+### §3-7. ASP.NET MVC / Core Over-posting
+
+ASP.NET calls mass assignment "over-posting." The Model Binding system maps request data (form fields, query strings, route data, JSON body) to action method parameters and POCO model properties by name. Without explicit restriction, any public settable property on the bound type is writable from the request.
+
+| Subtype | Mechanism | Key Condition |
+|---------|-----------|---------------|
+| **Unrestricted model binding** | Action method binds directly to a domain/entity model (`public IActionResult Create(User user)`); attacker adds `IsAdmin=true` in form data | No `[Bind]` attribute, no ViewModel pattern; all public setters are bound |
+| **`[Bind]` include/exclude bypass** | `[Bind("Name,Email")]` restricts binding to listed properties, but `TryUpdateModelAsync` with a separate property list can contradict it, or developers forget to update the list when the model changes | `[Bind]` list stale or inconsistent across multiple actions binding the same model |
+| **`[BindNever]` omission** | Model property lacks `[BindNever]` attribute — the ASP.NET equivalent of Rails `attr_protected` — leaving sensitive fields bindable | Sensitive property (e.g., `Role`, `Balance`) has a public setter without `[BindNever]` |
+| **`[FromBody]` JSON binding differential** | `[FromBody]` uses `System.Text.Json` or `Newtonsoft.Json` deserializer, which binds all properties matching the JSON keys — ignoring `[Bind]` attribute restrictions that only apply to form/query binding | Action accepts JSON body; developer assumes `[Bind]` attribute applies uniformly across all content types |
+| **Missing ViewModel pattern** | Controller binds directly to EF Core entity instead of a dedicated ViewModel/DTO, exposing navigation properties, foreign keys, and computed fields | Entity model used as both persistence and binding target |
+
+The primary defense in ASP.NET is the **ViewModel pattern**: define a separate class containing only the properties that should be externally writable, bind to that, and map to the domain model explicitly. The `[BindNever]` attribute on model properties and `[Bind(Include = "...")]` on action parameters provide supplementary protection but are brittle — they must be maintained across every action that binds the model. Notably, `[FromBody]` JSON deserialization ignores `[Bind]` restrictions entirely, making the ViewModel pattern the only reliable defense for JSON API endpoints.
+
+### §3-8. Go Web Framework Struct Tag Binding
+
+Go web frameworks (Gin, Echo, Fiber) bind request data to struct fields via struct tags. Unlike reflection-heavy frameworks (Spring, Rails), Go's lack of inheritance and metaclass hierarchy eliminates nested property traversal attacks — there is no `class.classLoader` equivalent. The attack surface is limited to **flat field over-binding** when struct tags are misconfigured.
+
+| Subtype | Mechanism | Key Condition |
+|---------|-----------|---------------|
+| **Missing `binding:"-"` / `json:"-"` tag** | Struct field without a `-` tag is bound from request data; `ShouldBind(&user)` populates `IsAdmin` if the request contains `is_admin=true` and the field has `json:"is_admin"` or no tag | Binding target struct contains sensitive fields without exclusion tags |
+| **`ShouldBind` vs `MustBind` behavior** | `MustBind` (Gin) aborts with 400 on validation error, but `ShouldBind` returns the error without aborting — developer may ignore the error and proceed with a partially bound struct containing attacker-injected fields | Developer calls `ShouldBind`, discards the error, and uses the struct |
+| **Shared struct for bind and persist** | Same struct used for JSON binding and GORM/database operations; fields like `Role`, `CreatedAt`, `DeletedAt` (GORM soft-delete) are writable from the request | No separate request DTO; ORM model directly used as binding target |
+
+The Go defense is structurally straightforward: define a separate request struct with only the intended fields, use `json:"-"` or `binding:"-"` on any field that must not be externally set, and never bind directly to an ORM model struct.
 
 ---
 
@@ -382,7 +408,7 @@ Mass assignment does not always stop at the application object — when bound ob
 | §6-1 (`__proto__`) | CVE-2019-10744 (lodash) | Prototype pollution in `lodash.defaultsDeep`; CVSS 9.1 |
 | §6-1 (constructor.prototype) | CVE-2024-21529 (dset) | Prototype pollution via improper sanitization in `dset` package |
 | §2-3 (OGNL double eval) | CVE-2020-17530 / S2-061 (Struts2) | Double OGNL evaluation leading to RCE; OGNL sandbox bypass |
-| §2-3 (OGNL injection) | CVE-2023-22527 (Confluence) | OGNL injection in Atlassian Confluence template injection leading to RCE |
+| §2-3 (OGNL injection) | CVE-2023-22527 (Confluence) | Template injection via OGNL in Confluence Server/Data Center; unauthenticated RCE through template rendering that evaluates OGNL expressions — distinct from Struts2 double evaluation (S2-061), as the injection point is Confluence's template engine, not a parameter interceptor |
 | §2-1 (alternative path bypass) | CVE-2023-46131 (Grails Framework) | DoS via alternative property path to a blocked property; DIVER discovered unblocked path automatically |
 | §2-1 + §2-2 (DIVER findings) | 81 vulnerabilities (Spring + Grails) | ISSTA 2024: automated discovery of 81 data binding vulnerabilities; 3 new CVEs assigned |
 

@@ -6,7 +6,7 @@
 
 This taxonomy classifies the entire CORS attack surface along three orthogonal axes derived from systematic analysis of CVEs, bug bounty reports, academic research, and practitioner writeups.
 
-**Axis 1 — Mutation Target (Primary Axis):** The structural component of the CORS mechanism being misconfigured or exploited. This axis organizes the main body of the document into nine categories: Origin Validation Logic, Null Origin Handling, Wildcard & Credential Interaction, CORS Header Semantics, Preflight Mechanism, Browser Parser Differentials, Protocol & Network Boundary, Cache Interaction, and Adjacent Protocol Exploitation.
+**Axis 1 — Mutation Target (Primary Axis):** The structural component of the CORS mechanism being misconfigured or exploited. This axis organizes the main body of the document into ten categories: Origin Validation Logic, Null Origin Handling, Wildcard & Credential Interaction, CORS Header Semantics, Preflight Mechanism, Browser Parser Differentials, Trust Boundary Escalation, Network Boundary & DNS, Cache Interaction, and Adjacent Protocol Exploitation.
 
 **Axis 2 — Discrepancy Type (Cross-Cutting):** The nature of the mismatch or bypass each mutation creates. Every technique in the taxonomy maps to one or more of these discrepancy types:
 

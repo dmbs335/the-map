@@ -1,8 +1,8 @@
 # Authentication Bypass & SSO Vulnerability Mutation Taxonomy
 
-**Scope**: Authentication bypass and Single Sign-On (SSO) vulnerabilities
-**Exclusions**: OAuth, JWT, SAML (covered in separate taxonomies)
-**Coverage**: Kerberos, LDAP, CAS, FIDO2/WebAuthn, MFA, session management, middleware/framework auth, password recovery, credential acquisition
+**Scope**: Authentication bypass mechanisms at the credential validation, protocol, SSO trust, passwordless, and middleware/framework layers
+**Exclusions**: OAuth, JWT, SAML (covered in separate taxonomies); MFA bypass, session management, password recovery, credential acquisition (covered in [account-takeover.md](account-takeover.md))
+**Coverage**: Credential validation logic flaws, Kerberos, LDAP, mTLS, CAS, IdP trust architecture, FIDO2/WebAuthn/passkeys, middleware/framework authentication bypass
 **Period**: Focused on 2024–2025 discoveries, with foundational techniques included
 
 ---
@@ -11,7 +11,7 @@
 
 This taxonomy organizes authentication bypass and SSO vulnerabilities along three orthogonal axes:
 
-**Axis 1 — Authentication Layer Targeted (Primary Axis):** The structural component of the authentication system being attacked. This axis structures the main body of the document (§1–§9). Each top-level category represents a distinct layer of the authentication stack — from low-level credential validation logic through protocol-level mechanisms, multi-factor enforcement, session lifecycle, SSO trust architecture, modern passwordless systems, framework middleware, account recovery flows, and finally large-scale credential acquisition techniques.
+**Axis 1 — Authentication Layer Targeted (Primary Axis):** The structural component of the authentication system being attacked. This document covers five layers: credential validation logic (§1), protocol-level mechanisms (§2), SSO trust architecture (§5), modern passwordless systems (§6), and framework/middleware enforcement (§7). MFA bypass (§3), session lifecycle (§4), password recovery (§8), and credential acquisition (§9) are cross-referenced to [account-takeover.md](account-takeover.md) to avoid duplication.
 
 **Axis 2 — Exploitation Mechanism (Cross-Cutting Axis):** The nature of the flaw or mismatch that enables the bypass. Every technique in §1–§9 exploits one or more of these fundamental mechanism types. This axis explains *why* each mutation works, independent of where it occurs.
 
@@ -36,10 +36,10 @@ This taxonomy organizes authentication bypass and SSO vulnerabilities along thre
 
 | Scenario | Architecture | Typical Entry Vectors |
 |----------|-------------|----------------------|
-| **Full Domain Compromise** | Active Directory / Windows domain | §2 + §9 (ticket forging + credential acquisition) |
-| **Cloud/SaaS Account Takeover** | Azure/Entra ID, Okta, Google Workspace | §3 + §4 (MFA bypass + session theft) |
+| **Full Domain Compromise** | Active Directory / Windows domain | §2 + [ATO §6](account-takeover.md) (ticket forging + credential acquisition) |
+| **Cloud/SaaS Account Takeover** | Azure/Entra ID, Okta, Google Workspace | [ATO §4](account-takeover.md) + [ATO §3](account-takeover.md) (MFA bypass + session theft) |
 | **Network Appliance Takeover** | Firewalls, VPN gateways, management interfaces | §7 (framework/middleware bypass) |
-| **Web Application Access** | Custom web applications | §1 + §7 + §8 (logic flaws + middleware + recovery) |
+| **Web Application Access** | Custom web applications | §1 + §7 + [ATO §2](account-takeover.md) (logic flaws + middleware + recovery) |
 | **Lateral Movement** | Post-initial-compromise expansion | §2 + §5 (ticket forging + SSO trust) |
 | **Persistent Backdoor** | Long-term undetected access | §2 + §5 (ticket forging + Golden dMSA) |
 
@@ -58,7 +58,7 @@ When credential validation functions have undocumented input limits, inputs exce
 | **Hash Function Truncation** | Hashing algorithms with fixed input limits (e.g., bcrypt's 72-byte limit) silently truncate excess input, causing the password portion to be excluded from the comparison when combined with long usernames or user IDs | Cache key composed of userId + username + password exceeds hash input limit; cache is used as fallback when primary auth is unavailable |
 | **Cache Key Collision** | When authentication results are cached with truncated keys, different credentials produce identical cache entries, allowing authentication with any password that matches the truncated prefix | Authentication cache enabled as high-availability fallback; hash input exceeded by composite key |
 
-The Okta bcrypt incident (October 2024) exemplifies this category: usernames exceeding 52 characters caused the password component of the bcrypt-hashed cache key to be truncated entirely, allowing authentication with cached results regardless of the actual password supplied. The fix replaced bcrypt with PBKDF2 for cache key generation.
+The Okta bcrypt incident (October 2024) exemplifies this category: the cache key was a bcrypt hash of the concatenation (userId + username + password). When the username exceeded 52 characters, the combined input exceeded bcrypt's 72-byte limit, effectively truncating or excluding the password portion from the hash — allowing authentication with cached results regardless of the actual password supplied. The fix replaced bcrypt with PBKDF2 for cache key generation.
 
 ### §1-2. Injection-Based Authentication Bypass
 
@@ -91,7 +91,7 @@ Defects in how credential-derived values are compared, leading to false positive
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
 | **Timing Side-Channel** | Non-constant-time comparison of password hashes or tokens leaks information about correct characters through response timing differences | High-precision timing measurement possible; comparison not using constant-time function |
-| **Type Juggling / Loose Comparison** | Weakly-typed languages (PHP, JavaScript) evaluate `"0" == 0 == false` as equal. PHP additionally treats `null == false` and `null == 0` as true, but JavaScript does not (`null` only loosely equals `undefined`). Exploitable for bypassing password checks when magic hashes or type-confused values are supplied. | Loose equality (`==`) instead of strict equality (`===`) in credential comparison |
+| **Type Juggling / Loose Comparison** | Weakly-typed languages (PHP, JavaScript) evaluate pairwise comparisons unexpectedly: `"0" == 0` and `0 == false` both return true, enabling type confusion chains. PHP additionally treats `null == false` and `null == 0` as true, but JavaScript does not (`null` only loosely equals `undefined`). Exploitable for bypassing password checks when magic hashes or type-confused values are supplied. | Loose equality (`==`) instead of strict equality (`===`) in credential comparison |
 | **Encoding Normalization Mismatch** | Different Unicode normalization forms for the same visual string produce different hash values, allowing pre-computed hashes to match unexpected inputs | Unicode normalization not applied consistently between registration and authentication |
 
 ---
@@ -140,118 +140,15 @@ Mutual TLS extends standard TLS by requiring the client to present a certificate
 
 ## §3. Multi-Factor Authentication Bypass
 
-Techniques that defeat second-factor or additional authentication requirements. These attacks acknowledge that the first factor (typically password) may be compromised and target the additional verification layer.
-
-### §3-1. TOTP / OTP Brute-Force
-
-Exhausting the code space of time-based or event-based one-time passwords through rapid enumeration.
-
-| Subtype | Mechanism | Key Condition |
-|---------|-----------|---------------|
-| **Session-Parallel Enumeration (AuthQuake)** | Rapidly creating new authentication sessions and enumerating TOTP codes across all sessions simultaneously. A 6-digit TOTP code has 1,000,000 possible values; with no cross-session rate limiting, exhaustion takes approximately 70 minutes | No rate limiting across sessions (only per-session); no alerting on failed MFA attempts (Microsoft Azure MFA, patched October 2024) |
-| **TOTP Window Exploitation** | Exploiting overly generous time windows where TOTP codes remain valid for extended periods beyond the standard 30-second window | Server accepts codes from multiple time steps (past and future); no single-use enforcement |
-| **OTP Predictability** | Sequential, time-derived, or insufficiently random OTP generation allowing prediction of future codes | OTP derived from timestamp via weak algorithm (e.g., MD5 of epoch); no cryptographic HMAC |
-| **SMS OTP Interception** | SS7 network exploitation, SIM swapping, or malware-based SMS interception to obtain OTP codes in transit | SMS used as OTP delivery channel; attacker has telco-level access or social engineering capability |
-
-### §3-2. MFA Fatigue and Social Engineering
-
-Exploiting the human element in MFA by bombarding users with approval requests or manipulating them into authorizing attacker sessions.
-
-| Subtype | Mechanism | Key Condition |
-|---------|-----------|---------------|
-| **Push Notification Bombing** | Repeatedly triggering MFA push notifications until the user approves one out of fatigue, confusion, or desire to stop the alerts | Push-based MFA without number matching; no rate limiting on push requests |
-| **Number Matching Social Engineering** | Calling the victim and convincing them to provide the number displayed on their MFA prompt, ostensibly for "IT verification" | Number-matching MFA deployed; attacker has victim's phone number and credentials |
-| **MFA Enrollment Hijacking** | Registering an attacker-controlled MFA device during the initial enrollment window before the legitimate user completes setup | No pre-registration verification; enrollment link sent to compromised email; open enrollment window |
-
-### §3-3. Authentication Downgrade Attacks
-
-Forcing the authentication system to fall back from phishing-resistant methods (FIDO2/passkeys) to interceptable alternatives.
-
-| Subtype | Mechanism | Key Condition |
-|---------|-----------|---------------|
-| **User-Agent Spoofing Downgrade** | AitM proxy spoofs a browser user agent incompatible with FIDO2 (e.g., Safari on Windows), triggering a WebAuthn error that prompts the user to select a weaker alternative (OTP, push notification) | IdP offers fallback authentication methods; AitM proxy can modify User-Agent header |
-| **CSS Injection Method Hiding** | Injecting CSS `<style>` blocks through AitM proxy or XSS that hide the FIDO2/security key authentication option from the user's view, leaving only phishable methods visible | AitM proxy can inject HTML/CSS; IdP authentication page renders method choices client-side |
-| **Protocol Version Downgrade** | Delivering a spoofed browser or environment that reports no WebAuthn support, forcing fallback to TOTP/SMS even when the user has registered a hardware key | IdP does not enforce FIDO2-only policy; graceful degradation to weaker methods enabled |
-
-This attack category, first formally presented at OutOfTheBox 2025 in Bangkok, is particularly concerning because it targets authentication methods explicitly marketed as "phishing-resistant." The core issue is that most deployments maintain phishable fallback methods for compatibility.
-
-### §3-4. Adversary-in-the-Middle (AitM) Session Interception
-
-Positioning a real-time proxy between the user and the legitimate service to capture post-MFA session tokens, rendering all authentication factors ineffective.
-
-| Subtype | Mechanism | Key Condition |
-|---------|-----------|---------------|
-| **Reverse Proxy Phishing (Evilginx-style)** | Deploying a phishing site backed by a reverse proxy that passes all traffic to the legitimate service in real-time, capturing credentials, MFA responses, and the resulting session cookies simultaneously | Victim directed to phishing domain; no device-bound session credential enforcement |
-| **Phishing-as-a-Service Kits** | Commercial-grade AitM platforms (Tycoon 2FA, Sneaky 2FA, NakedPages, EvilProxy, Saiga 2FA) that provide turnkey AitM infrastructure with anti-detection, lure templating, and cookie exfiltration | PhaaS subscription; target organization uses cloud SSO without device-bound tokens |
-| **Browser Extension AitM** | Malicious browser extensions that intercept authentication flows and exfiltrate session cookies directly from the browser's cookie store after successful authentication | Victim installs malicious extension (e.g., Cookie-Bite technique) |
-
-AitM attacks experienced a 46% year-over-year surge in 2025. The most recent evolution involves transitioning lure delivery from QR codes to HTML attachments and SVG files. The fundamental defense gap is that these attacks steal *post-authentication* artifacts, so stronger authentication methods alone are insufficient.
-
-### §3-5. MFA Implementation Logic Flaws
-
-Architectural errors in how MFA is integrated into the authentication flow, allowing the second factor to be skipped entirely.
-
-| Subtype | Mechanism | Key Condition |
-|---------|-----------|---------------|
-| **Step-Skip Bypass** | The MFA verification step is implemented as a separate page/endpoint. After first-factor success, directly navigating to the post-MFA URL bypasses the check because the server doesn't verify that the second factor was actually completed | Server-side MFA state not tracked; URL for post-MFA destination is predictable |
-| **Session Binding Mismatch** | MFA verification is not bound to the same session as the first factor, allowing an attacker to complete first-factor auth in one session and satisfy MFA in a different session they control | Session ID not validated across authentication steps; MFA code accepted for any pending session |
-| **User Agent Classification Bypass** | MFA enforcement policies exempt certain user agents classified as "unknown" (uncommon browsers, Python scripts, CLI tools) from MFA requirements | SSO policy does not enforce MFA for unrecognized user agents (Okta vulnerability, 2024) |
-| **TOCTOU in MFA Verification** | Race condition between MFA check and access grant allows requests that slip through during the verification window | MFA check and authorization are not atomic; concurrent request processing (CVE-2025-62004) |
-| **OpenID Connect MFA Enforcement Gap** | The RP (Relying Party) does not verify whether the IdP actually performed MFA during the OIDC authentication flow. The RP ignores the IdP's `acr` (Authentication Context Class Reference) or `amr` (Authentication Methods References) claims, or the IdP itself is misconfigured to issue those claims without requiring MFA — completely bypassing 2FA. An attacker registers a separate IdP with MFA disabled, or selectively targets an IdP flow with lax MFA policy | RP does not validate `acr`/`amr` claims in OIDC tokens; or IdP issues high-assurance-level claims without requiring MFA |
-| **Unauthenticated TOTP Rebinding** | TOTP/MFA setup endpoint does not require re-authentication or current MFA verification, allowing an attacker with session access to rebind the victim's TOTP secret to an attacker-controlled authenticator | TOTP enrollment/reset endpoint accessible without re-authentication; no verification of existing MFA device |
-| **Client-Side-Only MFA Enforcement** | MFA challenge implemented as a client-side JavaScript modal or overlay with no corresponding server-side verification — disabling JavaScript or intercepting the response removes the MFA gate entirely | MFA enforcement exists only in frontend code; backend grants full access after first-factor authentication regardless of MFA completion |
+> **Cross-reference**: MFA bypass mutations are comprehensively covered in [account-takeover.md §4](account-takeover.md). That document includes OTP brute-force (including AuthQuake), MFA flow logic bypasses, channel compromise (AitM/PhaaS/Browser Extension), authentication downgrade attacks, and implementation logic flaws. This section is intentionally omitted here to avoid duplication.
 
 ---
 
 ## §4. Session & Token Lifecycle Attacks
 
-Targeting authentication state *after* credential verification succeeds. These attacks bypass the need to authenticate entirely by stealing, manipulating, or predicting the artifacts that represent an established authenticated session.
-
-### §4-1. Session Fixation
-
-Forcing a victim to use an attacker-predetermined session identifier, which the attacker can then use to access the session after the victim authenticates.
-
-| Subtype | Mechanism | Key Condition |
-|---------|-----------|---------------|
-| **URL-Based Fixation** | Session ID embedded in URL parameters; attacker sends victim a URL containing a pre-set session ID | Application accepts session IDs from URL parameters; session not regenerated on login |
-| **Cookie-Based Fixation** | Attacker sets a session cookie in the victim's browser (via XSS, subdomain control, or HTTP header injection) before authentication | Cookies settable across subdomains; session not regenerated on login |
-| **Cross-Subdomain Fixation** | Exploiting cookie scope to set session cookies from a subdomain the attacker controls for the parent domain's authentication | Attacker controls any subdomain; cookie domain set too broadly |
-
-### §4-2. Session Hijacking and Token Theft
-
-Capturing or extracting valid session tokens from authenticated users.
-
-| Subtype | Mechanism | Key Condition |
-|---------|-----------|---------------|
-| **Infostealer Cookie Extraction** | Malware families (RedLine, Raccoon, Vidar, Lumma) extract session cookies, authentication tokens, and browser credentials from victim machines at industrial scale — 17+ billion cookies stolen in 2024 alone | Victim machine infected with infostealer; stolen logs sold on darknet marketplaces |
-| **XSS Session Theft** | Cross-site scripting vulnerabilities used to exfiltrate session cookies via JavaScript | XSS vulnerability in authenticated application; cookies not marked HttpOnly |
-| **Network-Level Sniffing** | Capturing session tokens from unencrypted network traffic or TLS-terminated inspection points | Unencrypted HTTP in use; or compromised TLS inspection endpoint |
-| **Browser Extension Cookie Theft** | Malicious or compromised browser extensions with cookie access permissions exfiltrating authentication tokens | Extension with `cookies` permission installed; extensions can read any site's cookies |
-| **App-Bound Encryption Bypass** | Infostealers circumventing Chrome's App-Bound Encryption (released July 2024) within 45 days of deployment, continuing to extract cookies despite browser-level protections | Chrome App-Bound Encryption deployed; infostealer has bypass capability (observed September 2024) |
-| **Cross-Subdomain Cookie Scope Exploitation** | Session cookies scoped to parent domain are accessible from any subdomain. XSS on a lower-trust subdomain reads authentication cookies shared via domain-wide scope, enabling session hijack on higher-trust subdomains | Cookie `Domain` attribute set to parent domain; XSS on any subdomain under that domain |
-| **Login Nonce / Anti-CSRF Token Leakage** | OAuth or login flow issues a one-time nonce (anti-CSRF state parameter or login token) that leaks cross-origin — via `Referer` header when the nonce is embedded in a URL that navigates to an external resource, via an open redirect that forwards the nonce-bearing URL to an attacker-controlled domain, or via `postMessage` broadcast of auth state during the login sequence. Attacker replays the leaked nonce to complete the victim's login flow and obtain their session | Nonce transmitted as URL query parameter; target page loads cross-origin subresource (Referer leakage) or contains an open redirect; nonce is single-use but not origin-bound (Josip Franjković — Stealing Messenger.com Login Nonces, 2017) |
-
-The infostealer ecosystem's scale is staggering: 1.8 billion credentials stolen across 5.8 million devices in 2025, with over 54% of ransomware victims having domain credentials appear on infostealer marketplaces *before* the attack. The median time from stolen log to ransomware incident is under 48 hours.
-
-### §4-3. Token Replay and Session Persistence
-
-Using stolen or captured authentication tokens to establish access without re-authenticating.
-
-| Subtype | Mechanism | Key Condition |
-|---------|-----------|---------------|
-| **Cookie Replay** | Importing stolen session cookies into an attacker's browser to assume the victim's authenticated session | Valid session cookie obtained (via §4-2 methods); no device binding on session |
-| **Pass-the-Cookie** | Enterprise-specific variant of cookie replay targeting cloud SSO sessions (Azure, Google Workspace, Okta) where a single session cookie grants access to multiple applications | SSO session cookie stolen; cookie not bound to specific device/IP |
-| **Token Lifetime Exploitation** | Abusing excessively long token lifetimes — sessions remaining valid for days or weeks without re-authentication requirements | Long-lived session tokens; no continuous authentication or token rotation |
-| **Insufficient Logout/Revocation** | Session tokens remaining valid after user logout or password change because the server doesn't properly invalidate server-side session state | Stateless tokens without server-side revocation list; or revocation check not implemented |
-
-### §4-4. SSO Response Manipulation
-
-Tampering with SSO authentication responses at the HTTP level to convert rejections into approvals.
-
-| Subtype | Mechanism | Key Condition |
-|---------|-----------|---------------|
-| **Status Code Tampering** | Intercepting HTTP 302 redirect-to-SSO responses and modifying them to 200 OK while removing the Location header, bypassing the SSO redirect entirely and accessing the internal response body | Application returns the protected content alongside the 302 redirect; client-side interception possible |
-| **SSO Header Injection** | Injecting or modifying SSO-related headers (e.g., `X-Forwarded-User`, `Remote-User`) that the application trusts for authenticated identity without independent verification | Application trusts proxy-set identity headers; attacker can inject headers directly |
+> **Cross-reference**: Session management attacks (fixation, hijacking, token replay, infostealer cookie extraction, App-Bound Encryption bypass, login nonce leakage) are comprehensively covered in [account-takeover.md §3](account-takeover.md). This section is intentionally omitted here to avoid duplication.
+>
+> **Unique to this document (SSO Response Manipulation)**: Tampering with SSO authentication responses at the HTTP level — status code tampering (302→200) and SSO header injection (`X-Forwarded-User`, `Remote-User`) — is covered in §7-1 (Internal Header / Routing Exploitation) of this document.
 
 ---
 
@@ -341,7 +238,7 @@ Physical and logical attacks against hardware security keys.
 
 ### §6-4. Authentication Method Downgrade
 
-Forcing fallback from phishing-resistant to phishable authentication. (Detailed mechanisms in §3-3; this section covers the broader architectural implications.)
+Forcing fallback from phishing-resistant to phishable authentication. (Detailed mechanisms in [account-takeover.md §4-4](account-takeover.md); this section covers the broader architectural implications.)
 
 The fundamental tension is that near-universal phishing-resistant authentication requires **all** fallback methods to be removed — but organizations maintain weaker alternatives for accessibility, compatibility, and disaster recovery. Every maintained fallback method becomes the *effective* security level, regardless of how strong the primary method is.
 
@@ -400,69 +297,13 @@ Exploiting differences in how proxy/WAF and application normalize URL paths, all
 
 ## §8. Password Recovery & Account Takeover
 
-Exploiting account recovery mechanisms, which by design provide an authentication-equivalent path that bypasses the primary credential.
-
-### §8-1. Password Reset Token Attacks
-
-Targeting the token-based password reset flow.
-
-| Subtype | Mechanism | Key Condition |
-|---------|-----------|---------------|
-| **Predictable Token Generation** | Reset tokens derived from guessable values (timestamp, user ID, sequential counter) using weak algorithms (MD5 of epoch, Base64 of user email) | Token generation algorithm lacks cryptographic randomness; tokens derivable from observable values |
-| **Token Reuse / Non-Expiration** | Reset tokens that remain valid after use, have excessively long expiration windows, or are never invalidated after successful reset | No single-use enforcement; no expiration; or expiration measured in days rather than minutes |
-| **Token Leakage via Referrer** | Reset tokens in URL parameters leaked to third-party sites through the HTTP Referrer header when the reset page contains external resources | Token in URL query string; reset page loads external JavaScript, CSS, or images |
-| **Password Reset Poisoning** | Manipulating the `Host` header in password reset requests to cause the application to generate reset links pointing to an attacker-controlled domain, stealing the token when the victim clicks | Application uses Host header to construct reset URLs without validation; email sent to legitimate user with attacker's domain |
-
-### §8-2. Account Recovery Flow Bypass
-
-Exploiting weaknesses in the overall account recovery process beyond token attacks.
-
-| Subtype | Mechanism | Key Condition |
-|---------|-----------|---------------|
-| **IDOR in Recovery Endpoints** | Manipulating user identifiers in recovery API calls to reset other users' passwords (e.g., changing `user_id=123` to `user_id=456` in the reset confirmation request) | User identifier in recovery request not bound to the authenticated recovery session |
-| **Email/Phone Verification Bypass** | Skipping or manipulating the verification step that confirms ownership of the recovery email or phone number | Verification status stored client-side; or verification endpoint accepts any code; or verification step can be skipped by direct URL navigation |
-| **Recovery Flow State Machine Bypass** | Completing recovery steps out of order, or replaying an earlier step's success token to skip later verification steps | Recovery flow state not tracked server-side; state transitions not validated |
-| **Security Question Exploitation** | Answering security questions using publicly available information (social media, data breaches) or exploiting questions with limited answer spaces | Weak security questions (e.g., "favorite color"); answers available through OSINT |
-| **MFA Reset via Recovery** | Using the account recovery flow to remove or reset MFA enrollment, then authenticating with only the first factor | Recovery flow allows MFA reconfiguration without current MFA verification |
+> **Cross-reference**: Password reset/recovery attacks (predictable tokens, token leakage, host header poisoning, recovery flow bypasses, MFA reset via recovery) are comprehensively covered in [account-takeover.md §2](account-takeover.md). This section is intentionally omitted here to avoid duplication.
 
 ---
 
 ## §9. Credential Acquisition at Scale
 
-Systematic techniques for obtaining valid credentials that enable authentication bypass through legitimate-appearing login. These are not "bypass" in the traditional sense but represent the primary pipeline feeding all other attack categories.
-
-### §9-1. Password Spraying
-
-Testing a small number of commonly used passwords against a large number of accounts simultaneously, staying below per-account lockout thresholds.
-
-| Subtype | Mechanism | Key Condition |
-|---------|-----------|---------------|
-| **Classic Spray** | Attempting top passwords (e.g., `Season+Year`, `Company+123`) across all enumerated accounts with delays between attempts | Account lockout based on per-account attempt count; no global anomaly detection |
-| **Smart Spray** | Using OSINT-derived password patterns specific to the target organization (founded year, office location, sports teams) combined with common password structures | Publicly available organizational information; password policy known or guessable |
-| **Slow Spray** | Distributing attempts across days or weeks with randomized intervals to evade time-based detection | Detection tuned for burst attempts; no long-term baseline comparison |
-
-### §9-2. Credential Stuffing
-
-Testing credential pairs (username + password) leaked from breaches against target services, exploiting password reuse.
-
-| Subtype | Mechanism | Key Condition |
-|---------|-----------|---------------|
-| **Direct Stuffing** | Automated submission of breach-sourced credential pairs to login endpoints | Users reuse passwords across services; no credential screening against breach databases |
-| **Variant Stuffing** | Applying common password mutation rules (incrementing numbers, changing seasons, adding special characters) to known passwords from breaches | Users make predictable modifications to compromised passwords |
-| **Proxy-Rotated Stuffing** | Distributing stuffing attempts across residential proxy networks to evade IP-based rate limiting | Rate limiting based on source IP; no behavioral/fingerprinting detection |
-
-Current scale: approximately 26 billion stuffing attempts per month (2024), with a 50% growth rate over 18 months.
-
-### §9-3. Infostealer Ecosystem
-
-Industrial-scale credential theft through malware families that extract stored credentials, session tokens, and authentication material from compromised endpoints.
-
-| Subtype | Mechanism | Key Condition |
-|---------|-----------|---------------|
-| **Browser Credential Store Extraction** | Extracting saved usernames and passwords from browser credential stores (Chrome, Firefox, Edge) | Victim machine infected; browser stores credentials; no additional encryption beyond OS-level |
-| **Session Cookie Harvesting** | Extracting active session cookies from browser storage, enabling authenticated access without credentials or MFA (detailed in §4-2) | Browser cookies not bound to device; cookies accessible to malware with user-level privileges |
-| **Certificate and Key Theft** | Extracting client certificates and private keys from the operating system credential store | Certificate store accessible with user-level privileges; no hardware-bound key protection |
-| **Credential Log Marketplace** | Stolen credentials aggregated and sold on darknet marketplaces (Russian Market, Genesis) with filtering by domain, service, and freshness | Mature criminal marketplace infrastructure; logs priced at $1–$50 per machine |
+> **Cross-reference**: Credential acquisition techniques (credential stuffing, password spraying, variant stuffing, proxy-rotated stuffing, infostealer ecosystem) are comprehensively covered in [account-takeover.md §6](account-takeover.md). This section is intentionally omitted here to avoid duplication.
 
 ---
 
@@ -470,14 +311,14 @@ Industrial-scale credential theft through malware families that extract stored c
 
 | Scenario | Architecture | Primary Mutation Categories | Typical Chain |
 |----------|-------------|---------------------------|---------------|
-| **Full AD Domain Compromise** | On-premises Active Directory | §2 + §9 | Credential stuffing (§9-2) → Golden Ticket (§2-1) |
-| **Cloud/SaaS Account Takeover** | Azure/Entra, Okta, Google Workspace | §3 + §4 + §9 | Infostealer (§9-3) → Cookie replay (§4-3) → Lateral access via SSO |
+| **Full AD Domain Compromise** | On-premises Active Directory | §2 + [ATO §6](account-takeover.md) | Credential stuffing → Golden Ticket (§2-1) |
+| **Cloud/SaaS Account Takeover** | Azure/Entra, Okta, Google Workspace | [ATO §4](account-takeover.md) + [ATO §3](account-takeover.md) | Infostealer → Cookie replay → Lateral access via SSO |
 | **Network Appliance Takeover** | Firewalls, VPN, management interfaces | §7 + §1 | WebSocket bypass (§7-2) or middleware injection (§7-1) → Admin access |
-| **Web Application Access** | Custom applications | §1 + §7 + §8 | LDAP injection (§1-2) → Session fixation (§4-1) → Account takeover |
-| **MFA-Protected Account Bypass** | Enterprise with MFA deployed | §3 + §6 | Downgrade attack (§3-3) → AitM interception (§3-4) → Session theft (§4-2) |
+| **Web Application Access** | Custom applications | §1 + §7 + [ATO §2](account-takeover.md) | LDAP injection (§1-2) → Session fixation → Account takeover |
+| **MFA-Protected Account Bypass** | Enterprise with MFA deployed | [ATO §4](account-takeover.md) + §6 | Downgrade attack → AitM interception → Session theft |
 | **Persistent Domain Backdoor** | Windows Server 2025 | §2-1 + §5-3 | Golden dMSA (§2-1) → Cross-domain movement (§5-3) → Indefinite access |
 | **AD Sync to Cloud Pivot** | Hybrid on-prem + cloud | §5-2 + §2 | AD sync credential compromise (§5-2) → Cloud IdP control → Full tenant |
-| **Recovery Flow Exploitation** | Any web application | §8 + §4 | Reset poisoning (§8-1) → Password reset → MFA reset (§8-2) → Full access |
+| **Recovery Flow Exploitation** | Any web application | [ATO §2](account-takeover.md) + [ATO §3](account-takeover.md) | Reset poisoning → Password reset → MFA reset → Full access |
 
 ---
 
@@ -489,8 +330,8 @@ Industrial-scale credential theft through malware families that extract stored c
 | §1-2 (LDAP Injection) | CVE-2024-37782 | Gladinet CentreStack v13.12 | Unauthorized access + RCE via username field injection |
 | §1-2 (LDAP ACL Exploit) | CVE-2025-29810 | Windows AD Domain Services | Privilege escalation to SYSTEM; CVSS 7.5 |
 | §2-1 (Golden dMSA) | Semperis Disclosure (May 2025) | Windows Server 2025 dMSA | Auth bypass for all managed service accounts; Microsoft: "by design" |
-| §3-1 (TOTP Brute Force) | Oasis Security (Dec 2024) | Microsoft Azure MFA | AuthQuake: session-parallel TOTP brute-force; no CVE assigned |
-| §3-5 (User Agent Bypass) | Okta Advisory (2024) | Okta SSO Policies | MFA bypass via unknown user agent classification |
+| MFA (TOTP Brute Force) → [ATO §4-1](account-takeover.md) | Oasis Security (Dec 2024) | Microsoft Azure MFA | AuthQuake: session-parallel TOTP brute-force; no CVE assigned |
+| MFA (User Agent Bypass) → [ATO §4-2](account-takeover.md) | Okta Advisory (2024) | Okta SSO Policies | MFA bypass via unknown user agent classification |
 | §5-1 (CAS WebAuthn) | Apereo Advisory (Apr 2025) | Apereo CAS 7.x | Authentication bypass in WebAuthn integration; CVSS ~7.5 |
 | §5-1 (CAS Flow Mgmt) | Apereo Advisory (Sep 2025) | Apereo CAS 7.x | OAuth/OIDC flow manipulation → auth bypass; CVSS ~7.5 |
 | §6-1 (FIDO Credential Confusion) | CVE-2025-26788 | StrongKey FIDO Server 4.10–4.15 | Account takeover via discoverable/non-discoverable credential confusion |
@@ -502,11 +343,11 @@ Industrial-scale credential theft through malware families that extract stored c
 | §2-1 (Kerberos Cert Auth) | CVE-2025-26647 | Windows Kerberos | Certificate-based auth bypass when cert issuer not in NTAuth store |
 | §2-1 (Kerberos Storage) | CVE-2025-29809 | Windows Kerberos | Security feature bypass via insecure storage of Kerberos keys; CVSS 7.1 |
 | §6-1 (WSO2 mTLS) | CVE-2025-9312 | WSO2 Products | mTLS auth bypass → admin privileges on REST/SOAP APIs |
-| §3-5 (MFA TOCTOU) | CVE-2025-62004 | BullWall Server | Race condition bypassing MFA after initial admin auth; CVSS 7.5 |
+| MFA (TOCTOU) → [ATO §4-2](account-takeover.md) | CVE-2025-62004 | BullWall Server | Race condition bypassing MFA after initial admin auth; CVSS 7.5 |
 | §5-4 (NTLM Relay) | CVE-2021-33768, CVE-2022-21979 | Microsoft Exchange (ProxyRelay) | NTLM relay between Exchange servers via PrinterBug coercion. Machine accounts in Exchange Servers group have `ms-Exch-EPI-Token-Serialization` right by default, enabling impersonation of any user. Architectural design flaw |
 | §7-2 (Pre-auth File Read) | CVE-2018-13379 | Fortinet FortiGate SSL VPN | Pre-auth arbitrary file read via `snprintf` buffer overflow stripping `.json` suffix; leaks session files containing plaintext credentials |
 | §7-2 (Hardcoded Backdoor) | CVE-2018-13382 | Fortinet FortiGate SSL VPN | Hardcoded "magic" parameter in login interface allows password reset for any user without authentication |
-| §7-2 (Pre-auth File Read) | CVE-2019-11510 | Pulse Secure Connect | Pre-auth arbitrary file read via path traversal in HTML5 Access feature; leaks plaintext session tokens and cached credentials |
+| §7-2 (Pre-auth File Read) | CVE-2019-11510 | Pulse Secure Connect | Pre-auth arbitrary file read via path traversal in HTML5 Access feature; leaks plaintext session tokens and cached credentials; CVSS 10.0 |
 
 ---
 
