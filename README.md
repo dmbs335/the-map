@@ -9,7 +9,7 @@ A structured, comprehensive vulnerability mutation taxonomy collection for secur
 
 ## What is this?
 
-**The Map** is a **security knowledge base** that systematically classifies 100+ web vulnerability classes across 13 categories. Unlike conventional cheatsheets or CVE lists, each topic is organized by **structural mutation criteria** — what is mutated, what discrepancy it creates, and where it is weaponized.
+**The Map** is a **security knowledge base** that systematically classifies 120+ web vulnerability classes across 13 categories. Unlike conventional cheatsheets or CVE lists, each topic is organized by **structural mutation criteria** — what is mutated, what discrepancy it creates, and where it is weaponized.
 
 Each topic is a deeply structured Markdown reference document covering the full attack surface of a vulnerability class through a three-axis taxonomy (Mutation Target, Discrepancy/Bypass Type, Attack Scenario).
 
@@ -147,6 +147,7 @@ Each topic is a deeply structured Markdown reference document covering the full 
 |---|---|
 | [**Web Fingerprinting**](10-recon-methodology/web-fingerprinting.md) | Server and application fingerprinting techniques |
 | [**Web Fuzzing**](10-recon-methodology/web-fuzzing.md) | Web fuzzing strategies, wordlist generation, and parameter discovery |
+| [**Web Crawling**](10-recon-methodology/web-crawling.md) | Security-focused web crawling methodology and reconnaissance automation |
 | [**Reconnaissance**](10-recon-methodology/recon.md) | Undocumented parameter and endpoint enumeration |
 
 ### 11. Security Researchers
@@ -170,6 +171,8 @@ Each topic is a deeply structured Markdown reference document covering the full 
 | [**WordPress**](12-product-security/wordpress.md) | WordPress-specific vulnerabilities, plugin exploitation, and misconfigurations |
 | [**Nginx**](12-product-security/nginx-vulnerability-taxonomy.md) | Nginx-specific misconfigurations, alias traversal, and off-by-slash attacks |
 | [**Jetty**](12-product-security/jetty-vulnerability-taxonomy.md) | Eclipse Jetty-specific vulnerabilities and exploitation patterns |
+| [**DOMPurify**](12-product-security/dompurify.md) | DOMPurify bypass and sanitizer evasion mutation taxonomy |
+| [**MongoDB**](12-product-security/mongodb.md) | MongoDB injection, operator abuse, and exploitation patterns |
 
 ### 13. Miscellaneous
 | Category | Description |
@@ -252,9 +255,9 @@ the-map/
   ├── 07-application-logic/      # Business logic vulnerabilities (6 topics)
   ├── 08-infrastructure/         # Infrastructure & Supply Chain (9 topics)
   ├── 09-frameworks-and-languages/  # Framework & Language-specific (11 topics)
-  ├── 10-recon-methodology/      # Reconnaissance & Methodology (3 topics)
+  ├── 10-recon-methodology/      # Reconnaissance & Methodology (4 topics)
   ├── 11-researchers/            # Security researcher case studies (7 topics)
-  ├── 12-product-security/       # Product-specific security (7 topics)
+  ├── 12-product-security/       # Product-specific security (9 topics)
   ├── 13-misc/                   # Miscellaneous (6 topics)
   ├── 99-deprecated/             # Deprecated topics (6 topics)
   ├── skills/                    # Claude Code skill definitions (10 skills)
