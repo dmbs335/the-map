@@ -290,7 +290,7 @@ HTTP Range headers enable partial content retrieval, which can be abused in spec
 |---------------------|-----------|----------------|
 | §1-1 (Direct Path) | CVE-2024-24919 (Check Point VPN Gateway) | CVSS 8.6. Zero-day arbitrary file read via crafted POST to `/clients/MyCRL`; actively exploited in the wild. CISA KEV listed. |
 | §1-1 (CLI Parameter) | CVE-2024-23897 (Jenkins args4j) | CVSS 9.8. `@` prefix in CLI arguments triggers file content expansion; unauthenticated users read first lines, authenticated users read entire files. |
-| §2-1 (RFD + Content-Disposition) | CVE-2025-41234 (Spring Framework) | Medium severity. RFD via non-ASCII charset in `ContentDisposition`; affects 6.0.5–6.2.7. Malicious `.bat`/`.cmd` download from trusted domain. |
+| §2-1 (RFD + Content-Disposition) | CVE-2025-41234 (Spring Framework) | CVSS 6.5 (Medium). RFD via non-ASCII charset in `ContentDisposition`; affects 6.0.5–6.2.7. Malicious `.bat`/`.cmd` download from trusted domain. |
 | §3-2 (Backup Disclosure) | CVE-2024-53991 (Discourse) | CVSS 7.5. Backup file disclosure via `send_file` quirk + Nginx configuration; unauthenticated access to database backups. |
 | §3-3 (Off-by-Slash) | Multiple Nginx deployments | Widespread. Missing trailing slash in `location`+`alias` enables path escape. Source code disclosure across Django, Rails, and PHP applications. |
 | §4-1 (Presigned URL Path) | Multiple S3 bug bounty reports | $500–$10,000. Path manipulation in presigned URL generation exposing cross-user files and bucket listings. |

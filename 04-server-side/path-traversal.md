@@ -457,7 +457,7 @@ Real-world path traversal instances from recent disclosures, mapped to mutation 
 | §7-2 | **CSPT to CSRF Chain** (2024 PortSwigger Top 10 nomination) | Medium-High | Client-side path traversal chained with GET/POST CSRF; bypassed SameSite cookie protections |
 | §5-2 | **Symlink Zip Exploitation** (2024 research) | High — RCE potential | Crafted symlinks in ZIP pointing outside extraction directory; subsequent entries wrote through symlink to system paths |
 | §2-3 + §4-1 | **Windows Reserved Name DoS** (2024 bug bounty) | Low-Medium | Accessing `CON`, `AUX`, etc. in HTTP requests caused application hang; DoS on Windows servers |
-| §3-1 | **Fortinet FortiWeb CVE-2025-64446** | Critical — authentication bypass | Path traversal in admin account creation; unauthenticated attackers created admin accounts via crafted path-traversal request |
+| §3-1 | **Fortinet FortiWeb CVE-2025-64446** | CVSS 9.8 (Critical) — authentication bypass | Path traversal in admin account creation; unauthenticated attackers created admin accounts via crafted path-traversal request |
 | §1-1 | **CVE-2018-13379** (Fortinet FortiGate SSL VPN) | Critical — pre-auth credential theft | `snprintf(s, 0x40, "/migadmin/lang/%s.json", lang)` — fixed-size buffer overflow strips `.json` suffix, enabling arbitrary file read. Leaks session files with plaintext passwords. DEF CON 27, Orange Tsai |
 | §1-1 | **CVE-2019-11510** (Pulse Secure Connect) | Critical — pre-auth credential theft | Path traversal via HTML5 Access feature (`/dana-na/../dana/html5acc/guacamole/../../../../../../etc/passwd`). Leaks plaintext cached credentials and session tokens. Weaponized by APTs and ransomware groups. DEF CON 27, Orange Tsai |
 
