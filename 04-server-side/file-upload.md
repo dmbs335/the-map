@@ -35,7 +35,7 @@ When servers blacklist known dangerous extensions (e.g., `.php`, `.jsp`, `.asp`)
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
-| **PHP alternative extensions** | `.php3`, `.php4`, `.php5`, `.php6`, `.php7`, `.pht`, `.phpt`, `.phtml`, `.phar` are all mapped to the PHP handler by default Apache configurations | Apache with `mod_php` or PHP-FPM configured to handle multiple extensions |
+| **PHP alternative extensions** | `.php3`, `.php4`, `.php5`, `.php7`, `.pht`, `.phtml`, `.phar` may be mapped to the PHP handler depending on distribution and configuration (e.g., Debian/Ubuntu ship `php*.conf` enabling several of these; RHEL/CentOS typically only maps `.php`) | Apache with `mod_php` or PHP-FPM where the distribution or admin has explicitly configured additional extension mappings |
 | **JSP alternative extensions** | `.jspx`, `.jspf`, `.jsw`, `.jsv`, `.jtml` may be processed as JSP by servlet containers | Tomcat, JBoss, or other Java EE containers with default servlet mappings |
 | **ASP/ASPX alternatives** | `.asa`, `.asax`, `.ascx`, `.ashx`, `.asmx`, `.axd`, `.config`, `.cshtml`, `.vbhtml` | IIS with ASP.NET handler mappings |
 | **SSI extensions** | `.shtml`, `.stm`, `.shtm` enable Server-Side Includes that can execute commands | Apache/IIS with SSI module enabled |
@@ -48,7 +48,7 @@ Apache's `mod_mime` evaluates extensions right-to-left and will apply handlers f
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
 | **Right-to-left parsing** | `shell.php.jpg` — the `.jpg` passes the whitelist filter, but Apache recognizes `.php` and routes to the PHP handler | Apache with `mod_mime` and `AddHandler` for PHP |
-| **Unknown last extension** | `shell.php.xyz` — if `.xyz` is unrecognized, some servers fall back to the previous known extension (`.php`) | Apache with `mod_mime` default behavior |
+| **Unknown last extension** | `shell.php.xyz` — if `.xyz` is unrecognized by `mod_mime`, Apache may apply metadata (e.g., handler, language, encoding) from the previous recognized extension (`.php`). This fallback applies to `AddHandler`/`AddType` metadata, not unconditionally to all extension resolution | Apache with `mod_mime` using `AddHandler` or `AddType` directives (not `SetHandler` or `<FilesMatch>`-based configs) |
 | **Reverse double extension** | `shell.jpg.php` — straightforward but defeats filters that only check the string after the *first* dot | Applications using naive first-dot extraction |
 
 ### §1-3. Case Sensitivity Exploitation
@@ -101,7 +101,7 @@ Java servlet containers (Tomcat, Jetty, WildFly/JBoss, WebLogic) each implement 
 | **Path separator in filename** | `Content-Disposition: form-data; name="file"; filename="path/shell.jsp"` — some containers strip the directory component (returning `shell.jsp`), others preserve it. Commons FileUpload strips by default; `Part.getSubmittedFileName()` (Servlet 3.1+) may preserve the full path | Discrepancy between validation library's path extraction and container's storage behavior |
 | **Null byte in multipart filename** | Older servlet containers and Apache Commons FileUpload versions truncate filenames at null bytes: `shell.jsp%00.jpg` → validated as `.jpg`, stored as `shell.jsp` | Apache Commons FileUpload < 1.5; Java < 7u40 |
 | **Trailing dot/space on Windows deployment** | Java on Windows silently strips trailing dots and spaces during file write: `shell.jsp.` or `shell.jsp ` passes extension filters but is stored as `shell.jsp` | Java application on Windows; extension filter checks full string including trailing characters |
-| **Container-specific executable extensions** | Beyond standard `.jsp`/`.jspx`, containers recognize additional executable mappings: Tomcat processes `.jsf` (JSF), `.xhtml` (Facelets); JBoss/WildFly processes `.xhtml`, `.seam`; WebLogic processes `.do`, `.action` (Struts mappings) | Container-specific handler mappings not included in extension blacklist |
+| **Container-specific executable extensions** | Beyond the core container mappings (`.jsp`, `.jspx` for Tomcat; `.jsf`/`.xhtml` only when JSF/Facelets libraries are deployed), frameworks add their own servlet mappings: Struts maps `.do`/`.action`, Spring MVC maps `*.html` or `/`, etc. These are **application-level** servlet mappings, not container defaults — they exist only when the corresponding framework is bundled in the WAR/EAR | Framework-specific servlet mappings not included in extension blacklist; requires the framework to actually be deployed |
 
 ---
 
@@ -220,7 +220,7 @@ SVG's XML foundation combined with its script execution capabilities make it a u
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
-| **SVG JavaScript execution** | `<svg onload="alert(document.cookie)">` or `<svg><script>alert(1)</script></svg>` — when served inline, the browser executes embedded JavaScript | Executes when SVG is directly navigated, embedded via `<object>`, `<embed>`, `<iframe>`, or included as inline `<svg>` in the HTML DOM. **JavaScript execution is blocked in all modern browsers** when SVG is embedded via `<img>` tags |
+| **SVG JavaScript execution** | `<svg onload="alert(document.cookie)">` or `<svg><script>alert(1)</script></svg>` — when served inline, the browser executes embedded JavaScript | Executes when SVG is directly navigated, embedded via `<object>`, `<embed>`, `<iframe>`, or included as inline `<svg>` in the HTML DOM. **Script execution is disabled in image context** — when SVG is loaded via `<img>`, CSS `background-image`, or other image-loading contexts, browsers suppress scripting per the HTML spec (the SVG is rendered in a "secure static mode") |
 | **SVG foreignObject** | `<foreignObject>` element can embed arbitrary HTML within SVG, including forms, scripts, and iframes | Browser rendering of SVG served inline |
 | **SVG SSRF** | `<image xlink:href="http://internal-server/admin">` in SVG triggers server-side requests during rendering | Server-side SVG rendering (headless browsers, image conversion) |
 | **SVG CSS injection** | SVG `<style>` elements can import external stylesheets or use CSS expressions for code execution | Older browsers or server-side renderers processing SVG CSS |
@@ -237,7 +237,7 @@ Uploading server configuration files allows attackers to redefine how the web se
 |---|---|---|
 | **.htaccess handler override** | Upload `.htaccess` containing `AddType application/x-httpd-php .jpg` — all `.jpg` files in the directory are now executed as PHP | Apache with `AllowOverride` enabled for the upload directory |
 | **.htaccess custom extension** | `AddType application/x-httpd-php .l33t` — creates a new executable extension not in any blacklist | Same as above |
-| **.htaccess PHP config override** | Override `php_value auto_prepend_file` to inject code that runs before every PHP file in the directory | Apache with `AllowOverride Options` or `AllowOverride All` |
+| **.htaccess PHP config override** | Override `php_value auto_prepend_file` to inject code that runs before every PHP file in the directory. **Note:** `php_value`/`php_flag` directives are only available when PHP runs as an Apache module (`mod_php`); they are not recognized under CGI/FastCGI/PHP-FPM, where `.user.ini` (§5-3) is the equivalent mechanism | Apache with `mod_php` and `AllowOverride Options` or `AllowOverride All` |
 | **.htaccess self-executing** | `.htaccess` file containing `AddType application/x-httpd-php .htaccess` with PHP code at the end — the `.htaccess` file itself becomes executable | Apache processes the directive, then the file is also served as PHP |
 
 ### §5-2. IIS Configuration Injection
@@ -245,7 +245,7 @@ Uploading server configuration files allows attackers to redefine how the web se
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
 | **web.config ASP handler** | Upload `web.config` defining a custom handler that maps an innocuous extension to the ASP.NET script processor: `<handlers><add name="asp" path="*.jpg" verb="*" type="System.Web.UI.PageHandlerFactory" /></handlers>` | IIS 7+ with delegated configuration |
-| **web.config inline code** | `web.config` with embedded ASP.NET code in `<system.webServer>` sections that executes on parse | IIS configuration delegation enabled |
+| **web.config inline code** | `web.config` is an XML configuration file, not a code file — it does not directly execute inline C#/VB. The attack vector is indirect: a crafted `web.config` can (1) register a custom `HttpHandler` or `HttpModule` pointing to an already-uploaded `.dll`, (2) use `<system.webServer><handlers>` to remap extensions so that an uploaded `.jpg` is processed by the ASP.NET page handler, or (3) abuse `<appSettings>` to alter application behavior. The file modifies IIS/ASP.NET pipeline configuration, which then enables code execution through other uploaded or existing files | IIS 7+ with per-directory configuration delegation (`<location allowOverride="true">`) |
 | **web.config MIME mapping** | Override MIME mappings to serve uploaded files as executable content types | IIS with per-directory configuration |
 
 ### §5-3. PHP Configuration Injection
@@ -343,7 +343,7 @@ After a file passes validation, how and where it's stored can be exploited throu
 |---|---|---|
 | **Alternate Data Streams (ADS)** | `shell.php::$DATA` — the `::$DATA` suffix references the default data stream; Windows NTFS strips it, resulting in `shell.php`. Historically used to retrieve source code (`shell.asp::$DATA` returned raw ASP source instead of executing) | Windows NTFS filesystem; IIS |
 | **ADS directory creation** | `folder.asp::$Index_Allocation` or `:$I30:$Index_Allocation` — NTFS creates a directory instead of a file, enabling directory creation in unexpected locations | Windows NTFS |
-| **8.3 short name collision** | Windows generates 8.3 short names (e.g., `LONGFI~1.PHP` for `longfilename.php`). Attackers can reference files via short names to bypass validation that only checks long names | Windows NTFS with 8.3 name generation enabled (default) |
+| **8.3 short name collision** | Windows generates 8.3 short names (e.g., `LONGFI~1.PHP` for `longfilename.php`). Attackers can reference files via short names to bypass validation that only checks long names | Windows NTFS with 8.3 name generation enabled. **Note:** 8.3 generation is enabled by default on the system volume, but modern Windows (10 1803+) disables it by default on non-system volumes; behavior depends on the `NtfsDisable8dot3NameCreation` registry setting and volume-level policy |
 | **Reserved device names** | `shell.php.` (trailing dot stripped), `shell.php ` (trailing space stripped), `shell.php::$DATA` — all resolve to `shell.php` on NTFS | Windows NTFS automatic name normalization |
 
 ### §8-3. Cloud Storage & Object Storage
@@ -385,9 +385,9 @@ When uploaded files are deserialized rather than simply stored, the deserializat
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
 | **Python pickle upload** | Uploading a serialized Python object (pickle file) that, when deserialized via `pickle.loads()`, executes arbitrary code through `__reduce__` method | Application deserializes uploaded files using `pickle`, `shelve`, or `marshal` |
-| **YAML unsafe load** | Uploading a YAML file containing `!!python/object/apply:os.system ['command']` that executes during parsing | Application uses `yaml.load()` instead of `yaml.safe_load()` (PyYAML < 6.0 default) |
+| **YAML unsafe load** | Uploading a YAML file containing `!!python/object/apply:os.system ['command']` that executes during parsing | Application uses `yaml.load()` without specifying `Loader=SafeLoader`. PyYAML 5.1+ emits a deprecation warning when `Loader` is omitted; PyYAML 6.0+ raises `TypeError` if `Loader` is not explicitly provided. Vulnerable in practice when code explicitly passes `Loader=FullLoader` or `Loader=UnsafeLoader`, or on PyYAML < 5.1 where `yaml.load()` defaults to `FullLoader`-equivalent behavior |
 | **Java deserialization** | Uploading serialized Java objects that leverage gadget chains (Commons Collections, etc.) for RCE when deserialized by `ObjectInputStream` | Application deserializes uploaded data using Java serialization |
-| **PHP PHAR deserialization** | Uploading a PHAR archive (possibly disguised as an image via polyglot, §3-2). When any filesystem function (e.g., `file_exists()`, `is_dir()`) is called with a `phar://` wrapper pointing to the uploaded file, the PHAR metadata is unserialized, triggering POP chain exploitation | PHP application using filesystem functions with attacker-controlled paths; `phar://` wrapper enabled |
+| **PHP PHAR deserialization** | Uploading a PHAR archive (possibly disguised as an image via polyglot, §3-2). When any filesystem function (e.g., `file_exists()`, `is_dir()`) is called with a `phar://` wrapper pointing to the uploaded file, the PHAR metadata is unserialized, triggering POP chain exploitation. **PHP 8.0+ mitigation:** `phar.require_hash` defaults to `On` and PHAR metadata deserialization was hardened — unsigned PHAR files are rejected by default, and `phar://` no longer auto-triggers `unserialize()` on metadata in most functions. Exploitation on PHP 8+ requires a signed PHAR or specific configurations | PHP < 8.0: any filesystem function with attacker-controlled `phar://` path. PHP 8.0+: requires `phar.require_hash=0` or a validly signed PHAR archive |
 | **.NET ViewState** | Uploading or injecting crafted ViewState data containing serialized .NET objects that exploit `ObjectStateFormatter` deserialization | ASP.NET application with ViewState MAC disabled or known machine key |
 
 ### §9-4. Template Injection via File Upload
@@ -437,7 +437,7 @@ The time gap between file upload, validation, and final storage/use creates expl
 | **Denial of Service** | Resource exhaustion during processing or storage | §6-3 (decompression bombs) + §9-1 (pixel flood) + §1-6 (reserved names) |
 | **Local File Read / Information Disclosure** | XXE, SSRF, path traversal to read server files | §4-2 + §8-1 + §6-2 + §9-1 |
 | **Access Control / Configuration Bypass** | Overwrite server configuration or escape upload directory | §5 + §8-1 + §6-1 + §8-2 |
-| **Chained LFI + Upload → RCE** | Upload places code in accessible location; LFI includes it | §4-1 (EXIF PHP) + §3-1 (magic byte prepend) + §8-3 |
+| **Chained LFI + Upload → RCE** | Upload places code in accessible location; LFI includes it | §4-1 (EXIF PHP) + §3-1 (magic byte prepend) + §8-1 (path traversal to known location) |
 | **Client-Side Exploitation** | Uploaded documents/files exploit client applications | §4-3 (macros, DDE) + §4-2 (XXE) + §3-2 (polyglot) |
 | **CSP Bypass** | Uploaded file serves as script source bypassing Content Security Policy | §2-2 + §3-2 + §8-3 |
 | **Deserialization → RCE** | Uploaded serialized data triggers code execution during processing | §9-3 (pickle, YAML, PHAR, Java) |
@@ -455,11 +455,11 @@ The time gap between file upload, validation, and final storage/use creates expl
 | §2-1 + §8-1 | CVE-2024-8060 (Open WebUI) | Authenticated RCE via `/audio/api/v1/transcriptions` endpoint; insufficient validation on `content_type` and user-controlled filenames; arbitrary file overwrite as root |
 | §6-1 (Zip Slip) + §3 (content bypass) | CVE-2024-31280 (WordPress church-admin plugin) | Arbitrary file upload via unsafe Zip extraction; ZIP archive containing PHP files without extension validation; patched twice due to bypass |
 | §3-2 (PHAR polyglot) + §9-3 (deserialization) | CVE-2024-33438 (CubeCart ≤ 6.5.4) | RCE via `.phar` file upload containing malicious serialized objects |
-| §9-1 (ImageMagick overflow) | CVE-2025-57803 (ImageMagick 32-bit) | CVSS 9.8. Integer overflow in BMP encoder on 32-bit builds; heap overflow → potential RCE |
+| §9-1 (ImageMagick overflow) | CVE-2025-57803 (ImageMagick 32-bit) | CVSS 8.8 (NVD 3.x) / 7.5 (CNA). Integer overflow in BMP encoder on 32-bit builds; heap overflow → potential RCE |
 | §9-2 (ExifTool) | CVE-2021-22204 (ExifTool < 12.24) | RCE via Perl injection in DjVu ANT parsing; payload embeddable in JPEG wrapper. Widely exploited |
 | §10-2 (symlink race) | CVE-2025-67124 (miniserve 0.32.0) | TOCTOU + symlink race in upload finalization; arbitrary file overwrite outside upload root |
 | §6-1 (Zip Slip) | CVE-2025-3445 (archiver/v3 Go library) | Arbitrary file write via path traversal in archive extraction |
-| §8-3 (presigned URL) | CVE-2025-65073 (OpenStack Keystone) | Authorization bypass in S3/EC2 token endpoints; presigned URL signature replay → full-scope token |
+| §8-3 (presigned URL) — **cross-ref note** | CVE-2025-65073 (OpenStack Keystone) | **Primary issue: authentication/authorization bypass (CWE-863)** in S3/EC2 token validation, not a file upload vulnerability per se. Signature replay in token endpoints allows privilege escalation to full-scope tokens. Listed here as it affects presigned URL trust models, but the root cause is Keystone's auth logic, not upload handling |
 | §2-1 + §1 | CVE-2025-52078 (Writebot SaaS Template) | Unauthenticated file upload; no MIME validation, no extension checks, no authentication |
 | §1 (extension bypass) + §6 (ZIP bypass) | CubeWP Framework ≤ 1.1.12 (WordPress) | Arbitrary file types inside ZIP archives bypass extension validation; PHP files in ZIP → RCE |
 | §4-4 (SVG XSS) | Multiple HackerOne reports (H1:148853, H1:845832, H1:897244) | Stored XSS via SVG file upload; session cookie exfiltration. SVG XXE to SSRF in Zivver |

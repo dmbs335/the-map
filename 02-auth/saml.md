@@ -82,7 +82,7 @@ Namespace manipulation enhances signature wrapping by making elements invisible 
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **Namespace Redeclaration Hiding** | A forged `<Signature>` element is placed at the Assertion level with a redeclared namespace (e.g., `xml:xmlns='http://www.w3.org/2000/09/xmldsig#'`). One parser treats this as a valid Signature; another treats it as an unknown element and skips it. Combined with XSW to place a legitimate signature elsewhere. | Parser-specific handling of `xml:` prefix namespace redeclaration |
+| **Namespace Redeclaration Hiding** | A forged `<Signature>` element is placed at the Assertion level with a non-standard namespace attribute (e.g., `xmlns:ds='http://attacker.com/fake#'` shadowing the real `ds:` prefix). W3C Namespaces restricts declarations to `xmlns` or `xmlns:prefix` forms, and the `xml`/`xmlns` prefixes are reserved — but parsers diverge on enforcement. One parser treats the redeclared element as a valid Signature; another treats it as an unknown element and skips it. Combined with XSW to place a legitimate signature elsewhere. | Parser-specific handling of namespace prefix redeclaration and reserved prefix enforcement |
 | **Namespace-Scoped Element Hiding** | Elements are placed in a namespace that the signature verification module recognizes but the SP's business logic ignores (or vice versa), effectively creating invisible containers. | Namespace-aware vs. namespace-agnostic XPath queries in different stages |
 
 ---
@@ -110,7 +110,7 @@ Parser differentials exploit the fact that SAML implementations frequently use m
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **DOCTYPE ATTLIST Injection** | `<!ATTLIST>` declarations in an internal DTD define default attribute values. REXML applies these defaults (e.g., setting a conflicting namespace declaration), while Nokogiri/libxml2 may ignore them. This allows an attacker to make REXML see a completely different namespace structure than the signature verifier. (CVE-2025-25291) | REXML processing with DTD enabled; Ruby < 3.4.2 |
+| **DOCTYPE ATTLIST Injection** | `<!ATTLIST>` declarations in an internal DTD define default attribute values. REXML applies these defaults (e.g., setting a conflicting namespace declaration), while Nokogiri/libxml2 may ignore them. This allows an attacker to make REXML see a completely different namespace structure than the signature verifier. (CVE-2025-25291) | REXML processing with DTD enabled; ruby-saml < 1.12.4 or >= 1.13.0 and < 1.18.0 |
 | **Entity Definition Differential** | Custom entity declarations in internal DTDs are expanded by some parsers but rejected by others. An attacker defines entities that, when expanded, alter the semantic content of the Assertion visible to only one parser. | Mixed DTD processing policies across parser stages |
 
 ### S2-4. Round-Trip Mutation
@@ -130,7 +130,7 @@ XML Canonicalization (C14N) is the process of transforming XML into a canonical 
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **Relative URI Canonicalization Failure** | Introducing a relative namespace declaration (e.g., `xmlns:ns="1"`) causes the C14N algorithm to encounter an unresolvable relative URI. Per spec, this should produce an error, but many implementations silently return an empty string. The digest of an empty string (`SHA-256: 47DEQpj8...`) is predictable, allowing the attacker to forge a matching `<DigestValue>`. (CVE-2025-66568, CVE-2025-66567) | Implementation returns empty string on C14N error rather than failing hard |
+| **Relative URI Canonicalization Failure** | Introducing a relative namespace declaration (e.g., `xmlns:ns="1"`) causes the C14N algorithm to encounter an unresolvable relative URI. Per spec, this should produce an error, but many implementations silently return an empty string. The digest of an empty string (`SHA-256: 47DEQpj8...`) is predictable, allowing the attacker to forge a matching `<DigestValue>`. (CVE-2025-66568 ruby-saml, CVE-2025-66578 xmlseclibs) | Implementation returns empty string on C14N error rather than failing hard |
 | **Namespace Error Swallowing** | Similar to relative URI failure but triggered by malformed namespace URIs, circular namespace references, or namespace declarations that exceed implementation limits. The C14N output degrades to empty, enabling predictable digest forgery. | Permissive error handling in C14N implementation |
 | **Forced Empty Canonicalization** | The attacker constructs XML where the signed element, after C14N processing, produces an empty or near-empty canonical form (e.g., by using only namespace nodes that are excluded by exclusive C14N). The attacker then sets the DigestValue to the hash of the expected empty output. | Exclusive C14N with carefully crafted namespace exclusion |
 
@@ -138,7 +138,7 @@ XML Canonicalization (C14N) is the process of transforming XML into a canonical 
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **Comment Injection Identity Spoofing** | XML comments within `<NameID>` (e.g., `admin@legit.com<!-- -->.evil.com`) are stripped during C14N, so the signature verifies against `admin@legit.com.evil.com`. But the SP's text extraction may stop at the comment boundary, extracting only `admin@legit.com`. Note: the original exploit payload `<!---->` (empty comment) relies on lenient parser behavior; strict XML parsers require at least a space or character between `<!--` and `-->`. (CVE-2017-11427, CVE-2017-11428) | SP extracts text using first text node rather than full concatenated text content |
+| **Comment Injection Identity Spoofing** | XML comments within `<NameID>` (e.g., `admin@legit.com<!--x-->.evil.com`) are stripped during C14N, so the signature verifies against `admin@legit.com.evil.com`. But the SP's text extraction may stop at the comment boundary, extracting only `admin@legit.com`. Note: empty comments (`<!---->`) are valid per XML 1.0 grammar (production [15] allows zero-length content via `*` quantifier); the spec only prohibits `--` (double-hyphen) *within* comment content. (CVE-2017-11427, CVE-2017-11428) | SP extracts text using first text node rather than full concatenated text content |
 | **CDATA Section Differential** | CDATA sections (`<![CDATA[...]]>`) are resolved to text during C14N but may be preserved or split by certain parsers during text extraction, altering the effective value the SP processes. | Parser-specific CDATA handling in text extraction |
 | **Insignificant Whitespace Injection** | Whitespace between XML elements is insignificant per schema but may be preserved differently by various C14N modes (C14N 1.0 vs. C14N 1.1 vs. exclusive C14N). This can alter digest values or create processing divergence. | Mixed C14N algorithm versions across signer and verifier |
 
@@ -338,7 +338,8 @@ Beyond parser differentials, individual library implementations contain unique p
 
 | Mutation Combination | CVE / Case | Impact / Bounty |
 |---------------------|-----------|----------------|
-| S3-1 + S1-4 (Void Canonicalization + Namespace-Assisted Wrapping) | CVE-2025-66568, CVE-2025-66567 (ruby-saml, php-saml, xmlseclibs) | Full auth bypass across Ruby/PHP SAML ecosystem. Affects all ruby-saml < 1.18.0, xmlseclibs < 3.1.4 |
+| S3-1 (Void Canonicalization) | CVE-2025-66568 (ruby-saml), CVE-2025-66578 (xmlseclibs) | Full auth bypass via C14N empty-string return. ruby-saml < 1.18.0, xmlseclibs < 3.1.4 |
+| S2-1 (Parser Differential — incomplete patch of CVE-2025-25292) | CVE-2025-66567 (ruby-saml) | Auth bypass via Nokogiri/REXML parser differential. ruby-saml < 1.18.0 |
 | S2-1 + S2-3 (Parser Differential + DOCTYPE ATTLIST) | CVE-2025-25291, CVE-2025-25292 (ruby-saml) | CVSS 8.8. Account takeover via Nokogiri/REXML divergence. Fixed in ruby-saml 1.12.4, 1.18.0. Impacted GitLab (patched 17.9.2, 17.8.5, 17.7.7) |
 | S3-3 (DigestValue/SignatureValue Comment Injection — SAMLStorm) | CVE-2025-29775, CVE-2025-29774 (xml-crypto) | Critical auth bypass in Node.js SAML ecosystem. xml-crypto <= 6.0.0, affecting 500k+ weekly downloads (node-saml, samlify, saml2-js) |
 | S8-1 (libxml2 Caching Abuse) | CVE-2025-23369 (GitHub Enterprise) | SAML auth bypass on GitHub Enterprise via libxml2 canonicalization quirk |
@@ -400,7 +401,7 @@ A structural solution would require either (a) abandoning XML in favor of a simp
 - SwissKyRepo, "PayloadsAllTheThings — SAML Injection" — https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/SAML%20Injection
 - CSO Online, "SAML Authentication Broken Almost Beyond Repair" (2025) — https://www.csoonline.com/article/4105030/saml-authentication-broken-almost-beyond-repair.html
 - Google Project Zero: "Exploiting Java's XML Signature Verification" (2022) — XSLT transform abuse, XPath injection, and implementation-specific bugs in JDK's `javax.xml.crypto` API: https://googleprojectzero.blogspot.com/2022/11/gregor-samsa-exploiting-java-xml.html
-- "Hacking the Cloud with SAML" (2022) — SAML authentication vulnerabilities in cloud infrastructure exploitation
+- Felix Wilhelm (Google Project Zero), "Hacking the Cloud with SAML" (Hexacon 2022) — SAML authentication vulnerabilities in cloud infrastructure exploitation: https://2022.hexacon.fr/slides/Hacking-the-Cloud-With-SAML.pdf
 
 ---
 

@@ -81,7 +81,7 @@ Specialized DNS services resolve arbitrary subdomains to attacker-specified IP a
 | Subtype | Mechanism | Example Payload | Key Condition |
 |---|---|---|---|
 | **nip.io / sslip.io** | Embeds IP in subdomain; DNS resolves to that IP | `http://127.0.0.1.nip.io/`, `http://169.254.169.254.nip.io/` | Outbound DNS not restricted |
-| **xip.io variants** | Base36/hex-encoded IP in subdomain | `http://1ynrnhl.xip.io/` (= 169.254.169.254) | Service operational |
+| **xip.io variants** | Base36/hex-encoded IP in subdomain | `http://1b613i6.xip.io/` (= 169.254.169.254) | Service operational |
 | **localtest.me** | Hardcoded wildcard resolving all subdomains to `127.0.0.1` | `http://anything.localtest.me/` | DNS resolves externally |
 | **Custom attacker DNS** | Attacker-controlled DNS zone returning internal IPs | `http://internal.attacker.com/` → A record: `10.0.0.1` | No DNS-level validation |
 
@@ -330,7 +330,7 @@ Cloud metadata services represent the highest-impact SSRF target in modern infra
 | `http://169.254.169.254/metadata/instance?api-version=2021-02-01` | VM configuration, network, tags | Requires `Metadata: true` header |
 | `http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=https://management.azure.com/` | Managed identity OAuth token | Managed identity assigned |
 
-**Header requirement:** Azure IMDS requires `Metadata: true` header. Bypass requires header injection capability (§5 parser differentials or request smuggling). CVE-2025-53767 (Azure OpenAI, CVSS 10.0) demonstrated catastrophic metadata exposure via insufficient URL validation.
+**Header requirement:** Azure IMDS requires `Metadata: true` header. Bypass requires header injection capability (§5 parser differentials or request smuggling). CVE-2025-53767 (Azure OpenAI, CWE-918, CVSS 10.0) demonstrated SSRF-based privilege escalation via insufficient URL validation (NVD/MSRC).
 
 ### §8-3. GCP Metadata Service
 
@@ -391,25 +391,25 @@ When an AWS SDK client is initialized without explicit credentials (or credentia
 
 ---
 
-## §10. CVE / Bounty Mapping (2023–2025)
+## §10. CVE / Bounty Mapping (2019–2026)
 
 | Mutation Combination | CVE / Case | Impact / Bounty |
 |---|---|---|
-| §5-3 + §8-2 | **CVE-2025-53767** (Azure OpenAI) | CVSS 10.0. Managed identity token exfiltration via insufficient URL validation |
-| §5-3 + §8-1 | **CVE-2025-57822** (Next.js) | SSRF via resolve-routes; internal resource access with user-controlled headers |
+| §5-3 + §8-2 | **CVE-2025-53767** (Azure OpenAI) | CWE-918 SSRF, CVSS 10.0 (NVD/MSRC). Elevation of Privilege via insufficient URL validation |
+| §7-1 + §8-1 | **CVE-2025-57822** (Next.js) | Middleware Location header reflection: `NextResponse.next()` without explicit request passthrough treats user-controlled `Location` header as redirect, enabling SSRF to internal resources. Fixed in 14.2.32 / 15.4.7 |
 | §4-3 + §2 | **CVE-2025-1220** (PHP) | Null byte in hostname via `fsockopen()` bypasses access checks |
 | §5-3 | **CVE-2024-22243** (Spring Framework) | Square brackets in userinfo bypass host validation |
 | §5-1 | **CVE-2024-22329** (WebSphere) | SSRF via improper URL validation in traditional WAS |
 | §3-2 + §5-1 | **CVE-2024-38472** (Apache httpd) | UNC SSRF on Windows via mod_rewrite. $4,920 bounty |
-| §7-1 + §3-2 | **CVE-2024-40898** (Apache httpd) | SSRF through mod_rewrite in server/vhost context. $4,263 bounty |
-| §5-3 | **CVE-2023-27592** (Miniflux) | Backslash confusion: `http://example.com\\@169.254.169.254/` |
+| §3-2 + §5-1 | **CVE-2024-40898** (Apache httpd) | UNC SSRF via mod_rewrite in server/vhost context on Windows — triggers NTLM negotiation, leaking NTLMv2 hashes to attacker server. $4,263 bounty |
+| §7-2 | **CVE-2026-21885** (Miniflux) | Media proxy SSRF: `/proxy/{digest}/{url}` endpoint validates HMAC signature but does not restrict target host/IP, allowing authenticated users to fetch internal resources (localhost, RFC1918, link-local metadata). Fixed in 2.2.16 |
 | §6-1 + §8-2 | **Azure DevOps SSRF (2024)** | DNS rebinding to metadata API. $5,000 Microsoft bounty |
 | §8-1 + §1 | **Capital One breach (2019)** | AWS metadata exfiltration via SSRF. $80M+ in damages. Landmark case |
 | §7-1 + §8-1 | **Shopify SSRF (HackerOne)** | 303 redirect bypass to cloud metadata. Significant bounty |
 | §8-1 + §1 | **EC2 IMDS campaign (March 2025)** | Systematic targeting of EC2 instances via SSRF for IAM credential theft |
-| §7-2 + §8 | **Oracle EBS CVE-2025-61882** | Weaponized by Cl0p ransomware; CISA KEV. Fortune 500 impact |
-| §5-1 + §3-2 | **CVE-2021-26855 (Microsoft Exchange, ProxyLogon)** | Pre-auth SSRF via cookie-based backend selection (`X-BEResource`). `UriBuilder` parsing bypass grants access to arbitrary backend ports with Exchange machine account Kerberos ticket. Chained with CVE-2021-27065 (file write) for pre-auth RCE. Pwnie Award 2021 |
-| §5-1 + §3-2 | **CVE-2021-34473 (Microsoft Exchange, ProxyShell)** | ACL bypass via backend routing manipulation → PowerShell backend elevation (CVE-2021-34523) → arbitrary file write (CVE-2021-31207). **$200,000** Pwn2Own Vancouver 2021 |
+| — | **Oracle EBS CVE-2025-61882** | Pre-Auth RCE (CWE-287). 초기 NVD에 CWE-918 태그 후 제거됨. Cl0p 무기화; CISA KEV. SSRF가 아닌 인증 우회 체인 |
+| §5-1 + §7-2 | **CVE-2021-26855 (Microsoft Exchange, ProxyLogon)** | Pre-auth SSRF via cookie-based backend selection (`X-BEResource`). `UriBuilder` parsing bypass grants access to arbitrary backend ports with Exchange machine account Kerberos ticket. Chained with CVE-2021-27065 (file write) for pre-auth RCE. Pwnie Award 2021 |
+| §5-1 | **CVE-2021-34473 (Microsoft Exchange, ProxyShell)** | Pre-auth path confusion → ACL bypass (SSRF component). Full chain requires two additional CVEs: PowerShell backend elevation (CVE-2021-34523) + arbitrary file write (CVE-2021-31207). **$200,000** Pwn2Own Vancouver 2021 (3-CVE chain total) |
 
 ---
 
@@ -471,7 +471,7 @@ Effective SSRF mitigation requires defense-in-depth across multiple layers:
 - **Protocol restriction:** Strip non-HTTP(S) schemes before any request. Disable gopher://, file://, dict://, and other protocols at the library level.
 - **Redirect control:** Do not follow redirects, or re-validate the destination after each redirect hop.
 
-The 452% increase in SSRF attacks observed in 2024 — driven partly by AI-automated reconnaissance — underscores that this vulnerability class is accelerating, not diminishing. As applications increasingly integrate URL-accepting features (webhooks, AI agents, cloud APIs), the SSRF attack surface will continue to expand.
+The 452% increase in SSRF attacks observed in 2024 (SonicWall, "2025 Cyber Threat Report", Feb 2025) — driven partly by AI-automated reconnaissance — underscores that this vulnerability class is accelerating, not diminishing. As applications increasingly integrate URL-accepting features (webhooks, AI agents, cloud APIs), the SSRF attack surface will continue to expand.
 
 ---
 
@@ -561,14 +561,14 @@ The 452% increase in SSRF attacks observed in 2024 — driven partly by AI-autom
 
 ### CVE Advisories
 
-- CVE-2025-53767 (Azure OpenAI, CVSS 10.0): https://zeropath.com/blog/cve-2025-53767
+- CVE-2025-53767 (Azure OpenAI, CWE-918, CVSS 10.0): https://nvd.nist.gov/vuln/detail/CVE-2025-53767
 - CVE-2025-57822 (Next.js Middleware Header SSRF): https://vercel.com/changelog/cve-2025-57822
 - CVE-2025-1220 (PHP fsockopen Null Byte SSRF): https://nvd.nist.gov/vuln/detail/CVE-2025-1220
 - CVE-2024-22243 (Spring Framework UriComponentsBuilder): https://github.com/advisories/GHSA-ccgv-vj62-xf9h
 - CVE-2024-22329 (IBM WebSphere SSRF): https://www.ibm.com/support/pages/security-bulletin-ibm-websphere-application-server-and-ibm-websphere-application-server-liberty-are-vulnerable-server-side-request-forgery-cve-2024-22329
 - CVE-2024-38472 (Apache httpd UNC SSRF on Windows): https://httpd.apache.org/security/vulnerabilities_24.html
-- CVE-2024-40898 (Apache httpd mod_rewrite SSRF): https://hackerone.com/reports/2612028
-- CVE-2023-27592 (Miniflux SSRF): https://github.com/miniflux/v2/security/advisories/GHSA-mqqg-xjhj-wfgw
+- CVE-2024-40898 (Apache httpd mod_rewrite UNC SSRF / NTLM leak): https://hackerone.com/reports/2612028
+- CVE-2026-21885 (Miniflux Media Proxy SSRF): https://github.com/miniflux/v2/security/advisories/GHSA-xwh2-742g-w3wp
 
 ### Real-World Incidents
 
@@ -595,5 +595,5 @@ The 452% increase in SSRF attacks observed in 2024 — driven partly by AI-autom
 - Detectify Labs — "SSRF Vulnerabilities and Where to Find Them": https://labs.detectify.com/security-guidance/ssrf-vulnerabilities-and-where-to-find-them/
 - Intigriti — "SSRF: A Complete Guide to Exploiting Advanced SSRF Vulnerabilities": https://www.intigriti.com/researchers/blog/hacking-tools/ssrf-a-complete-guide-to-exploiting-advanced-ssrf-vulnerabilities
 - Qualys — "Unmasking AWS IMDSv1: The Hidden Flaw in AWS Security": https://blog.qualys.com/vulnerabilities-threat-research/2024/09/12/totalcloud-insights-unmasking-aws-instance-metadata-service-v1-imdsv1-the-hidden-flaw-in-aws-security
-- Doyensec — "The Danger of Falling to System Role in AWS SDK Client" (2022): AWS SDK client default credential chain falling back to system-level IAM role, enabling privilege escalation
-- Invicti — "SSRF vulnerabilities caused by SNI proxy misconfigurations" (2022): TLS SNI-Host mismatch routing to internal backends
+- Doyensec — "The Danger of Falling to System Role in AWS SDK Client" (2022): https://blog.doyensec.com/2022/10/18/cloudsectidbit-dataimport.html
+- Invicti — "SSRF vulnerabilities caused by SNI proxy misconfigurations" (2022): https://www.invicti.com/blog/web-security/ssrf-vulnerabilities-caused-by-sni-proxy-misconfigurations

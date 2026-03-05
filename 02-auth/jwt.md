@@ -4,7 +4,7 @@
 
 ## Classification Structure
 
-This taxonomy organizes the entire JWT attack surface along three orthogonal axes derived from systematic analysis of CVEs, academic research, bug bounty reports, and practitioner writeups through 2025.
+This taxonomy organizes the entire JWT attack surface along three orthogonal axes derived from systematic analysis of CVEs, academic research, bug bounty reports, and practitioner writeups through 2026.
 
 **Axis 1 — Mutation Target (Primary):** The structural component of the JWT being manipulated. JWT consists of three segments (Header, Payload, Signature) plus the ecosystem of key management, transport, and lifecycle mechanisms. Each top-level category targets a distinct structural component — the algorithm field, header parameters for key resolution, the cryptographic signature itself, payload claims, the key management infrastructure, token transport/storage, or the protocol-level lifecycle.
 
@@ -69,7 +69,7 @@ Forcing the use of a weaker algorithm variant within the same algorithm family.
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
-| **RS512→RS256 downgrade** | Switch to a weaker RSA variant with shorter signature requirements | Server allows algorithm flexibility within the RSA family |
+| **RS512→RS256 downgrade** | Switch to a weaker RSA hash variant (SHA-256 vs. SHA-512); RSA key size requirements remain identical (2048+ bit per RFC 7518), but the weaker hash reduces collision resistance and may bypass policy checks that only allow stronger variants | Server allows algorithm flexibility within the RSA family |
 | **ES512→ES256 downgrade** | Switch to a weaker ECDSA curve | Server doesn't pin the specific curve/key size |
 | **EdDSA→ECDSA confusion** | Switch between Edwards-curve and Weierstrass-curve algorithms | Library handles multiple EC algorithm families |
 
@@ -182,7 +182,7 @@ JWE supports password-based encryption via PBES2 (RFC 7518 §4.8), where a Conte
 
 **Affected libraries and fixes:**
 - **jose4j** (Java): vulnerable before 0.9.4 (CVE-2023-51775)
-- **go-jose** (Go): fixed in v3.0.2 (CVE-2023-49290)
+- **lestrrat-go/jwx** (Go): fixed in v1.2.27 / v2.0.18 (CVE-2023-49290)
 - **jose2go** (Go): fixed in v1.6.0
 - **josekit-rs** (Rust): fixed in v0.8.5
 
@@ -354,7 +354,7 @@ JWS (signed) and JWE (encrypted) share the same compact serialization format —
 
 | Mutation Combination | CVE / Case | Impact / Bounty |
 |---|---|---|
-| §3-2 (Psychic Signatures) | CVE-2022-21449 (Java 15–18) | CVSS 7.5. Complete ECDSA signature bypass with zero-value r,s. Affects all Java JWT libraries using built-in JCA. |
+| §3-2 (Psychic Signatures) | CVE-2022-21449 (Java 15–18) | CVSS 7.5. Complete ECDSA signature bypass with zero-value r,s. Affects Java JWT libraries using built-in JCA ECDSA provider on vulnerable JDK versions (15–18 prior to patch). |
 | §1-1 (None algorithm) | CVE-2024-48916 (Ceph RadosGW) | Authentication bypass. `alg=none` accepted, allowing arbitrary claim forgery. |
 | §4-4 (Audience bypass) | CVE-2024-5798 (HashiCorp Vault) | Auth bypass. JWT audience claim not properly validated; invalid logins succeed. |
 | §1-2 (Algorithm confusion) | CVE-2024-54150 | RS256→HS256 confusion allowing token forgery with public key. |
@@ -365,8 +365,8 @@ JWS (signed) and JWE (encrypted) share the same compact serialization format —
 | §7-1 (Sign/encrypt confusion) | CVE-2022-3102 (jwcrypto/Python) | Authentication bypass. Same sign/encrypt confusion vector as CVE-2022-39174. |
 | §7-1 (Sign/encrypt confusion) | CVE-2023-51774 (json-jwt/Ruby) | Identity check bypass. Ruby json-jwt gem (< 1.16.6, < 1.15.3.1) vulnerable to sign/encrypt confusion allowing arbitrary claim forgery. |
 | §3-4 (PBES2 billion hashes) | CVE-2023-51775 (jose4j/Java) | DoS. Unbounded `p2c` parameter allows CPU exhaustion via 2^31 PBKDF2 iterations. Fixed in jose4j 0.9.4. |
-| §3-4 (PBES2 billion hashes) | CVE-2023-49290 (go-jose/Go) | DoS. Same PBES2 `p2c` exploitation. Fixed in go-jose v3.0.2. |
-| §1-1 (Unknown algorithm empty-signature) | CVE-2026-23993 (HarbourJwt) | Authentication bypass. `GetSignature()` returns empty string for unrecognized `alg` values; empty-vs-empty comparison passes verification. |
+| §3-4 (PBES2 billion hashes) | CVE-2023-49290 (lestrrat-go/jwx) | DoS. Same PBES2 `p2c` exploitation. Fixed in lestrrat-go/jwx v1.2.27 / v2.0.18. |
+| §1-1 (Unknown algorithm empty-signature) | CVE-2026-23993 (HarbourJwt) ⚠️ *NVD 미반영, PentesterLab 단일 소스 — 독립 검증 대기* | Authentication bypass. `GetSignature()` returns empty string for unrecognized `alg` values; empty-vs-empty comparison passes verification. |
 | §5-1 / §6-3 (Token leakage) | Grafana Bug Bounty | JWT tokens in query parameters leaked to backend data sources via proxied requests. |
 | §6-3 (Replay / revocation) | HackerOne #3120790 (WakaTime) | Session replay. Logged-out tokens remain valid, enabling persistent access. |
 
@@ -410,8 +410,8 @@ Backend-as-a-Service platforms (Supabase, Firebase, Appwrite) expose database ac
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
 | **Missing Row Level Security (RLS)** | BaaS platforms embed an "anon" JWT in client-side JavaScript (intentionally public). Security depends entirely on per-table RLS policies. When RLS is not enabled or policies are not configured on one or more tables, the anon JWT grants unrestricted read/write access to those tables — including auth tokens, password reset tokens, PII, and credentials | Supabase/PostgreSQL-based BaaS; one or more tables without `ALTER TABLE ... ENABLE ROW LEVEL SECURITY` or without any policies defined |
-| **Service Role Key Exposure** | The `service_role` JWT (which bypasses all RLS) leaked via client-side code, `.env` files in public repositories, error messages, or build artifacts grants full admin database access equivalent to direct PostgreSQL superuser access | Service role key accessible to attacker; no network-level restriction on direct Supabase API access |
-| **Firebase Security Rules Misconfiguration** | Firebase Realtime Database and Firestore default to deny-all, but developers commonly set overly permissive rules during development (`".read": true, ".write": true`) and fail to restrict them before production. Any authenticated (or anonymous) user can read/write the entire database | Firebase project with permissive security rules; anonymous authentication enabled |
+| **Service Role Key Exposure** | The `service_role` JWT (which bypasses all RLS) leaked via client-side code, `.env` files in public repositories, error messages, or build artifacts grants full RLS-bypassing database access — not PostgreSQL superuser, but sufficient to read/write all tables without any row-level policy enforcement | Service role key accessible to attacker; no network-level restriction on direct Supabase API access |
+| **Firebase Security Rules Misconfiguration** | Firebase Realtime Database and Firestore default to **Locked mode** (deny-all), but the Firebase Console also offers a **Test mode** option during project creation that sets fully open rules with a 30-day expiry — developers who select Test mode and fail to restrict rules before production (or after expiry reversion) leave the database open. Any authenticated (or anonymous) user can read/write the entire database | Firebase project with permissive security rules (Test mode selected or manually set `".read": true, ".write": true`); anonymous authentication enabled |
 
 ---
 
