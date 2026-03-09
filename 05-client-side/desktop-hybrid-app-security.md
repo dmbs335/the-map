@@ -273,7 +273,7 @@ Desktop hybrid apps have uniquely deep supply chains: npm/crate ecosystems for a
 
 | Subtype | Mechanism | Violation | Key Condition |
 |---------|-----------|-----------|---------------|
-| **Direct dependency hijacking** | Widely-used npm packages compromised via maintainer token theft or phishing (e.g., Shai-Hulud worm — Aug–Sept 2025, 796 packages, 20M+ weekly downloads affected) | V6 | Application depends on compromised package |
+| **Direct dependency hijacking** | Widely-used npm packages compromised via maintainer token theft or phishing. Two distinct 2025 events: (1) September 2025 maintainer compromise (chalk, debug, ansi-styles — 18 packages, 2.6B weekly downloads); (2) Shai-Hulud worm (Aug–Nov 2025, 796 packages — self-propagating via stolen npm tokens) | V6 | Application depends on compromised package |
 | **Typosquatting** | Malicious packages with names similar to popular Electron utilities published to npm | V6 | Developer installs wrong package |
 | **Dependency confusion** | Private package names squatted on public npm registry; build system fetches malicious public version | V6 | Mixed private/public registry configuration |
 | **Post-install script execution** | npm package `postinstall` scripts execute arbitrary code during `npm install`, before any review | V6 | Unrestricted lifecycle script execution |
@@ -346,7 +346,7 @@ Platform impact varies: macOS and Ubuntu are fully vulnerable because their file
 | §4-1 (ASAR integrity bypass) | CVE-2024-46992 (Electron) | ASAR integrity check bypassable by content modification |
 | §4-1 (ASAR integrity bypass) | CVE-2025-55305 (Electron) | ASAR integrity bypass via resource modification |
 | §7-2 (Chromium N-day patch gap) | CVE-2025-4609 (Chromium) | $250,000 bounty; sandbox escape → RCE; affected Cursor and Windsurf |
-| §7-1 (npm supply chain) | npm Shai-Hulud worm (Aug–Sept 2025) | 796 packages compromised, 20M+ weekly downloads affected; self-propagating via npm token theft with post-install scripts; Shai-Hulud 2.0 introduced refined package targeting and evasion |
+| §7-1 (npm supply chain — worm) | npm Shai-Hulud 1.0/2.0 (Aug–Nov 2025) | 796 packages compromised; self-propagating via npm token theft with post-install scripts; Shai-Hulud 2.0 introduced refined package targeting and evasion. Distinct from Sept 2025 maintainer compromise (18 packages, 2.6B weekly downloads) |
 | §4-1 (ASAR persistence) | Slack ASAR injection (pentest case) | Persistence via PowerShell payload in `electron.asar` |
 | §1 + §2 + §7-2 (IPC → context isolation bypass → Chromium N-day chain) | Pwn2Own Vancouver 2023 — Microsoft Teams (Viettel Cyber Security) | Full RCE via 2-bug chain: improper MessagePorts configuration in Electron renderer compromise → Chromium sandbox escape |
 | §1-3 (Tauri scope bypass) | GHSA-q9wv-22m9-vhqh (Tauri) | Filesystem scope partially bypassable via special character escaping |

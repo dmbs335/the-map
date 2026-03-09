@@ -29,7 +29,7 @@ These cross-cutting mechanisms appear throughout the taxonomy:
 
 Browser extensions (Chrome, Firefox, Edge, Safari) consist of three primary execution contexts:
 
-1. **Background Context** (Service Worker in MV3): Persistent privileged context with full extension API access
+1. **Background Context** (Service Worker in MV3): Event-driven context with full extension API access. MV3 service workers are **not persistent** — they load on demand and terminate when idle (~30s inactivity). This is a key MV3 constraint vs. MV2's persistent background pages
 2. **Content Scripts**: Injected into web pages in an isolated world; execute under the extension's own CSP (not the page's CSP), but DOM modifications they make to the page are subject to the page's CSP
 3. **Web-Accessible Resources**: Pages/scripts that can be loaded by web content
 
@@ -128,7 +128,7 @@ Extensions with `cookies` permission can extract authentication tokens across al
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
 | **Universal Cookie Exfiltration** | `chrome.cookies.getAll({})` retrieves all browser cookies; exfiltrated via fetch | Requires only `cookies` + `<all_urls>` permissions |
-| **Session Hijacking via Sync** | Storing stolen cookies in `chrome.storage.sync` for retrieval from attacker-controlled device | Chrome Sync automatically propagates attack data; no network traffic detected locally |
+| **Session Hijacking via Sync** | Storing stolen cookies in `chrome.storage.sync` for retrieval from other devices where the **same user** is signed in. This does NOT automatically propagate to an attacker's browser — the attacker must be signed into the victim's Chrome account (which itself requires account compromise) or the extension must use an external C2 channel | `chrome.storage.sync` syncs across the victim's own signed-in Chrome browsers, not to arbitrary third parties |
 | **OAuth Token Interception** | Extracting OAuth tokens from cookies/localStorage for Google, Microsoft, Slack, etc. | Cyberhaven attack (Dec 2024) exfiltrated OAuth tokens, enabling account takeover |
 
 ### §3-2. Surveillance APIs
@@ -140,7 +140,7 @@ Several APIs enable persistent user surveillance without clear permission warnin
 | **Persistent Keylogging** | Content script adds event listeners for `keydown`/`keyup` across all pages | No explicit "keylogging" permission exists; covered by `<all_urls>` |
 | **Screenshot Exfiltration** | `chrome.tabs.captureVisibleTab()` captures visible tab content at intervals | Requires `activeTab` or `<all_urls>`; no runtime indicator to user |
 | **Camera/Microphone Access** | Calling `navigator.mediaDevices.getUserMedia()` from background or extension page | Browser prompts once; permission persists; no ongoing indicator |
-| **Geolocation Tracking** | `navigator.geolocation.watchPosition()` provides continuous location updates | Permission prompt similar to websites; users don't expect continuous tracking |
+| **Geolocation Tracking** | `navigator.geolocation.watchPosition()` provides location updates. Note: in MV3, `navigator.geolocation` is **not available** in the service worker context — requires an offscreen document or extension page (popup/options) to access | Permission prompt required; MV3 service worker lifecycle limits continuous background tracking without offscreen document workaround |
 
 ### §3-3. History and Browsing Data APIs
 
@@ -263,7 +263,7 @@ Storing stolen data in synced storage for retrieval from attacker-controlled dev
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **Chrome Sync Abuse** | Storing data in `chrome.storage.sync` automatically propagates to attacker's browser | No network traffic from victim; sync happens via Google infrastructure |
+| **Chrome Sync Abuse** | Storing data in `chrome.storage.sync` propagates to **the same user's** other signed-in Chrome browsers — not to an attacker's browser unless the attacker has compromised the victim's Google account. More realistic exfil vectors use external C2 (fetch to attacker domain, WebSocket, etc.) | Sync is user-scoped, not extension-scoped; practical exfil typically uses direct network channels |
 | **Bookmark Smuggling** | Encoding stolen data in bookmark URLs or titles; syncs automatically | Bookmark sync enabled by default; data persists even if extension removed |
 | **Cloud Storage Upload** | Uploading data to Google Drive, Dropbox via OAuth tokens extracted from cookies | Appears as legitimate user activity; bypasses DLP focused on attacker domains |
 
@@ -333,23 +333,23 @@ Attacks leveraging browser-OS integration points to escalate beyond browser sand
 
 ### §8-2. Protocol Handler Abuse
 
-Extensions can register custom protocol handlers; enables URI-based exploitation.
+Extensions can register protocol handlers via `protocol_handlers` in the manifest; the WebExtensions API restricts this to allowlisted schemes or `web+`/`ext+` prefixed custom schemes, using a `uriTemplate` that maps to a web URL handler — not an OS-level custom scheme.
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **Custom Scheme Injection** | Registering handler for `ext://` or similar; malicious pages trigger via links | Clicking `<a href="ext://action?cmd=steal">` invokes extension without user awareness |
+| **Custom Scheme Handler Abuse** | Registering `protocol_handlers` for `web+custom` or `ext+custom` schemes; the handler URL receives the full URI as a parameter, which may leak sensitive data embedded in the URI to the extension's web handler page | User clicks a `web+custom://...` link; handler URL receives full URI content. Note: this is a web URL redirect, not direct OS-level scheme invocation |
 | **File:// Protocol Access** | Extensions with `file://` permission read local files when pages link to `file://` URLs | Enables arbitrary local file read if combined with path traversal |
 | **Intent Redirection** | Registering handlers for `intent://` (Android) or `x-apple-data-detectors://` (iOS) | Mobile browsers route actions through extension; enables phishing/data theft |
 
 ### §8-3. Download API Exploitation
 
-Extensions can programmatically download files, bypassing standard browser warnings.
+Extensions can programmatically download files via `chrome.downloads.download()`. Chrome enforces several restrictions: dangerous file types require `acceptDanger()` called from a visible context (user gesture), and `filename` rejects absolute paths and `..` back-references with an error.
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **Silent Download** | `chrome.downloads.download({url, filename})` downloads without user confirmation | Enables silent malware download; bypasses safe browsing checks in some cases |
-| **Download Filename Spoofing** | Setting `filename` to exploit OS file handling (e.g., `.exe` disguised as `.pdf.exe`) | Windows hides known extensions; users execute believing it's document |
-| **Path Traversal Download** | Specifying `filename: '../../../../.bashrc'` to write outside download directory | Some browsers insufficiently sanitize download paths; enables config file overwrite |
+| **Silent Download** | `chrome.downloads.download({url, filename})` downloads to the default directory. Chrome still applies Safe Browsing checks; dangerous file types require explicit `acceptDanger()` from a visible user context | Can silently download non-dangerous file types; dangerous types require user-visible context |
+| **Download Filename Spoofing** | Setting `filename` to exploit OS file handling (e.g., `.exe` disguised as `.pdf.exe`) | Windows hides known extensions; users execute believing it's document. This is an OS UI issue, not a Chrome API bypass |
+| **Path Traversal Download** | Chrome's downloads API **rejects** filenames containing absolute paths or `..` back-references — `filename: '../../../../.bashrc'` returns an error. This vector is **not exploitable on Chrome**; may apply to older or non-Chromium browser extension APIs with weaker validation | Chrome: not exploitable. Check browser-specific API behavior for non-Chromium |
 
 ---
 
@@ -378,7 +378,7 @@ This table maps structural vulnerability categories (Axis 1) to real-world explo
 | §5-2 + §8 | Trust Wallet CVE (Dec 2024) | **$7,000,000** cryptocurrency theft via compromised update v2.68 |
 | §5-2 + §3-1 | TamperedChef Campaign (Feb 2025) | 3.2M users; 16 extensions compromised; Facebook Business + ChatGPT credential harvesting |
 | §1-3 + §7 | CVE-2024-21388 (Microsoft Edge) | CVSS 6.5; Silent extension installation without user consent |
-| §2-1 + §3 | Chrome DevTools Extension (CVE-2024-*) | Arbitrary code execution via malicious extension in Chrome <126.0.6478.54 |
+| §2-1 + §3 | CVE-2024-5836 (Chrome DevTools Extension) | CVSS 8.8. Inappropriate implementation in DevTools allowed arbitrary code execution via crafted Chrome Extension in Chrome <126.0.6478.54 |
 | §7-1 + §4-1 | Polymorphic Extension Cloning (March 2025) | Affects all Chromium browsers; credential theft via UI impersonation |
 | §6-3 + §1-1 | Stealth Extension Exfiltration (SEE) | 57,831 extensions analyzed; 351M users potentially affected; unauthorized HTTP requests without permissions |
 | §7-3 + §6 | AiFrame Campaign (2025) | 900,000+ users; 30 extensions masquerading as AI assistants; full-screen iframe remote control |

@@ -23,6 +23,7 @@ This taxonomy is structured along three axes:
 | **D5** | Race Condition / TOCTOU | Exploiting the time gap between validation and use |
 | **D6** | Trust Boundary Violation | Server unconditionally trusts client-side data |
 | **D7** | Channel Compromise | Compromise of the authentication channel itself (SMS, email, deep links) |
+| **D8** | Normalization Asymmetry | Inconsistent string canonicalization (trim, case folding, Unicode normalization) across authentication paths, creating identity mismatches between stored and queried values |
 
 ---
 
@@ -49,9 +50,14 @@ An attack class where the attacker creates an account **before the victim regist
 | **Response Manipulation** | Tamper with server response status codes or JSON fields to activate an account without email verification (e.g., `{"verified": false}` → `{"verified": true}`) | Server relies on client response for verification state | D6 |
 | **Forced Browsing** | Directly access post-verification pages/APIs without completing email verification | Server does not check verification state on every request | D4 |
 | **Activation Endpoint Direct Call** | Directly invoke the activation API endpoint without an email token to activate the account | Token verification not implemented on activation endpoint | D4 |
-| **Email Normalization Differential** | Exploit normalization differences in email addresses — case sensitivity, dots (.), plus (+) tags — to bypass verification (e.g., `victim@gmail.com` vs `Victim@Gmail.com`) | Inconsistent email normalization logic between registration and verification | D1 |
+| **Whitespace Normalization Asymmetry** | Leading/trailing whitespace in email stripped by one auth path but preserved by another — `" victim@x.com"` registers as a distinct account that collides with `"victim@x.com"` during login or password reset (Keycloak #33601, Ory Kratos #2158, CTFd) | Auth paths apply `.strip()`/`.trim()` inconsistently across registration, login, and recovery | D1, D8 |
+| **Unicode Case Folding Collision** | Unicode email maps to an existing account after case folding — `mıke@x.com` (Turkish dotless-ı) matches `mike@x.com` via `iexact`/`LOWER()`, sending the password reset token to the attacker's address (CVE-2019-19844) | Case-insensitive lookup folds Unicode characters (`ı`↔`I`, `ß`↔`SS`, `ς`↔`σ`) without exact-match verification | D1, D8 |
+| **Case Sensitivity Path Asymmetry** | Registration stores `email.lower()` but login performs case-sensitive lookup (or vice versa), creating account bifurcation — user can reset password but cannot log in, or duplicate accounts coexist with the same canonical email | Different auth paths apply `.lower()`/`.toLowerCase()` inconsistently | D1, D4, D8 |
+| **Dot/Plus Tag Normalization** | Exploit provider-specific normalization — Gmail ignores dots in local-part (`v.ictim` = `victim`), plus-subaddressing (`user+tag@`) treated as distinct by the application — to bypass uniqueness checks or email verification | Application does not canonicalize provider-specific email features | D1 |
 | **Verification Link Reuse** | Reuse a previously used verification link for a new email change | Verification token not bound to a specific email address | D3 |
 | **Auto-Login on Registration** | Auto-login on registration completion without email verification; attacker registers with the victim's email and immediately obtains a session | Email verification decoupled from the registration flow | D1, D4 |
+| **Post-Authentication Email Change Without Re-verification** | Authenticated user changes account email via profile API without ownership verification of the new address — attacker with a compromised session redirects the recovery channel to their own inbox (CVE-2023-6152) | Email change endpoint does not require new-address verification; `verify_email_enabled` applies only at sign-up | D1, D4 |
+| **Username–Email Binding Gap** | Username and email stored as separate identifiers without mutual validation — attacker registers `username="victim@x.com"` (unverified as email) with `email="attacker@y.com"` (verified), blocking victim's registration and receiving their password reset tokens (CVE-2023-6152) | Username and email fields not cross-validated at registration; email change endpoint lacks re-verification | D1, D6 |
 
 ### §1-3. Mass Assignment / Parameter Injection
 
@@ -118,6 +124,7 @@ Password reset is the **most frequent entry point** for ATO. Vulnerabilities ari
 | **Account Recovery Question Bypass** | Security question answers are empty, case-insensitive, or guessable from public information | Inherent weakness of security question-based recovery | D1 |
 | **Tokenless Direct Reset** | Password reset endpoint accepts email/username and new password directly without requiring a reset token — attacker submits the target's identifier to set an arbitrary password | Reset flow has no token verification step; password change endpoint trusts the user-supplied identifier alone | D4 |
 | **MFA Reset via Recovery** | Using the account recovery flow to remove or reset MFA enrollment, then authenticating with only the first factor — the recovery flow designed to restore access becomes a backdoor around MFA | Recovery flow allows MFA reconfiguration without current MFA verification | D4 |
+| **Multi-Email Parameter Injection** | Submit multiple email addresses as a JSON array (`{"email":["victim@x.com","attacker@y.com"]}`) or duplicated HTTP parameter in the reset request — server generates the token for the first address but delivers it to both (CVE-2023-7028, CVSS 10.0) | Server processes array/duplicate email parameters without strict single-value validation | D4, D6 |
 
 ---
 
@@ -237,6 +244,7 @@ OAuth and SSO form the **delegation layer** of authentication. Unique attack sur
 | **IdP Email Unverified Trust** | Service ignores `email_verified=false` returned by the IdP and trusts the email regardless | IdP response's `email_verified` field not checked | D1 |
 | **Dangling OAuth Connection** | OAuth connection of a deleted social account persists on the service; a new account with the same social ID accesses the existing service account | OAuth connection not refreshed on social account deletion/recreation | D2 |
 | **Google Domain Ownership Change** | When company domain ownership changes, the new owner authenticates via Google OAuth with the same domain email → accesses former employees' SaaS accounts | Google OAuth allows domain email-based authentication + domain ownership change not reflected | D1 |
+| **Cross-Provider Email Normalization Mismatch** | Different OAuth providers normalize email differently — Google strips dots from Gmail local-parts (`j.ohn` = `john`), GitHub preserves them — relying party uses raw email as the linkage key, so `j.ohn@gmail.com` (GitHub) collides with `john@gmail.com` (Google) or creates a duplicate account | Relying party does not canonicalize emails from different IdPs before account linking | D1, D8 |
 
 ---
 
@@ -365,6 +373,9 @@ Passwordless authentication creates a new attack surface.
 | §3-3 + §4-2 (Session + MFA) | CVE-2025-1723 (ADSelfService Plus) | Session mismanagement enabling unauthorized access to user enrollment data when MFA not enabled |
 | XSS→ATO Chain (Self-XSS) | Facebook Self-XSS Payments | $62,500. Self-XSS in payment flow chained to Full ATO |
 | XSS→ATO Chain (FXAuth Token Abuse) | Facebook Two-Click ATO | $30,000. FXAuth token abuse for two-click ATO |
+| §1-2 (Unicode Case Folding Collision) | CVE-2019-19844 (Django < 3.0.1) | CVSS 9.8. Turkish dotless-ı in email bypasses `iexact` lookup → password reset token sent to attacker |
+| §2-4 (Multi-Email Parameter Injection) | CVE-2023-7028 (GitLab CE/EE 16.1–16.7) | CVSS 10.0. JSON array of two emails in password reset → token delivered to both addresses |
+| §1-2 (Username–Email Binding Gap + Email Change Re-verification) | CVE-2023-6152 (Grafana < 10.3.3) | CVSS 5.4. Username/email field separation + email change without re-verification → account blocking and recovery hijack |
 
 ---
 

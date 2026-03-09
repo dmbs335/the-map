@@ -365,7 +365,8 @@ Race conditions are not confined to server-side processing. The browser environm
 | §6-2 (JSP compilation race) + §6-1 (symlink) | CVE-2024-50379 / CVE-2024-56337 (Apache Tomcat) | CVSS 9.8. RCE via TOCTOU race in JSP compilation on case-insensitive filesystems (Windows). CVE-56337 is incomplete fix of CVE-50379 |
 | §2-1 (signal handler race) | CVE-2024-6387 "regreSSHion" (OpenSSH) | Unauthenticated RCE via race condition in SIGALRM signal handler during LoginGraceTime. Affects sshd on glibc-based Linux |
 | §1-1 (balance overdraw) + §5-1 | CVE-2024-58248 (nopCommerce) | Duplicate gift card redemption due to missing order placement locking |
-| §8-3 (framework cache race) | CVE-2024-46982 (Next.js) | Cache poisoning via race condition in Pages Router; "Eclipse" technique bypasses original patch in Next.js 15.0.4 |
+| §8-3 (framework cache race) | CVE-2024-46982 (Next.js) | Cache poisoning via race condition in Pages Router. Patched in 13.5.7 / 14.2.10 |
+| §8-3 (framework cache race — patch bypass) | CVE-2025-32421 (Next.js) | "Eclipse" technique — bypasses CVE-2024-46982 patch via response-cache batcher race condition exposing pageProps |
 | §6-1 (symlink race in upload) | CVE-2025-67124 (Miniserve) | Arbitrary file overwrite outside document root via TOCTOU symlink race in upload finalization |
 | §6-1 (symlink lock file) | CVE-2026-22701 / CVE-2025-68146 (Python filelock) | Arbitrary file truncation via symlink attack during lock file creation TOCTOU window |
 | §6-1 (container runtime symlink) | CVE-2024-21626 (runC) | Container escape via file descriptor leak exploited through symlink, gaining host filesystem access |

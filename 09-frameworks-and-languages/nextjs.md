@@ -3,7 +3,7 @@
 > **Target**: Next.js 13.x – 16.x (App Router + Pages Router)
 > **Sources**: github.com/vercel/next.js, nextjs.org/docs, nextjs.org/blog
 > **Date**: 2026-02
-> **CVEs Covered**: CVE-2025-66478 (CVSS 10.0), CVE-2025-29927 (CVSS 9.1), CVE-2024-34351, CVE-2024-46982, CVE-2025-57822, and 27+ total GHSA advisories
+> **CVEs Covered**: CVE-2025-55182 (CVSS 10.0; CVE-2025-66478 was the Next.js-specific identifier but later rejected as duplicate), CVE-2025-29927 (CVSS 9.1), CVE-2024-34351, CVE-2024-46982, CVE-2025-57822, and 27+ total GHSA advisories
 
 ---
 
@@ -346,7 +346,7 @@ Next.js offers experimental React Taint APIs (`taintObjectReference`, `taintUniq
 
 | CVE | Year | CVSS | Root Cause | Affected Versions | Meta-Pattern |
 |-----|------|------|-----------|-------------------|-------------|
-| CVE-2025-55182 / CVE-2025-66478 | 2025.12 | 10.0 | RSC Flight deserialization RCE | Next.js 14.3+/15.x/16.x (React 19.x) | MP7 |
+| CVE-2025-55182 (CVE-2025-66478 rejected as dup) | 2025.12 | 10.0 | RSC Flight deserialization RCE | Next.js 15.x/16.x + 14.3.0-canary.77+ experimental canary only (not stable 14.x); requires React 19.x | MP7 |
 | CVE-2025-67779 / CVE-2025-55184 | 2025.12 | 7.5 | RSC Flight circular reference DoS | Same as above | MP7 |
 | CVE-2025-55183 | 2025.12 | 5.3 | RSC self-reference gadget source leak | React 19.0–19.2.0 | MP7 |
 | CVE-2025-29927 | 2025.03 | 9.1 | `x-middleware-subrequest` bypass | Next.js 11.1.4–15.2.2 | MP2, MP6 |
@@ -357,7 +357,8 @@ Next.js offers experimental React Taint APIs (`taintObjectReference`, `taintUniq
 | CVE-2025-49826 | 2025 | 7.5 | 204 response cache poisoning DoS | Next.js 15.1.0–15.1.7 | MP4 |
 | CVE-2025-57822 | 2025 | 6.5 | Middleware Location header SSRF | Next.js < 14.2.32 / 15.4.7 | MP2, MP5 |
 | CVE-2025-57752 | 2025 | 6.2 | Image cache key confusion | — | MP4 |
-| CVE-2025-32421 | 2025 | Medium | RSC/HTML format confusion cache poisoning | Next.js 15.3.0–15.3.2 | MP4 |
+| CVE-2025-32421 | 2025 | Medium | Pages Router race condition — pageProps exposed in HTML instead of proper response (Eclipse bypass of CVE-2024-46982 patch) | Next.js (Pages Router) | MP4 |
+| CVE-2025-49005 | 2025 | Medium | RSC/HTML format confusion cache poisoning — missing Vary header causes CDN to cache RSC payload as HTML | Next.js 15.3.0–15.3.2 | MP4 |
 | CVE-2025-55173 | 2025 | 4.3 | Image content injection | — | MP4 |
 | CVE-2022-23646 | 2022 | Moderate | Image CSP misconfiguration | — | MP4 |
 | CVE-2021-39178 | 2021 | Moderate | Image SVG XSS | — | MP4 |
@@ -384,7 +385,7 @@ Next.js offers experimental React Taint APIs (`taintObjectReference`, `taintUniq
 
 ### Versions and Patches
 - [ ] Next.js >= 15.2.3 or >= 14.2.25 (CVE-2025-29927 patch)
-- [ ] React 19.1.0+ (CVE-2025-55182 patch)
+- [ ] React >= 19.0.1 / 19.1.2 / 19.2.1 (CVE-2025-55182 patch — 19.1.0, 19.1.1, 19.2.0 are still vulnerable)
 - [ ] All RSC-related CVE patches verified for latest patch versions
 
 ### Configuration Verification
@@ -517,7 +518,7 @@ export async function getProfileDTO(slug: string) {
 | 16.0 | `middleware.ts` → `proxy.ts` rename | Yes (codemod provided) | Discourages use as auth layer |
 | 15.5 | Node.js runtime middleware (stable) | No | Edge Runtime restriction lifted |
 | 15.2.3 | CVE-2025-29927 patch (cryptographic `x-middleware-subrequest` validation) | No | Affects all versions since 11.1.4 |
-| 15.0.5+ | CVE-2025-66478 patch (React2Shell) | No | Requires React 19.1.0+ |
+| 15.0.5, 15.1.9, 15.2.6, 15.3.6, 15.4.8, 15.5.7, 16.0.7 | CVE-2025-66478 patch (React2Shell) | No | Per-release-line patches; intermediate versions (e.g., 15.1.0–15.1.8) remain vulnerable. Requires React >= 19.0.1 / 19.1.2 / 19.2.1 |
 | 14.2.25 | CVE-2025-29927 patch (14.x backport) | No | — |
 | 14.2.10 | CVE-2024-46982 patch (cache poisoning) | No | Internal header validation + cache key differentiation |
 | 14.1.1 | CVE-2024-34351 patch (SSRF) | No | `originalHost.value` → `process.env.__NEXT_PRIVATE_HOST` |

@@ -470,10 +470,10 @@ Legacy or misconfigured operator alias systems allow injecting query operators t
 | §1-2 + §3-3 (URL auto-mapping + regex) | CVE-2024-47062 (Navidrome) | Multiple SQL injections + ORM Leak. Parameter names not escaped. |
 | §1-1 + §3-3 + §7-2 (filter injection + regex + schema) | CVE-2024-42490 (Authentik) | Information disclosure leading to private key exposure chain. |
 | §5-3 (HTTP method confusion in binding) | CVE-2024-37905 (Authentik) | Privilege escalation to superuser via PUT-based token reassignment. |
-| §4-1 (Q object _connector injection) | CVE-2025-64459 (Django) | Critical SQL injection via ORM query structure manipulation. CVSS high. |
+| §4-1 (Q object _connector injection) | CVE-2025-64459 (Django) | SQL injection via ORM query structure manipulation. NVD has not yet assigned an independent CVSS score. |
 | §4-2 (order_by alias injection) | CVE-2026-1312 (Django) | SQL injection through FilteredRelation + order_by with period characters. |
-| §1-3 (search on concealed fields) | CVE-2025-64748 (Directus) | Token and TFA secret leak through search on directus_users collection. |
-| §8-2 (Mongoose operator injection) | CVE-2025-23061 (Mongoose) | Arbitrary JavaScript execution via `$where` operator injection. |
+| §1-3 (search on concealed fields) | CVE-2025-64748 (Directus) | Concealed field existence inference — search on directus_users returns success/failure for masked values (tokens, TFA secrets), enabling boolean-based extraction of whether a concealed value exists. Not direct value leak. |
+| §8-2 (Mongoose operator injection) | CVE-2025-23061 (Mongoose) | Search injection via nested `$where` operator in `populate()` match option — allows server-side JavaScript execution scoped to MongoDB query context, not general arbitrary JS execution. |
 | §8-3 (Sequelize operator aliases) | CVE-2019-10748/10749 (Sequelize) | SQL injection via unescaped JSON path keys on MySQL/MariaDB and operator alias injection. |
 | §8-3 (Sequelize replacement escaping) | CVE-2023-25813 (Sequelize) | SQL injection through improper parameter escaping. |
 | §1-1 + §2-1 (filter injection + FK traversal) | CVE-2023-47117 (Label Studio) | Authenticated user leaks full password hash of any account. Chained with hardcoded SECRET_KEY for full admin compromise. |

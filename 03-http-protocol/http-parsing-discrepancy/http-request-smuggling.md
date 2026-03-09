@@ -352,7 +352,7 @@ Mutations to the `Content-Length` header that cause differential interpretation 
 | **Signs and prefixes** | `Content-Length: +42`, `Content-Length: 042` | Octal vs decimal interpretation: LiteSpeed interprets `010` as octal 8; most others as decimal 10. This two-byte discrepancy is sufficient for smuggling |
 | **Non-numeric characters** | `Content-Length: 42abc` | Extract-leading-digits vs reject-entirely policies diverge across implementations |
 | **Negative / overflow** | `Content-Length: -1`, extremely large values | Integer parsing underflow (wrapping to large positive) or overflow (wrapping to small positive) in 32-bit vs 64-bit implementations. Mongoose enters an infinite loop when processing negative Content-Length values, enabling targeted DoS |
-| **Digit separators** | `Content-Length: 4_2` | Python servers accept digit-separating underscores; all other implementations reject |
+| **Digit separators** | `Content-Length: 4_2` | Certain Python HTTP parsers (notably aiohttp's pure-Python parser, CVE-2023-47627) accept digit-separating underscores; all other implementations reject |
 | **Hex prefix** | `Content-Length: 0x2a` | Some implementations parse hex values; others reject or extract leading `0` |
 
 
@@ -519,8 +519,8 @@ Mutations that exploit **protocol behaviors outside message grammar** — TCP co
 | **Connection header stripping** | `Connection: Transfer-Encoding` induces a proxy to strip TE as a hop-by-hop header → Back-End falls back to CL | Creates TE.CL without any TE obfuscation — the proxy itself removes the TE header |
 | **Connection header token parsing** | RFC 9110 allows comma-separated tokens in Connection (`Connection: close, te`), but ~30% of servers only recognize the literal string `connection: close` without parsing individual tokens → `te` token ignored, TE-related headers not stripped → amplifies trailer merge (§5-3 TR.MRG) and hop-by-hop attacks | lighttpd CVE-2025-12642: `Connection: close, te` forwarded intact; downstream server processes `close` but ignores `te`, failing to strip `TE: trailers` |
 | **Upgrade header abuse** | `Upgrade: h2c` for clear-text H2 (§4); `Upgrade: websocket` for protocol switch → bypasses Edge HTTP/1.1 validation | Some proxies blindly forward Upgrade headers without understanding the protocol switch implications |
-| **Expect: 100-continue** | Manipulating the server's `100 Continue` response timing to desynchronize body reading. Apache ignores the request body entirely when `Expect: 100-continue` is present — combining this with a proxy that forwards the body creates a framing mismatch without CL/TE manipulation | Vanilla Expect causes 0.CL desync (§1-4). Obfuscated variants (`Expect: y 100-continue`) bypass WAF detection. A second header block in the 100 Continue response can remove security headers |
-| **Varnish connection cleaning** | Varnish sanitizes residual bytes on the connection after processing each request — actively preventing the foundational condition for HRS by ensuring no leftover data can be concatenated with subsequent requests | Defensive mechanism: Varnish is inherently resistant to most server-side HRS because its connection-cleaning behavior removes the residual-byte prerequisite |
+| **Expect: 100-continue** | Manipulating the server's `100 Continue` response timing to desynchronize body reading. In certain configurations, Apache may respond before fully consuming the request body when `Expect: 100-continue` is present — combining this with a proxy that forwards the body creates a framing mismatch without CL/TE manipulation | Vanilla Expect causes 0.CL desync (§1-4). Obfuscated variants (`Expect: y 100-continue`) bypass WAF detection. A second header block in the 100 Continue response can remove security headers |
+| **Varnish connection cleaning** | Varnish sanitizes residual bytes on the connection after processing each request, mitigating certain residual-byte HRS scenarios. However, Varnish is NOT inherently resistant — CVE-2022-23959 (request smuggling via HTTP/1 pipelining), CVE-2025-30346 (client-side desync via 304 response), and CVE-2025-47905 (response smuggling via beresp body) demonstrate exploitable smuggling/desync conditions | Partial mitigation only; connection cleaning reduces but does not eliminate HRS attack surface |
 | **Cross-protocol H2 smuggling** | Residual body bytes reinterpreted as HTTP/2 frames after a protocol switch | CVE-2022-41721 (Go `MaxBytesHandler`): leftover bytes from an HTTP/1.1 request body are parsed as H2 frame data |
 | **Service mesh sidecar bypass** | Envoy and similar sidecar proxies failing to sanitize headers before forwarding to upstream services | CVE-2024-23326 (Envoy Proxy): request tunneling via unsanitized header forwarding |
 | **Inter-runtime leniency divergence** | Within the same cluster, heterogeneous runtimes (Go, Node.js, Python) apply different parser leniency → intra-cluster desync | Go accepts bare LF (CVE-2025-22871); Node.js accepts bare CR as chunk terminator; Python accepts bare CR as header delimiter; strict proxies reject all of these |
@@ -623,7 +623,7 @@ Micro-level differences in how individual servers and proxies implement HTTP par
 | **Hex prefix and signs** | `0x` prefix, `+42`, `-1` in CL and chunk sizes — extract-leading-digits vs reject-entirely policies diverge | Multiple pairs via grammar-based fuzzing |
 | **Integer overflow** | Extremely large CL values wrapping around in 32-bit vs 64-bit implementations — `Content-Length: 4294967396` wraps to 100 in 32-bit | Architecture-dependent |
 | **Chunk size parsing** | Non-standard characters after hex digits in chunk-size field — semicolon (extension), space, other characters handled inconsistently | ATS mishandles invalid chunk sizes like `0_ff` |
-| **Digit-separating underscores** | `Content-Length: 4_2` — Python servers accept; all others reject | Python origins → non-Python proxies |
+| **Digit-separating underscores** | `Content-Length: 4_2` — certain Python HTTP parsers (e.g., aiohttp pure-Python parser, CVE-2023-47627) accept; all others reject | aiohttp / affected Python parser origins → non-Python proxies |
 
 
 
@@ -736,7 +736,7 @@ Host: vulnerable.com\r\n
 |---|---|---|
 | §1-2 (0.CL) + §3 (CL whitespace) + Early Response Gadget + §2-2 (line folding) | CVE-2025-32094 (Akamai) | ~$221,000 across 74 bounties. Tens of millions of sites affected; 65-day patch cycle. Obfuscated Expect variants and OPTIONS-specific parser paths exploited |
 | §1-2 (0.CL) + §1-4 (Expect) + double-desync | 2025 Cloudflare/Netlify campaign | $350K+ total bounties (Akamai+Cloudflare+Netlify combined). Cloudflare: H2.0 variant, 24M websites, $7K. Donated to charity |
-| §5-1 (TERM.EXT / chunk extension) | CVE-2025-55315 (ASP.NET Core Kestrel) | CVSS 9.9 — Microsoft's highest-ever for ASP.NET Core. $10K bounty. Bare `\n` handling divergence in chunk extensions → request + response smuggling. Affects .NET 8.0.0–8.0.20, 9.0.0–9.0.9, 10.0.0-rc1 |
+| §5-1 (TERM.EXT / chunk extension) | CVE-2025-55315 (ASP.NET Core Kestrel) | CVSS 9.9 — Microsoft's highest-ever for ASP.NET Core. $10K bounty. Bare `\n` handling divergence in chunk extensions → request + response smuggling. Affects .NET 8.0.0–8.0.20, 9.0.0–9.0.9, 10.0.0-rc1, and ASP.NET Core 2.3 (Microsoft.AspNetCore.Server.Kestrel.Core <= 2.3.0) |
 | §5-1 (TERM.EXT) | CVE-2024-53868 (Apache Traffic Server) | Chunk extension line terminator divergence → proxy-side smuggling |
 | §5-1 (TERM.EXT) | Google Classic ALB | $15,000. Chunk extension bare `\n` treated as line terminator by ALB |
 | §5-1 (EXT.TERM) | Imperva CDN disclosure (2025.08) | $600. Proxy ignores malformed extension; Back-End treats `\n` as chunk header end |
@@ -902,7 +902,7 @@ Six years of individual patches and regex-based defenses block only **known muta
 | CVE-2025-58068 | http4s | Request smuggling via early trailer parsing termination — colon-less trailer line triggers premature request completion |
 | CVE-2025-53628 | cpp-httplib | Header smuggling via unsafe trailer merge (TR.MRG) into header section |
 | CVE-2025-12642 | lighttpd 1.4.80 | TR.MRG header + request smuggling via trailer merge. Connection header comma-separated token parsing divergence amplifies the attack chain |
-| CVE-2025-55315 | ASP.NET Core Kestrel | CVSS 9.9. Chunk extension bare `\n` handling divergence → request + response smuggling. $10K bounty. Affects .NET 8/9/10 |
+| CVE-2025-55315 | ASP.NET Core Kestrel | CVSS 9.9. Chunk extension bare `\n` handling divergence → request + response smuggling. $10K bounty. Affects .NET 8/9/10 + ASP.NET Core 2.3 (Kestrel.Core <= 2.3.0) |
 | CVE-2025-49812 | Apache HTTP Server ≤2.4.63 | TLS Upgrade Desync / Opossum. Permanent desync when `SSLEngine optional` enables opportunistic TLS. Apache deprecated opportunistic HTTP |
 | CVE-2025-32094 | Akamai CDN | 0.CL + CL whitespace obfuscation + obsolete line folding + Expect variants. ~$221K / 74 bounties / 65-day patch. Tens of millions of sites |
 | CVE-2025-22871 | Go net/http | Bare LF acceptance as line terminator → microservice desync + EXT.TERM chunk extension exploitation. $5K bounty |

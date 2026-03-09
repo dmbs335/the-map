@@ -18,11 +18,11 @@ This taxonomy organizes Service Worker security vulnerabilities along three orth
 |------|-----------|---------|
 | **Hijacking** | Attacker gains control of legitimate SW functionality | DOM Clobbering to install malicious SW |
 | **Injection** | Insertion of attacker-controlled code/scripts | importScripts() loading external malicious JS |
-| **Bypass** | Circumvention of security boundaries (CSP, SOP, origin validation) | importScripts() ignoring CSP directives |
+| **Bypass** | Circumvention of security boundaries (CSP, SOP, origin validation) | importScripts() unrestricted when SW response lacks its own CSP |
 | **Leakage** | Disclosure of private user information or behavior | Cache-based history sniffing |
 | **Poisoning** | Corruption of trusted cache, storage, or responses | Cache API manipulation serving malicious content |
 | **Staleness Exploitation** | Abuse of outdated SW components or imported scripts | 40-day-old SW with known vulnerabilities |
-| **Resource Abuse** | Malicious consumption of compute, network, or storage | Cryptomining via background Web Workers |
+| **Resource Abuse** | Malicious consumption of compute, network, or storage | Cryptomining via SW thread or WebAssembly |
 
 ### Fundamental Mechanism
 
@@ -46,10 +46,10 @@ Exploits a quirk in `document.getElementById()` to inject attacker-controlled UR
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **Query Parameter Injection via DOM** | HTML elements with controlled IDs (e.g., `<a id="config" href="attacker.com">`) override script variables used in `navigator.serviceWorker.register()` calls, redirecting registration to attacker domain | Site uses DOM element IDs that collide with variable names in registration logic ($25,000 bug bounty, PortSwigger 2024) |
+| **Query Parameter Injection via DOM** | HTML elements with controlled IDs (e.g., `<a id="config" href="/evil/sw.js">`) override script variables used in `navigator.serviceWorker.register()` calls, redirecting registration to an attacker-controlled path **within the same origin**. Cross-origin SW registration is blocked by browsers — DOM clobbering can change the script path or filename but cannot register a SW from a different origin | Site uses DOM element IDs that collide with variable names in registration logic ($25,000 bug bounty, PortSwigger 2024) |
 | **importScripts Path Clobbering** | Similar technique targeting `importScripts()` calls within existing SW, causing it to load external malicious scripts | SW code uses DOM-accessible variables for script paths |
 
-**Attack Flow**: Attacker injects HTML element → DOM clobbering overrides variable → Registration/import points to attacker-controlled script → Persistent SW installation
+**Attack Flow**: Attacker injects HTML element → DOM clobbering overrides variable → Registration points to attacker-controlled path within the same origin (e.g., a user-uploadable JS file) → Persistent SW installation
 
 ### §1-2. Scope Hijacking & Expansion
 
@@ -58,7 +58,7 @@ Manipulates the Service Worker scope to control broader or unintended portions o
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
 | **Path Traversal in Scope** | Registering SW with manipulated scope parameter (e.g., `../` sequences) to expand coverage beyond intended paths | Insufficient validation of scope parameter |
-| **Subdomain Scope Confusion** | Exploiting misconfigured `Service-Worker-Allowed` headers to register SW from one subdomain to control another | Cross-subdomain header misconfiguration |
+| **Path Scope Expansion via Service-Worker-Allowed** | The `Service-Worker-Allowed` response header widens the maximum allowed **path scope** beyond the SW script's directory (e.g., a SW at `/scripts/sw.js` controlling `/`). It does **not** enable cross-origin or cross-subdomain control — the SW remains bound to its own origin | Server sets overly broad `Service-Worker-Allowed: /` allowing a deeply nested SW to control the entire origin path space |
 | **Localhost Port Hijacking** | Installing SW on `localhost:PORT` that lies dormant until a different vulnerable application runs on same port, then activates | Development/testing environments reusing ports (§7-2) |
 
 ### §1-3. Lifecycle State Manipulation
@@ -90,7 +90,7 @@ Service Workers can dynamically import scripts via `importScripts()`, creating a
 
 ### §2-1. importScripts() Injection Attacks
 
-The `importScripts()` API allows loading scripts from different origins and **ignores CSP directives**, making it the primary XSS vector in Service Workers.
+The `importScripts()` API allows loading scripts from different origins, making it the primary XSS vector in Service Workers. Note: `importScripts()` is governed by the **worker's own CSP** (set via the SW script's response headers), not the page's CSP — so a strict CSP on the page alone does not protect against malicious imports within the SW.
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
@@ -106,11 +106,11 @@ Service Workers exist in a unique CSP context, creating policy confusion attacks
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **importScripts CSP Exemption** | `importScripts()` does not respect page CSP, only SW script's own CSP (if any), allowing load from arbitrary origins even when page CSP blocks it | Page has strict CSP; SW script has weak/no CSP |
+| **importScripts CSP Scope Mismatch** | `importScripts()` is governed by the **SW script's own CSP** (from its response headers), not the page's CSP. If the SW response lacks a CSP header, imports are unrestricted even when the page has strict CSP | Page has strict CSP; SW script response has weak/no CSP |
 | **Browser Extension fetch Event Bypass** | In Manifest V3 extensions, fetch events in SW can dynamically generate or load remote code, bypassing extension CSP restrictions | Extension uses SW with fetch event handlers |
 | **Worker-Src Policy Confusion** | Browser checks `worker-src` (or `default-src` fallback) for SW registration but not for internal SW operations | Overly permissive worker-src directive |
 
-**Recommended Mitigation**: Avoid sending CSP headers on Service Worker script responses, as the SW is bound by the policy of its own response, not the page that loads it.
+**Recommended Mitigation**: Set a strict `Content-Security-Policy` response header on the Service Worker script itself (e.g., `script-src 'self'`) to restrict `importScripts()` sources. The Chromium security team explicitly recommends this to limit an attacker's ability to import external code. The SW's own CSP governs its runtime behavior, not the page's CSP.
 
 ### §2-3. Stale Imported Script Exploitation
 
@@ -171,7 +171,7 @@ Leverages SW's dual role as fetch interceptor and cache manager to poison the Ca
 
 ## §4. Storage API Mutations
 
-Service Workers have access to origin-level storage (Cache API, IndexedDB, localStorage), enabling data exfiltration, corruption, and privacy attacks.
+Service Workers have access to origin-level storage (Cache API, IndexedDB) but **not** Web Storage (`localStorage`, `sessionStorage`) — the latter is unavailable in worker contexts. This enables data exfiltration, corruption, and privacy attacks via the available async storage APIs.
 
 ### §4-1. Cache API-Based Privacy Leakage
 
@@ -287,7 +287,7 @@ Exploits background task APIs for resource consumption and privacy leakage.
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
 | **IP Address Leakage via Background Sync** | Background Sync performs fetch requests after user leaves page, potentially revealing user's IP address to server when they're no longer actively browsing | sync event handler makes network requests |
-| **Cryptomining via Background Workers** | SW spawns background Web Workers that execute mining tasks in parallel, using WebSockets to fetch work from external server, consuming CPU while browser is backgrounded | SW can spawn Workers; user doesn't monitor background CPU usage |
+| **Cryptomining via SW Thread** | SW executes mining tasks directly in its own thread (or via WebAssembly), using WebSockets to fetch work from external server, consuming CPU while browser is backgrounded. Note: `Worker()` constructor is **not available** in ServiceWorkerGlobalScope per the spec — SWs cannot spawn dedicated Web Workers (WHATWG issue #8362 open, no browser implementation) | SW has compute access; user doesn't monitor background CPU usage |
 | **Arbitrary Code Execution Concern** | Background Fetch completion handlers can trigger arbitrary JavaScript execution without user awareness, especially if user has closed all tabs | Background Fetch registration persists beyond page lifetime |
 
 **Mitigation**: Browsers limit sync task duration to prevent battery drain and excessive background activity; long-running tasks are killed.
@@ -327,7 +327,7 @@ Service Workers cannot bypass SOP but can manipulate cross-origin requests.
 | **Persistent XSS** | XSS allows SW installation; SW serves malicious scripts indefinitely | §1 (Registration) + §2 (importScripts) + §3 (Fetch) | 40 websites, 100M+ monthly visitors (SW-Scanner study) |
 | **Privacy Leakage** | Compromised SW infers browsing history, location, or behavior | §4-1 (Cache history sniffing) + §7-1 (Push tracking) | Fine-grained history for sensitive domains (adult content, people search) |
 | **MITM/Request Interception** | SW acts as in-browser proxy intercepting credentials, sessions, API calls | §3-1 (Request manipulation) + §3-2 (Response injection) | Shadow Workers C2 framework; session hijacking |
-| **Malicious Resource Use** | SW spawns cryptominers, joins botnet, performs DDoS | §7-2 (Background Workers) + §4-3 (Quota abuse) | Stealthy mining via parallel Web Workers; botnet recruitment |
+| **Malicious Resource Use** | SW runs cryptominers, joins botnet, performs DDoS | §7-2 (Background compute) + §4-3 (Quota abuse) | Stealthy mining via SW thread/WebAssembly; botnet recruitment |
 | **Phishing/Social Engineering** | Fake notifications or injected phishing pages | §7-1 (Push notifications) + §3-2 (Response injection) | 200 sites vulnerable to push hijacking, 1.75M users/month exposed |
 | **Cache Poisoning** | SW corrupts Cache API with malicious content served to all users | §3-3 (Fetch + Cache) + §4-1 (Cache manipulation) | Self-XSS → cache poisoning → weaponized stored XSS |
 | **Session Hijacking** | SW steals authentication tokens and cookies | §3-1 (Credential harvesting) + §5 (Message interception) | Post-MFA cookie theft bypassing 2FA |
@@ -370,9 +370,9 @@ Three structural properties create the attack surface:
 
 1. **Persistent Interception Authority**: Once installed, a SW controls all HTTP traffic within its scope until explicitly replaced. The average 40-day update cycle transforms temporary compromises (XSS, script injection) into long-lived persistent attacks. Unlike traditional XSS which ends when the page closes, SW-based XSS survives browser restarts and tab closures.
 
-2. **Policy Exemption**: `importScripts()` bypasses CSP, and SW script responses define their own CSP context separate from the pages they control. This creates a "script within a script" security model that standard web defenses don't anticipate.
+2. **Policy Scope Mismatch**: `importScripts()` is governed by the SW script's own CSP (from its response headers), not the page's CSP. If the SW response lacks a CSP header, imports are unrestricted regardless of the page's policy. This creates a "script within a script" security model that standard web defenses don't anticipate.
 
-3. **Shared Storage & Lifecycle**: Service Workers access origin-level storage (Cache API, IndexedDB) and communicate via postMessage without per-page isolation. Combined with background APIs (Push, Sync), this enables privacy leakage (history sniffing, location tracking), resource abuse (cryptomining, botnets), and persistent state corruption attacks.
+3. **Shared Storage & Lifecycle**: Service Workers access origin-level async storage (Cache API, IndexedDB — but not localStorage/sessionStorage) and communicate via postMessage without per-page isolation. Combined with background APIs (Push, Sync), this enables privacy leakage (history sniffing, location tracking), resource abuse (cryptomining, botnets), and persistent state corruption attacks.
 
 **Why Incremental Patches Fail**: Individual fixes (e.g., patching one importScripts vulnerability, updating one stale SW) don't address the structural issue that SWs are rarely updated (40-day average) and have excessive privilege once installed. A single XSS vulnerability combined with file upload capability grants persistent origin control. Cache poisoning transforms self-XSS into stored XSS. Push notification permission becomes a tracking vector.
 
@@ -383,7 +383,7 @@ Three structural properties create the attack surface:
 - **Import Freshness Checks**: Include imported scripts in byte-wise comparison for updates (currently only main SW is checked)
 - **Scope Isolation**: Per-page SW instances instead of origin-level sharing to limit blast radius
 - **User-Visible Indicators**: Browser UI showing active SW and permissions (push, background sync) to surface hidden background activity
-- **Default CSP Enforcement**: Apply page CSP to importScripts() unless explicitly overridden, closing the CSP bypass
+- **SW Response CSP**: Serve strict `Content-Security-Policy` on SW script responses (e.g., `script-src 'self'`) to restrict `importScripts()` sources
 
 The Service Worker security model assumes benign installation and trusts the SW implicitly. The mutation space documented here demonstrates that this trust is structurally unwarranted—adversarial SWs are not an edge case but an expected outcome of the privilege model intersecting with standard web vulnerabilities (XSS, injection, weak validation).
 

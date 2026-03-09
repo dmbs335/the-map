@@ -429,6 +429,8 @@ Email infrastructure components — autoresponders, vacation messages, out-of-of
 | §8-1 (EFAIL, S/MIME + OpenPGP) | CVE-2017-17688 (OpenPGP), CVE-2017-17689 (S/MIME) | Plaintext exfiltration from encrypted email via HTML image loading |
 | §1-3 (SMTP command injection, Ruby Net::SMTP) | HackerOne #137631 | SMTP command injection via CRLF in Ruby standard library |
 | §1-3 (SMTP command injection, Nextcloud) | HackerOne #1509216 | SMTP command injection in Nextcloud mail sending functionality |
+| §2 (Address parsing differential) | **CVE-2023-27043** (Python `email.utils.parseaddr`) | Medium — ACL bypass. `parseaddr()` returns display name in address tuple for crafted inputs (e.g., `"attacker@evil.com"<legit@safe.com>` → extracts `attacker@evil.com`). Downstream frameworks using `parseaddr()` for email-based access control grant access to wrong identity |
+| §5 (Header injection, Python stdlib) | **CVE-2024-6923**, **CVE-2026-1299** (Python `email.generator`) | Medium — email header injection. `BytesGenerator` fails to sanitize `\n` in header values; attacker-controlled header content injects additional headers (BCC, Subject) or body content via CRLF sequences |
 
 ---
 

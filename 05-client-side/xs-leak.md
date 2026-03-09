@@ -45,7 +45,7 @@ Measures time-to-load for cross-origin resources, revealing size, cache status, 
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **Performance API Timing** | Uses `performance.getEntries()` to extract timing metrics for cross-origin resources (redirects, DNS, connect, response times) | Requires resource inclusion; some metrics exposed cross-origin (e.g., redirect count via `PerformanceResourceTiming.redirectCount`) |
+| **Performance API Timing** | Uses `performance.getEntries()` to extract timing metrics for cross-origin resources (redirects, DNS, connect, response times) | Requires resource inclusion; some metrics exposed cross-origin (e.g., `redirectStart`/`redirectEnd` timestamps via `PerformanceResourceTiming`; redirect *count* is only available on `PerformanceNavigationTiming.redirectCount` for main document navigations, not for subresources) |
 | **onload/onerror Timing** | Measures time between resource request and load/error event firing | Works on `<img>`, `<script>`, `<link>`, `<iframe>`; differential reveals size or processing complexity |
 | **Fetch Timing** | Times `fetch()` or `XMLHttpRequest` to cross-origin endpoints | Requires CORS or opaque responses; duration leaks backend state (e.g., authenticated vs. unauthenticated response times) |
 | **Internal Network Port Scanning** | Measures connection timing to `http://internal-ip:port/` via `<img>`, `fetch()`, or `WebSocket` from a malicious page running in the victim's browser. Open ports complete the TCP handshake quickly (fast error or response), closed ports return RST immediately (fast rejection), and filtered ports time out (slow). The timing differential across ports reveals the internal host's service map without any server-side vulnerability — the victim's browser acts as the scanner | Victim's browser has access to internal network; attacker measures timing cross-origin via `onerror`/`onload` events or Performance API |
@@ -79,7 +79,7 @@ Measures whether resource loaded from cache or network, revealing browsing histo
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **Image.complete Property** | `<img>.complete` returns `true` if image is cached; attacker creates image, checks property immediately | **Largely mitigated** by partitioned caches (Chrome 86+, Safari); attack only works if cache key matches attacker's partition |
+| **Image.complete Property** | `<img>.complete` returns `true` if the image loading process has finished — this includes cached images, but also broken/errored images, images with no `src` attribute, or images already fully loaded (MDN). As a cache oracle, the attacker creates an `<img>`, sets its `src`, and checks `complete` immediately: if `true` *and* `naturalWidth > 0`, the image was likely served from cache. The raw `complete` check alone is unreliable as a cache signal because broken images also return `true` | **Largely mitigated** by partitioned caches (Chrome 86+, Safari); additionally requires `naturalWidth`/`onerror` cross-check to distinguish cache hits from load errors |
 | **Performance.getEntries() Cache Detection** | Examines `transferSize` (0 for cached, >0 for network) or `duration` | Same mitigation as above; partitioned cache prevents cross-origin inference |
 | **Force-Cache Fetch** | `fetch(url, {cache: 'force-cache'})` followed by timing; cached resources return instantly | Partitioned cache prevents cross-site cache probing |
 | **Cache Probing via Redirect** | Checks if redirect target is cached by measuring redirect-following time | Modern browsers partition cache using (top-frame-site, resource-url) or (top-frame-site, framing-site, resource-url) tuples |
@@ -117,11 +117,11 @@ Counts the number of `<iframe>` elements in a cross-origin window to infer page 
 
 ### §2-2. window.name Cross-Navigation Leak
 
-The `window.name` property persists across navigations, including cross-origin navigations. When a page sets `window.name` (e.g., for session management, analytics, or framework internal state), an attacker who subsequently navigates the window to their own page can read the retained value.
+**Historically**, the `window.name` property persisted across navigations, including cross-origin navigations. **Modern browsers (since 2021) reset `window.name` to an empty string on cross-site navigation** (Safari earliest, Firefox 88, Chrome via `clear-cross-browsing-context-group-main-frame-name`), restoring the value only on back/forward navigation (bfcache). This largely eliminates `window.name` as a general-purpose XS-Leak primitive in current browsers. The following subtypes remain relevant only for legacy browser contexts or same-site scenarios.
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **Cross-origin name persistence** | Attacker opens victim page via `window.open()` or navigates an iframe to victim origin, waits for victim page to set `window.name`, then navigates the window back to attacker origin and reads `windowRef.name`. The value persists across the cross-origin navigation boundary | Victim page sets `window.name` with sensitive data (session tokens, user IDs, internal state); attacker can navigate the window |
+| **Cross-origin name persistence** *(largely mitigated)* | Attacker opens victim page via `window.open()` or navigates an iframe to victim origin, waits for victim page to set `window.name`, then navigates the window back to attacker origin and reads `windowRef.name`. **Mitigated since 2021**: modern browsers clear `window.name` on cross-site navigation (MDN); value only restored on back/forward navigation via bfcache | Legacy browsers (pre-2021); or same-site cross-origin scenarios where the reset does not apply |
 | **Framework state leakage** | Some JavaScript frameworks and libraries use `window.name` as a cross-page data transport mechanism (e.g., `window.name` transport in older jQuery plugins, Dojo toolkit). An attacker navigating away from the framework-powered page can read the serialized state data | Application uses `window.name` for data transport; no cleanup of `window.name` on `beforeunload` |
 
 **Defense**: Applications should avoid storing sensitive data in `window.name`. Reset `window.name` to empty string on page unload. `Cross-Origin-Opener-Policy: same-origin` prevents cross-origin window references.
@@ -138,14 +138,14 @@ Exploits properties accessible on cross-origin window objects.
 
 ### §2-4. Navigation State (history.length)
 
-Observes `history.length` to infer navigation count, revealing redirect chains or user interaction.
+Observes `history.length` to infer navigation count. Note: `history.length` returns the number of **session history entries** (MDN), not redirect count — HTTP redirects are resolved transparently during the fetch phase and do NOT create separate history entries. The final destination URL adds one entry regardless of how many redirects were followed.
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **Redirect Count Inference** | Opens window, reads `history.length`; increment reveals number of redirects | Cross-origin `history.length` readable; increment = redirect count |
+| **Navigation Count Inference** | Opens window, reads `history.length`; value reveals total number of pages navigated to in the session (not redirect count — HTTP redirects do not add entries). Useful for detecting whether a navigation occurred at all, or whether the user was taken through a multi-page flow | Cross-origin `history.length` readable; reveals session navigation depth, not redirect chain length |
 | **Download Detection via history.length** | Initiates download; if `history.length` unchanged, resource triggered download (Content-Disposition: attachment) vs. navigation | Binary oracle: download vs. navigation |
 
-**Note**: `PerformanceResourceTiming.redirectCount` also exposes redirect count for included resources.
+**Note**: `PerformanceNavigationTiming.redirectCount` exposes redirect count for main document navigations (not subresources). `PerformanceResourceTiming` only provides `redirectStart`/`redirectEnd` timestamps, not a count.
 
 ---
 
@@ -264,8 +264,8 @@ Exploiting browser navigation behavior, redirects, or URL handling to infer cros
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **Redirect Count (history.length)** | After opening window, read `history.length`; each redirect increments count | Cross-origin `history.length` readable |
-| **Redirect Count (PerformanceResourceTiming)** | `PerformanceResourceTiming.redirectCount` exposes number of redirects for included resources | Requires resource inclusion (script, img, etc.) |
+| **Navigation Count (history.length)** | After opening window, read `history.length`; reveals total session navigation depth. Note: HTTP redirects do NOT increment `history.length` — only the final destination adds one entry. This is a navigation-count oracle, not a redirect-count oracle. For actual redirect counting, use `PerformanceNavigationTiming.redirectCount` | Cross-origin `history.length` readable; limited to navigation depth inference |
+| **Redirect Count (PerformanceNavigationTiming)** | `PerformanceNavigationTiming.redirectCount` exposes number of redirects for the main document navigation. Note: `PerformanceResourceTiming` does NOT have `redirectCount` — it only exposes `redirectStart`/`redirectEnd` timestamps. Cross-origin redirects return 0 for security | Applies to main document navigations only; cross-origin redirects not counted |
 | **XSS-Leak: Connection-Pool Redirect Hostname** (2025) | Uses Chrome's connection-pool prioritization to leak redirect target hostname cross-domain | Top 10 2025; even post-patch, technique inspires future redirect-oracle research |
 
 ### §6-2. Navigation Timing

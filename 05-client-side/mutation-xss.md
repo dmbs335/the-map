@@ -318,7 +318,7 @@ Bypasses targeting the browser's built-in Sanitizer API (`setHTML()`), which eli
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
-| **SVG `<use href>` element bypass** | `<svg><use href="//target.com/uploaded-malicious.svg#x"/></svg>` — The Sanitizer API blocks SVG imports via `data:` and relative URLs but permits same-origin absolute URLs in `<use href>`. An attacker uploads a malicious SVG file to the target origin (e.g., via file upload endpoint), then references it with an absolute URL. The `Content-Disposition: attachment` header on the uploaded file does not prevent SVG `<use>` reference processing. The core issue is that the Sanitizer API allowlist did not account for how browsers actually process absolute-URL SVG references, allowing attacker-controlled SVG content to be composed into the page | Firefox Sanitizer API implementation (2022); target origin must accept SVG file uploads |
+| **SVG `<use href>` element bypass** *(historical, 2022)* | `<svg><use href="//target.com/uploaded-malicious.svg#x"/></svg>` — In Firefox's early experimental Sanitizer API implementation (2022), the allowlist did not block `<use href>` with same-origin absolute URLs. An attacker could upload a malicious SVG and reference it via `<use>`. **This was fixed in the current Sanitizer API specification:** MDN (2026) documents that `<use>` is now **always removed** by `setHTML()` regardless of sanitizer configuration, eliminating this vector entirely | Historical: Firefox experimental Sanitizer API (2022, PortSwigger); resolved in current spec — `<use>` unconditionally stripped |
 
 ---
 
@@ -358,7 +358,7 @@ Bypasses targeting the browser's built-in Sanitizer API (`setHTML()`), which eli
 | §7-1 (Desanitization) | Tutanota XSS (SonarSource, 2023) | Post-sanitization markup manipulation enabling XSS |
 | §7-1 (Desanitization) | Mailspring XSS (SonarSource, 2023) | Desktop email client mXSS via desanitization |
 | §7-1 (Desanitization) | osTicket XSS (SonarSource, 2023) | Support ticket system XSS via desanitization |
-| §6-1 (Self-closing tag differential) | CVE-2022-36033 (jsoup) | jsoup sanitizer bypass when `preserveRelativeLinks` enabled |
+| §4 / URL scheme filtering (not §6-1) | CVE-2022-36033 (jsoup < 1.15.3) | URL sanitization bypass: control characters (e.g., `java\tscript:`) in href evade jsoup's `javascript:` scheme filter when `SafeList.preserveRelativeLinks` is enabled. Browsers normalize away control chars, executing XSS. This is a URL validation differential (Java URL class vs. browser normalization), not an HTML parser/self-closing tag issue |
 | §1-3 (annotation-xml integration) | Google Caja bypass (historical) | Namespace confusion in Google's HTML sanitizer; Google Search impacted |
 | §8-1 (TYPO3 sanitizer bypass) | TYPO3 html-sanitizer (2023) | HTML comment malformation + CDATA section bypass |
 | §1-4 (Bang comment) + §8-2 (PI 4 CDATA) | CVE-2022-23499 (Typo3 html-sanitizer) | CDATA parsing differential + namespace confusion; two separate vulnerabilities grouped into one CVE |
@@ -368,7 +368,7 @@ Bypasses targeting the browser's built-in Sanitizer API (`setHTML()`), which eli
 | §3-3 (noscript + namespace) | CVE-2023-23627 (rgrove/sanitize, Ruby) | noscript content parsed as markup instead of text |
 | §7-4 (Serializer coercion) | DOMPurify jsdom 19 (Parse Me Baby, 2024) | Serializer decodes and reflects text content; benign payloads become dangerous after sanitization |
 | §8-1 (Google Closure bypass) | closure-library sanitizer (2020) | noscript + title attribute escaping bypass |
-| §8-3 (SVG `<use href>` allowlist gap) | Firefox Sanitizer API bypass (PortSwigger, 2022) | SVG `<use href>` with same-origin absolute URL bypasses Sanitizer API allowlist; attacker-uploaded SVG composed into page |
+| §8-3 (SVG `<use href>` allowlist gap) | Firefox Sanitizer API bypass (PortSwigger, 2022) — *historical* | SVG `<use href>` bypassed early experimental Sanitizer API allowlist; resolved in current spec (`<use>` always removed by `setHTML()`) |
 
 ---
 
@@ -377,7 +377,7 @@ Bypasses targeting the browser's built-in Sanitizer API (`setHTML()`), which eli
 | Tool | Target Scope | Core Technique |
 |---|---|---|
 | **DOMPurify** (Sanitizer) | mXSS prevention | DOM-based sanitization; avoids serialize-parse roundtrip when using `RETURN_DOM`; regularly patched for new mXSS vectors |
-| **Sanitizer API** (Browser Built-in) | mXSS prevention | Browser-native `setHTML()` avoids roundtrip entirely by building DOM directly; immune to mXSS by design but subject to allowlist gaps (e.g., SVG `<use href>` bypass in Firefox, see §8-3) (Chrome Canary, Firefox Nightly) |
+| **Sanitizer API** (Browser Built-in) | mXSS prevention | Browser-native `setHTML()` avoids roundtrip entirely by building DOM directly; immune to mXSS by design. Historical allowlist gap (SVG `<use href>`, see §8-3) resolved — `<use>` now always removed. **Limited availability** (MDN, March 2026): Chrome 146+, Firefox 148+ stable; Safari not supported; requires feature detection and fallback |
 | **MutaGen** (Research) | Server-side sanitizer bypass via parsing differentials | HTML fragment generator focused on mutation-prone structures (23 transformations); tests 11 sanitizers across 5 languages. Found 16 bypasses and 19,843 coercion payloads (Parse Me Baby, IEEE S&P 2024) |
 | **Sanity Fuzzer** (Research) | Sanitizer mXSS | Differential testing: sanitize HTML, compare sanitizer DOM vs. browser `innerHTML` DOM for mutations |
 | **SonarSource mXSS Cheatsheet** (Reference) | mXSS payloads | Curated payload database organized by sanitizer and version with explained mechanisms |
@@ -394,7 +394,7 @@ Bypasses targeting the browser's built-in Sanitizer API (`setHTML()`), which eli
 
 **Why incremental patches fail.** Each DOMPurify bypass follows a pattern: a researcher discovers a new mutation vector, the maintainer adds a specific check, and the next researcher finds a mutation the new check doesn't cover. This is not a failure of DOMPurify's engineering — it's a fundamental property of the problem space. The HTML specification defines different parsing rules for three namespaces, multiple text content modes (RAWTEXT, RCDATA, PLAINTEXT), scripting-dependent behavior, and extensive error recovery. The combinatorial space of nesting patterns, namespace transitions, and context interactions is vast enough that no sanitizer can model all possible browser behaviors through blacklisting individual mutation patterns. The approximately 1,500 pages of HTML parsing specification create an attack surface that dwarfs any sanitizer's test coverage.
 
-**What structural defense looks like.** The only architecturally sound defense against mXSS is **eliminating the serialize-parse roundtrip**. This can be achieved through: (1) using `RETURN_DOM` / `RETURN_DOM_FRAGMENT` in DOMPurify to pass DOM nodes directly without serialization, (2) adopting the browser-native **Sanitizer API** (`setHTML()`) which builds the sanitized DOM directly without intermediate string serialization, or (3) using **Trusted Types** to prevent strings from reaching `innerHTML` and similar sinks. The Sanitizer API is the definitive solution — by having the browser itself perform sanitization using its own parser, the parser differential problem is eliminated by definition. Until the Sanitizer API achieves universal browser support, the combination of `DOMPurify.sanitize(input, {RETURN_DOM_FRAGMENT: true})` plus Trusted Types enforcement represents the strongest available defense.
+**What structural defense looks like.** The only architecturally sound defense against mXSS is **eliminating the serialize-parse roundtrip**. This can be achieved through: (1) using `RETURN_DOM` / `RETURN_DOM_FRAGMENT` in DOMPurify to pass DOM nodes directly without serialization, (2) adopting the browser-native **Sanitizer API** (`setHTML()`) which builds the sanitized DOM directly without intermediate string serialization, or (3) using **Trusted Types** to prevent strings from reaching `innerHTML` and similar sinks. The Sanitizer API is architecturally the strongest option — by having the browser itself perform sanitization using its own parser, the parser differential problem is eliminated by definition. However, as of March 2026 `setHTML()` has **limited availability** (MDN): Chrome 146+ and Firefox 148+ support it in stable, but Safari has no support or public commitment, giving ~0.14% global usage. Until availability broadens, the combination of `DOMPurify.sanitize(input, {RETURN_DOM_FRAGMENT: true})` plus Trusted Types enforcement represents the most practical cross-browser defense, with `setHTML()` as a progressive enhancement where supported.
 
 ---
 

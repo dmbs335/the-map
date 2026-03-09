@@ -69,7 +69,7 @@ Forcing the use of a weaker algorithm variant within the same algorithm family.
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
-| **RS512→RS256 downgrade** | Switch to a weaker RSA hash variant (SHA-256 vs. SHA-512); RSA key size requirements remain identical (2048+ bit per RFC 7518), but the weaker hash reduces collision resistance and may bypass policy checks that only allow stronger variants | Server allows algorithm flexibility within the RSA family |
+| **RS512→RS256 downgrade** | Switch to a weaker RSA hash variant (SHA-256 vs. SHA-512). Primarily a **policy-bypass** issue rather than a practical cryptographic attack — SHA-256 still provides 128-bit collision resistance, which is not realistically exploitable. The practical impact is limited to environments where security policy mandates RS384/RS512 and the server fails to enforce it | Server allows algorithm flexibility within the RSA family; impact requires policy-specific context |
 | **ES512→ES256 downgrade** | Switch to a weaker ECDSA curve | Server doesn't pin the specific curve/key size |
 | **EdDSA→ECDSA confusion** | Switch between Edwards-curve and Weierstrass-curve algorithms | Library handles multiple EC algorithm families |
 
@@ -321,7 +321,7 @@ JWS (signed) and JWE (encrypted) share the same compact serialization format —
 |---|---|---|
 | **JSON parser differential** | Exploit differences between JSON parsers (duplicate keys, trailing commas, comments, number precision) across components that process the same JWT | Different JSON parsing libraries between token issuer, gateway, and application |
 | **Duplicate claim handling** | Include the same claim twice with different values; different parsers take the first vs. last occurrence | Parser inconsistency between validation and consumption layers |
-| **Memory exhaustion via malformed tokens** | Send tokens with excessive numbers of dot separators, deeply nested JSON, or extremely long Base64 segments (CVE-2025-27144) | Library allocates memory proportional to input without bounds checking |
+| **Memory exhaustion via malformed tokens** | Send tokens with excessive numbers of dot separators so the library splits the token into a huge number of segments and over-allocates memory (CVE-2025-27144) | Library eagerly splits on every `.` without reasonable bounds checking |
 
 ### §7-4. Statelessness Exploitation
 
@@ -357,9 +357,9 @@ JWS (signed) and JWE (encrypted) share the same compact serialization format —
 | §3-2 (Psychic Signatures) | CVE-2022-21449 (Java 15–18) | CVSS 7.5. Complete ECDSA signature bypass with zero-value r,s. Affects Java JWT libraries using built-in JCA ECDSA provider on vulnerable JDK versions (15–18 prior to patch). |
 | §1-1 (None algorithm) | CVE-2024-48916 (Ceph RadosGW) | Authentication bypass. `alg=none` accepted, allowing arbitrary claim forgery. |
 | §4-4 (Audience bypass) | CVE-2024-5798 (HashiCorp Vault) | Auth bypass. JWT audience claim not properly validated; invalid logins succeed. |
-| §1-2 (Algorithm confusion) | CVE-2024-54150 | RS256→HS256 confusion allowing token forgery with public key. |
+| §1-2 (Algorithm confusion) | CVE-2024-54150 (cjwt, Comcast C JWT library) | RS256→HS256 confusion allowing token forgery with public key. |
 | §4-1 (Issuer array injection) | CVE-2025-30144 (fast-jwt) | Issuer validation bypass. Arrays accepted for `iss` claim, mixing legitimate and malicious issuers. |
-| §7-3 (Memory exhaustion) | CVE-2025-27144 (Go JOSE) | DoS. Malformed JWTs with excessive periods cause exponential memory consumption. |
+| §7-3 (Memory exhaustion) | CVE-2025-27144 (Go JOSE) | DoS. Malformed JWTs with excessive periods trigger excessive memory allocation during token splitting/parsing. |
 | §2-3 (Key ID matching) | CVE-2025-24976 (Distribution registry) | Key injection. `kid` matched but actual key material not verified against trusted store. |
 | §7-1 (Sign/encrypt confusion) | CVE-2022-39174 (authlib/Python) | Authentication bypass. Public key used for JWS verification exploited to forge JWE tokens via unified decode() interface. |
 | §7-1 (Sign/encrypt confusion) | CVE-2022-3102 (jwcrypto/Python) | Authentication bypass. Same sign/encrypt confusion vector as CVE-2022-39174. |
@@ -380,7 +380,7 @@ JWS (signed) and JWE (encrypted) share the same compact serialization format —
 |---|---|---|
 | **jwt_tool** (Python) | Comprehensive JWT testing | 16+ attack modules: none alg, algorithm confusion, `kid` injection, claim tampering, brute force, JWKS injection |
 | **jwtXploiter** | Known CVE exploitation | Tests against all known JWT CVEs; exploits `kid`, `jku`, `x5u` header claims |
-| **JWT Security Analyzer** | Payload generation for 20+ attack vectors | Generates attack payloads for CVE-2024-54150, CVE-2025-30144, CVE-2025-4692, and others |
+| **JWT Security Analyzer** | Payload generation for 20+ attack vectors | Generates attack payloads for algorithm confusion, issuer/audience validation flaws, header-parameter abuse, and other JWT attack classes; keep CVE mapping in supporting notes rather than treating tool coverage as a canonical CVE list |
 | **hashcat** (`-m 16500`) | HMAC secret cracking | Offline brute force / dictionary / rule-based attacks against HS256/HS384/HS512 secrets |
 | **jwtfuzz** (Rust) | Fuzzing and malformation | Generates malformed tokens: null signatures, swapped algorithms, psychic signatures, encoding edge cases |
 | **JWTForge** | OAuth2/OIDC testing | JWT vending service generating customizable tokens for fuzzing authentication systems |
@@ -417,7 +417,7 @@ Backend-as-a-Service platforms (Supabase, Firebase, Appwrite) expose database ac
 
 ## §12. Summary: Core Principles
 
-**The fundamental property that makes the JWT attack surface so expansive is the dual nature of the token as both a carrier of data and an instruction set for its own verification.** The JWT header is attacker-controlled yet dictates critical security decisions — which algorithm to use, where to find the verification key, how to interpret the payload. This inversion of control (the message instructing the verifier how to verify it) is the root cause of the entire §1 (algorithm manipulation) and §2 (header parameter injection) attack families. No other common authentication mechanism gives the client this level of influence over the verification process.
+**The fundamental property that makes the JWT attack surface so expansive is the dual nature of the token as both a carrier of data and an instruction set for its own verification.** The JWT header is attacker-controlled yet dictates critical security decisions — which algorithm to use, where to find the verification key, how to interpret the payload. This inversion of control (the message instructing the verifier how to verify it) is the root cause of the entire §1 (algorithm manipulation) and §2 (header parameter injection) attack families. Few other common authentication mechanisms give the client this level of influence over the verification process (though SAML's XML-based structure creates a comparable attacker-influenced verification surface — see `saml.md`).
 
 **Incremental fixes fail because the attack surface is combinatorial.** Fixing `alg: none` doesn't prevent algorithm confusion. Fixing algorithm confusion doesn't prevent `kid` injection. Fixing `kid` injection doesn't prevent `jku` SSRF. Each mutation target (§1–§7) is independently exploitable, and combinations create novel attack chains (e.g., `jku` bypass + algorithm confusion + claim manipulation). Libraries must implement a "deny-by-default" posture across *all* header parameters simultaneously, which many fail to do — evidenced by recurring CVEs across different libraries year after year (2015 through 2026).
 

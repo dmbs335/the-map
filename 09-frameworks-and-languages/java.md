@@ -172,7 +172,7 @@ Java maintains two separate URL parsing implementations with different semantics
 | Subtype | Mechanism | Key Condition | Impact |
 |---|---|---|---|
 | **Classic DNS rebinding** | First resolution (validation) returns public IP → passes check. Second resolution (connection) returns 127.0.0.1 → SSRF to internal network | Attacker-controlled DNS with low TTL; application resolves hostname twice | SSRF |
-| **FTP PASV SSRF (CVE-2021-2341)** | Java's FTP URL handler sends PASV command; attacker's FTP server returns internal IP:port in PASV response → Java connects to internal service | `URL.openConnection()` with `ftp://` scheme pointing to attacker's FTP server | SSRF |
+| **FTP PASV SSRF** | Java's FTP URL handler sends PASV command; attacker's FTP server returns internal IP:port in PASV response → Java connects to internal service | `URL.openConnection()` with `ftp://` scheme pointing to attacker's FTP server | SSRF |
 
 ### §3-4. HttpURLConnection Redirect Behavior
 
@@ -570,7 +570,7 @@ String s = "\u0022; Runtime.getRuntime().exec(new String[]{\u0022calc\u0022}); /
 | §2-2 (Log4j 1.x) | CVE-2021-4104 | 2021 | High (7.5) — JMSAppender JNDI injection |
 | §2-2 (Logback JNDI) | CVE-2021-42550 | 2021 | Medium (6.6) — Logback insertFromJNDI RCE |
 | §3-5 (Psychic Signatures) | CVE-2022-21449 | 2022 | High (7.5) — ECDSA blank signature acceptance (JDK 15, 16, 17 before 17.0.3, 18 before 18.0.1) |
-| §3-3 (FTP PASV SSRF) | CVE-2021-2341 | 2021 | Low (3.1) — SSRF via FTP PASV response |
+| §3-3 (FTP PASV SSRF) | FTP PASV SSRF pattern | — | SSRF pattern via attacker-controlled PASV response. Not mapped here to CVE-2021-2341 because that Oracle Java CVE describes a different networking issue |
 | §1-3 (Filter bypass) | CVE-2022-21248 | 2022 | Low (3.7) — Serialization filter bypass |
 | §10-1 (JMX RCE) | CVE-2016-3427 | 2016 | Critical (9.8) — JMX unauthenticated deserialization |
 | §10-1 (RMI deser) | CVE-2017-3241 | 2017 | Critical (9.8) — RMI registry deserialization bypass |

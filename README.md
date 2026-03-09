@@ -9,7 +9,7 @@ A structured, comprehensive vulnerability mutation taxonomy collection for secur
 
 ## What is this?
 
-**The Map** is a **security knowledge base** that systematically classifies 120+ web vulnerability classes across 13 categories. Unlike conventional cheatsheets or CVE lists, each topic is organized by **structural mutation criteria** — what is mutated, what discrepancy it creates, and where it is weaponized.
+**The Map** is a **security knowledge base** that systematically classifies 108+ web vulnerability classes across 12 categories (plus 7 researcher profiles). Unlike conventional cheatsheets or CVE lists, each topic is organized by **structural mutation criteria** — what is mutated, what discrepancy it creates, and where it is weaponized.
 
 Each topic is a deeply structured Markdown reference document covering the full attack surface of a vulnerability class through a three-axis taxonomy (Mutation Target, Discrepancy/Bypass Type, Attack Scenario).
 

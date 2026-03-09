@@ -4,7 +4,7 @@
 
 ## Classification Structure
 
-Open redirect vulnerabilities occur when a web application accepts user-controlled input to determine a redirect destination without sufficient validation. While historically dismissed as low-severity, recent research demonstrates that **8.7% of the top 10K websites** contain open redirect vulnerabilities, with over **11.5% of those being escalatable to critical vulnerabilities** including XSS, CSRF, and information leakage. This taxonomy classifies the full mutation space of open redirect techniques.
+Open redirect vulnerabilities occur when a web application accepts user-controlled input to determine a redirect destination without sufficient validation. While historically dismissed as low-severity, recent research demonstrates that **8.7% of the top 10K websites** contain open redirect vulnerabilities, with over **11.5% of the open redirect vulnerabilities (across 38% of affected sites) being escalatable to critical vulnerabilities** including XSS, CSRF, and information leakage. This taxonomy classifies the full mutation space of open redirect techniques.
 
 The taxonomy is organized around three axes. **Axis 1 (Mutation Target)** defines *what structural component of the URL or redirect mechanism* is manipulated — this forms the primary structure of the document. **Axis 2 (Bypass Type)** describes *what validation mechanism is defeated* — this is the cross-cutting dimension explaining why each mutation works. **Axis 3 (Attack Scenario)** identifies *where the redirect is weaponized* — this maps techniques to real-world impact chains.
 
@@ -48,8 +48,8 @@ Some parsers accept a scheme followed by a domain without the `//` authority sep
 
 | Subtype | Mechanism | Example | Key Condition |
 |---------|-----------|---------|---------------|
-| **Colon-only scheme** | `https:domain.com` parsed as valid URL by some browsers | `https:evil.com` | Filter blocks `://` but not `:` alone |
-| **HTTP colon variant** | Same as above for HTTP | `http:evil.com` | Filter requires `://` pattern |
+| **Colon-only scheme** | `https:evil.com` — behavior is **parser-dependent**. Under the WHATWG URL Standard, a URL with the same scheme as the base URL but without `//` is treated as a scheme-relative path (e.g., `https:evil.com` parsed against an `https:` base may resolve as a relative path, not navigation to `evil.com`). However, some non-WHATWG parsers and older browsers interpret it as an authority reference. This is a parser-differential confusion case, not a universally reliable redirect primitive | `https:evil.com` | Filter blocks `://` but not `:` alone; redirect behavior depends on which URL parser (WHATWG vs. RFC vs. legacy) processes the value |
+| **HTTP colon variant** | Same parser-dependent behavior for HTTP scheme | `http:evil.com` | Filter requires `://` pattern; actual navigation depends on parser implementation |
 
 ### §1-3. JavaScript Pseudo-Protocol
 
@@ -419,7 +419,7 @@ Techniques that chain open redirects with other functionality to amplify impact 
 | **CSRF Bypass** | SameSite=Lax cookies with GET-based actions | §6-3, §9-4 | Unauthorized state changes |
 | **WAF/Filter Bypass** | WAF inspecting redirect parameters | §5-1, §5-2, §5-3, §8-3 | Downstream vulnerability exploitation |
 | **Email Security Bypass** | Email gateways checking link reputation | §9-5 | Mass phishing delivery |
-| **Account Takeover Chain** | Multi-step: redirect → XSS → session theft | §3-2, §6-3, §9-2, §9-4 | Full account compromise (CVE-2025-4123 pattern) |
+| **Account Takeover Chain** | Multi-step: redirect → XSS → session theft | §3-2, §6-3, §9-2, §9-4 | Full account compromise (CVE-2025-4123 pattern; SSRF escalation conditional on Image Renderer plugin) |
 
 ---
 
@@ -428,16 +428,17 @@ Techniques that chain open redirects with other functionality to amplify impact 
 | Mutation Combination | CVE / Case | Impact / Bounty |
 |---------------------|-----------|----------------|
 | §8-2 (Express.js encoding differential) + §2-1 | CVE-2024-29041 (Express.js < 4.19.2) | Allowlist bypass via `encodeurl()` behavior. CVSS 6.1 |
-| §3-2 (Client-side path traversal) + §6-3 + §9-3 | CVE-2025-4123 (Grafana < 12.0.0) | Open redirect → Stored XSS → Full-read SSRF → Account takeover. CVSS 8.2 |
+| §3-2 (Client-side path traversal) + §6-3 + §9-3 | CVE-2025-4123 (Grafana, patched per-branch: 10.4.18+security-01, 11.2.9+security-01, 11.3.6+security-01, 11.4.4+security-01, 11.5.4+security-01, 11.6.1+security-01, 12.0.0+security-01) | Open redirect → Stored XSS; conditionally escalatable to full-read SSRF if Image Renderer plugin is installed. CVSS 7.6 (Grafana official). Third-party analyses describe account takeover chains but Grafana's own advisory uses more measured language |
 | §7-1 (Host header injection) + §7-3 | CVE-2021-29479 (Ratpack) | Cached redirect poisoning via `X-Forwarded-Host`. Persistent redirect |
 | §7-1 (Host header injection) | CVE-2025-50578 (Heimdall Application) | Open redirect via Host header injection |
 | §8-2 (RFC vs WHATWG) + §2-1 | mod_auth_openidc open redirect | `apr_uri_parse()` (RFC) vs browser (WHATWG) parsing differential |
 | §6-3 (JS redirect) + §9-5 | Tumblr logout redirect (Nov 2024) | Unvalidated `redirect_to` parameter on logout endpoint |
 | §2-2 (Domain suffix) + §9-2 | HackerOne #405100 (OAuth token theft) | `redirect_uri` manipulation on OAuth provider |
-| §3-1 (Backslash) + §8-2 | Go-chi GHSA-vrw8 (RedirectSlashes) | Host header injection via backslash normalization |
+| §7-1 (Host header injection) | Go-chi GHSA-vrw8-fxc6-2r93 (RedirectSlashes, ≤ 5.2.1) | Open redirect via Host header injection — `RedirectSlashes` used `r.Host` without validation to construct redirect URL. Fixed in 5.2.2 |
+| §3-1 (Backslash) + §8-2 | Go-chi GHSA-mqqf-5wvp-8fh8 (RedirectSlashes, 5.2.2–5.2.3) | Backslash normalization bypass — `/\evil.com` not trimmed, browser normalizes `\` to `/` creating `//evil.com` redirect. Fixed in 5.2.4 |
 | §2-2 + §9-5 | Indeed → Microsoft 365 phishing (2024) | Open redirect on Indeed.com used to bypass email filters and target Microsoft 365 credentials |
 | §8-2 (16 parser differentials) | Flask-security, Flask-User, Flask-unchained, Video.js, Nagios XI, Clearance | Multiple open redirects via URL parsing confusion across 8 libraries |
-| §6-3 + §9-4 (DOM-based) | NDSS 2025 study: 20.8K instances | 8.7% of top 10K sites affected; ~9% escalatable to DOM XSS |
+| §6-3 + §9-4 (DOM-based) | NDSS 2025 study: 20.8K instances across 623 sites | 8.7% of top 10K sites affected; 11.5% of open redirect vulnerabilities (across 38% of affected sites) escalatable to DOM XSS |
 
 ---
 

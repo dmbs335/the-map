@@ -368,7 +368,7 @@ The most critical AEM RCE discovered to date, stemming from Apache Struts2 devel
 | **Auth bypass + OGNL chain** | Weak security filter bypassed by inserting `login.` in URL, then OGNL injection for command execution | `/adminui/updateLicense1.do;login.?debug=command&expression=...` |
 | **Struts2 devmode expression evaluation** | DevMode's debug interceptor evaluates user-supplied expressions | `/adminui/debug?debug=OGNL:` followed by expression |
 
-**Impact**: Pre-authentication RCE. Actively exploited in the wild. Added to CISA KEV catalog.
+**Impact**: Pre-authentication RCE. Actively exploited in the wild. (CISA KEV listing unverified as of 2026-03)
 
 ### §8-2. Groovy Console Script Execution
 
@@ -469,7 +469,7 @@ The most critical AEM RCE discovered to date, stemming from Apache Struts2 devel
 
 | Mutation Combination | CVE / Case | Impact / Bounty |
 |---------------------|-----------|----------------|
-| §6-2 + §8-1 (Auth bypass + OGNL RCE) | CVE-2025-54253 (AEM Forms on JEE) | CVSS 10.0. Pre-auth RCE via Struts2 devmode. CISA KEV. Actively exploited in the wild. |
+| §6-2 + §8-1 (Auth bypass + OGNL RCE) | CVE-2025-54253 (AEM Forms on JEE) | CVSS 10.0. Pre-auth RCE via Struts2 devmode. Actively exploited in the wild. (CISA KEV listing unverified as of 2026-03) |
 | §9-1 (XXE in Forms web services) | CVE-2025-54254 (AEM Forms on JEE) | CVSS 8.6. Arbitrary file read via XXE. Zero-day disclosure. |
 | §8-5 (Deserialization in Forms) | CVE-2025-49533 (AEM Forms on JEE) | Pre-auth RCE via untrusted data deserialization. |
 | §7-3 (Cloud RUM proxy XSS) | CVE-2025-47114, CVE-2025-47115 (AEM Cloud) | Persistent XSS on ~45,000 AEM Cloud sites. Three distinct bypasses found. |
@@ -551,7 +551,7 @@ A defense-in-depth approach is required: (1) **Dispatcher hardening** using full
 - [Adobe Security Bulletin APSB25-115](https://helpx.adobe.com/security/products/experience-manager/apsb25-115.html)
 - [Adobe Security Bulletin APSB25-82](https://helpx.adobe.com/security/products/aem-forms/apsb25-82.html)
 - [Adobe AEM Security Checklist](https://experienceleague.adobe.com/en/docs/experience-manager-65/content/security/security-checklist)
-- [CISA KEV — CVE-2025-54253](https://thehackernews.com/2025/10/cisa-flags-adobe-aem-flaw-with-perfect.html)
+- [CVE-2025-54253 — CISA KEV catalog (listing unverified as of 2026-03)](https://www.cisa.gov/known-exploited-vulnerabilities-catalog) (see also: [The Hacker News coverage](https://thehackernews.com/2025/10/cisa-flags-adobe-aem-flaw-with-perfect.html))
 - [CVE Details — AEM Vulnerability List](https://www.cvedetails.com/vulnerability-list/vendor_id-53/product_id-33138/Adobe-Experience-Manager.html)
 - [AEM Vulnerability Checklist (Az0x7)](https://github.com/Az0x7/vulnerability-Checklist/blob/main/Aem%20misconfiguration/aem.md)
 - [Burp AEM Scanner Extension (thomashartm)](https://github.com/thomashartm/burp-aem-scanner)

@@ -31,7 +31,7 @@ The root cause of all DOM Clobbering attacks is the **Named Property Access** me
 2. **Document Named Access**: Elements with `id` or `name` attributes are accessible as properties of the `document` object, with named references taking **priority over built-in APIs**.
 3. **Priority Rule**: On `document`, named HTML element references override built-in APIs (due to `[LegacyOverrideBuiltIns]`). On `window`, built-in properties take priority over named element references — named access on `window` only works for properties not already defined on the Window interface.
 
-This means that `window.x` (or simply `x` in global scope) can be silently replaced by any element `<div id="x">`, and `document.cookie` can be shadowed by `<img name="cookie">`.
+This means that `window.x` can be silently replaced by `<div id="x">` **only if `x` is not already defined** — i.e., the identifier has no binding from `var`/`let`/`const` declarations, built-in Window properties, or prior assignment to `window.x`. Top-level `let`/`const` declarations do not create `window` properties and thus cannot be clobbered via named access, though bare references to undeclared identifiers (`if (x)`) will resolve through the window and can be affected. On `document`, named access is more dangerous: `document.cookie` can be shadowed by `<img name="cookie">` because `document` has `[LegacyOverrideBuiltIns]`.
 
 ---
 
@@ -47,7 +47,7 @@ Any HTML element with an `id` attribute creates a corresponding property on the 
 |---------|-----------|---------------|
 | **Undefined variable clobber** | `<div id="config">` makes `window.config` resolve to the HTMLDivElement | Target variable is never explicitly declared with `var`/`let`/`const` |
 | **Fallback pattern clobber** | `<a id="defaultURL" href="https://evil.com">` exploits `var url = window.defaultURL \|\| '/safe'` | Code uses logical OR with `window.*` lookup |
-| **Post-declaration clobber** | Later-parsed elements can override earlier script-assigned variables in some contexts | Variable assigned before DOM is fully parsed, re-resolved after mutation |
+| **Re-resolution after DOM mutation** | Named access applies at lookup time, not declaration time. If code deletes or never assigns a window property (e.g., `delete window.config` or the assignment is conditional), a later-parsed element with that `id` can fill the gap. However, if the code has already created a real window property via `window.config = {...}` or `var config = ...`, the existing property takes priority over named access and the DOM element does **not** override it | Code conditionally assigns or later deletes the window property; OR code re-reads a global that was never firmly bound |
 
 **Example — Fallback Pattern:**
 ```html
@@ -405,13 +405,13 @@ Beyond application-level gadgets, the browser itself exposes clobberable APIs at
 
 ### §8-1. Native Browser API Clobbering
 
-Research has identified **114+ native browser APIs** that DOM Clobbering markups can shadow, including security-sensitive APIs.
+Research has identified **114+ native browser APIs** that DOM Clobbering markups can potentially interact with. However, an important distinction applies: on `window`, built-in properties (including `caches`, `trustedTypes`, `navigation`, `location`) take **priority** over named element access per the spec's Priority Rule (§Foundation). These APIs cannot be directly clobbered by `<div id="caches">` on the `window` object. The real risk arises in two scenarios: (1) on `document`, where `[LegacyOverrideBuiltIns]` allows named access to override built-in APIs, and (2) when application code copies a window API reference into a local variable or accesses it through an intermediate object that is itself clobberable.
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **Cache storage API** | Named elements shadow `caches` or related storage API references | Browser API name collision with element id/name |
-| **Trusted Types API** | Clobbering `trustedTypes` reference on window/document | Security API itself becomes the clobbering target |
-| **Navigation API** | Clobbering `navigation`, `location`-adjacent properties | Element name matches navigation API |
+| **Document-level API shadow** | Named elements shadow `document.*` API references (e.g., `document.forms`, `document.images`) because `document` has `[LegacyOverrideBuiltIns]` | Element `name`/`id` matches a `document` built-in property |
+| **Indirect API reference clobber** | Application code assigns a window API to a clobberable intermediate (e.g., `var cache = window.caches` where `cache` is later re-resolved via a global lookup in a different scope) | Code accesses the API through an undeclared or re-resolvable global variable, not directly via `window.caches` |
+| **Custom wrapper clobber** | Framework or library wraps a native API in a global variable (e.g., `window.navigation = customRouter`) that is itself clobberable if the assignment is conditional | Wrapper assignment uses `window.x = window.x || ...` pattern |
 
 ### §8-2. SVG/MathML Namespace Clobbering
 

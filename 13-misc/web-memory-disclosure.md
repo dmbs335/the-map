@@ -69,7 +69,7 @@ A compression/decompression routine reports an incorrect output size, causing th
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **Wire protocol compression size confusion** | MongoDB's zlib decompression handler in `message_compressor_zlib.cpp` returns the allocated buffer size rather than the actual decompressed data length. A crafted compressed message with a `compressedSize` smaller than the declared `uncompressedSize` causes the server to send the entire allocated buffer — including uninitialized heap memory containing credentials, API keys, session tokens, and PII from other connections — back to the unauthenticated client | MongoDB with zlib compression enabled (default); unauthenticated network access; 87K+ exposed instances (CVE-2025-14847, "MongoBleed", CVSS 9.1, CISA KEV, actively exploited) |
+| **Wire protocol compression size confusion** | MongoDB's zlib decompression handler in `message_compressor_zlib.cpp` returns the allocated buffer size rather than the actual decompressed data length. A crafted compressed message with a `compressedSize` smaller than the declared `uncompressedSize` causes the server to send the entire allocated buffer — including uninitialized heap memory containing credentials, API keys, session tokens, and PII from other connections — back to the unauthenticated client | MongoDB with zlib compression negotiated (zlib is in default compressor list but only active when client-server agree); unauthenticated network access; 87K+ exposed instances (CVE-2025-14847, "MongoBleed", CVSS 7.5 v3.1 / 8.7 v4.0 per MongoDB CNA, actively exploited) |
 
 ### §2-2. Return Value Misinterpretation
 
@@ -177,7 +177,7 @@ A reverse proxy or load balancer reuses a backend connection but fails to fully 
 | §3-1 (QUIC frame ordering) | CVE-2021-43848 (H2O / Fastly) | 2022 | Cross-user request/response data, TLS session tickets from CDN edge. |
 | §1-3 (DNS injection over-read) | Wallbleed (GFW, no CVE) | 2023–2024 | 125 bytes per query. Transit DNS traffic from millions of users. NDSS 2025. |
 | §3-1 (QUIC freed memory) | CVE-2024-34161 (Nginx QUIC) | 2024 | Worker process memory disclosure via freed QUIC buffers. |
-| §2-1 (zlib compression length) | CVE-2025-14847 (MongoDB, "MongoBleed") | 2025 | **CVSS 7.5 (v3.1) / 8.7 (v4.0). CISA KEV. Actively exploited.** Unauthenticated heap dump: credentials, API keys, PII. 87K+ exposed instances. Public PoC. |
+| §2-1 (zlib compression length) | CVE-2025-14847 (MongoDB, "MongoBleed") | 2025 | **CVSS 7.5 (v3.1) / 8.7 (v4.0). Actively exploited.** Unauthenticated heap dump: credentials, API keys, PII. 87K+ exposed instances. Public PoC. (CISA KEV listing unverified as of 2026-03) |
 | §2-3 (uninitialized stack variable) | CVE-2025-5777 (Citrix NetScaler, "CitrixBleed 2") | 2025 | **CVSS 9.3.** Stack memory fragments via unauthenticated HTTP POST. PoC within 24 hours of disclosure. |
 | §2-4 (Buffer.alloc race) | CVE-2025-55131 (Node.js) | 2025 | Heap data exposure in multi-tenant/plugin environments using `vm` module with timeouts. |
 | §1-3 (SMTP module over-read) | CVE-2025-53859 (Nginx SMTP) | 2025 | Worker process memory leak to auth backend via malformed SMTP session. |

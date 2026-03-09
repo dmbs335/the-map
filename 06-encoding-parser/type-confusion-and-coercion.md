@@ -196,6 +196,7 @@ Numeric type coercion occurs when strings, booleans, nulls, or other non-numeric
 | **Octal/Hex String Prefix** | `parseInt("0x10")` returns `16`; `parseInt("010")` returns `8` (legacy) or `10` (modern); `"0x1A" == 26` in PHP 5.x | Inconsistent base handling across parsers; leading-zero ambiguity |
 | **MySQL String-to-Integer Coercion** | `SELECT * FROM users WHERE username = 0` returns ALL rows because non-numeric strings coerce to `0`, making `'admin' = 0` true | Integer operand forces string column to coerce; no type-safe comparison |
 | **MySQL Truncation Coercion** | `WHERE id = '1abc'` truncates to `1` and returns `id=1` row with a warning (not error) | String value with leading digits matched against integer column |
+| **Integer-String Conversion DoS** | `int("1" + "0" * 1000000)` has O(n²) complexity in Python < 3.11, pinning CPU for seconds per call. Any JSON API parsing user-provided large integers is vulnerable. Fixed in Python 3.11+ via `sys.set_int_max_str_digits()` (default 4300 digit limit) | Python < 3.11; integer in JSON/form data exceeds 4300 digits (CVE-2020-10735) |
 
 ### §4-2. Integer-to-Float Precision Loss
 

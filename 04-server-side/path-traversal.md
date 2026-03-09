@@ -129,8 +129,13 @@ Bypasses relative path validation by specifying absolute filesystem paths direct
 | **Protocol-Prefixed** | Java-specific protocol handler | `url:file:///etc/passwd` | Java URL class processes `url:` prefix |
 | **Drive Letter (Windows)** | Explicit drive specification | `C:/inetpub/wwwroot/web.config` | Windows backend accepts drive |
 | **UNC Share Access** | Network share syntax | `\\server\share\file.txt` | Windows SMB/UNC enabled |
+| **Path Join API Override** | `os.path.join('/safe/', '/etc/passwd')` → `/etc/passwd` — base silently discarded when component is absolute. Python `pathlib` (`Path('/safe') / '/etc/passwd'`), Node.js `path.resolve()` identical behavior | User input is absolute path; no post-join canonicalization check. By design in Python/Node — no upstream fix |
+| **Path Join + UNC Bypass** | `os.path.isabs('//server/share')` returns `False` on Python < 3.11 — `safe_join()` bypassed via UNC path (CVE-2024-49766, Werkzeug/Flask) | Windows + Python < 3.11; UNC path not detected as absolute |
+| **Temp File Prefix/Suffix Injection** | Attacker-controlled `prefix` or `suffix` parameter in temp file creation APIs contains `../` — file created outside temp directory | `tempfile.NamedTemporaryFile(prefix=user_input+"_")` with `user_input="/../var/www/shell"` (Python bpo-35278, open 7+ years) |
 
 **Notable Example**: Java applications using `URL` class may process `url:file://` prefix, enabling local file access even when HTTP URL expected.
+
+**Cross-Language Pattern**: Path joining APIs across multiple languages silently discard base directories when a component is absolute — this is documented behavior, not a bug. Python `os.path.join()` / `pathlib`, Node.js `path.resolve()`, and Go `filepath.Join()` all exhibit this. The "by design" status means no upstream fix; defense must be at the application layer (`os.path.commonpath()` check or `os.path.realpath()` prefix verification after join).
 
 ### §2-4. Trailing and Leading Manipulation
 
@@ -273,6 +278,8 @@ Malicious archive contains entries with `../` in filename field. When extracted,
 **Notable CVE**: CVE-2024-21518 (OpenCart Marketplace Installer) — ZIP Slip via admin panel allowed arbitrary file write.
 
 **Impact**: Remote code execution when payload overwrites executable files, cron jobs, or service configurations.
+
+**Ecosystem Scale**: Trellix (2022) scanned GitHub and found ~350,000 repositories (61% of 588K repos importing `tarfile`) using vulnerable `extractall()` without path validation. The Creosote tool automates detection of this pattern.
 
 ### §5-2. Symlink in Archive (Zip Symlink Vulnerability)
 
@@ -460,6 +467,10 @@ Real-world path traversal instances from recent disclosures, mapped to mutation 
 | §3-1 | **Fortinet FortiWeb CVE-2025-64446** | CVSS 9.8 (Critical) — authentication bypass | Path traversal in admin account creation; unauthenticated attackers created admin accounts via crafted path-traversal request |
 | §1-1 | **CVE-2018-13379** (Fortinet FortiGate SSL VPN) | Critical — pre-auth credential theft | `snprintf(s, 0x40, "/migadmin/lang/%s.json", lang)` — fixed-size buffer overflow strips `.json` suffix, enabling arbitrary file read. Leaks session files with plaintext passwords. DEF CON 27, Orange Tsai |
 | §1-1 | **CVE-2019-11510** (Pulse Secure Connect) | Critical — pre-auth credential theft | Path traversal via HTML5 Access feature (`/dana-na/../dana/html5acc/guacamole/../../../../../../etc/passwd`). Leaks plaintext cached credentials and session tokens. Weaponized by APTs and ransomware groups. DEF CON 27, Orange Tsai |
+| §2-3 | **CVE-2024-49766** (Werkzeug/Flask) | Medium — path traversal on Windows | `safe_join()` used `os.path.isabs()` which returns `False` for UNC paths (`//server/share`) on Python < 3.11; Windows UNC path bypassed safety check, enabling remote file access via SMB |
+| §2-3 + §1-3 + §3 | **CVE-2024-1594, -1483, -1560, -1558, -1593, -3573** (MLflow) | Critical — arbitrary file read/delete | 6 CVEs from same root cause: `os.path.join(base, user_artifact_path)` without validation. Bypass vectors: `#` fragment injection, `;` semicolon smuggling, double URL decoding, empty URI scheme |
+| §2-3 | **CVE-2024-1561** (Gradio) | High — arbitrary file read | `launch(share=True)` exposed Gradio app to internet; absolute path in file parameter bypassed path restriction, enabling host filesystem read |
+| §5-1 + §5-2 | **CVE-2025-8869** (pip), **CVE-2025-47273** (setuptools), **CVE-2026-1703** (pip) | Critical — supply chain path traversal | Package manager archive extraction without symlink/path validation; `pip install malicious-pkg` writes files outside extraction directory (e.g., `~/.ssh/authorized_keys`). Trellix (2022) found ~350,000 GitHub repos using vulnerable `tarfile.extractall()` + `os.path.join()` patterns |
 
 ---
 

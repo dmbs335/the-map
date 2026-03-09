@@ -95,7 +95,7 @@ Parser differentials exploit the fact that SAML implementations frequently use m
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **Nokogiri vs. REXML Differential** | Ruby-SAML uses Nokogiri (libxml2-backed) for signature verification and REXML (pure Ruby) for Assertion extraction. Identical XPath queries return different nodes due to structural divergences in tree construction. An attacker crafts XML that both parsers accept but interpret differently. (CVE-2025-25291, CVE-2025-25292) | Ruby-SAML < 1.18.0 using dual-parser architecture |
+| **Nokogiri vs. REXML Differential** | Ruby-SAML uses both REXML (pure Ruby) and Nokogiri (libxml2-backed) within the signature verification path itself — REXML parses the document and resolves element references, while Nokogiri performs canonicalization and digest computation. Because both parsers participate in the verification pipeline (not merely "one for verification, one for extraction"), structural divergences in how they build document trees from identical input — particularly around DOCTYPE handling and namespace resolution — allow an attacker to craft XML where the element verified by one parser differs from the element processed by the other. (CVE-2025-25292 for namespace handling differential) | Ruby-SAML < 1.18.0 using dual-parser architecture |
 | **libxml2 vs. Custom Parser** | PHP SAML implementations using libxml2 for one stage and a custom or different parser for another exhibit similar divergence in namespace handling, attribute ordering, and DOCTYPE processing. | Any implementation using heterogeneous parser stack |
 | **DOM vs. SAX Divergence** | DOM parsers build complete in-memory trees while SAX parsers process events sequentially. Inconsistencies in entity resolution, namespace scoping, and error handling between the two models create divergent interpretations. | Implementations mixing DOM and SAX processing stages |
 
@@ -119,6 +119,7 @@ Parser differentials exploit the fact that SAML implementations frequently use m
 |---------|-----------|---------------|
 | **Parse-Serialize-Reparse Mutation** | When a SAML document is parsed, serialized, and re-parsed (common in middleware chains), structural mutations can occur: attribute ordering changes, namespace declarations move, whitespace is normalized differently. Signatures verified on the first parse may not match the re-parsed structure. | Multi-stage processing pipelines with serialization between stages |
 | **Comment-Induced Round-Trip** | XML comments injected between text nodes (e.g., `admin<!---->@evil.com`) are stripped during canonicalization but may cause text node splitting during parsing. After round-trip, the split text nodes may recombine differently, altering the extracted value. | Text node extraction uses first-child-only semantics |
+| **Unicode Normalization Divergence** | Invisible Unicode characters (U+FEFF BOM, U+200B ZWSP, U+200C ZWNJ, U+2028 Line Separator) in identity-critical fields such as `<NameID>` are preserved through signing and signature verification but may be handled differently during text extraction. JavaScript's `String.prototype.trim()` strips U+FEFF per ECMAScript spec while Python's `str.strip()` does not, creating identity divergence when the same signed assertion is processed by heterogeneous SP implementations. U+2028 is converted to `\n` by some DOM parsers (xmldom), breaking signature verification on the receiving side. | Heterogeneous SP architecture (e.g., Python verifier + Node.js identity extractor); application-level text normalization on SAML values |
 
 ---
 
@@ -147,7 +148,8 @@ XML Canonicalization (C14N) is the process of transforming XML into a canonical 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
 | **DigestValue Comment Injection** | An XML comment containing the forged digest is injected into the `<DigestValue>` element: `<DigestValue><!--forged_digest-->legitimate_digest</DigestValue>`. The digest verification code reads the *first child node* (the comment containing the forged digest) while C14N strips the comment, making signature verification pass against the legitimate digest. (CVE-2025-29775) | xml-crypto <= 6.0.0; digest extraction uses firstChild rather than textContent |
-| **SignatureValue Comment Injection** | Similar technique applied to `<SignatureValue>`: inject a comment to make the verification code read a different signature value than what C14N produces, enabling signature bypass in conjunction with digest manipulation. (CVE-2025-29774) | Same firstChild extraction pattern in SignatureValue processing |
+| **Multiple SignedInfo References** | A second `<SignedInfo>` element is injected into the `<Signature>` block containing attacker-controlled `<Reference>` entries. The signature verification code processes the first `<SignedInfo>` (legitimate) for HMAC/RSA validation, but the digest verification loop iterates over References from the second (forged) `<SignedInfo>`, allowing an attacker to substitute DigestValues and modify assertion content while keeping the signature mathematically valid. (CVE-2025-29774) | xml-crypto <= 6.0.0; library does not enforce single `<SignedInfo>` per `<Signature>` |
+| **Signature Element Content Parsing DoS** | XML comments or processing instructions injected into `<ds:SignatureValue>` or `<ds:DigestValue>` cause certain libraries to crash during base64 decoding when the text extraction returns `None` instead of a string. Unlike the SAMLStorm bypass (which targets firstChild semantics), this variant causes a denial-of-service via unhandled `NoneType` errors even in patched libraries. | Library does not gracefully handle non-text child nodes in signature elements after SAMLStorm patches |
 
 ---
 
@@ -176,6 +178,7 @@ Rather than manipulating XML structure, these attacks exploit implementations th
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
 | **Algorithm Downgrade** | The `<ds:SignatureMethod>` or `<ds:DigestMethod>` algorithm URI is changed to a weaker algorithm (e.g., SHA-1, MD5) or a non-standard algorithm that the implementation handles insecurely. | SP does not enforce an algorithm allowlist |
+| **DigestMethod-Only Downgrade** | The `<ds:SignatureMethod>` is left as RSA-SHA256 while only the `<ds:DigestMethod>` is changed to MD5. Libraries that whitelist signature algorithms but not digest algorithms separately accept the weaker digest, reducing assertion content integrity to MD5 collision resistance. MD5 chosen-prefix collisions are practical on modern hardware (~hours). | Library enforces algorithm policy on SignatureMethod but not on DigestMethod independently |
 | **"None" Algorithm Injection** | The algorithm identifier is set to a value indicating "none" or is left empty. Implementations that fail to validate the algorithm may skip verification entirely. | No algorithm validation before verification execution |
 | **HMAC Confusion** | The algorithm is changed from an asymmetric algorithm (RSA-SHA256) to an HMAC algorithm. If the implementation uses the IdP's public key (or certificate) as the HMAC secret, the attacker can sign with the publicly available key material. | Implementation does not enforce algorithm family consistency |
 
@@ -188,6 +191,15 @@ Rather than manipulating XML structure, these attacks exploit implementations th
 | **Transform Chain Injection** | Additional `<ds:Transform>` elements are injected into the signature's transform chain, altering what data the digest is computed over (e.g., an XPath transform that excludes the attacker-modified elements). | SP does not restrict permitted Transform algorithms |
 | **XSLT Transform Pre-Verification Execution (Java)** | Java's `javax.xml.crypto` processes `<ds:Transform>` XSLT stylesheets *before* completing signature verification. An attacker embeds an XSLT payload that reads local files via `unparsed-text()` or triggers SSRF via `document()` during the `XMLSignature.validate()` call — impact occurs regardless of whether the signature is ultimately valid. | JDK XML Signature API (`javax.xml.crypto.dsig`) with default `TransformService`; no Transform algorithm allowlist (Google Project Zero, 2022) |
 | **XPath Filter Injection in Reference** | The `<ds:Reference>` XPath Filter 2.0 transform evaluates attacker-controlled expressions. By injecting XPath subexpressions into the filter, the attacker redefines which DOM nodes the digest covers — excluding modified elements from verification while the SP still processes them for authentication decisions. | Java or .NET XML Signature with XPath Filter 2.0 transform enabled; no expression validation or transform restriction |
+
+### S4-5. Signed XML Reuse (Golden SAML Response)
+
+The signature verification model in most SAML libraries only confirms that a given XML fragment carries a valid signature from a trusted IdP — it does not bind the signature to the specific authentication context (request ID, audience, timestamp) at the protocol level. This means *any* validly signed XML from the IdP — including metadata documents, error responses, previously captured assertions, or responses issued to other SPs — may be repurposed as a vehicle for signature bypass.
+
+| Subtype | Mechanism | Key Condition |
+|---------|-----------|---------------|
+| **Cross-Context Signed XML Reuse** | An attacker obtains any XML document bearing a valid signature from the target IdP (e.g., signed metadata, a signed error response, or a signed assertion captured from a different SP). The valid `<ds:Signature>` is extracted and embedded into a forged SAML Response alongside a tampered Assertion. Libraries that verify the signature's mathematical validity without checking that the signed scope covers the specific Assertion being processed accept the forged response. (PortSwigger "The Fragile Lock", 2025) | SP/library verifies signature validity but does not enforce that the signed `<ds:Reference>` URI matches the processed Assertion's ID |
+| **Captured Assertion Re-Signing** | A legitimately signed SAML assertion (obtained from network capture, logs, or as an authorized low-privilege user) is transplanted into a new Response with a modified `NameID` or elevated attributes. The original assertion's signature remains valid because the attacker does not modify the signed bytes — only the surrounding unsigned context. | No `InResponseTo` / Recipient / Audience enforcement; assertion content outside signed scope |
 
 ---
 
@@ -211,6 +223,8 @@ SAML's XML foundation inherits the full spectrum of XML parsing vulnerabilities.
 | **Billion Laughs (Exponential Expansion)** | Nested entity definitions create exponential expansion: each entity references the previous one multiple times. A <1KB payload expands to gigabytes in memory. `<!ENTITY lol9 "&lol8;&lol8;&lol8;...">` | No entity expansion depth or size limits |
 | **Quadratic Blowup** | A single large entity is repeated many times in the document body. Avoids depth-based detection but still causes quadratic memory consumption. | Entity expansion limits based on depth but not total size |
 | **Recursive Entity Loop** | Circular entity references (`<!ENTITY a "&b;"><!ENTITY b "&a;">`) cause infinite processing loops, exhausting CPU. | No circular reference detection in entity resolution |
+| **Compressed Response Decompression Bomb** | SAML responses may be deflate-compressed. The message size check is applied *before* inflation, allowing a ~250KB compressed payload to expand to ~250MB after decompression (deflate ratio ~1:1000). Subsequent XML parsing of the inflated document exhausts CPU and memory. (CVE-2025-25293 — ruby-saml) | Size validation before decompression rather than after; ruby-saml < 1.18.0; CVSS 7.5 |
+| **Validation Order Resource Exhaustion** | The SAML response processing pipeline applies Base64 format validation (regex matching) before checking `message_max_bytesize`. An attacker sends a very large non-Base64 string; the regex match consumes excessive CPU and memory before the size check can reject it. (CVE-2025-54572 — ruby-saml) | Validation order: format check before size check; ruby-saml < 1.18.1 |
 
 ### S5-3. XSLT Injection
 
@@ -240,6 +254,7 @@ These attacks target the semantic content of SAML Assertions and the protocol fl
 | **Simple Assertion Replay** | A valid SAML Response is captured (via browser inspection, proxy interception, or XSS) and resubmitted to the SP's Assertion Consumer Service (ACS) endpoint. | SP does not track consumed Assertion IDs; no `InResponseTo` validation |
 | **Cross-Session Replay** | A captured Assertion is replayed from a different browser, session, or IP address. The SP does not bind the Assertion to the original authentication context. | No session binding, IP validation, or channel binding on Assertion consumption |
 | **Window Extension Replay** | An Assertion with a generous `NotOnOrAfter` window (or no time constraint) remains valid for an extended period, giving the attacker a large replay window. | SP accepts assertions with validity windows exceeding minutes; no strict clock enforcement |
+| **Replay Cache Absence** | The SP does not maintain a cache of consumed Assertion IDs or `InResponseTo` values. An attacker who intercepts a valid SAML authentication flow (e.g., via network sniffing, browser history, or log access) can replay the entire request to authenticate as the victim. (CVE-2025-64131 — Jenkins SAML Plugin) | SP has no replay cache implementation; CVSS 8.4 |
 
 ### S6-2. Identity Manipulation
 
@@ -262,10 +277,17 @@ These attacks target the semantic content of SAML Assertions and the protocol fl
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **Open Redirect via RelayState** | The `RelayState` parameter (used to redirect users after SSO) is not validated. The attacker sets RelayState to a malicious URL, and the SP redirects the authenticated user to an attacker-controlled site for credential phishing or session theft. | SP does not whitelist RelayState redirect targets |
+| **Open Redirect via RelayState** | The `RelayState` parameter (used to redirect users after SSO) is not validated. The attacker sets RelayState to a malicious URL, and the SP redirects the authenticated user to an attacker-controlled site for credential phishing or session theft. (CVE-2026-22032 — Directus: SAML callback endpoint validates redirect targets during login initiation but not on the callback path, allowing arbitrary external redirects via RelayState in both success and error handlers) | SP does not whitelist RelayState redirect targets on callback endpoint |
 | **RelayState Injection** | The RelayState value is reflected in the SP's response without sanitization, enabling XSS or header injection. | RelayState reflected in HTML or HTTP headers without encoding |
 
-### S6-5. Logout and Session Attacks
+### S6-5. IdP-Initiated Flow and Broker Policy Bypass
+
+| Subtype | Mechanism | Key Condition |
+|---------|-----------|---------------|
+| **Disabled Client Broker Landing** | In brokered SAML setups, a disabled SAML client configured as an IdP-initiated broker landing target can still complete the login flow and establish an SSO session. Once the session is active, the attacker gains access to all other enabled clients in the realm without re-authentication, bypassing client-level access controls entirely. (CVE-2026-3047 — Keycloak) | Keycloak < 26.5.5; disabled SAML client set as IdP-initiated broker landing target; CVSS 8.8 |
+| **Unsolicited Response Acceptance** | The SP accepts IdP-initiated (unsolicited) SAML Responses without a corresponding AuthnRequest. The attacker submits a forged assertion directly to the ACS endpoint, bypassing request-response correlation checks. | SP configured to accept IdP-initiated SSO; no `InResponseTo` enforcement |
+
+### S6-6. Logout and Session Attacks
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
@@ -304,18 +326,20 @@ Beyond parser differentials, individual library implementations contain unique p
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **libxml2 Internal Caching Abuse** | libxml2's internal node caching can be manipulated to cause canonicalization functions to process stale or incorrect node data, producing unexpected digest values. This was exploited to bypass SAML authentication on GitHub Enterprise. (CVE-2025-23369) | libxml2-backed XML processing in signature verification path |
+| **libxml2 XML Entity ID Redefinition** | An attacker redefines the SAML Response's `ID` attribute using an XML entity reference, causing the signature verification's XPath query to resolve against a different element (e.g., an embedded Assertion) than the intended Response root. This bypasses cryptographic signature verification by validating the signature against an attacker-controlled scope. Exploited on GitHub Enterprise Server (CVE-2025-23369, CVSSv4 7.6); requires SAML SSO configuration and prior authenticated access as an existing GHES user. | libxml2-backed XML processing in signature verification path |
 | **libxml2 Namespace Inheritance** | libxml2 handles namespace inheritance differently in certain edge cases (e.g., default namespace undeclaration `xmlns=""`), leading to canonicalization output that differs from what other processors expect. | Mixed libxml2 and non-libxml2 processing in the same pipeline |
 
 ### S8-2. Language-Specific Library Flaws
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **xml-crypto firstChild Bug** | The Node.js xml-crypto library extracts DigestValue and SignatureValue using `firstChild` rather than `textContent`. XML comments are child nodes, so `<!--forged-->real` returns the comment node (forged value) rather than the concatenated text. (CVE-2025-29775, CVE-2025-29774 — SAMLStorm) | xml-crypto <= 6.0.0 |
+| **xml-crypto DigestValue Comment Injection (SAMLStorm)** | The Node.js xml-crypto library extracts DigestValue using `firstChild` rather than `textContent`. XML comments are child nodes, so `<!--forged_digest-->real_digest` returns the comment node (forged value) rather than the concatenated text, enabling digest bypass. (CVE-2025-29775) | xml-crypto <= 6.0.0 |
+| **xml-crypto Multiple SignedInfo References (SAMLStorm)** | xml-crypto does not enforce a single `<SignedInfo>` element per `<Signature>`. An attacker injects a second `<SignedInfo>` with forged `<Reference>` entries; the library validates the signature against the first `<SignedInfo>` but checks digests from the second, allowing assertion content modification with a valid signature. (CVE-2025-29774) | xml-crypto <= 6.0.0 |
 | **samlify XPath Scope Failure** | The samlify Node.js library's signature verification does not properly scope which element the signature covers. An attacker can embed a valid signature (from metadata or error responses) and place a forged Assertion outside the signature's scope. (CVE-2025-47949) | samlify < 2.10.0 |
 | **ruby-saml REXML Quirks** | REXML treats reserved `xml:` and `xmlns` prefixes as regular attributes and applies DOCTYPE-defined ATTLIST defaults, both of which libxml2/Nokogiri do not. This creates divergent document trees enabling namespace confusion and attribute pollution attacks. (CVE-2025-25291, CVE-2025-25292) | ruby-saml < 1.18.0 with REXML |
 | **xmlseclibs C14N Failure** | The PHP xmlseclibs library's canonicalization implementation silently returns empty output on certain malformed namespace constructions, enabling void canonicalization attacks. (Fixed in 3.1.4) | xmlseclibs < 3.1.4 |
 | **node-saml Signature Bypass** | The node-saml library fails to properly validate that the signature covers the specific assertion being processed, enabling wrapping attacks where a valid signature from any signed document is repurposed. (CVE-2025-54369) | Specific node-saml versions with incomplete reference validation |
+| **node-saml Verified-Content Mismatch** | The `validatePostResponseAsync` function validates the XML signature but then extracts the assertion from the original unverified DOM (`assertions[0].toString()`) rather than from the cryptographically verified bytes returned by `sig.getSignedReferences()[0]`. An attacker with any one valid signed SAML response can modify the NameID and replay it — the signature validates against the original signed scope while the SP processes the tampered DOM. (CVE-2025-54419, GHSA-4mxg-3p6v-xgq3) | node-saml < 5.1.0; passport-saml delegates entirely to node-saml with no independent signature check |
 
 ---
 
@@ -328,29 +352,37 @@ Beyond parser differentials, individual library implementations contain unique p
 | **Cross-SP Lateral Movement** | Multiple SPs sharing a single IdP | S6-3 (token recipient confusion) + S7-1 (Golden/Silver SAML) |
 | **Persistent Backdoor Access** | Enterprise environments with AD FS / Entra ID | S7-1 (Golden SAML / Silver SAML — survives password resets and MFA) |
 | **Data Exfiltration via XML** | SP with vulnerable XML parser | S5-1 (XXE) + S5-3 (XSLT injection) — reads local files and exfiltrates via OOB channels |
-| **Denial of Service** | Any SAML endpoint processing XML | S5-2 (XML bomb / Billion Laughs) targeting ACS or SLO endpoints |
+| **Denial of Service** | Any SAML endpoint processing XML | S5-2 (XML bomb / Billion Laughs / compressed response bomb / validation order exhaustion) targeting ACS or SLO endpoints |
 | **Session Hijacking** | SP with weak session management | S6-1 (replay) + S6-5 (session fixation) |
 | **Phishing / Credential Theft** | SP with unvalidated RelayState | S6-4 (open redirect) — redirects authenticated users to attacker-controlled sites |
 
 ---
 
-## CVE / Bounty Mapping (2024-2025)
+## CVE / Bounty Mapping (2024-2026)
 
 | Mutation Combination | CVE / Case | Impact / Bounty |
 |---------------------|-----------|----------------|
 | S3-1 (Void Canonicalization) | CVE-2025-66568 (ruby-saml), CVE-2025-66578 (xmlseclibs) | Full auth bypass via C14N empty-string return. ruby-saml < 1.18.0, xmlseclibs < 3.1.4 |
 | S2-1 (Parser Differential — incomplete patch of CVE-2025-25292) | CVE-2025-66567 (ruby-saml) | Auth bypass via Nokogiri/REXML parser differential. ruby-saml < 1.18.0 |
-| S2-1 + S2-3 (Parser Differential + DOCTYPE ATTLIST) | CVE-2025-25291, CVE-2025-25292 (ruby-saml) | CVSS 8.8. Account takeover via Nokogiri/REXML divergence. Fixed in ruby-saml 1.12.4, 1.18.0. Impacted GitLab (patched 17.9.2, 17.8.5, 17.7.7) |
-| S3-3 (DigestValue/SignatureValue Comment Injection — SAMLStorm) | CVE-2025-29775, CVE-2025-29774 (xml-crypto) | Critical auth bypass in Node.js SAML ecosystem. xml-crypto <= 6.0.0, affecting 500k+ weekly downloads (node-saml, samlify, saml2-js) |
-| S8-1 (libxml2 Caching Abuse) | CVE-2025-23369 (GitHub Enterprise) | SAML auth bypass on GitHub Enterprise via libxml2 canonicalization quirk |
+| S2-3 (DOCTYPE ATTLIST Injection) | CVE-2025-25291 (ruby-saml) | CVSS 8.8. Auth bypass via REXML applying DOCTYPE ATTLIST defaults that Nokogiri ignores, creating divergent namespace structures. Fixed in ruby-saml 1.12.4, 1.18.0. Impacted GitLab (patched 17.9.2, 17.8.5, 17.7.7) |
+| S2-1 (Parser Differential — Namespace Handling) | CVE-2025-25292 (ruby-saml) | CVSS 8.8. Auth bypass via Nokogiri/REXML namespace resolution divergence. Fixed in ruby-saml 1.12.4, 1.18.0. Same GitLab impact scope |
+| S3-3 (DigestValue Comment Injection — SAMLStorm) | CVE-2025-29775 (xml-crypto) | Critical auth bypass via `firstChild` comment injection in DigestValue. xml-crypto <= 6.0.0, affecting 500k+ weekly downloads (node-saml, samlify, saml2-js) |
+| S3-3 + S4-4 (Multiple SignedInfo References — SAMLStorm) | CVE-2025-29774 (xml-crypto) | Critical auth bypass via injected second `<SignedInfo>` with forged References. xml-crypto <= 6.0.0 |
+| S8-1 (libxml2 XML Entity ID Redefinition) | CVE-2025-23369 (GitHub Enterprise Server) | CVSSv4 7.6. SAML auth bypass via XML entity reference ID redefinition causing XPath scope confusion. Requires SAML SSO + existing authenticated user |
 | S1-3 (Encrypted Assertion Wrapping) | CVE-2024-4985 (GitHub Enterprise Server) | CVSS 10.0. Initial critical finding: unauthenticated site administrator access when encrypted assertions enabled. CVE-2024-9487 was a subsequent related bypass of the incomplete fix for CVE-2024-4985, exploiting the same encrypted assertion wrapping vector through a different code path |
 | S1-2 + S8-2 (Assertion Wrapping + XPath Scope Failure) | CVE-2025-47949 (samlify) | Critical auth bypass + admin impersonation. samlify < 2.10.0 |
-| S4-1 + S6-2 (Missing Signature + Identity Manipulation) | CVE-2024-45409 (ruby-saml / GitLab) | Auth bypass via improper verification of SAML Response signature. Exploited in the wild against GitLab |
+| S4-1 + S6-2 (Missing Signature + Identity Manipulation) | CVE-2024-45409 (ruby-saml / GitLab) | Auth bypass via improper verification of SAML Response signature. GitLab issued emergency patches (17.3.3, 17.2.7, 17.1.8, 17.0.8, 16.11.10) and published log-based exploitation detection guidance, suggesting active exploitation concern, though no first-party confirmation of in-the-wild exploitation was published |
 | S4-3 (Signature Validation Logic) | CVE-2024-8698 (Keycloak) | SAML signature verification bypass enabling auth bypass and privilege escalation |
 | S8-2 (node-saml Signature Bypass) | CVE-2025-54369 (node-saml) | Auth bypass via signature scope validation failure |
+| S8-2 (node-saml Verified-Content Mismatch) | CVE-2025-54419 (node-saml, GHSA-4mxg-3p6v-xgq3) | CVSS 10.0 (GitHub) / 7.4 (Red Hat). Auth bypass: signature validated on signed bytes, identity extracted from original unverified DOM. node-saml < 5.1.0; downstream: passport-saml, twentyhq/twenty, Infisical, OpenCTI |
 | S7-1 (Golden SAML) | SolarWinds/SUNBURST (2020, ongoing relevance) | Nation-state persistent access. Used by UNC2452/Nobelium for lateral movement across Microsoft 365 tenants |
 | S7-1 (Silver SAML) | Semperis Research (2024) | Entra ID assertion forgery via externally generated certificate compromise. Evades Golden SAML mitigations |
 | S5-1 (XXE via SAML) | Oracle Commerce Cloud (2023) | SSRF via XXE in SAML login flow. File read and internal service access |
+| S6-1 (Replay Cache Absence) | CVE-2025-64131 (Jenkins SAML Plugin) | CVSS 8.4. Auth bypass via replay of intercepted SAML authentication flow. Jenkins SAML Plugin < 4.583.585.v22ccc1139f55 |
+| S6-4 (RelayState Open Redirect) | CVE-2026-22032 (Directus) | Open redirect via unvalidated RelayState on SAML callback endpoint. Callback path skips allowlist validation applied during login initiation |
+| S6-5 (IdP-Initiated Broker Bypass) | CVE-2026-3047 (Keycloak) | CVSS 8.8. Disabled SAML client as IdP-initiated broker landing target still completes login, granting SSO access to all enabled clients. Keycloak < 26.5.5 |
+| S5-2 (Compressed Response DoS) | CVE-2025-25293 (ruby-saml) | CVSS 7.5. DoS via compressed SAML response bypassing pre-inflation size check. ~1:1000 deflate ratio yields ~250MB inflated payload. ruby-saml < 1.18.0 |
+| S5-2 (Validation Order DoS) | CVE-2025-54572 (ruby-saml) | DoS via large non-Base64 input — regex format validation runs before size check, consuming excessive CPU/memory. ruby-saml < 1.18.1 |
 | S4-1 (Signature Stripping) | Rocket.Chat HackerOne Report #812064 | Admin authentication bypass — SAML responses not checked for signature presence |
 | S6-2 + S6-3 (Identity + Recipient Confusion) | CVE-2020-2021 (PAN-OS) | CVSS 10.0. SAML auth bypass when SAML is enabled and "Validate Identity Provider Certificate" is disabled |
 
@@ -377,7 +409,9 @@ Beyond parser differentials, individual library implementations contain unique p
 
 SAML's mutation surface is fundamentally a consequence of using XML — a format designed for maximum structural flexibility — as the carrier for security-critical authentication assertions. The entire security model depends on a single assumption: that the element verified by the digital signature is *exactly* the element the SP processes for authentication decisions. Every category in this taxonomy represents a different way to violate that assumption — by moving elements (S1), by making parsers disagree about structure (S2), by breaking canonicalization (S3), by skipping verification steps (S4), by attacking the XML layer itself (S5), by exploiting protocol-level gaps (S6), by compromising the trust infrastructure (S7), or by exploiting library-specific bugs (S8).
 
-Incremental patches consistently fail to eliminate SAML threats because each library implements its own XML parsing, canonicalization, XPath evaluation, and signature verification stack. A fix in one library (e.g., ruby-saml) does not protect another (e.g., xml-crypto or samlify), and the same *class* of vulnerability (parser differentials, void canonicalization, comment injection) recurs independently across languages and ecosystems. The 2025 research wave — demonstrating void canonicalization, SAMLStorm comment injection, and parser differential attacks — affected Ruby, PHP, Node.js, and Go ecosystems simultaneously, despite decades of prior research on SAML signature wrapping.
+Incremental patches consistently fail to eliminate SAML threats because each library implements its own XML parsing, canonicalization, XPath evaluation, and signature verification stack. A fix in one library (e.g., ruby-saml) does not protect another (e.g., xml-crypto or samlify), and the same *class* of vulnerability (parser differentials, void canonicalization, comment injection) recurs independently across languages and ecosystems. The 2025 research wave — demonstrating void canonicalization, SAMLStorm comment injection, and parser differential attacks — affected Ruby, PHP, and Node.js ecosystems simultaneously, despite decades of prior research on SAML signature wrapping. (Go ecosystem SAML vulnerabilities such as CVE-2022-41912 in crewjam/saml predate this wave and are not part of the same coordinated disclosure.)
+
+A practical hardening step available today is **enforcing single-assertion responses**: GitHub's post-incident analysis concludes that permitting multiple `<Assertion>` elements within a single `<Response>` multiplies XSW structural ambiguity, and recommends rejecting any response containing more than one Assertion. This eliminates an entire class of wrapping attacks (S1-2 variants, S1-3 Encrypted Assertion Wrapping) by removing the structural flexibility that XSW exploits.
 
 A structural solution would require either (a) abandoning XML in favor of a simpler, unambiguous token format (as OIDC/JWT partially achieves), (b) mandating a single canonical XML parser implementation across all processing stages, or (c) redesigning the signature-to-content binding to be structurally inseparable rather than reference-based. Until then, SAML remains a protocol where every XML parser quirk, every library implementation choice, and every canonicalization edge case is a potential authentication bypass.
 
@@ -392,6 +426,13 @@ A structural solution would require either (a) abandoning XML in favor of a simp
 - ProjectDiscovery, "GitHub Enterprise SAML Authentication Bypass (CVE-2024-4985 / CVE-2024-9487)" — https://projectdiscovery.io/blog/github-enterprise-saml-authentication-bypass
 - Semperis, "Meet Silver SAML: Golden SAML in the Cloud" (2024) — https://www.semperis.com/blog/meet-silver-saml/
 - NCC Group, "SAML XML Injection" — https://www.nccgroup.com/research-blog/saml-xml-injection/
+- GitHub Blog, "Inside GitHub: How we hardened our SAML implementation" — https://github.blog/engineering/platform-security/inside-github-how-we-hardened-our-saml-implementation/
+- GitHub Blog, "Sign in as anyone: Bypassing SAML SSO authentication with parser differentials" (2025) — https://github.blog/security/sign-in-as-anyone-bypassing-saml-sso-authentication-with-parser-differentials/
+- Jenkins Security Advisory 2025-10-29 (CVE-2025-64131) — https://www.jenkins.io/security/advisory/2025-10-29/
+- Directus Advisory GHSA-3573-4c68-g8cc (CVE-2026-22032) — https://github.com/directus/directus/security/advisories/GHSA-3573-4c68-g8cc
+- Keycloak 26.5.5 Release / CVE-2026-3047 — https://www.keycloak.org/2026/03/keycloak-2655-released
+- RubySec CVE-2025-25293 (Compressed SAML DoS) — https://rubysec.com/advisories/CVE-2025-25293/
+- RubySec CVE-2025-54572 (Large SAML Response DoS) — https://rubysec.com/advisories/CVE-2025-54572/
 - WorkOS, "Fun with SAML SSO Vulnerabilities and Footguns" — https://workos.com/blog/fun-with-saml-sso-vulnerabilities-and-footguns
 - WorkOS, "Common SAML Security Vulnerabilities" — https://workos.com/guide/common-saml-security-vulnerabilities
 - NetSPI, "Attacking SSO: Common SAML Vulnerabilities and Ways to Find Them" — https://www.netspi.com/blog/technical-blog/web-application-penetration-testing/attacking-sso-common-saml-vulnerabilities-ways-find/

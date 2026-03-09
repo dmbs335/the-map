@@ -490,7 +490,7 @@ The most resilient fingerprinting techniques combine multiple signal sources or 
 
 | Mutation Category | CVE / Case | Impact / Bounty |
 |---|---|---|
-| §2-5 (WebRTC IP Leak) | CVE-2018-6849 / Ongoing across browsers | Local/public IP exposure bypassing VPN. Partial mitigations via mDNS; STUN leak persists |
+| §2-5 (WebRTC IP Leak) | CVE-2018-6849 (DuckDuckGo Privacy Browser 4.2.0) | Private IP leak via STUN request in DuckDuckGo browser. Note: WebRTC IP leak is a broader class affecting multiple browsers, but this specific CVE targets DuckDuckGo only |
 | §2-1 (Canvas) + §4 (System) | CVE-2024-23206 (Apple Safari/WebKit) | Maliciously crafted webpage could fingerprint users. Fixed in iOS 17.3, macOS Sonoma 14.3 |
 | §6-1 (CMS Fingerprint) → RCE | CVE-2024-34102 (Magento CosmicSting) | ScreamedJungle campaign: 115+ e-commerce sites compromised to inject Bablosoft fingerprinting JS via exploited Magento vulnerabilities |
 | §6-1 (CMS Fingerprint) → RCE | CVE-2024-20720 (Magento) | Used in combination with CVE-2024-34102 for fingerprint injection campaigns |

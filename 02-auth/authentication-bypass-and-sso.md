@@ -336,7 +336,7 @@ Exploiting differences in how proxy/WAF and application normalize URL paths, all
 | §5-1 (CAS Flow Mgmt) | Apereo Advisory (Sep 2025) | Apereo CAS 7.x | OAuth/OIDC flow manipulation → auth bypass; CVSS ~7.5 |
 | §6-1 (FIDO Credential Confusion) | CVE-2025-26788 | StrongKey FIDO Server 4.10–4.15 | Account takeover via discoverable/non-discoverable credential confusion |
 | §6-3 (BLE Proximity Hijack) | CVE-2024-9956 | Google Chrome Android | WebAuthn BLE proximity attack → credential capture |
-| §7-1 (Middleware Header) | CVE-2025-29927 | Next.js (all versions) | Complete auth middleware bypass; CVSS 9.1 |
+| §7-1 (Middleware Header) | CVE-2025-29927 | Next.js 11.1.4–12.3.4, 13.0.0–13.5.8, 14.0.0–14.2.24, 15.0.0–15.2.2 | Complete auth middleware bypass; CVSS 9.1 |
 | §7-2 (WebSocket Bypass) | CVE-2024-55591 | FortiOS 7.0.x / FortiProxy | Super-admin via WebSocket; CVSS 9.8; zero-day exploited since Nov 2024 |
 | §7-2 (Mgmt Interface) | CVE-2024-0012 | Palo Alto PAN-OS | Unauthenticated admin access to management web interface |
 | §7-2 (Mgmt Interface) | CVE-2025-0108 | Palo Alto PAN-OS | Auth bypass in management web interface |

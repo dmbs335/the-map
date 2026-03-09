@@ -343,7 +343,7 @@ The original PKWARE encryption scheme (ZipCrypto) is fundamentally broken but re
 | §1-1 (classic path traversal) | CVE-2025-65346 (unzip functionality) | Path traversal via unsanitized destination paths in ZIP entries. |
 | §1-1 (path traversal) | CVE-2025-12060 (Keras) | Directory traversal in ML framework archive extraction. |
 | §3-1 (CRC mismatch → scanner crash) | CVE-2025-1944 (picklescan < 0.0.23) | ZIP header manipulation crashes scanner; PyTorch still loads malicious model. |
-| §4-3 (quoted-overlap bomb) | CVE-2024-0450 (CPython zipfile) | Quoted-overlap zip-bomb in Python's zipfile module; all Python versions affected. |
+| §4-3 (quoted-overlap bomb) | CVE-2024-0450 (CPython zipfile) | Quoted-overlap zip-bomb in Python's zipfile module. Affected: <= 3.12.1, <= 3.11.7, <= 3.10.13, <= 3.9.18, <= 3.8.18. Fixed in 3.12.2, 3.11.8, 3.10.14, 3.9.19, 3.8.19. |
 | §4-1 (decompression DoS) | CVE-2025-69223 (AIOHTTP ≤ 3.13.2) | Zip bomb exhausts host memory via HTTP/gRPC. |
 | §4-1 (decompression DoS) | CVE-2025-63914 (Cinnamon/kotaemon) | No decompression limits → DoS via zip bomb. |
 | §1-1 (Zip Slip) | CVE-2024-21518 (OpenCart) | Marketplace installer Zip Slip → arbitrary file write via admin panel. |

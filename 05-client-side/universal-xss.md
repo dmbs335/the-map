@@ -375,7 +375,7 @@ MHTML (MIME HTML) is a web page archive format that bundles HTML, CSS, images, a
 | §5-1 (bindings check) | 94 Chromium UXSS bugs (2014–2018) | All mitigated by Site Isolation deployment |
 | §6-1 (NTP XSS) | Chromium NTP bug (2021) | XSS on New Tab Page with Mojo IPC access |
 | §6-4 (bookmark UXSS) | CVE-2016-5191 (Chromium) | UXSS via bookmark with user information |
-| §7-1 (WebView UXSS) | CVE-2020-6506 (Android) | Universal XSS in Android WebView; all apps affected |
+| §7-1 (WebView UXSS) | CVE-2020-6506 (Chrome on Android < 83.0.4103.106) | WebView policy bypass allowing cross-origin iframe script execution; affects apps using vulnerable WebView versions |
 | §7-1 (WebView SOP bypass) | CVE-2014-6041 (Android < 4.4) | SOP bypass in Android default browser |
 | §7-2 (in-app browser) | CVE-2024-5739 (LINE iOS) | UXSS in LINE in-app browser |
 | §7-2 (iOS semi-UXSS) | CVE-2019-17004 (Firefox iOS) | Semi-UXSS affecting Firefox for iOS |

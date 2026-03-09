@@ -263,7 +263,7 @@ A flaw in MongoDB's zlib message decompression implementation allows unauthentic
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
-| **Heap Buffer Over-Read** | Attacker sends compressed message with header claiming inflated size far exceeding actual payload. Server allocates large buffer, decompresses small payload into it, then returns the full buffer — including uninitialized heap memory containing fragments of other connections' data (credentials, queries, session tokens). | zlib compression enabled (default configuration); MongoDB versions before 8.2.3/8.0.17/7.0.28/6.0.27/5.0.32/4.4.30 |
+| **Heap Buffer Over-Read** | Attacker sends compressed message with header claiming inflated size far exceeding actual payload. Server allocates large buffer, decompresses small payload into it, then returns the full buffer — including uninitialized heap memory containing fragments of other connections' data (credentials, queries, session tokens). | zlib compression negotiated (zlib is in the default compressor advertisement list; active only when both client and server agree on zlib); MongoDB versions before 8.2.3/8.0.17/7.0.28/6.0.27/5.0.32/4.4.30 |
 
 This is architecturally similar to Heartbleed (CVE-2014-0160): a protocol-level memory disclosure caused by trusting attacker-controlled length fields. Unlike query-level injection, it requires no authentication and no application-layer vulnerability — only network access to the MongoDB port (default 27017).
 
@@ -352,7 +352,7 @@ An ObjectId's 24 hex characters encode:
 | **Cross-Collection Access** | §3-1 ($lookup, $unionWith), §3-3 ($project) | Aggregation pipeline injectable; collection names known |
 | **Data Modification / Insertion** | §3-2 ($merge insert/merge), §7-3 (mass assignment) | Write-capable pipeline stages; or update endpoints without field restriction |
 | **Denial of Service** | §2-1 (infinite loop), §5-2 (ReDoS), §1-2 (catastrophic regex) | JavaScript execution or regex evaluation without timeout |
-| **Information Disclosure (Memory)** | §6-1 (MongoBleed) | Network access to MongoDB port; zlib compression enabled (default) |
+| **Information Disclosure (Memory)** | §6-1 (MongoBleed) | Network access to MongoDB port; zlib compression negotiated (zlib is in default compressor list but only active when client-server agree) |
 | **IDOR / Authorization Bypass** | §8-2 (ObjectId prediction) | Missing authorization checks; ObjectId used as access token |
 
 ---

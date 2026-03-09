@@ -241,7 +241,7 @@ Many applications use WebSocket as a transport for higher-level protocols (STOMP
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
-| **Event Name Type Confusion** | Sending Socket.IO packets where the event name is an object instead of a string; server calls `eventName.toString()` on the object, which throws an uncaught exception and crashes the Node.js process. Variant: crafted packets override the `toString()` method on the event name object for targeted crash when the EventEmitter resolves the handler | Socket.IO < 4.6.2 (CVE-2023-32695) |
+| **Event Name Type Confusion** | Sending Socket.IO packets where the event name is an object instead of a string; server calls `eventName.toString()` on the object, which throws an uncaught exception and crashes the Node.js process. Variant: crafted packets override the `toString()` method on the event name object for targeted crash when the EventEmitter resolves the handler | socket.io-parser < 3.3.4, 3.4.0–3.4.2, 4.0.4–4.2.2; fixed in 3.3.4, 3.4.3, 4.2.3 (CVE-2023-32695) |
 | **Namespace Injection** | Connecting to unauthorized Socket.IO namespaces that expose privileged event handlers or data streams | Missing per-namespace authentication/authorization |
 | **Binary Attachment Manipulation** | Socket.IO's binary attachment mechanism can be abused to inject unexpected binary data or trigger deserialization vulnerabilities | Server processes binary attachments without type validation |
 | **Engine.IO Polling Fallback Exploitation** | When WebSocket is unavailable, Socket.IO falls back to HTTP long polling; this fallback may have different security characteristics (vulnerable to standard HTTP CSRF, different auth handling) | Inconsistent security policy between WS and polling transports |
@@ -342,12 +342,12 @@ WebSocket's persistent, asynchronous nature creates timing-sensitive state manag
 | Mutation Combination | CVE / Case | Impact / Bounty |
 |---|---|---|
 | §2-1 + §1-1 (Unauthenticated local WS + port brute-force) | CVE-2025-52882 (Claude Code MCP Server) | CVSS 8.8 — Arbitrary file read, code execution via unauthenticated localhost WebSocket |
-| §7-1 (STOMP frame smuggling, pre-CONNECT injection) | CVE-2025-41254 (Spring Framework) | Medium — Unauthorized STOMP messages bypass CSRF protection; affects Spring 4.3–6.2 |
+| §7-1 (STOMP frame smuggling, pre-CONNECT injection) | CVE-2025-41254 (Spring Framework) | CVSS 4.3. Unauthorized STOMP messages bypass CSRF protection; affects 5.3.0–5.3.45, 6.0.x–6.0.29, 6.1.0–6.1.23, 6.2.0–6.2.11. Fixed in 5.3.46, 6.1.24, 6.2.12 |
 | §3-2 (Predictable masking key) | CVE-2025-10148 (curl) | Proxy cache poisoning via static WebSocket masking key reused across entire connection |
 | §2-1 + §1-2 (Auth bypass via Node.js WS module) | CVE-2024-55591 (FortiOS/FortiProxy) | CVSS 9.6 — Super-admin privilege gain via crafted WebSocket requests; actively exploited in the wild |
 | §1-1 (CSWSH, missing Origin validation) | CVE-2024-26135 (MeshCentral) | Cross-site WebSocket hijacking enables unauthorized management operations |
-| §1-1 + §1-2 (CSWSH, subdomain trust) | CVE-2024-11045 (various) | CSWSH via subdomain trust boundaries |
-| §7-2 (Socket.IO event name type confusion) | CVE-2023-32695 (Socket.IO) | DoS — Server crash via crafted event name object that overrides `toString()` |
+| §1-1 (CSWSH, localhost WS) | CVE-2024-11045 (AUTOMATIC1111/stable-diffusion-webui) | CSWSH on localhost WebSocket queue/join endpoint — attacker page hijacks local SD WebUI session |
+| §7-2 (Socket.IO event name type confusion) | CVE-2023-32695 (socket.io-parser) | DoS — Server crash via crafted event name object that overrides `toString()`. Affects socket.io-parser < 3.3.4, 3.4.0–3.4.2, 4.0.4–4.2.2 |
 | §1-1 + §6-2 (CSWSH + subdomain XSS chain) | CVE-2023-0957 (Gitpod) | Full account compromise — CSWSH + SameSite bypass + VS Code server exploitation |
 | §8-1 (Connection resource exhaustion) | Apache Tomcat WebSocket DoS (2024) | DoS — WebSocket client keeps connection open, exhausting server resources |
 | §1-1 (CSWSH with GraphQL mutations) | Include Security 2025 Research | Account deletion via GraphQL-over-WebSocket CSWSH; `SameSite=None` cookies; blocked in Firefox |

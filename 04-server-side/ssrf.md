@@ -68,6 +68,15 @@ IPv6 syntax introduces multiple encoding possibilities and mixed-format notation
 | **IPv6 with embedded decimal** | Hybrid notation mixing IPv6 and dotted-decimal | `http://[::ffff:169.254.169.254]/` | Parser normalizes to target IPv4 |
 | **Expanded zeros** | Fully expanded IPv6 with redundant zeros | `http://[0:0:0:0:0:0:0:1]/` | Regex-based filter expects compressed form |
 
+### §1-4. IP Classification Logic Gaps
+
+Standard library IP classification functions may have ranges that fall through both private and public checks, creating SSRF bypass opportunities.
+
+| Subtype | Mechanism | Example Payload | Key Condition |
+|---|---|---|---|
+| **Python `is_private` / `is_global` gap** | `ipaddress.is_private('100.64.1.1')` = `False` AND `is_global('100.64.1.1')` = `False` — Shared Address Space (100.64.0.0/10) classified as NEITHER private NOR global, falling through both allowlist and blocklist checks | `http://100.64.1.1/admin/` | Python < 3.12.4; SSRF guard relies on `is_private` or `is_global` (CVE-2024-4032) |
+| **Unclassified special ranges** | Other ranges returning `is_private=False, is_global=False`: `192.0.0.0/24` (IANA special), `198.18.0.0/15` (benchmarking), `240.0.0.0/4` (reserved) — all reachable on some networks but unblocked by standard checks | `http://198.18.0.1/` | Python < 3.12.4; any language with incomplete IP classification |
+
 ---
 
 ## §2. Hostname and Domain Manipulation
@@ -407,7 +416,7 @@ When an AWS SDK client is initialized without explicit credentials (or credentia
 | §8-1 + §1 | **Capital One breach (2019)** | AWS metadata exfiltration via SSRF. $80M+ in damages. Landmark case |
 | §7-1 + §8-1 | **Shopify SSRF (HackerOne)** | 303 redirect bypass to cloud metadata. Significant bounty |
 | §8-1 + §1 | **EC2 IMDS campaign (March 2025)** | Systematic targeting of EC2 instances via SSRF for IAM credential theft |
-| — | **Oracle EBS CVE-2025-61882** | Pre-Auth RCE (CWE-287). 초기 NVD에 CWE-918 태그 후 제거됨. Cl0p 무기화; CISA KEV. SSRF가 아닌 인증 우회 체인 |
+| — | **~~Oracle EBS CVE-2025-61882~~** | **Removed from SSRF mapping.** Pre-Auth RCE (CWE-287); 초기 NVD에 CWE-918 태그 후 제거됨. 핵심은 인증 우회 + XSLT RCE 체인이며 SSRF가 아님. See `ssi-esi-xslt-injection.md` §4-5 and `document-media-processing-library-rce.md` §8-1 |
 | §5-1 + §7-2 | **CVE-2021-26855 (Microsoft Exchange, ProxyLogon)** | Pre-auth SSRF via cookie-based backend selection (`X-BEResource`). `UriBuilder` parsing bypass grants access to arbitrary backend ports with Exchange machine account Kerberos ticket. Chained with CVE-2021-27065 (file write) for pre-auth RCE. Pwnie Award 2021 |
 | §5-1 | **CVE-2021-34473 (Microsoft Exchange, ProxyShell)** | Pre-auth path confusion → ACL bypass (SSRF component). Full chain requires two additional CVEs: PowerShell backend elevation (CVE-2021-34523) + arbitrary file write (CVE-2021-31207). **$200,000** Pwn2Own Vancouver 2021 (3-CVE chain total) |
 

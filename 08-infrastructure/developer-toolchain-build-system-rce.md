@@ -263,7 +263,7 @@ AI coding assistants (GitHub Copilot, Cursor, Windsurf, Codex CLI) and MCP (Mode
 |---------|-----------|---------------|
 | **MCP Server Command Injection** | 43% of analyzed MCP server implementations contain command injection flaws. Attackers can inject OS commands through tool parameters that are passed to shell execution. (CVE-2026-0755, CVSS 9.8) | Developer uses MCP server that passes inputs to shell |
 | **MCP Inspector DNS Rebinding RCE** | CVE-2025-49596 (CVSS 9.4): Anthropic's MCP Inspector was vulnerable to DNS rebinding, allowing browser-based attacks to execute code on the developer's machine. | Developer runs MCP Inspector with default network binding |
-| **NeighborJack (0.0.0.0 Binding)** | Hundreds of MCP servers bind to `0.0.0.0` by default, exposing command injection and SSRF surfaces to the local network and internet. 437,000+ developer environments compromised via CVE-2025-6514. | MCP server running with default configuration without firewall |
+| **NeighborJack (0.0.0.0 Binding)** | Hundreds of MCP servers bind to `0.0.0.0` by default, exposing command injection and SSRF surfaces to the local network and internet. mcp-remote had 437K+ cumulative npm downloads at disclosure (CVE-2025-6514) — this is download count, not confirmed compromised environments. | MCP server running with default configuration without firewall |
 | **MCP Tool Poisoning** | Malicious MCP tool descriptions embed hidden instructions that override the AI assistant's behavior, causing it to execute attacker-controlled actions when the tool is invoked. | Developer adds untrusted MCP server to their environment |
 
 ### §6-3. AI Codex CLI & Agent Exploitation
@@ -357,7 +357,7 @@ Real-world exploitation chains mutations across multiple toolchain components.
 | §6-3 | **CVE-2025-61260** (OpenAI Codex CLI RCE) | Configuration file RCE on developer machines via malicious MCP server entries. | 2025 |
 | §6-2 | **CVE-2025-49596** (MCP Inspector DNS rebinding RCE) | CVSS 9.4. Browser-based RCE against Anthropic's MCP Inspector. First critical MCP ecosystem RCE. | 2025 |
 | §6-2 | **CVE-2026-0755** (Gemini MCP Tool RCE) | CVSS 9.8. Command injection in gemini-mcp-tool. | 2026 |
-| §6-2 | **CVE-2025-6514** (MCP NeighborJack) | 437,000+ developer environments compromised via MCP servers bound to 0.0.0.0. | 2025 |
+| §6-2 | **CVE-2025-6514** (mcp-remote) | RCE via crafted authorization_endpoint. 437K+ cumulative npm downloads at disclosure (not confirmed compromised environments). | 2025 |
 | §6-1 | **IDEsaster** (30+ CVEs) | CVE-2025-64660, CVE-2025-61590, CVE-2025-58372, etc. Prompt injection → RCE across Cursor, Copilot, Windsurf, Zed, Roo Code, Junie, Cline. | 2025 |
 | §5-1 | **GlassWorm** (VSCode Extension) | Invisible Unicode-based RAT deployed via compromised Open VSX and VSCode Marketplace extensions. | 2025 |
 | §5-1 | **TigerJack** (VSCode Extension) | C++ Playground + HTTP Format extensions: 17,000+ downloads. Keylogger + crypto miner. | 2025 |
@@ -476,7 +476,7 @@ The 2024-2025 attack wave demonstrates a clear trend: **the developer's local en
 - CVE-2025-54313: eslint-config-prettier Supply Chain Compromise
 - CVE-2025-49596: Anthropic MCP Inspector DNS Rebinding RCE (CVSS 9.4)
 - CVE-2025-61260: OpenAI Codex CLI Configuration RCE
-- CVE-2025-6514: MCP NeighborJack (437K+ environments)
+- CVE-2025-6514: mcp-remote RCE (437K+ cumulative npm downloads)
 - CVE-2026-0755: Gemini MCP Tool Command Injection (CVSS 9.8)
 - GHSA-6j2p-252f-7mw8: Gradle Environment Variable Code Execution
 - Go cgo CVE Series: CVE-2018-6574, CVE-2020-28366, CVE-2020-28367, CVE-2023-29404, CVE-2023-29405, CVE-2023-39323, CVE-2024-24787
