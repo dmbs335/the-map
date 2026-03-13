@@ -67,7 +67,7 @@ PostMessage enables intentional cross-origin communication but becomes a bypass 
 | **Domain Prefix Matching** | Origin check uses indexOf() or startsWith() allowing attacker domains | `if(e.origin.indexOf('example.com')>=0)` matches attacker.example.com.evil |
 | **Wildcard Origin Acceptance** | Listener accepts "*" origin or checks for generic patterns | Authentication tokens sent via postMessage with wildcard targetOrigin |
 | **Null Origin Bypass** | Origin validation checks for specific origin but null origin opens window and inherits same origin | Srcdoc iframe postMessage to parent window bypasses origin check |
-| **Confused Deputy via Identifier Replacement** | Attacker captures legitimate postMessage requests and replaces identifiers with base64-encoded malicious payloads (Microsoft Teams CVE-2024-49038) | Application trusts message format without validating source |
+| **Confused Deputy via Identifier Replacement** | Attacker captures legitimate postMessage requests and replaces identifiers with base64-encoded malicious payloads (Microsoft Copilot Studio CVE-2024-49038) | Application trusts message format without validating source |
 | **Frame Window Reference Manipulation** | Attacker obtains reference to victim window via window.open() and sends messages before navigation | Message arrives before page fully loads and establishes proper origin checks |
 
 A significant vulnerability class involves applications that process postMessage data without origin validation. For example, Microsoft Copilot Studio (CVE-2024-49038, CVSS 9.3) allowed cross-tenant data exfiltration because postMessage handlers trusted any origin when processing authentication tokens.
@@ -83,9 +83,9 @@ Direct cross-origin resource access bypassing SOP through protocol-level or brow
 | **CSS Cross-Origin Leak** | CSS can load cross-origin resources and leak information through timing, error events, or computed styles | Font-face, @import, background-image leak authentication status |
 | **WebSocket Cross-Origin** | WebSocket handshake doesn't enforce SOP; servers may not validate Origin header (CSWSH) | WebSocket connection from attacker.com to victim.com succeeds without CSRF token |
 | **DNS Rebinding** | Attacker domain resolves to internal IP after victim loads page, bypassing same-origin check | Attacker controls DNS with low TTL, switching from external IP to 127.0.0.1 |
-| **0.0.0.0 Day (Localhost Bypass)** | Browsers allowed web pages to make requests to `0.0.0.0`, which maps to localhost (`127.0.0.1`) on macOS and Linux. This bypassed all existing localhost protections — PNA (Private Network Access), Chrome's `localhost` blocking, and Firefox's CORS-RFC1918 — because `0.0.0.0` was not classified as a private/local address. Attacker pages could reach local development servers (Selenium WebDriver, Pytorch TorchServe, etc.) via `fetch('http://0.0.0.0:port/')` (Oligo Security, Aug 2024) | macOS or Linux host running local services; browser treats `0.0.0.0` as non-private address; 18-year-old bug across Chrome, Firefox, Safari |
+| **0.0.0.0 Day (Localhost Bypass)** | Browsers allowed web pages to make requests to `0.0.0.0`, which maps to localhost (`127.0.0.1`) on macOS and Linux. This bypassed existing localhost protections — PNA (Private Network Access) and Chrome's `localhost` blocking — because `0.0.0.0` was not classified as a private/local address. Note: Firefox had not implemented PNA/CORS-RFC1918 at the time, so it was not a matter of "bypassing" Firefox's protection but rather the absence of such protection. Attacker pages could reach local development servers (Selenium WebDriver, Pytorch TorchServe, etc.) via `fetch('http://0.0.0.0:port/')` (Oligo Security, Aug 2024) | macOS or Linux host running local services; browser treats `0.0.0.0` as non-private address; 18-year-old bug across Chrome, Firefox, Safari |
 | **Document.domain Mutation** | Legacy document.domain setter allows same-site but different-origin pages to access each other | Both pages set document.domain to common parent. Chrome 115+ (2023) effectively disabled the setter by default via `Origin-keyed agent clusters`; Firefox and Safari still support it. Chrome sites can re-enable via `Origin-Agent-Cluster: ?0` header or enterprise policy, but the default behavior no longer permits cross-origin DOM access via this mechanism |
-| **Navigation API History Leak** | Chrome's Navigation API (`navigation.entries()`) exposed cross-origin URL information through navigation history entries, leaking full URLs of previously visited cross-origin pages (CVE-2022-4908; NVD categorizes as "Inappropriate implementation in iFrame Sandbox" but the actual vector is Navigation API per the researcher's disclosure) | Chrome < 107.0.5304.62 with Navigation API enabled; victim navigates to cross-origin pages before attacker reads entries |
+| **Navigation API History Leak** | Chrome's Navigation API (`navigation.entries()`) exposed cross-origin URL information through navigation history entries, leaking full URLs of previously visited cross-origin pages (CVE-2022-4908; NVD describes as "Inappropriate implementation in **Permissions**"). Researcher Johan Carlsson's disclosure attributes the root cause to the Navigation API, but the official NVD description does not specify this — the Navigation API attribution is researcher analysis, not the official characterization | Chrome < 107.0.5304.62 with Navigation API enabled; victim navigates to cross-origin pages before attacker reads entries |
 
 ---
 
@@ -151,11 +151,11 @@ Attacking the CSP policy itself rather than bypassing it.
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
 | **Header Injection for CSP Weakening** | Attacker injects additional CSP header; however, browsers enforce **all** CSP headers independently (intersection, not union), so an injected weaker policy cannot weaken an existing strict policy. The real risk is injecting `Content-Security-Policy-Report-Only` for exfiltration, or injecting the **first** CSP header when none exists. | CRLF injection in response headers; no existing CSP policy, or targeting report-only exfiltration |
-| **Meta Tag CSP Override** | HTML meta CSP tag competes with HTTP header; browsers may apply both or prefer one | Attacker injects <meta http-equiv="Content-Security-Policy" content="script-src *"> |
+| **Meta Tag CSP Addition** | HTML meta CSP tag adds an additional CSP policy alongside the HTTP header. Per the spec, multiple CSP policies are enforced independently (intersection) — a meta tag cannot weaken an existing HTTP header policy. The real risk is injecting CSP via meta tag when no HTTP header CSP exists, or exploiting browser implementation bugs in multi-policy enforcement | Attacker injects `<meta http-equiv="Content-Security-Policy">` when no existing CSP is set, or targets browser bugs in multi-policy handling |
 | **CSP Reporting Endpoint Injection** | Attacker controls report-uri endpoint, receiving reports containing sensitive data | CSP report-uri points to attacker domain; violations leak page content |
 | **Browser Extension CSP Bypass** | Inappropriate handling in Chromium's Extensions implementation allows CSP bypass via a crafted HTML page (CVE-2025-9866). NVD describes this as an Extensions implementation flaw, not a webRequest API mechanism — the specific bypass vector has not been publicly detailed beyond the Chromium advisory. | Chromium-based browser with vulnerable Extensions implementation |
 | **Browser Engine CSP Implementation Bug** | Bugs in the browser engine's CSP implementation itself (WebKit/Safari, etc.) can nullify correctly-defined CSP policies. Examples include WebKit failing to enforce the CSP sandbox directive to block cross-origin iframe credential access, or `strict-dynamic` interpretation differences causing inline script execution only on specific engines. The attack vector is not the policy definition but the *engine's conformance level with the specification*. | Browser engine's CSP implementation deviates from the W3C specification; attacker can fingerprint the victim's browser engine |
-| **CSP Inheritance Failure** | Browser fails to inherit parent CSP when child navigates to javascript:/data:/blob: URLs dynamically, or when child opens static files (.txt/.ico). Safari allowed eval() from about:blank child despite parent blocking unsafe-eval; Chromium failed on asynchronous javascript: navigation. Static file inheritance is a spec ambiguity (DiffCSP, NDSS 2023 — 6 bugs). | Dynamic iframe.src change; child window opening static files; Safari or Chromium |
+| **CSP Inheritance Failure** | Browser fails to inherit parent CSP when child navigates to javascript:/data:/blob: URLs dynamically, or when child opens static files (.txt/.ico). Safari allowed eval() from about:blank child despite parent blocking unsafe-eval; Chromium failed on asynchronous javascript: navigation. Static file inheritance is a spec ambiguity (DiffCSP, NDSS 2023 — 29 security bugs found total; 6 subsequently patched in Chrome/Safari). | Dynamic iframe.src change; child window opening static files; Safari or Chromium |
 | **CSP Hash Handling Bug** | Chromium allowed arbitrary inline scripts in javascript: navigation regardless of hash value in script-src-elem; WebKit used hash-source from script-src to override explicit script-src-elem/script-src-attr 'none' directives due to incorrect fallback logic (DiffCSP, NDSS 2023 — 3 bugs). | CSP uses hash-source with script-src-elem; Chromium or Safari |
 | **CSP3 Directive Non-Support** | Browser claims CSP3 support but specific directives (script-src-elem, script-src-attr) are unimplemented. Firefox lacked support for ~3 years; operators specifying these directives find their CSP silently ineffective (DiffCSP, NDSS 2023). | script-src-elem or script-src-attr in CSP; Firefox (pre-July 2022) |
 | **CSP Directive Fallback Failure** | Browser does not support nonce-source, hash-source, or strict-dynamic in default-src fallback. When script-src is absent, these values are silently ignored — e.g., hash-source presence should disable unsafe-inline, but browsers ignoring it in default-src continue honoring unsafe-inline (DiffCSP, NDSS 2023). Firefox lacked support 6+ years. | CSP relies on default-src without explicit script-src; Firefox or Safari |
@@ -225,7 +225,7 @@ These headers control whether a page can be framed, preventing clickjacking.
 | **Double Framing X-FO: SAMEORIGIN** | X-Frame-Options: SAMEORIGIN prevents cross-origin framing but allows same-origin; attacker uses double iframe | `attacker.com` (top) frames `victim.com/page-A` (intermediary) which frames `victim.com/page-B` (target); legacy browsers only checked the immediate parent's origin, so page-B sees page-A as same-origin and allows framing despite the top-level being attacker.com |
 | **Frame-Ancestors Null Origin** | CSP frame-ancestors validation doesn't properly reject null origin | Sandboxed iframe with null origin bypasses frame-ancestors check |
 | **Clickjacking on XFO Error Page** | Firefox native error page when X-FO blocks framing can itself be clickjacked (CVE-2024-5691) | Attacker frames the error page and performs clickjacking on it |
-| **Portal Element Frame Bypass** | The experimental `<portal>` element embeds cross-origin pages for seamless navigation transitions. Portals ignore `X-Frame-Options` because embedded content is treated as a top-level browsing context rather than a frame (confirmed by Bentkowski / Securitum, 2019; $10K bounty). CSP `frame-ancestors` also does not cover `<portal>` — the directive's scope is limited to `<frame>`, `<iframe>`, `<object>`, `<embed>` per spec, with no mention of portals. An attacker uses `<portal src="https://victim.com">` to embed protected pages; portal activation (user click) navigates the top-level context to the embedded page, enabling clickjacking disguised as interactions with the attacker's page | Target browser supports `<portal>` element (Chrome experimental); victim page relies on X-Frame-Options or frame-ancestors without additional defenses (Bentkowski / Securitum, 2019) |
+| **Portal Element Frame Bypass** | The experimental `<portal>` element embeds cross-origin pages for seamless navigation transitions. Portals ignore `X-Frame-Options` because embedded content is treated as a top-level browsing context rather than a frame (Bentkowski / Securitum, 2019; the $10K Google bounty was for a related SOP bypass / local file disclosure bug, not for the X-FO bypass itself — the X-FO behavior is a spec-level design decision). CSP `frame-ancestors` also does not cover `<portal>` — the directive's scope is limited to `<frame>`, `<iframe>`, `<object>`, `<embed>` per spec, with no mention of portals. An attacker uses `<portal src="https://victim.com">` to embed protected pages; portal activation (user click) navigates the top-level context to the embedded page, enabling clickjacking disguised as interactions with the attacker's page | Target browser supports `<portal>` element (Chrome experimental); victim page relies on X-Frame-Options or frame-ancestors without additional defenses (Bentkowski / Securitum, 2019) |
 
 ### §4-2. Iframe Sandbox Escapes
 
@@ -345,7 +345,7 @@ Mutation XSS exploits differences between how HTML sanitizers parse HTML strings
 | **Foreign Content Mutation** | SVG or MathML foreign content mutates when moved to HTML context | <svg><a><animate attributeName=href values=javascript:alert(1)> mutates during rendering |
 | **Template Element Mutation** | Content inside <template> parsed differently; mutation occurs when cloned | <template><div><table><template><img src=x onerror=alert(1)></template></table></div></template> |
 
-DOMPurify, Google Caja, Mozilla Bleach, and lxml have all experienced mXSS bypasses. CVE-2024-47875 (DOMPurify 3.x) and CVE-2024-52595 (lxml_html_clean) demonstrate the ongoing difficulty of preventing mXSS.
+DOMPurify, Google Caja, Mozilla Bleach, and lxml have all experienced mXSS bypasses. CVE-2024-47875 (DOMPurify < 2.5.0 and >= 3.0.0, < 3.1.3) and CVE-2024-52595 (lxml_html_clean) demonstrate the ongoing difficulty of preventing mXSS.
 
 ### §6-4. Prototype Pollution
 
@@ -360,7 +360,7 @@ JavaScript prototype pollution occurs when attackers inject properties into Obje
 | **Prototype Pollution via Query String** | URL parameters like ?__proto__[admin]=true parsed into objects | Express query parser or qs library parses ?__proto__[x]=y into object path traversal |
 | **DOM Clobbering + Prototype Pollution** | Combining DOM clobbering with prototype pollution for deeper exploitation | Clobber Object.prototype via <form id="__proto__"><input name="polluted" value="malicious"> |
 
-DOMPurify ≤ 3.0.8 (CVE-2024-45801) suffered from prototype pollution where attackers could pollute Node.prototype.after before sanitization, bypassing SAFE_FOR_TEMPLATES and achieving stored XSS.
+DOMPurify < 2.5.4 and >= 3.0.0, < 3.1.3 (CVE-2024-45801) suffered from prototype pollution where attackers could pollute Node.prototype.after before sanitization, bypassing SAFE_FOR_TEMPLATES and achieving stored XSS.
 
 ### §6-5. Trusted Types Bypasses
 
@@ -387,7 +387,7 @@ Cross-Origin-Opener-Policy (COOP), Cross-Origin-Embedder-Policy (COEP), and Cros
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **COEP Credentialless Bypass** | COEP: credentialless allows loading cross-origin resources without CORP if credentials omitted | Attacker loads sensitive resources via <img> or fetch() without credentials; timing/error leaks reveal info |
+| **COEP Credentialless Side-Channels** | COEP: credentialless relaxes the CORP/COEP requirement by loading cross-origin resources without credentials (the iframe gets an ephemeral context without access to the origin's cookies or storage — per MDN). This is not a direct bypass of access controls, but timing or error-based side-channels on the credentialless responses may still leak limited information | Cross-origin resource loaded without credentials; timing/error oracle infers metadata |
 | **CORP Missing on Sensitive Resources** | Sensitive API endpoints lack CORP header; COEP allows loading if CORS present | Cross-origin fetch() to API endpoint succeeds if CORS permissive but CORP missing |
 | **COOP Popup Manipulation** | COOP: same-origin breaks window.opener reference but popup can still navigate opener | Popup from cross-origin can't read opener but can execute opener.location='//attacker.com' |
 | **COOP Same-Origin-Allow-Popups Bypass** | COOP: same-origin-allow-popups preserves opener reference; attacker popup gains access | Main page uses COOP: same-origin-allow-popups; attacker-controlled popup retains window.opener |
@@ -427,9 +427,7 @@ URL parsing inconsistencies between components enable SSRF, authentication bypas
 | **URL Encoding Confusion** | Percent-encoding decoded at different stages | Browser decodes %2F (/) in path but WAF validates before decoding, allowing path traversal |
 | **Unicode/IDN Homograph** | Internationalized domain names with confusable characters | http://аpple.com (Cyrillic 'а') vs http://apple.com (Latin 'a') |
 
-CVE-2024-30043 (SharePoint XXE) exploited URL parsing confusion where XML parser interpreted URLs differently than the application's validation logic. CVE-2025-25291 (Ruby SAML) involved parser differentials in DOCTYPE/ATTLIST handling — REXML applies DOCTYPE-defined ATTLIST defaults that Nokogiri ignores, creating divergent namespace structures for authentication bypass. The related CVE-2025-25292 exploits a different parser differential in namespace resolution between Nokogiri and REXML.
-
-The Python URL parsing vulnerability (CVE-2025-0938) accepted square brackets in domain names, creating differential behavior with spec-compliant parsers.
+Note: Parser differential vulnerabilities also manifest in server-side contexts — e.g., CVE-2024-30043 (SharePoint XXE via URL parsing confusion), CVE-2025-25291/CVE-2025-25292 (ruby-saml SAML authentication bypass via REXML/Nokogiri parser differentials), and CVE-2025-0938 (CPython `urllib.parse` accepting square brackets in domain names). These are **server-side issues**, not browser security model vulnerabilities, but illustrate the same parser differential class.
 
 ### §8-2. HTML Parser Differential
 
@@ -549,7 +547,7 @@ WebAuthn (Web Authentication API) and passkeys provide phishing-resistant authen
 | **WebAuthn API Hijacking** | Attacker hijacks WebAuthn API via XSS or malicious extension, forging registration and login (DEF CON 2025 SquareX research) | JavaScript injection overwrites navigator.credentials.create() and .get() methods |
 | **Synced Passkey Downgrade** | Phishing proxy spoofs unsupported browser; Entra/IdP disables passkeys; user falls back to SMS/OTP (Proofpoint 2025) | Attacker spoofs old browser UA; victim offered weaker auth; proxy captures credentials and session cookie |
 | **WebAuthn Logic Flaw Bypass** | Application trusts frontend challenge without backend verification | Attacker starts WebAuthn flow with victim's username, signs challenge with own passkey, gains access to victim account |
-| **StrongKey FIDO Server Takeover (CVE-2025-26788)** | Non-discoverable credential flow allows starting auth with victim's username, signing with attacker's passkey | Backend doesn't verify credential belongs to claimed user; any valid signature accepted |
+| **StrongKey FIDO Server Logic Flaw (CVE-2025-26788)** | NVD describes this as non-discoverable credential flow being treated as discoverable transactions. The security implications beyond the official description remain interpretive — characterizing this as a "passkey bypass" goes beyond the official advisory | StrongKey FIDO Server 4.10.0–4.15.0; non-discoverable credential flow mishandled |
 | **Chrome Android WebAuthn Privilege Escalation (CVE-2024-9956)** | Inappropriate implementation in WebAuthentication in Chrome on Android allowed a local attacker to perform privilege escalation via a crafted HTML page (NVD). Specific bypass mechanism not publicly detailed beyond Chromium advisory | Chrome on Android prior to 130.0.6723.58; requires local attacker |
 | **Phishing via Synchronized Passkey Fabric** | Attacker phishes credentials to synchronization service (Google Password Manager, iCloud Keychain); gains access to all passkeys | If attacker compromises iCloud/Google account, all synchronized passkeys accessible |
 
@@ -640,24 +638,19 @@ This table maps primary attack scenarios to the Security Mechanism categories wh
 
 ---
 
-## CVE / Bounty Mapping (2024-2025)
+## CVE / Bounty Mapping (Selected Cases)
 
 | Mutation Combination | CVE / Case | Impact / Bounty |
 |---------------------|-----------|----------------|
-| §2-4 + §6-3 | CVE-2024-47875 (DOMPurify) | Mutation XSS enabling CSP bypass and stored XSS via nested HTML elements |
-| §10-1 | CVE-2024-49038 (Microsoft Copilot Studio) | CVSS 9.3. PostMessage authentication bypass enabling cross-tenant data exfiltration |
-| §9-2 | CVE-2024-55591 (FortiOS/FortiProxy) | CVSS 9.6. Authentication bypass via crafted WebSocket requests to Node.js management interface, granting super-admin privileges. Actively exploited in wild |
-| §9-2 | CVE-2025-24472 (FortiOS/FortiProxy) | CVSS 8.1. Separate auth bypass via crafted CSF proxy requests (not WebSocket). Requires knowledge of upstream/downstream device serial numbers with Security Fabric enabled. Fixed in FortiOS 7.0.17+, FortiProxy 7.0.20+/7.2.13+ |
+| §2-4 + §6-3 | CVE-2024-47875 (DOMPurify < 2.5.0, >= 3.0.0 < 3.1.3) | Mutation XSS enabling CSP bypass and stored XSS via nested HTML elements |
+| §10-1 | CVE-2024-49038 (Microsoft Copilot Studio) | CVSS 9.3. NVD classifies as XSS/Elevation of Privilege; MSRC analysis describes postMessage origin validation failure as the root cause. Cross-tenant data exfiltration |
 | §2-1 + §2-5 | CVE-2025-9866 (Chromium Extensions) | CSP bypass via crafted HTML page in Extensions implementation |
 | §1-1 | CVE-2025-8036 (Firefox 141) | CORS preflight responses cached across IP changes, bypassing origin checks |
 | §2-2 + §2-4 | CVE-2025-8032 (Firefox 141) | XSLT documents sidestep CSP restrictions |
 | §4-2 | CVE-2024-5691 (Firefox) | Iframe sandbox bypass via clickjacking on native XFO error page |
-| §8-1 | CVE-2024-30043 (SharePoint) | CVSS 6.5. Authenticated XXE via URL parsing confusion in BaseXmlDataSource — low-privileged user can read files with Farm Service account permissions and perform SSRF. Information disclosure, not direct RCE |
-| §8-1 | CVE-2025-25292 / CVE-2025-25291 (ruby-saml) | Parser differential in namespace/DOCTYPE handling enabling SAML authentication bypass |
-| §8-1 | CVE-2025-0938 (CPython) | URL parsing in `urllib.parse` accepts square brackets in domain names, creating parser differential |
-| §10-1 | CVE-2025-26788 (StrongKey FIDO Server 4.10.0-4.15.0) | Account takeover of any registered user due to WebAuthn non-discoverable credential flow flaw |
+| §10-1 | CVE-2025-26788 (StrongKey FIDO Server 4.10.0-4.15.0) | Non-discoverable credential flow treated as discoverable transaction (NVD description); specific exploitation mechanics beyond official description are interpretive |
 | §10-1 | CVE-2024-9956 (Google Chrome Android < 130.0.6723.58) | Inappropriate implementation in WebAuthentication; local attacker privilege escalation via crafted HTML page |
-| §6-4 | CVE-2024-45801 (DOMPurify >= 2.5.0 < 2.5.4, >= 3.0.0 < 3.1.3) | CVSS 7.0. Prototype pollution weakens depth checking, bypassing sanitization and enabling XSS. Fixed in 2.5.4 and 3.1.3 |
+| §6-4 | CVE-2024-45801 (DOMPurify < 2.5.4, >= 3.0.0 < 3.1.3) | CVSS 7.0. Prototype pollution weakens depth checking, bypassing sanitization and enabling XSS. Fixed in 2.5.4 and 3.1.3 |
 | §11-1 | Cyberhaven Chrome Extension Compromise (Dec 2024) | Supply chain attack via phishing; harvested OAuth tokens from Google Workspace, Slack, Jira |
 | §11-1 | TamperedChef Campaign (Feb 2025) | 16 Chrome extensions compromised affecting 3.2M users; credential harvesting |
 | §1 | HTTP/2 CrossPUSH / CrossSXG (Tsinghua 2024) | SOP bypass affecting 11/14 browsers including Chrome, Edge, Instagram, WeChat. Arbitrary XSS |
@@ -667,6 +660,18 @@ This table maps primary attack scenarios to the Security Mechanism categories wh
 | §10-1 | Synced Passkey Downgrade (Proofpoint 2025) | Entra ID phishing proxy spoofs unsupported browser; user downgrades to SMS/OTP |
 | §9-3 | Service Worker XSS (2024 Research) | 40 websites with 100M+ monthly visitors vulnerable to persistent SW-XSS |
 | §2-1 | CVE-2018-5175 (Firefox < 60) | Universal CSP `strict-dynamic` bypass via Firefox's internal require.js (`resource://devtools-client-jsonview/lib/require.js`) marked `contentaccessible=yes`. The browser resource bypassed CSP, and require.js's `data-main` attribute acted as a script gadget to execute arbitrary code via `data:` URI payload |
+
+### Server-Side Cases Referenced for Context
+
+The following are **not browser security model issues** but are referenced in §8 (Parser Differentials) and §9 (Web Platform) for illustrative context. They are separated here to avoid taxonomy confusion.
+
+| Section Reference | CVE / Case | Impact |
+|-------------------|-----------|--------|
+| §9-2 | CVE-2024-55591 (FortiOS/FortiProxy) | CVSS 9.6. Server-side auth bypass via crafted WebSocket requests to Node.js management interface. Actively exploited in wild |
+| §9-2 | CVE-2025-24472 (FortiOS/FortiProxy) | CVSS 8.1. Server-side auth bypass via crafted CSF proxy requests. Fixed in FortiOS 7.0.17+, FortiProxy 7.0.20+/7.2.13+ |
+| §8-1 | CVE-2024-30043 (SharePoint) | CVSS 6.5. Server-side XXE via URL parsing confusion |
+| §8-1 | CVE-2025-25292 / CVE-2025-25291 (ruby-saml) | Server-side SAML authentication bypass via REXML/Nokogiri parser differential |
+| §8-1 | CVE-2025-0938 (CPython) | Server-side URL parsing flaw in `urllib.parse` — square brackets accepted in domain names |
 
 ---
 
@@ -732,7 +737,7 @@ Defensive practitioners should assume that **isolation boundaries will be breach
 
 ---
 
-*This document was created for defensive security research and vulnerability understanding purposes. All techniques described are based on publicly disclosed research, CVE reports, and security conference presentations from 2024-2025.*
+*This document was created for defensive security research and vulnerability understanding purposes. Techniques described are based on publicly disclosed research, CVE reports, and security conference presentations spanning multiple years (primary focus 2024-2025, with selected historical cases such as CVE-2018-5175 included for foundational context).*
 
 ---
 

@@ -342,14 +342,14 @@ WebSocket's persistent, asynchronous nature creates timing-sensitive state manag
 | Mutation Combination | CVE / Case | Impact / Bounty |
 |---|---|---|
 | §2-1 + §1-1 (Unauthenticated local WS + port brute-force) | CVE-2025-52882 (Claude Code MCP Server) | CVSS 8.8 — Arbitrary file read, code execution via unauthenticated localhost WebSocket |
-| §7-1 (STOMP frame smuggling, pre-CONNECT injection) | CVE-2025-41254 (Spring Framework) | CVSS 4.3. Unauthorized STOMP messages bypass CSRF protection; affects 5.3.0–5.3.45, 6.0.x–6.0.29, 6.1.0–6.1.23, 6.2.0–6.2.11. Fixed in 5.3.46, 6.1.24, 6.2.12 |
-| §3-2 (Predictable masking key) | CVE-2025-10148 (curl) | Proxy cache poisoning via static WebSocket masking key reused across entire connection |
+| §7-1 (STOMP unauthorized messages) | CVE-2025-41254 (Spring Framework) | CVSS 4.3. Spring official advisory describes this as "unauthorized messages" bypassing CSRF protection — characterizing the root cause as STOMP frame smuggling or pre-CONNECT injection goes beyond the official description. Affects 5.3.0–5.3.45, 6.0.x–6.0.29, 6.1.0–6.1.23, 6.2.0–6.2.11. Fixed in 5.3.46, 6.1.24, 6.2.12 |
+| §3-2 (Predictable masking key) | CVE-2025-10148 (curl) | Static WebSocket masking key reused across entire connection. Per curl advisory, cache poisoning risk requires a flawed proxy that misinterprets WebSocket traffic as HTTP — not exploitable against spec-compliant intermediaries |
 | §2-1 + §1-2 (Auth bypass via Node.js WS module) | CVE-2024-55591 (FortiOS/FortiProxy) | CVSS 9.6 — Super-admin privilege gain via crafted WebSocket requests; actively exploited in the wild |
 | §1-1 (CSWSH, missing Origin validation) | CVE-2024-26135 (MeshCentral) | Cross-site WebSocket hijacking enables unauthorized management operations |
 | §1-1 (CSWSH, localhost WS) | CVE-2024-11045 (AUTOMATIC1111/stable-diffusion-webui) | CSWSH on localhost WebSocket queue/join endpoint — attacker page hijacks local SD WebUI session |
 | §7-2 (Socket.IO event name type confusion) | CVE-2023-32695 (socket.io-parser) | DoS — Server crash via crafted event name object that overrides `toString()`. Affects socket.io-parser < 3.3.4, 3.4.0–3.4.2, 4.0.4–4.2.2 |
 | §1-1 + §6-2 (CSWSH + subdomain XSS chain) | CVE-2023-0957 (Gitpod) | Full account compromise — CSWSH + SameSite bypass + VS Code server exploitation |
-| §8-1 (Connection resource exhaustion) | Apache Tomcat WebSocket DoS (2024) | DoS — WebSocket client keeps connection open, exhausting server resources |
+| §8-1 (Connection resource exhaustion) | Apache Tomcat WebSocket DoS (2024) ⚠️ *Specific CVE/advisory not identified in this review — generic DoS pattern; requires source verification* | DoS — WebSocket client keeps connection open, exhausting server resources |
 | §1-1 (CSWSH with GraphQL mutations) | Include Security 2025 Research | Account deletion via GraphQL-over-WebSocket CSWSH; `SameSite=None` cookies; blocked in Firefox |
 | §1-1 (Private Network CSWSH) | Include Security 2025 Research | Camera device exploitation — video streaming and configuration via localhost CSWSH; works in all browsers |
 | §5-1 (WebSocket smuggling via status code ignorance) | @0ang3el Research | Internal API access via phantom WebSocket tunnel through Varnish, Envoy reverse proxies |

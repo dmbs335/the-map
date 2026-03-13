@@ -217,7 +217,7 @@ Application frameworks impose their own path parsing rules, creating discrepanci
 | **Rails Format Extension (.)** | Rails interprets `.json`, `.xml` etc. as format specifiers | `/users/1.json` → same controller, JSON response | Cache keys on full path; Rails routes differently |
 | **Express.js Path Regex** | Express uses path-to-regexp with parameter patterns | `/users/:id` matching `//users/1` differently | Double-slash handling in route matching |
 | **Apache mod_rewrite Confusion** | `r->filename` treated as URL by mod_proxy but as filesystem path by other modules | Crafted path that's valid URL and filesystem path | Apache Confusion Attacks: filename vs. URL interpretation |
-| **DocumentRoot Escape** | Apache's DocumentRoot resolution allows path confusion to escape to system root | `/cgi-bin` + traversal → system-level path | Apache DocumentRoot Confusion (CVE-2024-38475) |
+| **First-Segment Substitution / Filesystem Mapping** | Apache mod_rewrite first-segment substitution allows filesystem path mapping confusion | Crafted path exploits RewriteRule substitution to map outside intended directory | Apache mod_rewrite Confusion (CVE-2024-38475) |
 | **Handler Confusion** | Overwriting Apache handlers via AddType/AddHandler interaction | `.php.jpg` handled as PHP despite extension | Apache Handler Confusion |
 
 ### §5-5. Cache Key vs. Origin Path Discrepancy
@@ -356,10 +356,10 @@ Attacks exploiting the gap between URL validation time and URL fetch time, parti
 
 | Mutation Combination | CVE / Case | Product | Impact / Bounty |
 |---|---|---|---|
-| §5-4 + §5-2 (Filename Confusion) | CVE-2024-38475 | Apache HTTP Server | `?` in r->filename allows ACL bypass + SSRF |
-| §5-4 (DocumentRoot Confusion) | CVE-2024-38474 | Apache HTTP Server | Escape DocumentRoot to system root |
-| §5-4 (Handler Confusion) | CVE-2024-38476 | Apache HTTP Server | Handler overwrite → code execution |
-| §5-1 + §8-2 (Proxy Encoding) | CVE-2024-38473 | Apache HTTP Server | Proxy encoding problem enables SSRF |
+| §5-4 (First-segment substitution) | CVE-2024-38475 | Apache HTTP Server | mod_rewrite first-segment substitution allows filesystem mapping outside intended directory (Apache official description) |
+| §5-4 (Encoded `?` in backreferences) | CVE-2024-38474 | Apache HTTP Server | Encoded question marks in backreferences allow scripts to be indirectly executed by modules not directly handling them (Apache official description) |
+| §5-4 (Malicious backend output) | CVE-2024-38476 | Apache HTTP Server | Malicious backend application output triggers internal redirects to unintended handlers, enabling local source code disclosure or SSRF via crafted response headers (Apache official description) |
+| §5-1 + §8-2 (Proxy encoding) | CVE-2024-38473 | Apache HTTP Server | Incorrectly encoded request URLs forwarded to backend services, potentially bypassing authentication (Apache official description — not confirmed as SSRF) |
 | §5-4 + §5-2 (Confusion Attacks) | CVE-2024-38477 | Apache HTTP Server | mod_proxy crash via malicious request |
 | §3-1 + §2-1 (Authority Confusion) | CVE-2024-22262 | Spring Framework UriComponentsBuilder | Open redirect + SSRF via URL parser bypass |
 | §2-1 + §1-3 (Colon-@ Trick) | CVE-2025-0454 | AutoGPT | SSRF via `localhost:\@google.com` parser confusion |
@@ -368,7 +368,7 @@ Attacks exploiting the gap between URL validation time and URL fetch time, parti
 | §5-2 (URI Parser Bypass) | CVE-2025-29914 | Coraza WAF | URLs starting with `//` bypass WAF rules |
 | §7-1 + §2-1 (Fragment+Authority) | CVE-2024-30043 | Microsoft SharePoint | URL parsing confusion → XXE |
 | §8-4 (Content-Type Confusion) | WAFFLED (ACSAC 2025) | Cloudflare, AWS WAF, Azure WAF, ModSecurity | 1,207 bypasses across major WAFs via parsing discrepancy |
-| §5-5 (Cache Key Confusion) | Gotta Cache 'em All (BH 2024) | Azure CDN, OpenAI, multiple CDNs | Full cache poisoning + DoS |
+| §5-5 (Cache Key Confusion) | Gotta Cache 'em All (BH 2024) | Multiple CDNs ⚠️ *Specific affected vendors (Azure CDN, OpenAI) from conference presentation — primary vendor advisories not independently verified in this review* | Cache poisoning + DoS |
 | §9-1 (DNS Rebinding) | CVE-2025-15104 | Nu Html Checker | SSRF via DNS rebinding bypass |
 
 ---

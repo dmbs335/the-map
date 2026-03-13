@@ -45,10 +45,10 @@ Marshal is Ruby's native binary serialization format. Calling `Marshal.load()` o
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
 | **Ruby 2.x Universal Gadget Chain** | Uses `Gem::Installer` and `Gem::SpecFetcher` classes from RubyGems standard library to chain through `method_missing` → `Kernel.open` for arbitrary command execution without requiring Rails-specific libraries | Marshal.load() on untrusted data; Ruby 2.x |
-| **Ruby 3.x+ Gadget Chain** | Newer gadget chains discovered for Ruby 3.4 targeting updated standard library classes, bypassing patches applied to Ruby 3.2's `Gem::SafeMarshal` | Marshal.load() on untrusted data; Ruby ≥ 3.4 prior to patch |
+| **Ruby 3.x+ Gadget Chain** | Newer gadget chains discovered for Ruby 3.4 targeting updated standard library classes, bypassing patches applied to Ruby 3.3's `Gem::SafeMarshal` | Marshal.load() on untrusted data; Ruby ≥ 3.4 prior to patch |
 | **Rails-Specific Gadget Chain** | Leverages Rails framework libraries (ActiveSupport, ActiveRecord) to construct exploit chains — e.g., `DeprecatedInstanceVariableProxy`, `ERB` template evaluation — that only exist in Rails environments | Marshal.load() in Rails app context |
-| **Gem::SafeMarshal Escape** | Techniques to bypass Ruby 3.2+'s `Gem::SafeMarshal` allow-list protections by discovering new gadgets outside the blocked class list | Ruby ≥ 3.2 with SafeMarshal; novel gadget classes |
-| **Session Cookie Deserialization** | When `CookieStore` is used as session storage and the `secret_key_base` / `secret_token` is known or leaked, an attacker can forge session cookies containing malicious Marshal payloads that the server deserializes | Known secret_key_base; CookieStore session backend |
+| **Gem::SafeMarshal Escape** | Techniques to bypass Ruby 3.3+'s `Gem::SafeMarshal` allow-list protections by discovering new gadgets outside the blocked class list | Ruby ≥ 3.3 with SafeMarshal; novel gadget classes |
+| **Session Cookie Deserialization** | When `CookieStore` is used as session storage and the `secret_key_base` / `secret_token` is known or leaked, an attacker can forge session cookies containing malicious Marshal payloads that the server deserializes. Note: Rails 7.0+ defaults to `:json` cookie serializer; this attack requires Marshal serializer (legacy config or pre-7.0 defaults) | Known secret_key_base; CookieStore session backend; Marshal serializer |
 
 **Example (Ruby 2.x Universal Gadget):**
 ```ruby
@@ -101,17 +101,17 @@ While JSON itself does not support arbitrary object instantiation, Rails' `JSON.
 
 ### §1-4. ActiveSupport MessageVerifier/MessageEncryptor
 
-Rails uses `ActiveSupport::MessageVerifier` and `ActiveSupport::MessageEncryptor` for signed/encrypted messages (session cookies, signed GlobalIDs, etc.). These use Marshal as the default serializer, meaning a compromised signing key enables RCE via crafted payloads.
+Rails uses `ActiveSupport::MessageVerifier` and `ActiveSupport::MessageEncryptor` for signed/encrypted messages (session cookies, signed GlobalIDs, etc.). Historically these defaulted to Marshal serialization, but Rails 7.1+ defaults to `:json_allow_marshal` (`config.active_support.message_serializer`), and the cookie serializer defaults to `:json` from `load_defaults 7.0`. Marshal-based RCE from a leaked signing key is therefore conditional on legacy serializer configuration or older Rails versions.
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **Secret Key Leakage → Cookie RCE** | If `secret_key_base` is leaked (via git exposure, error pages, path traversal), an attacker crafts a signed cookie with a Marshal RCE payload | Leaked secret_key_base; CookieStore; Marshal serializer |
+| **Secret Key Leakage → Cookie RCE** | If `secret_key_base` is leaked (via git exposure, error pages, path traversal), an attacker crafts a signed/encrypted cookie with a Marshal RCE payload. Requires Marshal serializer — Rails 7.1+ defaults to JSON-based serializers, so this primarily affects legacy configurations or apps that haven't migrated | Leaked secret_key_base; CookieStore; Marshal serializer (legacy default or explicit config) |
 | **GlobalID Deserialization in Active Job** | Active Job serializes arguments using GlobalID, which resolves to Active Record objects. Crafted GlobalID references can access unauthorized records or trigger deserialization of unexpected objects | Active Job accepting user-influenced arguments |
-| **Weak HMAC Verification** | Timing attacks against HMAC comparison in older MessageVerifier implementations could enable forgery of signed messages | Pre-Rails 4 constant-time comparison |
+| **Weak HMAC Verification** | Timing attacks against HMAC comparison in older MessageVerifier implementations could enable forgery of signed messages | Pre-Rails 3 (fixed via `secure_compare` in 2009, backported to Rails 2.3.x) |
 
 ### §1-5. Bootsnap Compile Cache Poisoning
 
-Bootsnap (integrated into Rails since 5.2) accelerates application boot by caching compiled Ruby bytecode in `tmp/cache/bootsnap/compile-cache-iseq/`. Cache files consist of a 64-byte binary header (version, ruby_platform, compile_option, ruby_revision, size, mtime) followed by `RubyVM::InstructionSequence` binary data. When an attacker has arbitrary file write capability, overwriting a Bootsnap cache entry achieves RCE upon next application restart.
+Bootsnap (a separate gem commonly included in Rails app templates since 5.2, not part of Rails core) accelerates application boot by caching compiled Ruby bytecode in `tmp/cache/bootsnap/compile-cache-iseq/`. Cache files consist of a 64-byte binary header (version, ruby_platform, compile_option, ruby_revision, size, mtime) followed by `RubyVM::InstructionSequence` binary data. When an attacker has arbitrary file write capability, overwriting a Bootsnap cache entry achieves RCE upon next application restart.
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
@@ -145,7 +145,7 @@ Strong Parameters (`require`/`permit`) in Rails 4+ moved the allowlist to the co
 | **Overly Broad Nested Permit** | Permitting nested hashes with `permit(preferences: {})` allows arbitrary keys within the nested structure, potentially overwriting unexpected attributes | Hash-type permit without explicit key list |
 | **Non-Numeric Key Bypass** | Strong Parameters assumes nested attribute keys are numeric indices. Non-numeric keys (e.g., `NEW_RECORD`, timestamps) may bypass the numeric-only check, causing all passed records to be unpermitted or incorrectly permitted | Rails 5.0.x; non-numeric nested attribute keys |
 | **Type Confusion via Array/Hash Swap** | Sending a hash where an array is expected (or vice versa) can confuse Strong Parameters validation logic, potentially allowing unfiltered values to pass through | Controller expects params[:items] as array but receives hash |
-| **_json Parameter Juggling** | Rails wraps non-Hash JSON request bodies in `{ _json: data }` (in `ActionDispatch::Http::Parameters`). When a JSON request includes an explicit `_json` key alongside top-level parameters, authorization logic and action execution logic may resolve different parameter views from the same request — one preferring the top-level scalar form, the other the `_json` array form. This dual interpretation enables authorization bypass when multi-item and single-item code paths have divergent permission checks | JSON Content-Type request; inconsistent parameter resolution between authorization and action logic |
+| **_json Parameter Wrapping** | Rails wraps non-Hash JSON request bodies in `{ _json: data }` (in `ActionDispatch::Http::Parameters`). In theory, if a JSON request includes an explicit `_json` key alongside top-level parameters, authorization and action logic could resolve different parameter views. However, concrete exploitation scenarios for authorization bypass have not been documented in official Rails security advisories — this remains a theoretical concern based on the parameter wrapping behavior | JSON Content-Type request; theoretical inconsistent parameter resolution (no confirmed advisory) |
 
 ### §2-3. Class Pollution (Ruby's Prototype Pollution Analog)
 
@@ -171,7 +171,7 @@ Methods that accept raw SQL strings without parameterization.
 |---------|-----------|---------------|
 | **where(string)** | `User.where("name = '#{params[:name]}'")` directly interpolates user input into SQL | String interpolation in where clause |
 | **where(string, *binds) Misuse** | Using string interpolation instead of bind parameters: `where("name = '#{v}'")` instead of `where("name = ?", v)` | Developer uses interpolation instead of placeholders |
-| **order/reorder Injection** | Prior to Rails 6, `order()` and `reorder()` accepted arbitrary SQL strings, enabling injection via ORDER BY — exploitable using CASE statements for data extraction | Rails < 6.0; user input in order() |
+| **order/reorder Injection** | Prior to Rails 6.1, `order()` and `reorder()` accepted arbitrary SQL strings, enabling injection via ORDER BY — exploitable using CASE statements for data extraction (deprecated in Rails 6.0, enforced in 6.1 via `ActiveRecord::UnknownAttributeReference`) | Rails < 6.1; user input in order() |
 | **group Injection** | `group()` accepts arbitrary SQL strings, allowing injection into GROUP BY clauses | User input passed to group() |
 | **from Injection** | `from()` accepts arbitrary SQL, replacing the FROM clause entirely — allowing subquery injection or table substitution | User input passed to from() |
 | **pluck Injection** | Prior to Rails 6.1, `pluck()` accepted arbitrary SQL, allowing complete control from SELECT onwards | Rails < 6.1; user input in pluck() |
@@ -229,7 +229,7 @@ Rails 3+ auto-escapes all output in templates by default. XSS occurs when develo
 | **<%== %> Double-Equals Tag** | The `<%== %>` ERB tag is an alias for `html_safe`, rendering content without escaping | Template uses <%== %> with user data |
 | **content_tag Attribute Injection** | `content_tag(:a, "click", href: user_input)` can inject `javascript:` protocol URIs or data: URIs in href attributes | User input in content_tag URL attributes |
 | **link_to with javascript: Protocol** | `link_to "click", params[:url]` allows injection of `javascript:alert(1)` via the URL parameter | User input as link_to href |
-| **sanitize Helper Bypass** | The `sanitize` helper has had multiple bypass vulnerabilities over the years. Crafted HTML/CSS can escape the sanitizer's allow-list to execute JavaScript | Rails-html-sanitizer < patched version (CVE-2024-53985, CVE-2022-23519, CVE-2022-32209) |
+| **sanitize Helper Bypass (custom allow-lists)** | The `sanitize` helper has had multiple bypass vulnerabilities when developers configure custom allowed tags. CVE-2024-53985 requires allowing `math`+`style` or `svg`+`style`; CVE-2022-23519 requires allowing `select`+`style`; CVE-2022-32209 requires allowing `select` tag. Default sanitizer configuration is not affected | Rails-html-sanitizer < patched version; **custom tag allow-list** including specific tag combinations |
 | **JSON Embedding in Script Tags** | Embedding model data in `<script>` tags via `to_json` without proper escaping can introduce XSS when JSON contains `</script>` or HTML entities | Inline JSON rendering without json_escape |
 | **ActionText Rich Content XSS** | `ActionText::Attachable::ContentAttachment` instances within `rich_text_area` tags could contain unsanitized HTML | ActionText with unvalidated attachable content |
 
@@ -301,10 +301,10 @@ Rails' CSRF protection uses authenticity tokens embedded in forms and verified o
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **Token Masking XOR Weakness** | Rails masks CSRF tokens by XORing with a one-time pad and concatenating both. An attacker who captures a masked token can extract the raw token by reversing the XOR, since both key and ciphertext are present | Token capture via XSS or network interception |
+| **Token Masking Format** | Rails masks CSRF tokens by XORing with a one-time pad and concatenating both. The masking is intentionally reversible (designed to prevent BREACH compression attacks, not to hide the token). If an attacker can capture a masked token (e.g., via XSS or network interception), they can trivially unmask it — but the real vulnerability is the token capture itself, not the XOR structure | Token capture via XSS or network interception (masking is by design, not a weakness) |
 | **Content-Type Based Bypass** | CSRF checks historically only applied to `application/x-www-form-urlencoded` and `multipart/form-data`. Requests with other content types (e.g., `text/plain`, `application/json`) could bypass verification | CSRF protection not applied to all content types |
 | **Plugin/Redirect CSRF** | Browser plugins and HTTP redirects can be combined to forge cross-domain requests that bypass the same-origin checks of CSRF tokens | Vulnerable browser plugin + redirect chain (CVE-2011-0447) |
-| **Permissions-Policy Content-Type Gap** | The Permissions-Policy security header is only served on HTML Content-Type responses, leaving non-HTML endpoints unprotected | Rails ≥ 6.1 serving API endpoints (CVE-2024-28103) |
+| **Permissions-Policy Content-Type Gap** | The Permissions-Policy security header is only applied to HTML Content-Type responses, leaving non-HTML endpoints without this header. NVD and the official advisory classify this as a missing security header issue, not a CSRF bypass | Rails ≥ 6.1 serving API endpoints (CVE-2024-28103) |
 | **skip_before_action :verify_authenticity_token** | API controllers often disable CSRF protection entirely, but if they share sessions with web controllers, the CSRF bypass becomes exploitable | API controller with session-based auth + CSRF disabled |
 
 ### §6-3. Authentication Weaknesses
@@ -325,11 +325,11 @@ The HTTP processing pipeline (Rack → Action Dispatch → Router → Controller
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **X-Forwarded-Host Trust** | Rails unconditionally trusted the `X-Forwarded-Host` header in `url_for` and all URL helpers until Rails 6, allowing cache poisoning and redirect manipulation | Rails < 6.0; proxy setting X-Forwarded-Host |
+| **X-Forwarded-Host Trust** | Rails historically trusted the `X-Forwarded-Host` header in `url_for` and URL helpers without validation. Rails 6.0 introduced `HostAuthorization` middleware, but subsequent CVEs (e.g., CVE-2021-22881, CVE-2021-22942) showed that specific `allowed_hosts` patterns remained bypassable in Rails 6.x | Rails without properly configured HostAuthorization; proxy setting X-Forwarded-Host |
 | **Host Authorization Middleware Bypass** | The HostAuthorization middleware in Action Pack can be tricked by specially crafted Host headers combined with certain allowed_hosts patterns, causing redirects to attacker-controlled sites | Action Pack < 6.1.2.1 (CVE-2021-22881) |
 | **redirect_to Open Redirect** | `redirect_to(params[:url])` without validation allows redirection to attacker-controlled external sites for phishing | User input in redirect_to without allow_other_host: false |
 | **redirect_to Header Injection** | The `redirect_to` method allowed characters illegal in HTTP header values, potentially causing downstream services to strip the Location header or inject additional headers | Rails allowing non-RFC-compliant header characters |
-| **url_for Cache Poisoning** | Poisoning the `X-Forwarded-Host` header causes `url_for` to generate URLs pointing to the attacker's domain. If the response is cached, all subsequent users receive poisoned URLs | Caching proxy + Rails trusting X-Forwarded-Host |
+| **url_for Cache Poisoning** | Poisoning the `X-Forwarded-Host` header causes `url_for` to generate URLs pointing to the attacker's domain. If the response is cached, all subsequent users receive poisoned URLs | Caching proxy + Rails without strict HostAuthorization (or bypassed allowed_hosts pattern) |
 
 ### §7-2. Regular Expression Denial of Service (ReDoS)
 
@@ -391,7 +391,7 @@ Rack is the interface layer between Ruby web frameworks and web servers. Rails a
 | **CRLF Log Injection** | Rack allows carriage return / line feed characters in log output, enabling injection of fake log entries to hide attacks or create false audit trails | Rack < 2.2.13 / 3.0.14 / 3.1.12 (CVE-2025-25184) |
 | **HTTP Header Log Manipulation** | Crafted HTTP headers can manipulate log data through Rack's logging middleware, corrupting audit trails | Rack < patched versions (CVE-2025-27111) |
 | **Rack Session Cookie Injection** | Rack's session middleware may accept session cookies from subdomains or different paths, enabling session fixation through subdomain control | Shared domain with attacker-controlled subdomain |
-| **Debug Middleware RCE (ShowExceptions)** | `Rack::ShowExceptions` and Sinatra's `ShowExceptions` middleware render interactive debug pages on unhandled exceptions, including an embedded IRB/Pry console that executes arbitrary Ruby code submitted via POST. When debug middleware is accidentally left enabled in production, any request triggering an exception exposes the interactive console, enabling direct RCE without authentication (analogous to Python Werkzeug's debug console) | Debug middleware enabled in production (`Rack::ShowExceptions`, `BetterErrors`, Sinatra `show_exceptions` setting) |
+| **Debug Middleware RCE** | Development-oriented debug middleware such as `BetterErrors` and `web-console` render interactive debug pages with embedded IRB/Pry consoles that execute arbitrary Ruby code via POST. When accidentally left enabled in production, any request triggering an exception exposes the interactive console, enabling direct RCE without authentication (analogous to Python Werkzeug's debug console). Note: `Rack::ShowExceptions` and Sinatra's `ShowExceptions` only render stack traces and request environment — they do **not** include an interactive code execution console | Debug middleware enabled in production (`BetterErrors`, `web-console`; `Rack::ShowExceptions` exposes info leakage only, not RCE) |
 
 ### §9-2. Middleware Ordering Vulnerabilities
 
@@ -479,24 +479,24 @@ Ruby's C extensions and built-in methods implemented in C operate outside Ruby's
 | §5-2 (Active Storage + MiniMagick) | CVE-2022-21831 (Active Storage) | Code injection via image transformation parameters |
 | §5-2 (Active Storage RCE) | CVE-2025-24293 (Active Storage) | RCE via unsafe transformation methods (apply, loader, saver) passed to MiniMagick |
 | §4-3 + §5-1 (Render File Traversal) | CVE-2019-5418 (Action View) | Arbitrary file read via Accept header + render file:. CISA KEV listed |
-| §1-1 (Predictable Secret in Dev Mode) | CVE-2019-5420 (Railties) | RCE via predictable `secret_key_base` in development mode — attacker derives the secret from the application name, forges session cookie with Marshal payload. CVSS 9.8 |
+| §1-1 (Predictable Secret in Dev Mode) | CVE-2019-5420 (Railties) | RCE via predictable `secret_key_base` in development mode — attacker derives the secret from the application name, forges session cookie with Marshal payload. Requires Marshal serializer (pre-Rails 7.1 default). CVSS 9.8 |
 | §4-3 (Render File) + §1-1 (Marshal) | CVE-2019-5418 + CVE-2019-5420 ("DoubleTap") | Chain: file read to extract secret → session cookie forgery → RCE |
 | §7-1 (Host Header Open Redirect) | CVE-2021-22881 (Action Pack) | Open redirect via Host Authorization middleware bypass |
 | §6-2 (CSRF Bypass) | CVE-2011-0447 (Rails CSRF) | CSRF protection circumvented via plugin/redirect combination |
 | §7-2 (Accept Header ReDoS) | CVE-2024-26142 (Action Dispatch) | DoS via catastrophic regex backtracking in Accept parsing |
-| §6-2 (Permissions-Policy Gap) | CVE-2024-28103 (Action Pack) | Security header only on HTML responses, leaving APIs unprotected |
+| §6-2 (Permissions-Policy header gap) | CVE-2024-28103 (Action Pack) | Permissions-Policy header only applied to HTML responses — a security header coverage issue, not a CSRF bypass |
 | §7-2 (Action Text ReDoS) | CVE-2024-47888 (Action Text) | DoS via crafted blockquote content |
 | §5-1 (Rack Path Traversal) | CVE-2025-27610 (Rack::Static) | Arbitrary file read via path traversal. CVSS 7.5 |
 | §9-1 (Rack Log Injection) | CVE-2025-25184 (Rack) | CRLF injection in logs enables audit trail manipulation |
 | §9-1 (Rack Header Log Manipulation) | CVE-2025-27111 (Rack) | HTTP header-based log data manipulation |
-| §4-2 (Sanitizer XSS Bypass) | CVE-2024-53985 (rails-html-sanitizer) | XSS bypass via crafted HTML evading sanitization |
-| §4-2 (Sanitizer XSS Bypass) | CVE-2022-23519 (rails-html-sanitizer) | XSS bypass through sanitizer flaw |
-| §4-2 (Sanitizer XSS Bypass) | CVE-2022-32209 (rails-html-sanitizer) | XSS via sanitizer allowlist circumvention |
+| §4-2 (Sanitizer XSS Bypass) | CVE-2024-53985 (rails-html-sanitizer) | XSS bypass when custom allow-list includes `math`+`style` or `svg`+`style` tags |
+| §4-2 (Sanitizer XSS Bypass) | CVE-2022-23519 (rails-html-sanitizer) | XSS bypass when custom allow-list includes `select`+`style` tags |
+| §4-2 (Sanitizer XSS Bypass) | CVE-2022-32209 (rails-html-sanitizer) | XSS bypass when custom allow-list includes `select` tag |
 | §5-1 (Sprockets Path Traversal) | CVE-2018-3760 (Sprockets) | Arbitrary file read via asset pipeline traversal |
 | §1-1 (Ruby 3.4 Gadget) | Nov 2024 (Ruby 3.4 Universal Gadget) | RCE via new Marshal gadget chain bypassing Ruby 3.2+ patches |
 | §1-1 (Gem::SafeMarshal Escape) | Dec 2024 (SafeMarshal Bypass) | Escape from Gem::SafeMarshal protections, subsequently patched |
-| §2-2 (_json Parameter Juggling) | _json Juggling Attack (2024) | Authorization bypass via dual interpretation of `_json` parameter in Rails JSON request parsing |
-| §1-5 (Bootsnap Cache Poisoning) | Bootsnap Compile Cache RCE (2024) | File write → RCE escalation via Bootsnap compile cache overwrite. Affects Rails ≥ 5.2 with default Bootsnap |
+| §2-2 (_json Parameter Wrapping) | _json Wrapping Behavior (2024) | Theoretical authorization bypass via dual interpretation of `_json` parameter in Rails JSON request parsing — no official advisory confirms exploitation |
+| §1-5 (Bootsnap Cache Poisoning) | Bootsnap Compile Cache RCE (2024) | File write → RCE escalation via Bootsnap compile cache overwrite. Affects apps using Bootsnap gem (commonly included in Rails ≥ 5.2 templates, but not Rails core) |
 | §12-1 (Array#pack Memory Bleed) | Ruby Array Pack Bleed (nastystereo.com, 2025) | Heap memory disclosure via signedness wrap in Array#pack format directives. Ruby MRI |
 
 ---
@@ -539,7 +539,7 @@ Each CVE patch addresses a specific mutation vector, but the underlying architec
 
 ### What Structural Solutions Look Like
 
-True structural mitigation requires moving from opt-in safety to opt-out unsafety at every layer: serialize with JSON by default (not Marshal), parameterize all queries (not just the "safe" methods), sandbox template rendering, validate all file paths against a strict allowlist, and treat every external-facing parameter as adversarial until explicitly validated. Ruby 3.2's `Gem::SafeMarshal` and Rails 7's `raise_on_open_redirects` represent steps in this direction, but the complete transformation requires a cultural shift from "Rails is secure by default" to "Rails provides safety mechanisms that must be consciously applied at every input boundary."
+True structural mitigation requires moving from opt-in safety to opt-out unsafety at every layer: serialize with JSON by default (not Marshal), parameterize all queries (not just the "safe" methods), sandbox template rendering, validate all file paths against a strict allowlist, and treat every external-facing parameter as adversarial until explicitly validated. Ruby 3.3's `Gem::SafeMarshal` (shipped with RubyGems 3.5) and Rails 7's `raise_on_open_redirects` represent steps in this direction, but the complete transformation requires a cultural shift from "Rails is secure by default" to "Rails provides safety mechanisms that must be consciously applied at every input boundary."
 
 ---
 

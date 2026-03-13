@@ -85,12 +85,12 @@ The most pervasive and consistently exploited management interface weakness acro
 | Subtype | Mechanism | Key Condition | Discrepancy |
 |---------|-----------|---------------|-------------|
 | **Factory default credentials** | Device ships with well-known credentials (`admin/admin`, `root/root`, `admin/password`, `root/calvin`) that are never changed post-deployment | No forced credential change during initial setup | D2, D5 |
-| **Vendor-uniform defaults** | Entire product line uses the same default credentials, documented in public manuals (e.g., Dell iDRAC `root/calvin`, Supermicro IPMI `admin/admin`, Zyxel `supervisor/zyad1234`) | Vendor does not enforce unique-per-device credentials | D2, D5 |
+| **Vendor-uniform defaults** | Entire product line uses the same default credentials, documented in public manuals (e.g., Dell iDRAC `root/calvin`, Supermicro IPMI `ADMIN/ADMIN`, Zyxel `supervisor/zyad1234`) | Vendor does not enforce unique-per-device credentials | D2, D5 |
 | **Hardcoded service accounts** | Undocumented service or support accounts with static credentials compiled into firmware or application code | Credential compiled into binary, not changeable without firmware update | D2, D5 |
 | **Weak password policy on management accounts** | Management interface permits trivially guessable passwords with no complexity, length, or rotation requirements | No password policy enforcement | D2, D5 |
 | **Shared credentials across tiers** | Same credentials used for management interface and other services (database, SSH, API keys), allowing credential reuse from lower-privilege compromises | Organizational practice, no credential isolation | D2 |
 
-Zyxel DSL CPE devices were found exploitable via default credentials for multiple accounts (`supervisor`, `admin`, `zyuser`) in early 2025. The dormakaba Access Manager (CVE-2025-59108) ships with default password `admin` and does not enforce a change during setup.
+Zyxel DSL CPE devices were found exploitable via default credentials for multiple accounts (`supervisor`, `admin`, `zyuser`) in early 2025. The dormakaba Access Manager (CVE-2025-59108) ships with default password `admin` and does not enforce a change during setup — a default credential issue, not unauthenticated access.
 
 ### §2-2. Authentication Bypass
 
@@ -186,7 +186,7 @@ Management traffic transmitted without encryption, enabling eavesdropping and cr
 | Subtype | Mechanism | Key Condition | Discrepancy |
 |---------|-----------|---------------|-------------|
 | **HTTP (non-TLS) management interfaces** | Web-based management panels served over HTTP without TLS, exposing session tokens and credentials to network sniffing | No HTTPS enforcement, missing HSTS | D4, D5 |
-| **TR-069/CWMP exposed on WAN** | ISP customer premise equipment management protocol (TR-069/CWMP) bound to the WAN interface, allowing remote unauthenticated access to device provisioning, firmware update, and configuration commands | CPE router/modem exposes TR-069 port (7547) to the public internet; no authentication or ACL | D1, D5 |
+| **TR-069/CWMP exposed on WAN** | ISP customer premise equipment management protocol (TR-069/CWMP) bound to the WAN interface, exposing device provisioning, firmware update, and configuration commands to remote attackers. TR-069 includes authentication (HTTP Digest/TLS), but implementations frequently ship with weak or default credentials and no ACL | CPE router/modem exposes TR-069 port (7547) to the public internet; weak authentication or misconfigured ACL | D1, D5 |
 
 ### §4-2. TLS and Cryptographic Weaknesses
 
@@ -222,7 +222,7 @@ Management sessions are high-value targets because they represent authenticated,
 | **CSRF against management actions** | Attacker tricks an authenticated admin into performing management actions (user creation, configuration changes) via crafted cross-origin requests | Missing or weak CSRF token enforcement on management endpoints | D7 |
 | **XSS in management interface leading to session theft** | Stored or reflected XSS in management interface pages allows injection of JavaScript that exfiltrates admin session tokens or performs actions on behalf of the admin | Insufficient input sanitization in management UI | D7, D6 |
 | **Clickjacking of management panels** | Management interface rendered in an invisible iframe, tricking the admin into clicking buttons that perform privileged actions | Missing `X-Frame-Options` or `Content-Security-Policy: frame-ancestors` headers | D7 |
-| **CSP bypass enabling management session compromise** | Content Security Policy weaknesses on management interfaces allow XSS payloads to execute despite CSP, as seen in GitLab CVE-2025-0376 (CVSS 8.7) | Overly permissive or bypassable CSP directives | D7 |
+| **XSS on management pages (e.g., GitLab merge requests)** | Stored XSS on management-adjacent pages — e.g., GitLab CVE-2025-0376 (CVSS 8.7) allowed XSS on merge request / change pages, enabling session token theft and repository modification. NVD and GitLab advisory classify this as XSS, not purely a CSP bypass | Insufficient input sanitization on management-facing pages | D7 |
 
 ---
 
@@ -236,14 +236,14 @@ Modern application frameworks expose management and monitoring endpoints that, w
 
 | Subtype | Mechanism | Key Condition | Discrepancy |
 |---------|-----------|---------------|-------------|
-| **Spring Boot Actuator exposure** | Actuator endpoints (`/actuator/env`, `/actuator/heapdump`, `/actuator/configprops`, `/actuator/metrics`) expose environment variables, heap memory (containing credentials), and internal configuration | Default Actuator exposure settings, no path restriction | D6, D5 |
+| **Spring Boot Actuator exposure** | Actuator endpoints (`/actuator/env`, `/actuator/heapdump`, `/actuator/configprops`, `/actuator/metrics`) expose environment variables, heap memory (containing credentials), and internal configuration. Note: Spring Boot 2.x+ defaults to exposing only `/health` over HTTP; these endpoints require explicit configuration or legacy 1.x settings to be reachable | Explicit Actuator exposure configuration (or Spring Boot 1.x defaults), no path restriction | D6, D5 |
 | **Actuator gateway route SSRF** | The `/actuator/gateway/routes` endpoint in Spring Cloud Gateway enables SSRF by design, allowing attackers to probe internal services and cloud metadata | Spring Cloud Gateway with Actuator exposed | D6, D1 |
 | **Actuator auth bypass via semicolon injection** | Appending `;` followed by additional path segments to Actuator URLs bypasses path-based firewall rules while the application still serves the endpoint | Path-based WAF/firewall with different path parsing than Spring | D6, D2 |
 | **Django debug mode in production** | Django's `DEBUG=True` setting exposes full stack traces, settings (including `SECRET_KEY`), SQL queries, and application structure at error pages | Debug mode not disabled for production deployment | D6, D5 |
 | **Node.js/Express debug endpoints** | Development debug middleware (e.g., `express-debug`, profiling endpoints) left active in production exposes route maps, middleware stacks, and request internals | Development middleware not stripped in production build | D6, D5 |
 | **GraphQL introspection enabled** | GraphQL management APIs with introspection enabled expose the complete schema — all types, fields, queries, and mutations — to unauthenticated requestors | Introspection not disabled in production | D6, D5 |
 
-Spring Boot Actuator `/heapdump` endpoints have been shown to expose database credentials, API keys, and JWT signing secrets. The `/metrics/http.client.requests` metric has exposed customer email addresses and internal SQL statements.
+Spring Boot Actuator `/heapdump` endpoints have been shown to expose database credentials, API keys, and JWT signing secrets (documented in multiple HackerOne reports and Wiz research). The `/metrics/http.client.requests` metric can potentially expose sensitive request parameters — the extent depends on application-level metric tagging configuration.
 
 ### §6-2. Error-Based and Response-Based Information Leakage
 
@@ -308,13 +308,13 @@ Cloud management consoles, Kubernetes control planes, and orchestration dashboar
 | Subtype | Mechanism | Key Condition | Discrepancy |
 |---------|-----------|---------------|-------------|
 | **Overprivileged IAM policies** | Cloud IAM roles grant wildcard permissions (`s3:*`, `iam:*`, `ec2:*`) to management users or service accounts, enabling self-escalation | No least-privilege enforcement in IAM design | D3, D5 |
-| **Self-escalation to admin** | Over half of AWS enterprises have identities with the ability to escalate their own privileges to super admin by modifying their own IAM policies | IAM policy allows `iam:PutUserPolicy` or `iam:AttachUserPolicy` on self | D3 |
+| **Self-escalation to admin** | A significant proportion of AWS enterprises have identities capable of escalating their own privileges to admin by modifying their own IAM policies (various cloud security vendors report high prevalence, though exact figures vary by source) | IAM policy allows `iam:PutUserPolicy` or `iam:AttachUserPolicy` on self | D3 |
 | **Publicly accessible cloud storage management** | S3 buckets, Azure blobs, or GCS buckets configured with public access that contain management artifacts (config files, credentials, backups) | Misconfigured bucket ACL or policy | D1, D5 |
 | **Cross-account role assumption** | Over-permissive trust policies on IAM roles allow cross-account assumption from unauthorized accounts | Trust policy with `*` or overly broad principal | D3 |
 | **ConfusedFunction privilege escalation** | GCP Cloud Functions create default Cloud Build service accounts with excessive permissions, allowing a function to escalate to project-level admin | GCP Cloud Build default service account scope (pre-mid-2024) | D3 |
 | **SSO/SAML misconfiguration** | Cloud management SSO configured with improper assertion validation, allowing authentication bypass via crafted SAML responses (e.g., Fortinet FortiCloud SSO — CVE-2025-59718) | Insufficient SAML signature or trust chain validation | D2 |
 
-Cloud control plane compromise grants near-complete control over the entire cloud infrastructure. CISA issued Binding Operational Directive 25-01 in December 2024, mandating federal agencies secure cloud environments due to widespread misconfiguration.
+Cloud control plane compromise grants near-complete control over the entire cloud infrastructure. CISA issued Binding Operational Directive 25-01 in December 2024, requiring federal civilian agencies to align cloud tenants with SCuBA (Secure Cloud Business Applications) secure configuration baselines — a broader cloud security mandate, not solely focused on management interface exposure.
 
 ### §8-2. Container Orchestration Management Exposure
 
@@ -363,21 +363,21 @@ Tesla's AWS-hosted Kubernetes environment was compromised via a misconfigured Ku
 | §2-2 (auth bypass) + §3-1 (priv esc) | CVE-2024-0012 + CVE-2024-9474 (PAN-OS) | CVSS 9.3 + 6.9. Unauthenticated attacker gains root access on Palo Alto firewalls via management web interface. Actively exploited in the wild. |
 | §2-2 (path confusion auth bypass) | CVE-2025-0108 (PAN-OS) | Authentication bypass via double URL encoding + directory traversal. Chained with CVE-2024-9474 and CVE-2025-0111. CISA KEV listed. |
 | §2-2 (path traversal to unauthed handler) | CVE-2025-64446 (FortiWeb) | CVSS 9.8. Path traversal to internal CGI handler creates admin account in single request. Exploited in the wild. |
-| §8-1 (SSO signature bypass) | CVE-2025-59718 (FortiCloud SSO) | CVSS 9.1. Crafted SAML message bypasses SSO authentication. Exfiltration of config files with network topology and credentials. CISA KEV listed. |
+| §8-1 (SSO signature bypass) | CVE-2025-59718 (FortiCloud SSO) | CVSS 9.8. Crafted SAML message bypasses SSO authentication. Exfiltration of config files with network topology and credentials. CISA KEV listed. |
 | §5-1 (predictable session IDs) | DSA-2024-099, DSA-2024-295 (Dell iDRAC) | Predictable IPMI 2.0 session IDs in Dell iDRAC8 and iDRAC9 allow session hijacking. |
 | §8-1 (BMC buffer overflow) | CVE-2024-10238, CVE-2024-10239 (Supermicro BMC) | Stack-based buffer overflows in BMC firmware enable arbitrary code execution in BMC context. |
 | §8-1 (firmware signature bypass) | CVE-2025-7937 (Supermicro BMC) | Incomplete patch allows crafted firmware images to pass verification, enabling persistent BMC compromise. |
-| §2-1 (default credentials) | CVE-2025-59108 (dormakaba Access Manager) | Default `admin` password never forced to change. Unauthenticated remote access to building access management system. |
+| §2-1 (default credentials) | CVE-2025-59108 (dormakaba Access Manager) | Default `admin` password never forced to change. Remote access to building access management system via default credentials. |
 | §2-1 (default credentials) | CVE-2025-0890 (Zyxel DSL CPE) | Default credentials for supervisor, admin, and zyuser accounts on DSL management interface. |
 | §8-2 (image builder defaults) | CVE-2024-9486 (Kubernetes Image Builder) | Default credentials baked into Kubernetes VM images during build process persist in production. |
 | §8-3 (CLI file read) | CVE-2024-23897 (Jenkins) | Critical arbitrary file read via Jenkins CLI. Enables extraction of secrets, credentials, and SSH keys. |
 | §8-3 (pipeline takeover) | CVE-2024-9164 (GitLab) | CVSS 9.6. Run CI/CD pipelines on arbitrary branches. |
 | §4-3 (SNMP RCE) | CVE-2025-20352 (Cisco IOS/IOS XE) | SNMP vulnerability exploited to deploy rootkits. Active exploitation by threat actors ("Operation Zero Disco"). |
 | §6-1 (Actuator exposure) | Various HackerOne reports | Spring Boot Actuator `/heapdump` leaking database credentials and API keys. Multiple bug bounty payouts. |
-| §5-2 (CSP bypass → XSS) | CVE-2025-0376 (GitLab) | CVSS 8.7. CSP bypass enabling XSS on merge request pages — session token theft and repository modification. |
-| §8-1 (cloud misconfig) | Snowflake Breach (2024) | Stolen, never-rotated credentials compromised 100+ customers including AT&T, Ticketmaster, Santander Bank. |
-| §8-2 (firmware vulnerability) | CVE-2024-0762 (Phoenix SecureCore) | CVSS 7.4. TPM configuration buffer overflow in UEFI firmware affecting Intel Core processors. |
-| §1-1 (internet exposure) | CISA BOD 25-01 (Dec 2024) | US federal mandate to secure cloud environments due to widespread management interface exposure. |
+| §5-2 (XSS on management pages) | CVE-2025-0376 (GitLab) | CVSS 8.7. Stored XSS on merge request / change pages — session token theft and repository modification. GitLab advisory and NVD classify as XSS. |
+| §2-1 (stolen/default credentials, no MFA) | Snowflake Breach (2024) | Stolen, never-rotated customer credentials with no MFA enforcement compromised 100+ tenants including AT&T, Ticketmaster, Santander Bank. Primarily a credential hygiene and MFA gap, not a management interface misconfiguration. |
+| §8-2 (firmware vulnerability) | CVE-2024-0762 (Phoenix SecureCore) | CVSS 7.5. TPM configuration buffer overflow in UEFI firmware affecting Intel Core processors. |
+| §1-1 (cloud security baseline) | CISA BOD 25-01 (Dec 2024) | US federal mandate requiring agencies to implement SCuBA secure configuration baselines for cloud tenants — broader cloud security directive, not limited to management interface exposure. |
 
 ---
 

@@ -131,17 +131,17 @@ Embedding carriage return (`\r`) and line feed (`\n`) characters into protocol f
 | **Memcached Protocol Injection** | Inject `set key 0 0 N\r\npayload` | Access to Memcached port 11211 |
 | **FTP Command Injection** | Multi-line FTP commands via CR-LF | SSRF to FTP servers |
 
-**Example: GitHub Enterprise RCE (2017) - Redis Exploitation**
+**Example: GitHub Enterprise RCE (2017) - Memcached Exploitation**
 
 ```python
 # Python httplib.HTTPConnection CR-LF injection
-url = "http://internal-graphite:8000/\r\n\r\nSET github:key serialized_payload\r\n"
+url = "http://internal-graphite:8000/\r\n\r\nset github:key 0 0 N\r\nserialized_payload\r\n"
 
 Attack Flow:
 1. Webhook SSRF → Internal Graphite service
 2. Graphite fetches URL with CR-LF
-3. CR-LF injects Redis protocol commands
-4. Writes malicious Marshal object to cache
+3. CR-LF injects Memcached protocol commands
+4. Writes malicious Marshal object to Memcached cache
 5. Rails retrieves and deserializes → RCE
 
 Bounty: $7,500 (GitHub Bug Bounty)
@@ -162,7 +162,8 @@ Manipulating response boundaries to poison caches, inject headers, or create des
 **Example: Apache HTTP Server (2024)**
 
 ```
-CVE-2023-38709: HTTP response splitting in multiple modules
+CVE-2023-38709: HTTP response splitting in Apache httpd core
+CVE-2024-24795: HTTP response splitting in multiple modules
 Attacker injects malicious response headers into backend applications
 Apache proxies poisoned responses, creating HTTP desync attack
 ```
@@ -261,7 +262,9 @@ Result: Path traversal from guest VM to host filesystem
 Access: cuckoo.conf with database credentials
 ```
 
-**Affected Products**: PHP, Apache Subversion (CVE-2024-45720), Perforce (CVE-2024-8067), curl, Perl, Python 2.x-3.5, PostgreSQL, GNU Wget, ElFinder
+**Confirmed Affected Products (with CVE/vendor advisory)**: PHP (CVE-2024-4577), Microsoft Excel (CVE-2024-49026), Apache Subversion (CVE-2024-45720), Perforce (CVE-2024-8067)
+
+**Additionally Reported** (per Orange's research, but without dedicated CVE or vendor fix): curl, Perl, Python 2.x-3.5, PostgreSQL, GNU Wget, ElFinder — these were reported but vendors declined or did not respond.
 
 **Vendor Responses**:
 - **MSRC**: Only Excel CVE accepted; other reports rejected as "Windows feature"
@@ -332,7 +335,9 @@ Result: Unauthenticated access to admin.php (affects all Files-based auth)
 | **Symlink Traversal** | Follow symlinks in package directories | `/var/lib/redmine` → `/etc/redmine/default/` |
 | **Local Gadget Chaining** | Readable packages become attack gadgets | Exploit Jetty, Cacti, MediaWiki, Solr for XSS/RCE |
 
-**Example: CVE-2024-39573 - Redmine RCE via Symlinks**
+**Example: CVE-2024-39573 - mod_rewrite SSRF (Redmine demo chain)**
+
+Apache's official advisory classifies CVE-2024-39573 as a **potential SSRF via mod_rewrite**. The Redmine symlink traversal→RCE scenario is Orange's demonstration of chaining this with local gadgets, not the CVE description itself.
 
 ```apache
 RewriteRule "^/html/(.*)$" "/$1.html"
@@ -391,7 +396,9 @@ Flow:
 Result: XSS becomes RCE by executing text files as code
 ```
 
-**CVEs**: CVE-2024-38472, CVE-2024-39573, CVE-2024-38477, CVE-2024-38476, CVE-2024-38475, CVE-2024-38474, CVE-2024-38473, CVE-2023-38709
+**CVEs**: CVE-2024-38472, CVE-2024-39573, CVE-2024-38477, CVE-2024-38476, CVE-2024-38475, CVE-2024-38474, CVE-2024-38473
+
+Note: CVE-2023-38709 (core HTTP response splitting) is a separate, earlier issue — not part of the 2024 Confusion Attacks research.
 
 ### §4-2. Expression Language (EL) Injection
 
@@ -455,7 +462,7 @@ Exploit Flow:
 4. Write webshell to C:\inetpub\wwwroot\aspnet_client\
 5. RCE as SYSTEM
 
-Impact: Pre-auth RCE on all Exchange versions
+Impact: Pre-auth RCE on Exchange Server 2013, 2016, 2019 (Exchange Online not affected; Exchange 2010 only partially related)
 ```
 
 #### ProxyShell (Pwn2Own 2021)
@@ -517,7 +524,7 @@ Enterprise Mobile Device Management (MDM) servers sit on the network perimeter a
 
 #### CVE-2020-15505 (MobileIron Core & Connector)
 
-**Mechanism**: Multi-bug chain combining path traversal, ACL bypass, and unsafe deserialization to achieve unauthenticated RCE on MobileIron MDM appliances.
+**Mechanism**: Unauthenticated RCE on MobileIron MDM appliances. NVD and vendor advisory describe only "remote code execution via unspecified vectors." Rapid7/Metasploit analysis identifies the chain as path traversal → ACL bypass → Hessian deserialization, but this detail comes from third-party research, not the official CVE description.
 
 ```
 Attack Chain:
@@ -557,8 +564,8 @@ gadget = ActiveSupport::Deprecation::DeprecatedInstanceVariableProxy.new(
 )
 
 Attack Flow:
-1. SSRF chain: Webhook → Graphite → Redis (CR-LF injection)
-2. Inject: SET session:key Marshal.dump(gadget)
+1. SSRF chain: Webhook → Graphite → Memcached (CR-LF injection)
+2. Inject: set session:key 0 0 N Marshal.dump(gadget)
 3. Rails retrieves session from cache
 4. Marshal.load(malicious_object)
 5. Gadget triggers: ERB template execution
@@ -689,29 +696,29 @@ Result: Pre-auth RCE (no Overall/Read permission needed)
 
 | Mutation Combination | CVE / Case | Product | Impact / Bounty | Year |
 |---------------------|-----------|---------|-----------------|------|
-| §1-1 + §2-1 + §6-1 | GitHub Enterprise | GitHub | $7,500 • Pre-auth RCE via SSRF→Redis→Marshal | 2017 |
+| §1-1 + §2-1 + §6-1 | GitHub Enterprise | GitHub | $7,500 • Pre-auth RCE via SSRF→Memcached→Marshal | 2017 |
 | §1-2 + §4-2 | Amazon Collaboration | Nuxeo/Amazon | Recognition • ACL bypass→EL injection→RCE | 2018 |
 | §8-1 | CVE-2019-1003000, CVE-2019-1003005, CVE-2019-1003029 | Jenkins | Pre-auth RCE via Groovy meta-programming | 2019 |
 | §7-1 | CVE-2019-1579 | Palo Alto GlobalProtect | Pre-auth RCE via format string (Uber case study) | 2019 |
 | §5-2 | CVE-2018-13382 | Fortinet SSL VPN | Pre-auth password reset via magic backdoor (Improper Authorization) | 2019 |
-| §5-3 | CVE-2020-15505 | MobileIron Core/Connector | Pre-auth RCE via path traversal + deserialization chain. APT-weaponized (CISA AA20-258A) | 2020 |
+| §5-3 | CVE-2020-15505 | MobileIron Core/Connector | Pre-auth RCE (official: unspecified vectors; Rapid7 analysis: path traversal + Hessian deserialization). APT-weaponized (CISA AA20-258A) | 2020 |
 | §5-1 | CVE-2021-26855, CVE-2021-27065 | Microsoft Exchange (ProxyLogon) | Pre-auth RCE • Pwnie Award 2021 Best Server-Side Bug | 2021 |
 | §5-1 | CVE-2021-34473, CVE-2021-34523, CVE-2021-31207 | Microsoft Exchange (ProxyShell) | **$200,000** • Pwn2Own Vancouver 2021 Master of Pwn | 2021 |
 | §3-1 | CVE-2024-4577 | PHP-CGI | CVSS 9.8 • RCE via soft hyphen Best-Fit bypass | 2024 |
 | §4-1 | CVE-2024-38472 | Apache HTTPd | Windows UNC SSRF | 2024 |
-| §4-1 | CVE-2024-39573 | Apache HTTPd | SSRF via RewriteRule + symlink traversal→RCE | 2024 |
+| §4-1 | CVE-2024-39573 | Apache HTTPd | Potential SSRF via mod_rewrite (official advisory); Redmine RCE chain is Orange's demo | 2024 |
 | §4-1 | CVE-2024-38477, CVE-2024-38476 | Apache HTTPd | DoS, malicious backend handler execution | 2024 |
 | §4-1 | CVE-2024-38475, CVE-2024-38474, CVE-2024-38473 | Apache HTTPd | Path truncation, encoded `?` in backrefs, ACL bypass | 2024 |
 | §2-2 | CVE-2023-38709 | Apache HTTPd | HTTP response splitting | 2024 |
-| §3-1 | CVE-2024-49026 | Microsoft Excel | RCE via fullwidth quote argument injection | 2025 |
-| §3-1 | CVE-2024-45720 | Apache Subversion | Argument injection via Best-Fit | 2025 |
-| §3-1 | CVE-2024-8067 | Perforce | RCE via Best-Fit argument splitting | 2025 |
+| §3-1 | CVE-2024-49026 | Microsoft Excel | RCE via fullwidth quote argument injection | 2024 |
+| §3-1 | CVE-2024-45720 | Apache Subversion | Argument injection via Best-Fit | 2024 |
+| §3-1 | CVE-2024-8067 | Perforce | RCE via Best-Fit argument splitting | 2024 |
 
 **Total Estimated Bounties**: $207,500+ (excludes undisclosed amounts and Pwnie Awards recognition)
 
 **Recognition**:
 - **Pwnie Awards**: 2019 (SSL VPN), 2021 (ProxyLogon) - Best Server-Side Bug
-- **Pwn2Own Master of Pwn**: 2021 (Vancouver), 2022 (Toronto)
+- **Pwn2Own Master of Pwn**: 2021 (Vancouver, three-way tie with OV and Keuper & Alkemade), 2022 (Toronto)
 - **Top 10 Web Hacking Techniques**: 1st place 2017/2018, 2020 nominee (MobileIron MDM), 2024 nominee (Confusion Attacks, WorstFit)
 
 ---
