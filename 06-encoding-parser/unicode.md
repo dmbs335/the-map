@@ -63,7 +63,7 @@ Different components interpret the same byte sequence using different character 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
 | **Multi-Byte Escape Eating** | In GBK encoding, `0xBF27` with `addslashes()` becomes `0xBF5C27` — but `0xBF5C` is a valid GBK character, so the escape backslash (`0x5C`) is consumed, leaving a bare single quote (`0x27`) | Database connection uses GBK; escaping function uses ASCII/Latin-1 |
-| **UTF-7 Injection** | Input containing `+ADw-script+AD4-` is interpreted as `<script>` by a UTF-7 decoder, bypassing filters checking UTF-8 input | Response lacks explicit charset declaration; browser falls back to UTF-7 auto-detection |
+| **UTF-7 Injection** *(historical)* | Input containing `+ADw-script+AD4-` is interpreted as `<script>` by a UTF-7 decoder, bypassing filters checking UTF-8 input. **Note:** The WHATWG Encoding Standard now prohibits browsers from supporting UTF-7, making this a legacy attack vector. Modern browsers no longer auto-detect UTF-7. However, non-browser contexts (email clients, legacy middleware, embedded parsers) may still be affected | Response lacks explicit charset declaration; legacy or non-browser decoder falls back to UTF-7 |
 | **Shift_JIS Backslash Consumption** | Certain Shift_JIS lead bytes consume the following backslash as part of a multi-byte character, neutralizing escape sequences | Application uses Shift_JIS internally; escaping logic is byte-oriented |
 | **Charset Declaration Manipulation** | Attacker injects or modifies charset declarations (BOM, HTTP header, meta tag) to force reinterpretation of the document in a different encoding | Application does not explicitly set charset or allows user-controlled charset parameters |
 
@@ -118,7 +118,7 @@ Unicode case mapping (uppercasing/lowercasing) can map distinct characters to th
 | **Long S Collision** | `ſ` (U+017F, long s) uppercases to `S` in some implementations, colliding with standard `s` | Similar to Eszett |
 | **Sigma Collision** | Greek `Σ` (U+03A3) lowercases to either `σ` (U+03C3) or `ς` (U+03C2) depending on word position, creating asymmetric case folding | Case folding implementation doesn't account for final-sigma rule |
 
-**Real-World Impact:** GitHub's password reset flow was exploited using a dotless-i collision — registering `John@Gıthub.com` (with dotless i) could intercept password reset emails for `john@github.com`.
+**Widely Cited Example (unverified primary source):** A commonly referenced anecdote describes GitHub's password reset flow being exploited using a dotless-i collision — registering an email with a Turkish dotless-i variant that collides with a target account after case normalization. While this pattern is technically valid and widely discussed, no official GitHub advisory, blog post, or public bug report has been identified as a primary source. The scenario remains a plausible illustration of case-mapping collision attacks.
 
 ### §2-4. Normalization-Induced Truncation
 
@@ -126,8 +126,8 @@ Some Unicode characters normalize to empty strings or are stripped during normal
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **Zero-Width Removal Truncation** | Zero-width characters (U+200B, U+200C, U+200D, U+FEFF) pass length checks but are stripped during normalization, potentially shortening strings beyond expected boundaries | Length validated pre-normalization; storage post-normalization |
-| **Combining Mark Stripping** | Orphaned combining marks may be removed during normalization, altering string content | Normalization strips marks without base characters |
+| **Zero-Width Removal Truncation** | Zero-width characters (U+200B, U+200C, U+200D, U+FEFF) pass length checks but are stripped during application-level text cleanup or sanitization (not Unicode normalization per se — UAX #15 NFC/NFD/NFKC/NFKD do not remove these characters), potentially shortening strings beyond expected boundaries | Length validated before cleanup; storage after cleanup |
+| **Combining Mark Stripping** | Orphaned combining marks (combining marks without preceding base characters) may be removed during application-level sanitization or custom text processing. Note: standard Unicode normalization (UAX #15) does not strip orphaned combining marks — this is an application-specific behavior | Application or framework strips marks without base characters |
 | **Emoji Collation Collapse** | Some databases (notably MSSQL with certain collations) treat emoji and certain Unicode graphemes as equivalent to empty strings in comparisons | Database collation doesn't properly support Unicode supplementary planes |
 
 ---
@@ -210,8 +210,8 @@ Unicode designates 256 variation selector code points that modify the preceding 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
 | **Length Validation Bypass** | Injecting variation selectors inflates the code point count without adding visible characters. A string of 10 visible characters + 1000 variation selectors may pass a "max 20 characters" check if counted by visible glyphs but cause DoS or buffer issues at the byte level | Length check counts grapheme clusters; storage counts bytes or code points |
-| **Data Smuggling in Emoji** | Arbitrary data encoded as sequences of variation selectors appended to emoji characters. Each emoji can carry up to 256 bits using VS-1 through VS-256 | Rendering shows normal emoji; extraction tool reads variation selectors |
-| **Validator Bypass (CVE-2025-12758)** | The `validator` library's `isLength()` function miscounts strings containing variation selectors, reporting vastly smaller lengths than the actual byte size | Application relies on affected library for length validation |
+| **Data Smuggling in Emoji** | Arbitrary data encoded as sequences of variation selectors appended to emoji characters. Each variation selector encodes up to 8 bits (one of 256 states); chaining multiple selectors per emoji increases capacity proportionally | Rendering shows normal emoji; extraction tool reads variation selectors |
+| **Validator Bypass (CVE-2025-12758)** | The `validator` library's `isLength()` function fails to properly account for variation selectors in length calculation, reporting incorrect string lengths. This is a length calculation flaw (not solely a byte-size discrepancy) that enables length validation bypass | Application relies on affected library for length validation |
 
 ### §4-4. Formatting and Control Characters
 
@@ -344,7 +344,7 @@ Unicode mutations that affect data processing, storage, comparison, and protocol
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
 | **Truncation at Charset Boundary** | When inserting Unicode text into a column with a narrower charset (e.g., UTF-8 → Latin-1), characters beyond the charset are truncated or replaced with `?`, potentially cutting strings at critical positions | Database column encoding is narrower than application encoding |
-| **MySQL `utf8` vs. `utf8mb4`** | MySQL's `utf8` encoding only supports 3-byte UTF-8 (BMP only). 4-byte characters (emoji, supplementary planes) are silently truncated, potentially enabling truncation attacks | MySQL table uses `utf8` instead of `utf8mb4` |
+| **MySQL `utf8` vs. `utf8mb4`** | MySQL's `utf8` (alias `utf8mb3`) encoding only supports 3-byte UTF-8 (BMP only). 4-byte characters (emoji, supplementary planes) are not supported and, depending on SQL mode, may be replaced with the replacement character (U+FFFD) or `?`, or may cause the insertion to fail. The specific behavior is mode-dependent rather than always "silent truncation" | MySQL table uses `utf8` instead of `utf8mb4` |
 | **Collation-Based Duplicate Key** | Two strings that differ in Unicode but are equal under the database collation cause unique constraint violations or unintended record overwrites | Database collation is less strict than application-level uniqueness checks |
 | **SQL Injection via Normalization** | `U+FF07` (fullwidth apostrophe) passes input sanitization but normalizes to `U+0027` (standard apostrophe) during NFKC normalization, breaking SQL string delimiters | Sanitization occurs before normalization |
 | **Surrogate → Replacement Character → Search Wildcard** | Unpaired Unicode surrogates (U+D800–U+DFFF) submitted as `\udc2a` are converted to U+FFFD (replacement character) by UTF-8 parsers, then simplified to `?` by downstream systems. In Solr and Elasticsearch, `?` functions as a single-character wildcard, enabling input validation bypass when literal wildcard characters (`*`, `?`) are filtered but surrogates are not | Backend uses Solr/Elasticsearch with wildcard query parsing; input validation filters literal wildcards but not Unicode surrogates; charset conversion pipeline converts invalid surrogates → U+FFFD → `?` |
@@ -385,15 +385,15 @@ Unicode mutations that affect data processing, storage, comparison, and protocol
 | §5-1 (Soft Hyphen Best-Fit) | CVE-2024-4577 (PHP-CGI on Windows) | CVSS 9.8. RCE via argument injection. Mass exploitation within 48 hours of disclosure |
 | §1-1 (Overlong Encoding) + §1-2 | CVE-2000-0884 (IIS 4.0/5.0) | Directory traversal, arbitrary file access. Nimda worm propagation vector |
 | §3-2 (BiDi Reordering) | CVE-2021-42574 (Trojan Source — multiple compilers) | Source code backdoor invisible to human reviewers. Affects C, C++, C#, JS, Java, Rust, Go, Python |
-| §3-1 (Homoglyph) | CVE-2021-42694 (Trojan Source — homoglyph variant) | Function impersonation via homoglyph-renamed functions |
-| §2-3 (Case Mapping Collision) | GitHub Password Reset Bypass | Account takeover via dotless-i email collision |
-| §5-2 (Filename Smuggling) | CVE-2025-52488 (DNN/DotNetNuke) | Path traversal via fullwidth characters normalizing to UNC path separators |
-| §4-3 (Variation Selector) | CVE-2025-12758 (validator library) | Length validation bypass; DoS and database truncation |
+| §3-1 (Homoglyph) | CVE-2021-42694 *(Disputed)* (Trojan Source — homoglyph variant) | Function impersonation via homoglyph-renamed functions. **Note:** This CVE is marked as **Disputed** in NVD |
+| §2-3 (Case Mapping Collision) | GitHub Password Reset Bypass *(unverified primary source)* | Account takeover via dotless-i email collision. Widely cited anecdote; no official GitHub advisory or public report identified |
+| §5-2 (Filename Smuggling) | CVE-2025-52488 (DNN/DotNetNuke) | NTLM hash disclosure via malicious interaction (per NVD). Fullwidth-to-UNC-separator normalization is a plausible but unconfirmed root cause detail |
+| §4-3 (Variation Selector) | CVE-2025-12758 (validator library) | Length calculation flaw in `isLength()` due to improper handling of variation selectors; enables length validation bypass |
 | §1-1 + §2-1 (Normalization) | CVE-2024-43093 (Android) | Privilege escalation via Unicode normalization bypass of file path filters |
 | §1-3 (GBK Multi-Byte) | CVE-2006-2753 (MySQL) | SQL injection via GBK multi-byte character consuming escape backslash (CVE-2006-2314 is a separate PostgreSQL vulnerability) |
 | §7-3 (Rules File Injection) | Pillar Security Disclosure (2025) | Supply chain attack on GitHub Copilot / Cursor via invisible Unicode in configuration files |
 | §4-2 (Tag Character Steganography) | os-info-checker-es6 npm package (2025) | Malware distribution via Unicode steganography hiding C2 payload in npm package |
-| §4-2 (Tag Character Injection) | GlassWorm Campaign (2025) | 35,800+ installations compromised. Invisible Unicode characters used to hide loader code |
+| §4-2 (Tag Character Injection) | GlassWorm Campaign (2025) | 35,800+ downloads. Invisible Unicode characters used to hide loader code |
 | §7-1 (Invisible Prompt Injection) | Microsoft Copilot ASCII Smuggling (2024) | Data exfiltration from Microsoft 365 Copilot via Unicode tag character injection |
 | §6-1 (IDN Homograph) | adoḅe.com Betabot Campaign | Trojan distribution via IDN homograph domain spoofing |
 
@@ -432,7 +432,7 @@ Each individual Unicode vulnerability can be patched: reject overlong encodings,
 
 The only structural defense is **Unicode-aware security processing at every layer** with a consistent strategy:
 
-1. **Normalize early:** Apply a single normalization form (preferably NFKC) at the earliest possible boundary, before any security decisions.
+1. **Normalize early:** Apply a single normalization form at the earliest possible boundary, before any security decisions. NFKC is appropriate for identifier comparison and security checks (per UTS #39), but note that NFKC is lossy — it collapses compatibility distinctions (e.g., `ﬁ` → `fi`, superscripts → digits) which may be unacceptable for display text, filenames, or signature targets. Choose the normalization form appropriate to the context.
 2. **Use wide APIs:** Never convert Unicode to narrow/ANSI encodings for security-relevant operations. On Windows, use Wide Character APIs exclusively.
 3. **Validate post-normalization:** All security checks (input validation, sanitization, length checks, keyword matching) must operate on the fully normalized form.
 4. **Strip invisible characters:** Remove zero-width, tag, variation selector, and BiDi override characters at input boundaries unless the application specifically requires them.

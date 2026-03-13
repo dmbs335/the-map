@@ -188,7 +188,7 @@ These servlets enable credential brute-forcing when accessible.
 
 | Subtype | Servlet | Attack Method |
 |---------|---------|--------------|
-| **LoginStatusServlet brute force** | `/system/sling/loginstatus` | POST with `j_username` and `j_password` parameters; response differentiates valid/invalid credentials |
+| **LoginStatusServlet brute force** *(practitioner-reported)* | `/system/sling/loginstatus` | POST with `j_username` and `j_password` parameters; response reportedly differentiates valid/invalid credentials. Note: this technique appears in community tooling (aem-hacker) and practitioner write-ups but has not been confirmed via official Adobe/Sling documentation in this review |
 | **GetLoggedInUser brute force** | Various auth-check endpoints | Response content varies based on authentication success |
 | **CurrentUserServlet enumeration** | `/libs/granite/security/currentuser.json` | Leaks current session's user identity |
 
@@ -209,7 +209,7 @@ The Apache Felix Web Management Console provides full control over AEM's OSGi ru
 | **Configuration manipulation** | Modify OSGi service configurations to disable security features | Privilege escalation, security bypass |
 | **Component disable/enable** | Toggle security-critical components (auth handlers, filters) on/off | Authentication bypass |
 
-**Default credentials**: `admin:admin` is the most common; also `author:author`, `replication-receiver:replication-receiver`
+**Default credentials**: `admin:admin` is the most common factory default (documented by Adobe). AEM Forms on JEE also ships with `administrator:password`. Note: `author` and `replication-receiver` are bundled system users, but Adobe does not document fixed default passwords for these accounts — they require administrator-configured credentials
 
 ### §4-2. CRXDE Lite and CRX Package Manager
 
@@ -219,7 +219,7 @@ Content Repository Extreme Development Environment — a web-based IDE with full
 |---------|-----------|--------|
 | **CRXDE Lite exposure** | Web IDE accessible at `/crx/de/index.jsp` | Full read/write access to entire JCR repository |
 | **CRX Package Manager** | Package management at `/crx/packmgr/index.jsp` | Install arbitrary CRX packages containing code/content |
-| **Package Manager auth bypass** | Default security controls removed from `/etc/packages` path | Unauthenticated access to package operations |
+| **Package Manager access misconfiguration** | When default CRX security controls are manually removed from `/etc/packages` path, package listing and download may become accessible without authentication. Per Detectify research, the impact is primarily on package viewing/downloading rather than full install/delete operations | Security controls manually removed from `/etc/packages` path |
 | **Package download** | Download existing packages containing application source code | Source code disclosure, credential extraction |
 
 ### §4-3. Groovy Console
@@ -297,10 +297,10 @@ AEM ships with well-known default credentials across multiple interfaces.
 
 | Subtype | Interface | Default Credentials |
 |---------|----------|-------------------|
-| **AEM admin account** | Author/Publish instances at `/libs/granite/core/content/login.html` | `admin:admin` |
-| **Author account** | Author instance | `author:author` |
+| **AEM admin account** | Author/Publish instances at `/libs/granite/core/content/login.html` | `admin:admin` (documented by Adobe) |
+| **AEM Forms on JEE admin** | AEM Forms administration | `administrator:password` (documented by Adobe) |
 | **OSGi console** | `/system/console` | `admin:admin` |
-| **Replication receiver** | Replication agent endpoints | `replication-receiver:replication-receiver` |
+| **Author / Replication-receiver** | Author instance / Replication agent endpoints | Bundled system users; no fixed default passwords documented by Adobe — require administrator-configured credentials |
 
 ### §6-2. Authentication Bypass Techniques
 
@@ -308,14 +308,14 @@ AEM ships with well-known default credentials across multiple interfaces.
 |---------|-----------|---------------|
 | **URL substring filter bypass** | Security filters that check for substrings (e.g., `"login."`) in the URL can be satisfied by inserting that substring into any URL path component | CVE-2025-54253: adding `login.` to URL bypasses auth filter |
 | **Dispatcher anonymous access** | Dispatcher rules allow certain paths without authentication; combined with §1 bypasses, sensitive paths become accessible | Misconfigured `/filter` rules |
-| **Package Manager path override** | Removing default CRX security controls from `/etc/packages` allows unauthenticated package operations | Manual security configuration removal |
+| **Package Manager path override** | Removing default CRX security controls from `/etc/packages` may allow unauthenticated package viewing/downloading (per Detectify research; full install/delete operations are not confirmed as exposed) | Manual security configuration removal |
 | **Sling servlet resource type bypass** | Servlets registered by `sling.servlet.resourceTypes` can be accessed through unexpected paths, bypassing path-based auth checks | Servlet registered on a resource type accessible via multiple paths |
 
 ### §6-3. Credential Brute Force Vectors
 
 | Subtype | Endpoint | Method |
 |---------|---------|--------|
-| **LoginStatusServlet** | `/system/sling/loginstatus` | POST with `j_username`/`j_password` |
+| **LoginStatusServlet** *(practitioner-reported)* | `/system/sling/loginstatus` | POST with `j_username`/`j_password` (community tooling reference; not confirmed via official documentation) |
 | **GET-based auth check** | Various login-status endpoints | Response differentiation on valid vs invalid credentials |
 | **Replication agent auth** | Replication receiver endpoints | Agent-level authentication brute force |
 
@@ -323,7 +323,7 @@ AEM ships with well-known default credentials across multiple interfaces.
 
 ## §7. Cross-Site Scripting (XSS)
 
-AEM has been affected by a massive volume of XSS vulnerabilities — 225 of 254 flaws patched in a single 2025 security bulletin were classified as XSS. The attack surface is amplified by Sling's content-driven rendering model and JCR's ability to store arbitrary content.
+AEM has been affected by a massive volume of XSS vulnerabilities — the APSB25-115 security bulletin patched 254 flaws, the vast majority of which were XSS (exact count not independently verified against Adobe's primary source; the 225/254 figure circulates in secondary reporting). The attack surface is amplified by Sling's content-driven rendering model and JCR's ability to store arbitrary content.
 
 ### §7-1. Reflected XSS
 
@@ -349,7 +349,7 @@ AEM has been affected by a massive volume of XSS vulnerabilities — 225 of 254 
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **RUM proxy JavaScript injection** | AEM Cloud's Real User Monitoring loads JS from `/.rum/@adobe/helix-rum-js` via CDN proxy (JSDelivr/Unpkg). Bypassing the package name allowlist allows injecting arbitrary JavaScript | CVE-2025-47114, CVE-2025-47115 — affected ~45,000 AEM Cloud sites |
+| **RUM proxy JavaScript injection** | AEM Cloud's Real User Monitoring loads JS from `/.rum/@adobe/helix-rum-js` via CDN proxy (JSDelivr/Unpkg). Bypassing the package name allowlist allows injecting arbitrary JavaScript | CVE-2025-47114, CVE-2025-47115 — estimated ~45,000 AEM Cloud sites affected (Searchlight Cyber researcher estimate, not an Adobe-confirmed figure). All AEM Cloud customers were automatically patched |
 | **CDN allowlist bypass** | Validation mistakes in the reverse proxy layer allow substituting the legitimate NPM package with an attacker-controlled one | Three distinct bypasses found and patched in 2025 |
 
 ---
@@ -364,11 +364,11 @@ The most critical AEM RCE discovered to date, stemming from Apache Struts2 devel
 
 | Subtype | Mechanism | CVE |
 |---------|-----------|-----|
-| **Pre-auth OGNL RCE** | AEM Forms exposes `/adminui/debug` servlet that evaluates arbitrary OGNL expressions as Java code without authentication | CVE-2025-54253 (CVSS 10.0) |
-| **Auth bypass + OGNL chain** | Weak security filter bypassed by inserting `login.` in URL, then OGNL injection for command execution | `/adminui/updateLicense1.do;login.?debug=command&expression=...` |
-| **Struts2 devmode expression evaluation** | DevMode's debug interceptor evaluates user-supplied expressions | `/adminui/debug?debug=OGNL:` followed by expression |
+| **Pre-auth RCE** | AEM Forms on JEE — pre-authentication arbitrary code execution via misconfiguration / incorrect authorization (per Adobe bulletin APSB25-82 and NVD). Searchlight Cyber research attributes the root cause to Struts2 devmode OGNL evaluation at `/adminui/debug`, but the official advisory describes it more broadly as incorrect authorization leading to arbitrary code execution | CVE-2025-54253 (CVSS 10.0) |
+| **Auth bypass + code execution chain** | Security filter bypassed by inserting `login.` in URL, then code execution (per Searchlight Cyber write-up) | `/adminui/updateLicense1.do;login.?debug=command&expression=...` |
+| **Struts2 devmode expression evaluation** *(researcher attribution)* | Searchlight Cyber attributes the mechanism to DevMode's debug interceptor evaluating user-supplied OGNL expressions; Adobe's advisory does not specify this level of root cause detail | `/adminui/debug?debug=OGNL:` (per researcher) |
 
-**Impact**: Pre-authentication RCE. Actively exploited in the wild. (CISA KEV listing unverified as of 2026-03)
+**Impact**: Pre-authentication RCE. Adobe bulletin states a **public PoC exists** but does **not** confirm active in-the-wild exploitation. As of 2026-03, CISA KEV listing has not been verified
 
 ### §8-2. Groovy Console Script Execution
 
@@ -469,15 +469,15 @@ The most critical AEM RCE discovered to date, stemming from Apache Struts2 devel
 
 | Mutation Combination | CVE / Case | Impact / Bounty |
 |---------------------|-----------|----------------|
-| §6-2 + §8-1 (Auth bypass + OGNL RCE) | CVE-2025-54253 (AEM Forms on JEE) | CVSS 10.0. Pre-auth RCE via Struts2 devmode. Actively exploited in the wild. (CISA KEV listing unverified as of 2026-03) |
+| §6-2 + §8-1 (Auth bypass + RCE) | CVE-2025-54253 (AEM Forms on JEE) | CVSS 10.0. Pre-auth RCE via incorrect authorization (Adobe); Searchlight Cyber attributes to Struts2 devmode OGNL. Public PoC exists; Adobe does **not** confirm in-the-wild exploitation |
 | §9-1 (XXE in Forms web services) | CVE-2025-54254 (AEM Forms on JEE) | CVSS 8.6. Arbitrary file read via XXE. Zero-day disclosure. |
 | §8-5 (Deserialization in Forms) | CVE-2025-49533 (AEM Forms on JEE) | Pre-auth RCE via untrusted data deserialization. |
-| §7-3 (Cloud RUM proxy XSS) | CVE-2025-47114, CVE-2025-47115 (AEM Cloud) | Persistent XSS on ~45,000 AEM Cloud sites. Three distinct bypasses found. |
+| §7-3 (Cloud RUM proxy XSS) | CVE-2025-47114, CVE-2025-47115 (AEM Cloud) | Persistent XSS on AEM Cloud sites (~45,000 affected per Searchlight Cyber estimate; not Adobe-confirmed). Three distinct bypasses found. All cloud customers auto-patched |
 | §1 + §7-1 (Multiple Dispatcher bypass + XSS) | CVE-2025-54251, -54249, -54252, -54250, -54247, -54248, -54246 | Multiple critical/important dispatcher bypass and XSS flaws found by Searchlight Cyber. |
-| §7-1 + §7-2 (225 XSS vulnerabilities) | APSB25-115 / AEM Cloud Release 2025.5 | 225 of 254 patched flaws were XSS. Affects AEM Cloud and all versions ≤ 6.5.22. |
+| §7-1 + §7-2 (Mass XSS) | APSB25-115 / AEM Cloud Release 2025.5 | 254 patched flaws, vast majority XSS (225/254 figure from secondary reporting; not independently verified against Adobe primary source). Affects AEM Cloud and all versions ≤ 6.5.22 |
 | §5-3 (SSRF via ReportingServicesServlet) | CVE-2018-12809 | SSRF enabling secret exfiltration and XSS via reporting proxy. |
 | §5-3 (SSRF via SalesforceSecretServlet) | CVE-2018-5006 | SSRF via Salesforce integration endpoint. |
-| §3-2 (SlingPostServlet path disclosure) | CVE-2016-0956 | Internal filesystem path enumeration via `:applyTo` error messages. Affected nearly every public AEM instance. |
+| §3-2 (SlingPostServlet path disclosure) | CVE-2016-0956 | Internal filesystem path enumeration via `:applyTo` error messages |
 | §7-1 (WCMDebugFilter reflected XSS) | CVE-2016-7882 | Reflected XSS via debug filter. |
 | §1 (Dispatcher bypass — original) | CVE-2016-0957 | Classic Dispatcher bypass still found in modern deployments. |
 | §9-1 (WebDAV XXE) | CVE-2015-1833 (Apache Jackrabbit) | XXE via WebDAV XML processing. |

@@ -440,18 +440,18 @@ The attacker manipulates the cryptographic keys or parameters established during
 | §5-1 (Early CCS) | CVE-2014-0224 (OpenSSL) | MITM decryption of all TLS traffic via zero-key establishment |
 | §5-2 (HTTP/2 Rapid Reset) | CVE-2023-44487 | Record-breaking DDoS: 398M rps (Google). Unbounded stream creation via RST_STREAM abuse |
 | §5-3 (Bluetooth KNOB) | CVE-2019-9506 | 1-byte entropy negotiation. Affects 38+ devices across all major BT versions |
-| §8-2 (Session Resumption) | CVE-2025-68121 (Go TLS) | Auth bypass via mutated CAs between handshakes in TLS session resumption |
+| §8-2 (Session Resumption) | CVE-2025-68121 (Go TLS) | Resumption state drift: `Config` mutation between initial and resumed handshake causes unexpected session resumption, potentially bypassing certificate validation changes |
 | §1-1 + §5-1 (DTLS Auth Bypass) | JSSE DTLS state machine issues | Complete client authentication bypass via out-of-order DTLS messages (note: CVE-2020-27216 is an Eclipse Jetty temporary directory vulnerability, unrelated to DTLS) |
 | §6-3 (Reentrancy) | The DAO Hack (2016) | $60M ETH stolen. Single-function reentrancy in withdraw() |
-| §6-3 (Reentrancy) | Curve Finance (2023) | ~$70M stolen. Vyper compiler bug enabled reentrancy in DeFi pools |
+| §6-3 (Reentrancy) | Curve Finance (2023) | ~$62M stolen (~73% subsequently recovered). Vyper compiler bug enabled reentrancy in DeFi pools |
 | §8-1 (SAML Signature) | SAMLStorm (2025, xml-crypto) | Zero-day: forged SAML responses → admin account access across Node.js SAML stacks |
 | §8-1 (SAML Comment Injection) | CVE-2017-11427 through CVE-2017-11430 | Auth bypass across OneLogin, ruby-saml, saml2-js libraries |
-| §2-2 (Mass Assignment) | CVE-2024-13275 (Langflow) | Privilege escalation to superadmin via `is_superuser` field injection |
+| §2-2 (Mass Assignment) | CVE-2025-57760 (Langflow) | Privilege escalation to superadmin via `is_superuser` field injection (note: CVE-2024-13275 is Drupal Security Kit HTTP DoS, unrelated) |
 | §3-1 (Limit Overrun) | Multiple GitLab / HackerOne bounties | Discount/coupon multi-redemption, vote manipulation via single-packet attack |
-| §1-1 (MFA Skip) | Azure AuthQuake (2024) | Silent brute-force of MFA via misconfigured timer, reported by Oasis Security |
-| §1-1 (Auth Skip) | CVE-2024-28080 (Apache MINA SSHD) | SSH authentication bypass via public key state machine flaw |
+| §3-1 (Limit Overrun) + §2-3 (Guard Timing) | Azure AuthQuake (2024) | MFA brute-force via session parallelization + absent rate limiting + excessive OTP validity window, reported by Oasis Security |
+| §1-1 (Auth Skip) | CVE-2024-28080 (Gitblit) | SSH authentication bypass via public key state machine flaw in Gitblit's MINA SSHD integration/Authenticator (not a MINA SSHD core vulnerability) |
 | §5-2 (FTP Bounce) | Historical (RFC 2577) | Port scanning, SMTP relay, firewall bypass via FTP PORT command abuse |
-| §3-4 (Distributed TOCTOU) | AWS DynamoDB DNS Outage (2025) | Major US-EAST-1 outage from stale DNS plans applied after newer ones were cleaned |
+| §3-4 (Distributed TOCTOU) | AWS DynamoDB DNS Outage (2025) | Major US-EAST-1 outage from latent race condition in internal DNS automation — operational incident, not a security vulnerability or CVE (included as state-machine anti-pattern example) |
 | §2-3 (Kernel TOCTOU) | CVE-2024-30088 (Windows Kernel) | Local privilege escalation via kernel-level TOCTOU race condition |
 | §2-3 (VMware TOCTOU) | CVE-2025-22224 (VMware ESXi) | TOCTOU → out-of-bounds write. Actively exploited in the wild |
 

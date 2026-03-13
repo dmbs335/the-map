@@ -25,7 +25,7 @@ This taxonomy covers **protocol-level WAF bypass techniques** — mutations that
 
 ### Fundamental Insight
 
-Protocol-level bypasses are structurally more powerful than payload-level bypasses because they are **transport-agnostic** — a single protocol-level bypass can deliver *any* attack payload through the WAF. A request smuggling desync, an H2C upgrade, or an origin IP exposure provides a universal channel that bypasses all WAF rules simultaneously, regardless of their sophistication. This is why the most critical WAF bypass CVEs (CVE-2025-55315 CVSS 9.9, BreakingWAF affecting 40%+ of CDN-protected sites) are protocol-level, not payload-level.
+Protocol-level bypasses are structurally more powerful than payload-level bypasses because they are **transport-agnostic** — a single protocol-level bypass can deliver *any* attack payload through the WAF. A request smuggling desync, an H2C upgrade, or an origin IP exposure provides a universal channel that bypasses all WAF rules simultaneously, regardless of their sophistication. This is why the most critical WAF bypass CVEs (CVE-2025-55315 CVSS 9.9, BreakingWAF affecting nearly 40% of Fortune 100 companies per Zafran's vendor research) are protocol-level, not payload-level.
 
 ---
 
@@ -128,7 +128,7 @@ Mutations that exploit how WAFs select and execute body parsers based on the Con
 | **Dual Charset Declaration** | Use `Content-Type: application/json; charset=utf-8; charset=utf-7`. The WAF uses the first charset; the backend uses the last (or vice versa). | WAF and backend disagree on charset precedence |
 | **Charset-Based Encoding Swap** | Declare `charset=ibm500`, `charset=shift_jis`, `charset=ibm037`, or `charset=utf-16le` to encode the payload in a character set the WAF cannot decode. WAFManis found `utf-16le` bypasses multiple WAFs beyond the previously known `utf-7` and `ibm500` vectors | Backend converts from declared charset to UTF-8 |
 | **Content-Transfer-Encoding (CTE)** | Add `Content-Transfer-Encoding: quoted-printable` or `Content-Transfer-Encoding: base64` to the request. The backend decodes the body content per the CTE header; the WAF inspects the encoded form and fails to detect the payload | Backend supports CTE decoding (common in PHP and email-derived parsers); WAF does not decode CTE-encoded bodies |
-| **Multiple Content-Type headers** | Send two `Content-Type` headers with different values (e.g., `application/x-www-form-urlencoded` and `multipart/form-data`); the WAF uses one parser and the backend uses another. CVE-2023-38199 | WAF and backend disagree on which Content-Type header takes precedence |
+| **Multiple Content-Type headers** | Send two `Content-Type` headers with different values (e.g., `application/x-www-form-urlencoded` and `multipart/form-data`); the WAF uses one parser and the backend uses another. CVE-2023-38199 (specifically OWASP ModSecurity CRS ≤ 3.3.4 failing to detect multiple Content-Type headers) | WAF and backend disagree on which Content-Type header takes precedence |
 | **Parameter Injection in Content-Type** | Add extra parameters to the Content-Type header (`boundary=X; evil=payload`) that interfere with the WAF's header parser. | WAF's Content-Type parser is fragile |
 
 ### §4-2. Multipart/Form-Data Evasion
@@ -276,7 +276,7 @@ Bypasses that avoid the WAF entirely by reaching the origin server through alter
 | **DNS History / Certificate Transparency** | Discover the origin server's real IP address through historical DNS records, CT logs, or SSL certificate scans (Censys, Shodan). Send requests directly to the origin IP, bypassing the CDN/WAF entirely. | Origin server accepts connections from non-CDN IPs |
 | **Subdomain/Service Enumeration** | Find subdomains or related services (mail, FTP, API) that resolve to the origin IP and are not fronted by the WAF. | Not all services are behind the WAF |
 | **Information Disclosure** | The origin IP leaks through error pages, debug headers (`X-Backend-Server`), email headers (`Received`), or SSRF responses. | Application or infrastructure leaks origin information |
-| **CDN/WAF IP Range Misconfiguration** | CDN/WAF providers share IP ranges. If the origin doesn't restrict incoming connections to the WAF's IP range, any attacker who discovers the origin IP can bypass the WAF. Impacts 40%+ of CDN/WAF-protected sites (BreakingWAF, 2025). | Origin server does not whitelist WAF provider IP ranges |
+| **CDN/WAF IP Range Misconfiguration** | CDN/WAF providers share IP ranges. If the origin doesn't restrict incoming connections to the WAF's IP range, any attacker who discovers the origin IP can bypass the WAF. Impacts nearly 40% of Fortune 100 companies (BreakingWAF, 2025). | Origin server does not whitelist WAF provider IP ranges |
 
 ### §9-2. Alternate Endpoint & Routing Bypass
 
@@ -333,15 +333,15 @@ Protocol-level bypasses are transport-agnostic — once a bypass channel is esta
 
 | Technique | CVE / Case | Impact |
 |---|---|---|
-| §1-4 (Chunk Extension Abuse) | CVE-2025-55315 (ASP.NET Core) | CVSS 9.9. HTTP request smuggling via chunk extensions. Microsoft's highest-severity ASP.NET Core CVE |
-| §9-1 (Origin IP Exposure) | BreakingWAF (Zafran, 2025) | Affects 40%+ of CDN/WAF-protected sites including JPMorganChase, Visa, Intel |
+| §1-4 (Chunk Extension Abuse) | CVE-2025-55315 (ASP.NET Core) | CVSS 9.9. HTTP request smuggling via chunk extensions |
+| §9-1 (Origin IP Exposure) | BreakingWAF (Zafran, 2025) | Affects nearly 40% of Fortune 100 companies including JPMorganChase, Visa, Intel |
 | §5-1 (Path Normalization / Percent-Encoded Query Delimiter) | CVE-2024-1019 (ModSecurity 3.0.0–3.0.11) | CVSS 8.6. URL path payload hidden from WAF path rules via percent-encoded `?` |
 | §2-1 (Framework Header) + §9-2 (Alternate Endpoint) | CVE-2025-29927 (Next.js middleware bypass) | Authorization middleware bypass via `x-middleware-subrequest` header |
-| §4-2 (Multipart/Boundary) + §4-1 (Content-Type Confusion) | WAFFLED (ACSAC 2025) | 1,207 bypasses tested against 5 WAFs (AWS WAF, Azure, Cloud Armor, Cloudflare, ModSecurity); AWS WAF was the only vendor not bypassed due to strict RFC-compliant parsing |
-| §8-2 (H2C Smuggling) | Azure WAF H2C Bypass (Assetnote) | Global WAF bypass via HTTP/2 cleartext upgrade |
-| §4-1 (Multiple Content-Type) | CVE-2023-38199 | WAF and backend disagree on which Content-Type header takes precedence when duplicate headers are sent; discovered by WAFManis |
+| §4-2 (Multipart/Boundary) + §4-1 (Content-Type Confusion) | WAFFLED (ACSAC 2025) | 1,207 bypasses tested against 5 WAFs (AWS WAF, Azure, Cloud Armor, Cloudflare, ModSecurity); AWS WAF had no bypasses found in the study's default-configuration scope and tested content types |
+| §8-2 (H2C Smuggling) | Azure WAF H2C Bypass (Assetnote, 2021) | Global WAF bypass via HTTP/2 cleartext upgrade (no CVE; original research published 2021, predates table's 2024–2025 scope) |
+| §4-1 (Multiple Content-Type) | CVE-2023-38199 (OWASP ModSecurity CRS ≤ 3.3.4) | CRS fails to detect multiple Content-Type headers, allowing body parser confusion; discovered by WAFManis |
 | §2-2 (Header) + §6-1 (HPP) | WAFManis (IEEE S&P 2024) | 311 protocol-level evasion cases across 14 WAFs × 20 frameworks in 3 categories (PTC, MPS, RSG) |
-| §9-2 (WAF Implicit Path Exception) | Cloudflare ACME Path Bypass (fearsoff, 2025) | 0-day. `/.well-known/acme-challenge/` requests bypassed all customer WAF rules via implicit vendor exception. Origin exposure → downstream exploitation (traversal, LFI, header injection). Fixed 2025-10-27 |
+| §9-2 (WAF Implicit Path Exception) | Cloudflare ACME Path Bypass (fearsoff, 2025) | 0-day. `/.well-known/acme-challenge/` requests had some WAF features disabled on specific ACME-related paths via implicit vendor exception. Origin exposure → downstream exploitation (traversal, LFI, header injection). Fixed 2025-10-27 |
 | §5-1 (Path Confusion) | ModSecurity v2/v3 Path Confusion (SicuraNext, 2024) | Multiple path confusion bugs enabling rule bypass on both v2 and v3 branches |
 | §9-1 (Origin IP) | Cloudflare Origin IP Bypass (HackerOne #1536299) | WAF bypass by sending requests directly to origin IP |
 

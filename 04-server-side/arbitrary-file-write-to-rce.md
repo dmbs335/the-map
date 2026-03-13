@@ -137,7 +137,7 @@ Targets that alter how the web server processes requests, enabling code executio
 
 | Subtype | Mechanism | Example |
 |---|---|---|
-| **Handler remapping** | Force non-PHP files to execute as PHP | `AddType application/x-httpd-php .txt` |
+| **Handler remapping** | Force non-PHP files to execute as PHP via Apache handler mapping. Requires `mod_php` (Apache module) handler — modern PHP-FPM/ProxyFCGI setups route by location/pattern, not by `AddType`, so this technique may not apply | `AddType application/x-httpd-php .txt` (mod_php) |
 | **CGI enablement** | Enable CGI execution in upload directory | `Options +ExecCGI\nAddHandler cgi-script .cgi` |
 | **auto_prepend_file** | Prepend attacker file to every PHP execution | `php_value auto_prepend_file /tmp/shell.php` |
 | **auto_append_file** | Append attacker code to every PHP response | `php_value auto_append_file /tmp/shell.php` |
@@ -401,7 +401,7 @@ Git hooks are executable scripts that Git runs automatically at specific lifecyc
 |---|---|---|---|
 | **VSCode tasks** | `.vscode/tasks.json` | Define tasks that execute on folder open | User must have auto-tasks enabled |
 | **VSCode settings** | `.vscode/settings.json` | Set `terminal.integrated.shellArgs` or `python.pythonPath` | Indirect execution |
-| **Vim modeline** | Any source file | Vim executes embedded modeline commands | `modeline` option enabled (default) |
+| **Vim modeline** | Any source file | Vim processes embedded modeline option settings when opening a file. Note: modelines set options only — arbitrary command execution requires `modelineexpr` (default: off) or exploitation of specific option side effects. Not a direct AFW→RCE primitive in default Vim configuration | `modeline` option enabled (default), but `modelineexpr` off by default limits exploitation |
 | **JetBrains run config** | `.idea/runConfigurations/*.xml` | Pre-configured run/debug configurations | User runs the configuration |
 
 ---
@@ -528,14 +528,14 @@ Targets that exploit browser or desktop application configuration for indirect c
 
 | Mutation Combination | CVE / Case | Impact / Bounty |
 |---|---|---|
-| §3-4 JSP + path traversal | CVE-2017-12617 (Apache Tomcat) | RCE via PUT bypass; widely exploited |
+| §3-4 JSP + path traversal | CVE-2017-12617 (Apache Tomcat) | RCE via PUT bypass; requires HTTP PUT enabled and default servlet `readonly=false` (non-default configuration) |
 | §4-2 Bootsnap cache | Conviso research 2024 (Rails) | RCE in restricted Docker Rails apps |
 | §3-3 uWSGI `@(exec://)` | Doyensec 2023 research | Dirty AFW→RCE via polymorphic PDF |
 | §4-1 Python .so injection | siunam 2024 research | Dirty AFW→RCE bypassing filename restrictions |
 | §8-1 Git hooks via symlink | CVE-2024-32002 (Git) | RCE on `git clone --recursive` |
-| §8-1 Git hooks via symlink | CVE-2025-48384 (Git) | RCE on clone; CISA KEV listed |
-| §8-1 Git hooks via CR injection | CVE-2025-48385 (Git) | Post-checkout hook execution |
-| §10-1 runc symlink race | CVE-2025-31133, CVE-2025-52565, CVE-2025-52881 (runc) | Container escape in Docker/K8s |
+| §8-1 Git hooks via CR injection | CVE-2025-48384 (Git) | RCE on clone; CISA KEV listed |
+| §8-1 Git Bundle URI protocol injection | CVE-2025-48385 (Git) | Bundle URI protocol injection → arbitrary file write → potential code execution (NVD describes as similar to previous Git CVEs; post-checkout hook mechanism is more specifically CVE-2025-48384) |
+| §10-1 runc symlink race | CVE-2025-31133, CVE-2025-52565, CVE-2025-52881 (runc) | Container escape in Docker/K8s. Note: these are runc's own procfs/mount handling flaws leading to container breakout — not AFW target catalog entries but container escape vulnerabilities that involve file/mount manipulation |
 | §10-1 Docker Compose path traversal | CVE-2025-62725 (Docker Compose < 2.40.2) | CVSS 8.9; arbitrary host file write |
 | §3-1 .htaccess + path traversal | CVE-2024-46986 (Camaleon CMS) | Authenticated AFW→RCE |
 | §9-2 Ansible playbook write | CVE-2024-40629 (JumpServer) | RCE in Celery container as root |

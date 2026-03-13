@@ -39,7 +39,7 @@ This table is the cornerstone of all HPP attacks. The discrepancy between any tw
 | **Ruby on Rails / WEBrick** | Last occurrence wins (supports `&` and `;` delimiters) | `a = "2"` |
 | **Java JSP / Tomcat** | First occurrence wins | `a = "1"` |
 | **Spring MVC / Tomcat** | `getParameter()` returns first occurrence; `getParameterValues()` returns `String[]` of all | `a = "1"` (default) or `a = ["1","2"]` (array binding) |
-| **Node.js / Express** | Creates array of all occurrences (via default `qs` parser) | `a = ["1","2"]` |
+| **Node.js / Express** | Behavior depends on query parser setting: `extended` (default, `qs`) creates array; `simple` (`querystring`) also creates array; custom parsers may vary. Core `querystring.parse()` returns array for duplicates. | `a = ["1","2"]` (typical, but parser-dependent) |
 | **Go (net/http Get)** | First occurrence wins | `a = "1"` |
 | **Go (net/http Query)** | Returns all as array | `a = ["1","2"]` |
 | **Perl / CGI** | Returns all as array | `a = ["1","2"]` |
@@ -290,7 +290,7 @@ Using HPP not as the primary attack, but as an evasion technique to deliver othe
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **Split Payload Concatenation** | Splitting an XSS, SQLi, or command injection payload across multiple parameters that the backend concatenates. WAF sees benign fragments; backend assembles the attack. Example: `q=SELECT&q=*&q=FROM&q=users` → ASP.NET: `q = "SELECT,*,FROM,users"`. | Backend concatenates (ASP.NET, Spring MVC, Node.js) |
+| **Split Payload Concatenation** | Splitting an XSS, SQLi, or command injection payload across multiple parameters that the backend concatenates. WAF sees benign fragments; backend assembles the attack. Example: `q=SELECT&q=*&q=FROM&q=users` → ASP.NET: `q = "SELECT,*,FROM,users"`. | Backend concatenates duplicate values (ASP.NET comma-joins by default). Note: Spring MVC `getParameter()` returns first value only — concatenation requires explicit `getParameterValues()` array handling. Node.js/Express returns arrays, not concatenated strings. |
 | **Comma Operator Abuse (JavaScript)** | Splitting JavaScript across comma-concatenated parameters. `q=1'&q=alert(1)&q='2` → `1',alert(1),'2` — valid JS via the comma operator. | ASP.NET concatenation + reflected output in JS context |
 | **WAF Parameter Limit Exhaustion** | Sending a very large number of parameters to exhaust the WAF's parsing buffer or parameter limit, causing it to stop analyzing and pass the request through. The malicious parameter is placed after the limit. | WAF has a maximum parameter count/size threshold |
 | **Encoding Split** | Splitting encoded characters across duplicates: `%2` in one parameter, `7` in the next, where concatenation produces `%27` (single quote). | Concatenation + re-decoding after merge |
@@ -301,7 +301,7 @@ Using HPP not as the primary attack, but as an evasion technique to deliver othe
 
 | Scenario | Architecture / Conditions | Primary Mutation Categories |
 |----------|--------------------------|----------------------------|
-| **WAF Bypass → XSS/SQLi** | WAF + ASP.NET/Spring backend with concatenation behavior | §1-1 + §8-3 |
+| **WAF Bypass → XSS/SQLi** | WAF + ASP.NET backend with comma-concatenation behavior (Spring MVC returns first value by default, not concatenation) | §1-1 + §8-3 |
 | **Account Takeover** | Password reset / OTP flow with email parameter processing | §1-1 + §8-2 |
 | **Privilege Escalation** | Framework with mass assignment + hidden parameter injection | §2-1 + §8-2 |
 | **Internal API Exploitation** | Microservice architecture with string-concatenated URLs | §6-1 + §8-1 |
@@ -320,10 +320,10 @@ Using HPP not as the primary attack, but as an evasion technique to deliver othe
 |---------------------|-----------|----------------|
 | §1-1 + §8-3 (WAF bypass via concatenation) | Ethiack WAF Research (2025) — 17 WAF configurations tested | 70.6% bypass rate with complex HPP payloads. AWS WAF Managed Rules, Cyber Security Cloud, F5 rule sets fully bypassed. Only Google Cloud Armor (ModSecurity), Azure WAF (DRS 2.1), and open-appsec blocked all manual payloads. |
 | §1-1 (Client-side reflected HPP) | CVE-2021-0269 (Juniper Junos OS J-Web) | Client-side HPP in J-Web management interface. |
-| §1-3 + §3-2 (Encoding differential) | CVE-2025-7783 (form-data library < 2.5.4, 3.0.0–3.0.3, 4.0.0–4.0.3) | Critical (CVSS 9.4). Insufficiently random values in form-data boundary generation enables HPP. High confidentiality and integrity impact. |
+| §3-3 (Multipart boundary prediction) | CVE-2025-7783 (form-data library < 2.5.4, 3.0.0–3.0.3, 4.0.0–4.0.3) | Critical (CVSS 9.4). `Math.random()`-based multipart boundary generation is predictable, enabling attackers to inject additional multipart fields by guessing the boundary. Primarily a multipart form-data parameter injection issue rather than classical HPP encoding differential. |
 | §8-2 (OTP hijacking) | Multiple bug bounty reports (2023–2025) | Account takeover via duplicated email parameter in password reset flows. OTP generated for victim, sent to attacker. |
 | §8-2 (Transaction manipulation) | Multiple bug bounty reports | Financial parameter manipulation in payment flows via duplicate `from`/`amount` parameters. |
-| §8-2 (Mass assignment + HPP) | GitHub mass assignment incident (2012) — landmark case | Public key uploaded to any organization via parameter binding abuse. Led to widespread adoption of strong parameter patterns. |
+| §8-2 (Mass assignment, tangentially related) | GitHub mass assignment incident (2012) — landmark case | Public key uploaded to any organization via Rails mass assignment (unfiltered model attribute binding), not duplicate parameter pollution. Included for historical context as the incident motivated `strong_parameters` adoption. Primarily a mass assignment vulnerability (see `business-logic-bug.md`). |
 | §8-3 (Split payload WAF bypass) | Multiple HackerOne / Bugcrowd reports (2024–2025) | XSS via split payloads across duplicate parameters on ASP.NET applications. Bounties ranging $500–$5,000. |
 
 ---

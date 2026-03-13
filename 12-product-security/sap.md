@@ -47,7 +47,7 @@ The most critical SAP vulnerability pattern: entire web-facing components deploy
 | Subtype | Mechanism | Boundary Violation | Key Condition |
 |---------|-----------|--------------------|---------------|
 | **LM Configuration Wizard bypass** | The Configuration Wizard in NetWeaver AS Java exposes administrative operations (user creation, OS command execution) with zero authentication enforcement | V-AUTH | NetWeaver AS Java with LM Configuration Wizard enabled (CVE-2020-6287, CVSS 10.0) |
-| **Visual Composer metadata upload** | The `/developmentserver/metadatauploader` endpoint accepts arbitrary file uploads without any authentication or authorization check | V-AUTH | Visual Composer component installed on NetWeaver 7.x (CVE-2025-31324, CVSS 10.0) |
+| **Visual Composer metadata upload** | The `/developmentserver/metadatauploader` endpoint accepts arbitrary file uploads without proper authorization (per SAP/NVD: "not protected with a proper authorization"). The practical result is unauthenticated exploitation, though the root cause is inadequate authorization rather than a complete absence of authentication infrastructure | V-AUTH | Visual Composer component installed on NetWeaver 7.x (CVE-2025-31324, CVSS 10.0) |
 | **Solution Manager EEM servlet** | The `/EemAdminService/EemAdmin` SOAP endpoint permits unauthenticated requests to enumerate SMDAgents, send HTTP requests (SSRF), and execute OS commands on connected agents | V-AUTH | SAP Solution Manager 7.2 with connected SMDAgents (CVE-2020-6207, CVSS 10.0) |
 | **BusinessObjects REST endpoint** | When SSO is enabled for Enterprise authentication, a REST endpoint allows unauthenticated retrieval of logon tokens, granting full platform access | V-AUTH | SAP BO BI Platform with SSO enabled (CVE-2024-41730, CVSS 9.8) |
 | **Invoker Servlet** | The J2EE Invoker Servlet allows direct invocation of any registered servlet over HTTP without authentication or authorization controls | V-AUTH | NetWeaver AS Java with Invoker Servlet enabled (CVE-2010-5326) |
@@ -60,10 +60,10 @@ SAP systems ship with well-known default accounts that are frequently left uncha
 
 | Subtype | Mechanism | Boundary Violation | Key Condition |
 |---------|-----------|--------------------|---------------|
-| **SAP* superuser** | The hard-coded SAP* user (default password: PASS) exists in every ABAP system and cannot be fully deleted — only locked or password-changed | V-CONFIG | ABAP systems where SAP* password unchanged |
+| **SAP* superuser** | The SAP* user exists in every ABAP client. Per SAP documentation, the password is set to the master password specified during installation. However, if SAP* does not exist in a given client (e.g., new clients copied from client 000), the system falls back to the hard-coded password `PASS`. SAP* cannot be fully deleted — only locked or password-changed. | V-CONFIG | ABAP systems where SAP* password unchanged or fallback `PASS` applies |
 | **DDIC / EARLYWATCH accounts** | Standard installation users created in client 000 with documented default passwords | V-CONFIG | Unconfigured post-installation systems |
-| **TMSADM transport user** | System user created during TMS configuration with well-known default password; grants RFC access to transport management operations | V-CONFIG | ABAP systems with TMS configured (all production landscapes) |
-| **SQL Anywhere Monitor hardcoded credentials** | Administrative credentials baked directly into the monitoring database, never intended to be changed by users, providing unauthenticated administrative access | V-CONFIG | SAP SQL Anywhere Monitor 8.0 (CVE-2025-42890, CVSS 10.0) |
+| **TMSADM transport user** | System user created during TMS configuration. Per SAP documentation, the password is set to the master password from installation — not a universally "well-known" default. However, in practice it is frequently weak or unchanged, and grants RFC access to transport management operations | V-CONFIG | ABAP systems with TMS configured; TMSADM password weak or unchanged |
+| **SQL Anywhere Monitor hardcoded credentials** | Administrative credentials baked directly into the monitoring database, never intended to be changed by users. Per NVD, this enables arbitrary code execution — the impact extends beyond administrative access to potential full system compromise | V-CONFIG | SAP SQL Anywhere Monitor 17.0 (CVE-2025-42890, CVSS 10.0) |
 
 The TMSADM case demonstrates how a seemingly low-risk system account can enable critical attacks: with its known credentials, an adversary can remotely invoke RFC functions to read/delete files or execute arbitrary ABAP code.
 
@@ -95,7 +95,7 @@ The CVE-2025-42957 attack chain is devastating: with a single low-privileged acc
 
 | Subtype | Mechanism | Boundary Violation | Key Condition |
 |---------|-----------|--------------------|---------------|
-| **Gateway ACL command execution** | When SAP Gateway ACLs are misconfigured (default `HOST=*`), unauthenticated attackers invoke OS commands through the Gateway service | V-CONFIG | SAP Gateway on ports TCP/3300-3399 with open ACLs |
+| **Gateway ACL command execution** | When SAP Gateway ACLs are misconfigured (e.g., `HOST=*` in `reginfo`/`secinfo`), unauthenticated attackers can invoke OS commands through the Gateway service. Note: the actual default ACL behavior depends on SAP kernel version and applied security notes — `HOST=*` is a known misconfiguration pattern but not necessarily the out-of-the-box default in all versions | V-CONFIG | SAP Gateway on ports TCP/3300-3399 with permissive ACLs |
 | **SMDAgent command execution** | Unauthenticated SOAP requests to Solution Manager's EEM endpoint relay OS commands to connected SMDAgents, executing as the `daaadm` user | V-AUTH | Connected SMDAgents (see §1-1) |
 | **Wily Introscope JNLP injection** | Malicious JNLP files crafted via a public-facing URL trigger command execution when processed by the Introscope server | V-AUTH | SAP Wily Introscope Enterprise Manager (CVE-2026-0500, CVSS 9.6) |
 
@@ -239,7 +239,7 @@ SAP's authorization model is based on Authorization Objects — compound permiss
 | **S_RFC wildcard assignment** | Setting `RFC_NAME = *` in the S_RFC authorization object grants unrestricted access to all remote-enabled function modules, enabling table modification, user creation, password resets, and business data manipulation | V-AUTHZ | Any ABAP system with S_RFC wildcard |
 | **S_DEVELOP in production** | When S_DEVELOP authorization is not properly restricted in production, developers or technical users can create/modify ABAP programs at runtime | V-AUTHZ | Production ABAP systems |
 | **Authorization buffer exploitation** | Manipulating the in-memory authorization buffer to temporarily elevate privileges before checks are performed | V-AUTHZ | ABAP systems with stale buffer states |
-| **RFC_READ_TABLE abuse** | With S_RFC access and unrestricted `RFC_READ_TABLE` calls, any database table (including payroll, HR, financial) can be read remotely | V-AUTHZ | ABAP systems — demonstrated exfiltration in under 30 seconds |
+| **RFC_READ_TABLE abuse** | With S_RFC access and insufficiently restricted `RFC_READ_TABLE` calls, sensitive database tables (including payroll, HR, financial) can be read remotely. Actual scope depends on S_RFC authorization values, S_TABU_DIS table group restrictions, and whether SAP Notes restricting RFC_READ_TABLE have been applied | V-AUTHZ | ABAP systems with permissive S_RFC and unrestricted RFC_READ_TABLE |
 
 ### §8-2. Transaction Code Privilege Escalation
 
@@ -260,7 +260,7 @@ SAP's authorization model is based on Authorization Objects — compound permiss
 
 ## §9. Network Protocol Exploitation
 
-SAP exposes proprietary binary protocols on well-known port patterns that are often reachable from internal networks and, in over 3,000 documented cases, from the Internet.
+SAP exposes proprietary binary protocols on well-known port patterns that are often reachable from internal networks. External exposure studies (e.g., Shodan/Censys scans cited in security research) have reported thousands of Internet-exposed SAP services, though exact numbers vary by methodology and time period.
 
 ### §9-1. RFC (Remote Function Call) Protocol
 
@@ -281,7 +281,7 @@ SAP exposes proprietary binary protocols on well-known port patterns that are of
 
 | Subtype | Mechanism | Boundary Violation | Key Condition |
 |---------|-----------|--------------------|---------------|
-| **Message Server ACL bypass (10KBLAZE)** | Default `HOST=*` configuration in Message Server ACL allows anonymous users to register as application servers, redirect user sessions, or intercept traffic | V-CONFIG | SAP Message Server with default ACL (estimated 90% of deployments at disclosure) |
+| **Message Server ACL bypass (10KBLAZE)** | Permissive `HOST=*` configuration in Message Server ACL allows anonymous users to register as application servers, redirect user sessions, or intercept traffic | V-CONFIG | SAP Message Server with permissive ACL. Note: the "90% of deployments" estimate originates from the 10KBLAZE research presentation, not from SAP official data — actual prevalence may vary |
 | **Internal port exposure** | Message Server internal communication port accessible from client networks, allowing registration of rogue application servers | V-CONFIG | Unsegmented MS internal/public communications |
 
 ### §9-4. Diag Protocol
@@ -360,7 +360,7 @@ This vulnerability class is uniquely dangerous because it turns SAP's own change
 | §1-1 (LM Config Wizard) | CVE-2020-6287 (RECON) | 2020 | 10.0 | Unauthenticated admin user creation, full system compromise. Exploits appeared 72 hours after patch |
 | §1-1 (SolMan EEM) | CVE-2020-6207 | 2020 | 10.0 | Unauthenticated RCE on all connected SMDAgents |
 | §4-1 (MPI desync) | CVE-2022-22536 (ICMAD) | 2022 | 10.0 | Single-request cache poisoning, session hijacking, full compromise |
-| §1-2 (Hardcoded creds) | CVE-2025-42890 | 2025 | 10.0 | Unauthenticated admin access to SQL Anywhere Monitor |
+| §1-2 (Hardcoded creds) | CVE-2025-42890 | 2025 | 10.0 | Hardcoded credentials in SQL Anywhere Monitor enabling arbitrary code execution (per NVD). Impact is broader than "admin access" — includes potential for full system compromise via the monitoring database |
 | §3-1 (RMI-P4 deser) | CVE-2025-42944 | 2025 | 10.0 | Unauthenticated OS command execution via deserialization |
 | §1-1 (Visual Composer) | CVE-2025-31324 | 2025 | 10.0 | Unauthenticated file upload → webshell → RCE. Exploited by Chinese APTs (UNC5221, UNC5174) targeting critical infrastructure |
 | §1-1 + §3-1 (Visual Composer chain) | CVE-2025-42999 | 2025 | 9.9 | Deserialization chain following initial file upload |
@@ -434,11 +434,11 @@ Each of these layers trusts the others implicitly. ICM trusts that incoming requ
 
 ### Why Incremental Patches Fail
 
-SAP's patch velocity has increased dramatically — over 150 security notes in 2024, with a 210% increase in active exploitation from 2024 to 2025 — but the fundamental vulnerability production rate remains high because:
+SAP's patch velocity has increased dramatically — but the fundamental vulnerability production rate remains high because:
 
 - **The protocol surface is vast and proprietary**: RFC, Diag, Router, P4, and ICM implement custom binary protocols that receive less scrutiny than open standards. Each protocol parser is a potential memory corruption or deserialization target.
 - **Dynamic code execution is a feature**: ABAP's ability to generate and execute code at runtime is used by legitimate business processes, making it impossible to simply remove the capability. The attack surface is in the *validation*, not the *mechanism*.
-- **Configuration complexity creates systemic exposure**: With hundreds of authorization objects, gateway ACLs, message server ACLs, transport routes, and RFC connections, the permutation space for misconfiguration is enormous. The 10KBLAZE disclosure estimated 90% of deployments were affected by default ACL misconfigurations.
+- **Configuration complexity creates systemic exposure**: With hundreds of authorization objects, gateway ACLs, message server ACLs, transport routes, and RFC connections, the permutation space for misconfiguration is enormous. The 10KBLAZE research estimated a high percentage of deployments were affected by permissive ACL configurations, though this figure originates from the researchers' analysis, not SAP official data.
 - **Exploit weaponization timelines are compressing**: RECON (CVE-2020-6287) saw reliable exploits within 72 hours. In 2025, CVE-2025-31324 was being exploited by nation-state actors within days of disclosure, with public "turnkey" exploits released by August 2025.
 
 ### Structural Solutions
@@ -449,7 +449,7 @@ A structural improvement in SAP security requires three paradigm shifts:
 
 2. **Elimination of implicit trust in inter-system communication**: Every RFC connection, SMDAgent communication, and transport request should require mutual authentication with non-replayable tokens — not shared secrets or default credentials.
 
-3. **Reduction of the exposed protocol surface**: The vast majority of SAP systems do not need RFC Gateway, SAProuter, Message Server internal ports, or IGS accessible from any network beyond the immediate application cluster. Network-level segmentation is the single highest-impact defensive measure, yet the persistence of 3,000+ Internet-exposed RFC Gateways demonstrates how rarely it is implemented.
+3. **Reduction of the exposed protocol surface**: The vast majority of SAP systems do not need RFC Gateway, SAProuter, Message Server internal ports, or IGS accessible from any network beyond the immediate application cluster. Network-level segmentation is the single highest-impact defensive measure, yet external exposure scans consistently find significant numbers of Internet-exposed SAP services, demonstrating how rarely proper segmentation is implemented.
 
 ---
 

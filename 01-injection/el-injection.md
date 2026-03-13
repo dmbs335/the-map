@@ -364,12 +364,12 @@ Freemarker, Velocity, Thymeleaf unique exploitation.
 | §5-2 + §3-1 | CVE-2024-51466 (IBM Cognos) | CRITICAL. RCE via reflection-based EL injection in validation messages |
 | §3-2 + §8-2 | CVE-2023-22527 (Confluence) | CVSS 10.0 CRITICAL. Unauthenticated OGNL RCE via Class.forName() bypass |
 | §5-3 + §2-1 | CVE-2022-22963 (Spring Cloud Function) | CRITICAL. SpEL RCE via routing-expression header, exploited in wild |
-| §1-2 + §2-1 | CVE-2022-22980 (Spring Data MongoDB) | HIGH. SpEL injection in query derivation |
+| §1-2 + §2-1 | CVE-2022-22980 (Spring Data MongoDB) | HIGH. SpEL injection in @Query/@Aggregation annotated repository methods |
 | §5-2 + §6-3 + §8-2 | CVE-2022-26134 (Confluence) | CRITICAL. OGNL injection in error handling |
 | §5-2 + §6-3 | CVE-2021-26084 (Confluence) | CRITICAL. OGNL injection via WebWork |
 | §8-2 | CVE-2020-17530 (Struts) | CRITICAL. Double OGNL evaluation via #_memberAccess manipulation |
 | §8-3 | CVE-2020-13942 (Apache Unomi) | CRITICAL. MVEL RCE in profile condition evaluation |
-| §5-3 + §8-2 | CVE-2017-5638 (Struts/Equifax) | CRITICAL. $50M+ data breach. OGNL injection via Content-Type header |
+| §5-3 + §8-2 | CVE-2017-5638 (Struts/Equifax) | CRITICAL. $1.38B+ total cost ($700M FTC settlement + $1B security upgrades). OGNL injection via Content-Type header |
 | §4-1 + WAF bypass | Pulse Security Case Study | N/A. WAF bypass via ASCII character construction achieving RCE |
 | §1-3 + §3-2 | Nuxeo/JBoss Seam (Amazon, 2018) | Unauthenticated RCE via semicolon path parameter ACL bypass → Seam `actionMethod` double EL evaluation → blacklist bypass using array notation (`""["class"]` instead of `.getClass()`) |
 | §6-1 | PayPal Disclosure (Medium writeup) | Bug bounty. Internal information disclosure via implicit object access |

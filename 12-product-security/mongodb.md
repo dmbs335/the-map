@@ -84,7 +84,7 @@ MongoDB historically provided multiple contexts for executing arbitrary JavaScri
 
 ### §2-1. $where Operator Injection
 
-The `$where` operator evaluates a JavaScript expression for each document, with `this` bound to the current document. It is the most direct path from NoSQL injection to arbitrary code execution.
+The `$where` operator evaluates a JavaScript expression for each document, with `this` bound to the current document. On the MongoDB server, `$where` executes in MongoDB's embedded MozJS engine — not Node.js — so server-side exploitation is limited to data exfiltration, timing attacks, and DoS (not direct OS command execution). However, when `$where` is evaluated in the application's Node.js runtime (e.g., via Mongoose's sift library), full RCE is possible (see §7-1).
 
 | Subtype | Mechanism | Example Payload | Key Condition |
 |---|---|---|---|
@@ -93,7 +93,7 @@ The `$where` operator evaluates a JavaScript expression for each document, with 
 | **String Termination + Injection** | Breaks out of string context in $where expression | `admin' && this.password[0]=='a' || 'x'=='y` | User input concatenated into $where string |
 | **Error-Based Exfiltration** | Throws error containing document data | `{"$where": "throw new Error(JSON.stringify(this))"}` | Error messages reflected to attacker |
 | **DoS via Infinite Loop** | Injects non-terminating loop | `{"$where": "while(true){}"}` | No execution timeout configured |
-| **Node.js RCE** | Escapes MongoDB sandbox to execute system commands via Node.js process object | `{"$where": "global.process.mainModule.require('child_process').execSync('id')"}` | $where evaluated in Node.js context (e.g., via Mongoose sift library) |
+| **Application-Side RCE (Node.js)** | When `$where` is evaluated by the application's Node.js runtime (not by MongoDB server), the Node.js `process` object is accessible | `{"$where": "global.process.mainModule.require('child_process').execSync('id')"}` | $where evaluated in Node.js context (e.g., via Mongoose sift/populate — see §7-1). Does NOT work against MongoDB server's MozJS engine |
 
 **Critical nuance:** Even when MongoDB server-side JavaScript is disabled (`--noscripting`), the `$where` operator passed through ORM libraries like Mongoose may be evaluated by the application's JavaScript runtime (Node.js) rather than the database, still achieving RCE (§7-1).
 
@@ -104,7 +104,7 @@ The `mapReduce` command executes user-supplied JavaScript `map` and `reduce` fun
 | Subtype | Mechanism | Example Payload | Key Condition |
 |---|---|---|---|
 | **Map Function Injection** | Injects code into the map function | `db.collection.mapReduce("function(){emit(1, this)}", "function(k,v){return v}", {out: "output"})` | User controls map/reduce function strings |
-| **Scope Variable Injection** | Injects variables through the `scope` parameter | `{scope: {injected: "require('child_process').execSync('id')"}}` | Scope object accepted from user input |
+| **Scope Variable Injection** | Injects variables through the `scope` parameter | `{scope: {injected: "malicious_value"}}` — note: `require('child_process')` is NOT available in MongoDB's MozJS engine; scope injection enables data manipulation within the map/reduce JS context, not OS command execution | Scope object accepted from user input |
 
 `mapReduce` is deprecated since MongoDB 5.0. The aggregation framework should be used instead.
 
@@ -114,12 +114,12 @@ Aggregation pipeline operators that accept custom JavaScript functions — depre
 
 | Subtype | Mechanism | Example Payload | Key Condition |
 |---|---|---|---|
-| **$function Injection** | Custom JS function in aggregation pipeline | `{"$function": {"body": "function(){return process.env}", "args": [], "lang": "js"}}` | Pipeline stage controlled by attacker; MongoDB < 8.0 |
+| **$function Injection** | Custom JS function in aggregation pipeline | `{"$function": {"body": "function(doc){return doc.sensitiveField}", "args": ["$$ROOT"], "lang": "js"}}` — note: `process.env` is NOT available in MongoDB's MozJS engine; exploitation is limited to data access/manipulation within the DB context | Pipeline stage controlled by attacker; MongoDB < 8.0 |
 | **$accumulator Injection** | Custom JS accumulator with init/accumulate/merge/finalize functions | Inject malicious code into any of the four function slots | User input reaches $accumulator definition |
 
 ### §2-4. eval Command Injection (Legacy)
 
-The `eval` command directly executes arbitrary JavaScript on the server. Deprecated since MongoDB 3.0 and removed in 5.0+.
+The `eval` command directly executes arbitrary JavaScript on the server. Deprecated since MongoDB 3.0 and removed in 4.2.
 
 | Subtype | Mechanism | Example Payload | Key Condition |
 |---|---|---|---|
@@ -189,7 +189,7 @@ JSON request bodies provide the most direct injection path since MongoDB queries
 |---|---|---|---|
 | **Direct Object Injection** | JSON object replaces expected string value | `{"username": {"$ne": null}, "password": {"$ne": null}}` | Application deserializes JSON body directly into query |
 | **Nested Operator Injection** | Operators nested within $or/$and bypass top-level sanitization | `{"$or": [{"password": {"$ne": ""}}, {"$where": "sleep(5000)"}]}` | Sanitizer only checks top-level keys |
-| **Duplicate Key Exploitation** | MongoDB uses the last occurrence of duplicate JSON keys | `{"id": "safe_value", "id": {"$ne": null}}` | WAF inspects first occurrence; parser uses last |
+| **Duplicate Key Exploitation** | MongoDB officially states that duplicate field names are unsupported and behavior is undefined. In practice, some drivers/parsers may use the last occurrence, but this is not guaranteed across all drivers and versions | `{"id": "safe_value", "id": {"$ne": null}}` | WAF inspects first occurrence; behavior driver-dependent (not officially defined) |
 
 ### §4-3. Content-Type Switching
 
@@ -207,7 +207,7 @@ Sending the same parameter multiple times with different formats to exploit pars
 | Subtype | Mechanism | Example Payload | Key Condition |
 |---|---|---|---|
 | **Scalar + Object Collision** | Same parameter sent as both string and object | `password=correct&password[$ne]=x` | Parser precedence determines which value reaches database |
-| **$where via HPP** | The `$where` variable name in PHP creates a MongoDB $where operator | `$where=return true` (PHP variable named `$where`) | PHP application builds query from `$_GET`/`$_POST` |
+| **$where via Parameter Name Injection** | PHP `$_GET`/`$_POST` key named `$where` is directly inserted into query object as MongoDB's `$where` operator | `$where=return true` (PHP variable named `$where`) | PHP application builds query from unsanitized `$_GET`/`$_POST` keys — this is parameter-name/operator injection, not strictly HTTP Parameter Pollution |
 
 ---
 
@@ -325,8 +325,8 @@ An ObjectId's 24 hex characters encode:
 | Bytes | Component | Predictability |
 |---|---|---|
 | 0–3 (8 chars) | **Unix timestamp** (seconds) | Fully predictable — creation time is embedded |
-| 4–8 (10 chars) | **Process-specific random value** | Constant per MongoDB process — learned from any single ObjectId |
-| 9–11 (6 chars) | **Incrementing counter** | Sequential — increments by 1 for each document created by the same process |
+| 4–8 (10 chars) | **5-byte random value** | Per MongoDB docs: random value unique to the machine and process — generated client-side by the driver, not by the MongoDB server process |
+| 9–11 (6 chars) | **3-byte incrementing counter** | Sequential — increments by 1 per ObjectId generated by the same client process (initialized to a random value) |
 
 ### §8-2. Prediction Attacks
 
@@ -335,7 +335,7 @@ An ObjectId's 24 hex characters encode:
 | **Counter Enumeration** | Given one ObjectId, increment/decrement the counter to find adjacent documents | Single valid ObjectId from target process; low-traffic application |
 | **Timestamp Bracketing** | Enumerate all ObjectIds within a known time window (e.g., registration timestamps) | Known approximate creation time; 3600 possibilities per hour |
 | **Full Candidate Generation** | Generate ~1000 candidate ObjectIds from a single known ID using process random + counter combination | Low concurrency on target MongoDB process |
-| **Cross-Collection Correlation** | ObjectIds from one collection reveal timestamp and process info applicable to other collections | Multiple collections served by same MongoDB process |
+| **Cross-Collection Correlation** | ObjectIds from one collection reveal timestamp and client process info applicable to other collections | Multiple collections populated by the same client process/driver instance |
 
 **Impact:** When combined with IDOR vulnerabilities (missing authorization checks on endpoints that accept ObjectId parameters), prediction enables unauthorized access to other users' resources without any injection vulnerability.
 
@@ -361,13 +361,13 @@ An ObjectId's 24 hex characters encode:
 
 | Mutation Combination | CVE / Case | Impact / Bounty |
 |---|---|---|
-| §6-1 (MongoBleed) | CVE-2025-14847 (MongoDB Server) | CVSS 8.7. Unauthenticated heap memory disclosure; 87,000+ vulnerable instances; active exploitation Dec 2025 |
+| §6-1 (MongoBleed) | CVE-2025-14847 (MongoDB Server) | CVSS 8.7. Unauthenticated heap memory disclosure. Instance count (87,000+) and active exploitation claims are from third-party research (Wiz), not official MongoDB security alerts |
 | §7-1 ($or-nested $where bypass) | CVE-2025-23061 (Mongoose) | CVSS 9.0. RCE via populate() match; bypass of CVE-2024-53900 patch |
 | §7-1 (Direct $where in populate) | CVE-2024-53900 (Mongoose) | CVSS 9.1. RCE via $where in populate() match; evaluated in Node.js not MongoDB |
 | §7-2 (Update function pollution) | CVE-2023-3696 (Mongoose) | Prototype pollution → RCE (Express + EJS); findByIdAndUpdate() |
 | §7-2 (Schema.path pollution) | CVE-2022-2564 (Mongoose) | Prototype pollution → DoS; Schema.path() with attacker-controlled input |
 | §6-2 (BSON deserialization) | SB2020033135 (js-bson) | Data manipulation via incorrect BSON serialization |
-| §1-1 + §2-1 (Auth bypass + $where) | Rocket.Chat CVE-2023-28359 | Timing-based data exfiltration via $where sleep |
+| §1-1 + §2-1 (Auth bypass + blind NoSQL injection) | Rocket.Chat CVE-2023-28359 | Blind NoSQL injection causing delay in `listEmojiCustom` (NVD description) — specific mechanism ($where sleep) is not detailed in official CVE description |
 | §1-1 ($ne auth bypass) | Multiple bug bounty reports | $500–$5,000 range; authentication bypass via operator injection |
 | §3-1 + §3-2 (Pipeline injection) | PortSwigger Academy research (2024) | Cross-collection data access and privilege escalation via $lookup + $merge |
 | §8-2 (ObjectId prediction) | Various IDOR reports | Authorization bypass via ObjectId enumeration; PentesterLab exercise |
@@ -396,7 +396,7 @@ An ObjectId's 24 hex characters encode:
 
 **Incremental fixes repeatedly fail because sanitization is structurally incomplete.** The Mongoose CVE-2024-53900 → CVE-2025-23061 chain illustrates this perfectly: the initial patch stripped `$where` from top-level properties, but nesting it inside `$or` bypassed the check entirely. Operator-stripping approaches face a combinatorial explosion — every new MongoDB operator or logical combinator creates a potential bypass path. Allowlist-based type enforcement (wrapping all user input in `$eq`, using typed schema validation) is structurally more robust than operator blacklisting.
 
-**The architectural solution requires three layers of defense.** First, enforce scalar types at the application boundary: never pass raw JSON objects from user input into query positions — wrap values in `$eq` or validate with schema libraries (Joi, Zod). Second, disable unnecessary attack surface: set `--noscripting` (MongoDB 7.0+ default), avoid `$where`/`mapReduce`/`$function`, restrict aggregation pipeline stages available to user-facing endpoints. Third, apply least privilege: MongoDB roles should prevent application accounts from accessing collections beyond their intended scope, and network access to port 27017 should be restricted to prevent protocol-level attacks like MongoBleed.
+**The architectural solution requires three layers of defense.** First, enforce scalar types at the application boundary: never pass raw JSON objects from user input into query positions — wrap values in `$eq` or validate with schema libraries (Joi, Zod). Second, disable unnecessary attack surface: set `--noscripting` (note: `security.javascriptEnabled` defaults to `true` per official MongoDB docs — `--noscripting` must be explicitly configured), avoid `$where`/`mapReduce`/`$function`, restrict aggregation pipeline stages available to user-facing endpoints. Third, apply least privilege: MongoDB roles should prevent application accounts from accessing collections beyond their intended scope, and network access to port 27017 should be restricted to prevent protocol-level attacks like MongoBleed.
 
 ---
 

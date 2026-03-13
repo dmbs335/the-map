@@ -435,7 +435,7 @@ Techniques for identifying prototype pollution without causing denial of service
 | §7-2 (prototype method override) | CVE-2024-29016 (locutus) | `parse_str` security check bypassed by polluting `String.prototype.includes`. |
 | §1-1 (deep-merge) | CVE-2024-38986 (@75lb/deep-merge) | All versions vulnerable due to reliance on vulnerable lodash merge. |
 | §1-1 (web3-utils) | CVE-2024-21505 (web3-utils) | `format()` and `mergeDeep()` functions vulnerable. High severity. |
-| §4 + §5-1 (requirejs) | CVE-2024-38999 (requirejs) | RCE via `s.contexts._.configure`. CVSS 9.8. |
+| §4 + §5-1 (requirejs) | CVE-2024-38999 (requirejs) | RCE via `s.contexts._.configure`. CVSS 10.0. |
 | §1-1 (mini-deep-assign) | CVE-2024-38983 (mini-deep-assign) | Prototype pollution in merge function. |
 | §5-1 + §5-3 (Node.js runtime) | 63 gadgets reported (USENIX 2024) | 19 ACE, 31 privilege escalation, 13 path traversal gadgets in Node.js core. |
 | §5-3 (Deno runtime) | 67 gadgets reported (USENIX 2024) | Despite Deno's permission model, gadgets bypass resource restrictions when permissions are granted. |

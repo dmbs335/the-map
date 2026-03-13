@@ -76,7 +76,7 @@ C code pervasively uses `void*` for generic programming. Every cast from `void*`
 
 ## §2. JIT Compiler Type Speculation
 
-Modern JavaScript engines (V8/Turbofan/Maglev, JavaScriptCore/DFG/FTL, SpiderMonkey/Warp) compile hot code paths using speculative type assumptions derived from runtime profiling. When these assumptions are wrong — either because the profiler was misled or because the compiler's reasoning is flawed — the emitted machine code accesses memory using incorrect type layouts. This is the most actively exploited type confusion frontier, producing 12+ in-the-wild zero-days in 2024 alone.
+Modern JavaScript engines (V8/Turbofan/Maglev, JavaScriptCore/DFG/FTL, SpiderMonkey/Warp) compile hot code paths using speculative type assumptions derived from runtime profiling. When these assumptions are wrong — either because the profiler was misled or because the compiler's reasoning is flawed — the emitted machine code accesses memory using incorrect type layouts. This is the most actively exploited type confusion frontier, with multiple in-the-wild zero-days exploited in Chrome, Safari, and Firefox in recent years.
 
 ### §2-1. Type Feedback Poisoning
 
@@ -249,7 +249,7 @@ Different languages define different sets of "falsy" values, creating cross-lang
 |---|---|---|
 | **JSON null vs. Absent Field** | `{"field": null}`, `{"field": ""}`, and `{}` (absent) are three distinct states; backend `if (data.field)` handles them differently depending on language | Authorization/validation skips null or absent values entirely |
 | **SQL NULL Propagation** | `NULL = NULL` is `NULL` (not `true`); `WHERE field = NULL` matches nothing; `WHERE field IS NULL` required | Comparison with NULL intended to match NULL values |
-| **Optional/Maybe Type Confusion** | Strongly-typed languages wrapping nullable types (Java `Optional`, Rust `Option`, Swift `Optional`) can confuse `Optional.empty()` with `Optional.of(null)` | Unwrapping logic doesn't distinguish "no value" from "value is null" |
+| **Optional/Maybe Type Confusion** | Strongly-typed languages wrapping nullable types can confuse "no value" with "null-like value": Java `Optional.ofNullable(null)` vs. `Optional.empty()` (note: `Optional.of(null)` throws `NullPointerException`); Rust `Option<Option<T>>` where `None` vs. `Some(None)` diverge; Swift optional chaining where `nil` at different nesting levels produces different results | Unwrapping logic doesn't distinguish "no value" from "value is null" — mechanism differs per language |
 
 ### §5-3. Boolean-to-Integer Implicit Conversion
 
@@ -383,7 +383,7 @@ JavaScript prototype pollution injects properties into `Object.prototype`, which
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
 | **Property Existence Confusion** | Polluting `Object.prototype.isAdmin = true` makes `obj.isAdmin` truthy for all objects without their own `isAdmin` property | Authorization check: `if (user.isAdmin)` without `hasOwnProperty` |
-| **instanceof Override via Symbol.hasInstance** | Polluting `Object.prototype[Symbol.hasInstance]` causes `instanceof` checks to return attacker-controlled results | Security gate using `instanceof` for type checking |
+| **instanceof Override via Symbol.hasInstance** | Polluting `Symbol.hasInstance` on a specific constructor's prototype can alter that constructor's `instanceof` results. Note: ordinary function constructors inherit `Function.prototype[Symbol.hasInstance]` which takes precedence over `Object.prototype` pollution — exploitable mainly when the target is a non-function object used as a right-hand operand, or via direct constructor prototype pollution | Security gate using `instanceof` for type checking against a non-function or pollutable constructor |
 | **Constructor/Tag Spoofing** | Polluting `Symbol.toStringTag` or `constructor.name` defeats type-checking patterns like `Object.prototype.toString.call()` | Runtime type identification relying on string representations |
 | **JSON Schema Validation Bypass** | Polluting properties that shadow JSON Schema meta-fields (e.g., `additionalProperties`, `required`) alters validation behavior | Server-side JSON Schema validation on objects with polluted prototypes |
 
@@ -417,7 +417,7 @@ APIs and network protocols carry typed parameters across system boundaries. Dive
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
 | **Scalar Type Coercion to SQL** | `updateUser(id: "1 OR 1=1")` — GraphQL `ID` scalar accepts string; implementation passes directly to SQL without parameterization | GraphQL resolver concatenates coerced scalar into SQL |
-| **Variable Type Bypass** | `$id: ID!` declared but `{"id": true}` or `{"id": 0}` sent as variables; boolean/integer coerced to `ID` type | Lenient variable coercion in GraphQL engine |
+| **Variable Type Bypass** | `$id: ID!` declared but `{"id": 0}` or `{"id": 99999}` sent as variables; integer coerced to `ID` string. Per GraphQL spec, `ID` input coercion accepts only string and integer — boolean values like `{"id": true}` are a request error in spec-compliant implementations | Lenient variable coercion in non-compliant GraphQL engines, or integer-to-string coercion surprising the resolver |
 | **Batching Array Confusion** | Single query object expected, but array `[{query1}, {query2}]` sent; middleware inspects only first element for authorization; second element executes unauthorized | Array vs. object ambiguity at the HTTP-to-GraphQL boundary |
 
 ### §9-2. gRPC and Protobuf Parameter Confusion
@@ -522,7 +522,7 @@ Every language boundary is a potential type confusion point. Type systems are no
 | Mutation Combination | CVE / Case | Impact / Bounty |
 |---|---|---|
 | §2-1 + §2-4 (V8 JIT type speculation + guard elimination) | CVE-2024-0517 (Chrome V8) | OOB write, $16,000 bounty |
-| §2-5 (Wasm cross-module type validation) | CVE-2024-2887 (Chrome V8 Wasm) | Full chain RCE, $202,500+ Pwn2Own |
+| §2-5 (Wasm cross-module type validation) | CVE-2024-2887 (Chrome V8 Wasm) | Full chain RCE, $42,500 Pwn2Own (Chrome exploit component) |
 | §2-1 (V8 Maglev type feedback) | CVE-2024-4947 (Chrome) | In-the-wild zero-day, APT espionage |
 | §2-4 (V8 optimization pipeline) | CVE-2024-5274 (Chrome V8) | In-the-wild zero-day |
 | §2-4 (V8 optimization) | CVE-2024-7971 (Chrome V8) | In-the-wild zero-day, Citrine Sleet + kernel exploit chain |

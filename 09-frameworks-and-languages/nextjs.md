@@ -104,7 +104,7 @@ export async function adapter(params) {
 | **Middleware Recursion Guard Spoofing** | Injecting `x-middleware-subrequest` header with the middleware path causes the framework to skip all middleware execution entirely | Next.js 11.1.4–15.2.2; single HTTP header injection | **AUTHZ** |
 | **Recursion Depth Bypass** | `x-middleware-subrequest: middleware:middleware:middleware:middleware:middleware` — exceeds MAX_RECURSION_DEPTH (5) to trigger middleware skip | Next.js 15.x (after recursion guard addition) | **AUTHZ** |
 
-**Real-World Case**: CVE-2025-29927 (CVSS 9.1). Disclosed March 2025 by zhero_web_security. A single header addition bypasses all middleware-based authorization. Since official documentation, tutorials, and starter templates explicitly encourage middleware as the primary authentication layer, all affected applications were fully exposed. ProjectDiscovery released Nuclei detection templates within days.
+**Real-World Case**: CVE-2025-29927 (CVSS 9.1). Disclosed March 2025 by zhero_web_security. A single header addition bypasses all middleware-based authorization. Since official documentation, tutorials, and starter templates explicitly encourage middleware as the primary authentication layer, applications relying solely on middleware for authorization were fully exposed. ProjectDiscovery released Nuclei detection templates within days.
 
 **Patch**: Cryptographic validation using a randomized key generated at build time. External requests have `x-middleware-subrequest` stripped at the server entry point.
 
@@ -121,7 +121,7 @@ Middleware path matching and the application router process URLs through differe
 | **Data Route Bypass** | The same data is accessible through multiple URL patterns (HTML, RSC/JSON, `/_next/data/{BUILD_ID}/{page}.json`). Middleware protecting `/admin` may not protect `/_next/data/build-id/admin.json` | Pages Router + middleware authorization | **AUTHZ** |
 | **Catch-All Route Confusion** | Dynamic route segments (`[...slug]`) and optional catch-all routes (`[[...slug]]`) may match unexpectedly, serving content from unintended handlers | Complex routing hierarchies with overlapping patterns | **AUTHZ** |
 
-**Real-World Case**: CVE-2024-51479 (CVSS 7.5). Middleware pathname matching flaw in Next.js 9.5.5–14.2.14 enabling authorization bypass.
+**Real-World Case**: CVE-2024-51479 (CVSS 7.5). Middleware pathname matching flaw in Next.js 9.5.5–14.2.14 enabling authorization bypass. Patched in 14.2.15.
 
 **Root Cause Analysis**: Middleware operates at the URL level, but security decisions require data-level context. URL multiplexing — where the same resource is accessible through multiple URL pathways — amplifies this mismatch. Next.js's decision to force middleware execution on `_next/data` routes even when excluded from matchers acknowledges this problem. The v16 rename from `middleware.ts` to `proxy.ts` intends to discourage its use as an authorization layer.
 
@@ -129,10 +129,10 @@ Middleware path matching and the application router process URLs through differe
 
 | Subtype | Mechanism | Key Condition | Impact |
 |---------|-----------|---------------|--------|
-| **NextResponse SSRF via Location Header** | Passing a `Location` header through `NextResponse.next()` causes the framework to perform a server-side fetch to that URL and return the response | Next.js middleware reflecting request headers into NextResponse; self-hosted | **SSRF** |
+| **Request Header Reflection SSRF** | When middleware reflects arbitrary request headers into the response via `NextResponse.next()`, attacker-controlled header values can influence server-side behavior, enabling SSRF in self-hosted deployments | Next.js middleware reflecting request headers into response; self-hosted | **SSRF** |
 | **CSP Header Injection** | Middleware bypass allows attackers to remove or modify Content-Security-Policy headers, weakening client-side XSS protections | Applications using middleware to inject CSP headers | **XSS** |
 
-**Real-World Case**: CVE-2025-57822 (CVSS 6.5). SSRF via middleware Location header reflection in self-hosted deployments.
+**Real-World Case**: CVE-2025-57822 (CVSS 6.5). SSRF via request header reflection through middleware in self-hosted deployments.
 
 ---
 
@@ -179,13 +179,13 @@ function validateCSRF(originDomain, forwardedHost, host) {
 }
 ```
 
-Both `Origin` and `Host` are client-supplied. When an attacker sets both to the same value, the comparison is tautologically true. Additional protection exists via the `Next-Action` custom header requirement (browsers enforce CORS for cross-origin requests with custom headers) and the `serverActions.allowedOrigins` configuration, but the default is an empty array.
+Both `Origin` and `Host` are client-supplied. When an attacker sets both to the same value, the comparison is tautologically true. Additional protection exists via the `Next-Action` custom header requirement (browsers enforce CORS for cross-origin requests with custom headers) and the `serverActions.allowedOrigins` configuration, but the default enforces same-origin (requests from different origins are rejected unless explicitly allowed).
 
 Official blog: "Server Actions doesn't use CSRF tokens, therefore HTML sanitization is crucial."
 
 ### §3-3. Server Action ID Predictability
 
-Server Actions are identified by hash-based IDs derived from file paths and export names. These IDs are visible in the client-side JavaScript bundle, network requests (`Next-Action` header), and RSC Flight payloads.
+Server Actions are identified by encrypted, non-deterministic IDs generated at build time. These IDs are visible in the client-side JavaScript bundle, network requests (`Next-Action` header), and RSC Flight payloads. Earlier versions used hash-based IDs derived from file paths and export names, but current Next.js (15.x+) encrypts action IDs so they cannot be predicted from source structure.
 
 | Subtype | Mechanism | Key Condition | Impact |
 |---------|-----------|---------------|--------|
@@ -193,7 +193,7 @@ Server Actions are identified by hash-based IDs derived from file paths and expo
 | **Direct Invocation Without UI** | Sending POST requests directly with discovered action IDs bypasses client-side UI logic that was intended to gate access | Authorization relying solely on middleware | **AUTHZ** |
 | **Closure Variable Capture** | Server functions closing over sensitive variables (API keys, DB connections) may expose them through deserialization artifacts or error messages | Server functions using variables from outer scope | **INFO** |
 
-**Official Security Guide Acknowledgment**: "The `'use server'` annotation exposes an end point that makes all exported functions invokable by the client. The identifiers is currently a hash of the source code location. As long as a user gets the handle to the id of an action, it can invoke it with any arguments. As a result, those functions should always start by validating that the current user is allowed to invoke this action."
+**Official Security Guide Acknowledgment**: "The `'use server'` annotation exposes an end point that makes all exported functions invokable by the client. The identifiers are currently encrypted non-deterministic IDs (earlier versions used hashes of the source code location). As long as a user gets the handle to the id of an action, it can invoke it with any arguments. As a result, those functions should always start by validating that the current user is allowed to invoke this action."
 
 ---
 
@@ -234,7 +234,7 @@ export async function getProfileDTO(slug) {
 | Subtype | Mechanism | Key Condition | Impact |
 |---------|-----------|---------------|--------|
 | **NEXT_PUBLIC_ Prefix Misuse** | Variables prefixed with `NEXT_PUBLIC_` are inlined as string literals into the client JS bundle at build time. Once built, permanently exposed | Sensitive variables with `NEXT_PUBLIC_` prefix | **INFO** |
-| **Client-Side Reference of Server Variables** | Even without the `NEXT_PUBLIC_` prefix, server env vars referenced in client code paths are inlined during the build | Server env vars accidentally imported in client code | **INFO** |
+| **Client-Side Reference of Server Variables** | Server env vars without the `NEXT_PUBLIC_` prefix are **not** automatically inlined into client bundles. However, if a server-only module is accidentally imported into a Client Component through transitive dependencies, its env var references may end up in the bundle | Server-only module accidentally included in client bundle via transitive import | **INFO** |
 | **Environment Variable Expansion** | In `.env` files, `NEXT_PUBLIC_URL=https://api.com/$SECRET_TOKEN` expands the secret and inlines it into client code | Variable expansion in env files | **INFO** |
 
 **Root Cause Analysis**: Security properties are determined by a string prefix naming convention. No type system enforcement, no build-time warnings, no runtime validation. `NEXT_PUBLIC_DATABASE_PASSWORD` is silently exposed to every client. The simplest developer experience (prefix naming) was chosen over structural safety (separate config files, type-safe environment access, compile-time analysis).
@@ -334,7 +334,7 @@ Next.js offers experimental React Taint APIs (`taintObjectReference`, `taintUniq
 | Configuration | Default | Security Impact | Recommendation |
 |--------------|---------|-----------------|----------------|
 | `poweredByHeader` | `true` | Exposes `X-Powered-By: Next.js`, enabling framework fingerprinting | Set to `false` |
-| `serverActions` | Enabled (14.x+) | Exposes Server Actions attack surface even if not used | Disable if unused |
+| `serverActions` | Enabled (14.x+) | Server Actions are tree-shaken: unused actions are eliminated as dead code during build and do not create HTTP endpoints | No action needed for unused actions; audit only actively referenced actions |
 | Security Headers | None | No CSP, HSTS, X-Frame-Options configured by default | Configure via `next.config.js` `headers()` or middleware |
 | `images.dangerouslyAllowSVG` | `false` | Prevents JS execution in SVG images | Keep default |
 | `images.remotePatterns` | `[]` (empty) | No remote image proxying (secure default) | Explicitly configure only required sources |
@@ -348,22 +348,22 @@ Next.js offers experimental React Taint APIs (`taintObjectReference`, `taintUniq
 |-----|------|------|-----------|-------------------|-------------|
 | CVE-2025-55182 (CVE-2025-66478 rejected as dup) | 2025.12 | 10.0 | RSC Flight deserialization RCE | Next.js 15.x/16.x + 14.3.0-canary.77+ experimental canary only (not stable 14.x); requires React 19.x | MP7 |
 | CVE-2025-67779 / CVE-2025-55184 | 2025.12 | 7.5 | RSC Flight circular reference DoS | Same as above | MP7 |
-| CVE-2025-55183 | 2025.12 | 5.3 | RSC self-reference gadget source leak | React 19.0–19.2.0 | MP7 |
+| CVE-2025-55183 | 2025.12 | 5.3 | RSC self-reference gadget source leak | React 19.0.0–19.2.2 (react-server-dom-webpack/turbopack/parcel) | MP7 |
 | CVE-2025-29927 | 2025.03 | 9.1 | `x-middleware-subrequest` bypass | Next.js 11.1.4–15.2.2 | MP2, MP6 |
-| CVE-2024-51479 | 2024.11 | 7.5 | Middleware pathname matching flaw | Next.js 9.5.5–14.2.14 | MP2, MP6 |
+| CVE-2024-51479 | 2024.11 | 7.5 | Middleware pathname matching flaw | Next.js 9.5.5–14.2.14 (patched in 14.2.15) | MP2, MP6 |
 | CVE-2024-34351 | 2024.02 | 7.5 | Host header SSRF (Server Actions) | Next.js < 14.1.1 (self-hosted) | MP2, MP5 |
 | CVE-2024-34350 | 2024 | 7.5 | HTTP Request Smuggling (rewrite) | — | MP2 |
 | CVE-2024-46982 | 2024.09 | 7.5 | Internal header cache poisoning | Next.js 13.5.1–14.2.9 | MP4 |
-| CVE-2025-49826 | 2025 | 7.5 | 204 response cache poisoning DoS | Next.js 15.1.0–15.1.7 | MP4 |
-| CVE-2025-57822 | 2025 | 6.5 | Middleware Location header SSRF | Next.js < 14.2.32 / 15.4.7 | MP2, MP5 |
-| CVE-2025-57752 | 2025 | 6.2 | Image cache key confusion | — | MP4 |
-| CVE-2025-32421 | 2025 | Medium | Pages Router race condition — pageProps exposed in HTML instead of proper response (Eclipse bypass of CVE-2024-46982 patch) | Next.js (Pages Router) | MP4 |
+| CVE-2025-49826 | 2025 | 7.5 | 204 response cache poisoning DoS | Next.js 15.1.0-canary.0–15.1.7 (stable + canary) | MP4 |
+| CVE-2025-57822 | 2025 | 6.5 | Middleware request header reflection SSRF | Next.js < 14.2.32 / 15.4.7 | MP2, MP5 |
+| CVE-2025-57752 | 2025 | 6.2 | Image cache key confusion — API routes returning images vary on Cookie/Authorization headers but cache key does not include these, causing responses intended for authenticated users to be served to unauthorized users | Next.js API routes serving images with auth-dependent content | MP4 |
+| CVE-2025-32421 | 2025 | Low (3.7) | Pages Router race condition — pageProps exposed in HTML instead of proper response (Eclipse bypass of CVE-2024-46982 patch) | Next.js (Pages Router) | MP4 |
 | CVE-2025-49005 | 2025 | Medium | RSC/HTML format confusion cache poisoning — missing Vary header causes CDN to cache RSC payload as HTML | Next.js 15.3.0–15.3.2 | MP4 |
 | CVE-2025-55173 | 2025 | 4.3 | Image content injection | — | MP4 |
 | CVE-2022-23646 | 2022 | Moderate | Image CSP misconfiguration | — | MP4 |
 | CVE-2021-39178 | 2021 | Moderate | Image SVG XSS | — | MP4 |
 | CVE-2021-37699 | 2021 | Moderate | Open Redirect (error page) | Next.js 10.0.5–11.0.1 | MP5 |
-| Eclipse (no CVE) | 2025 | High | Cache batcher race condition | Pages Router + ISR | MP4 |
+| Eclipse (CVE-2025-32421) | 2025 | Low (3.7) | Cache batcher race condition | Pages Router + ISR | MP4 |
 
 ---
 
@@ -395,7 +395,7 @@ Next.js offers experimental React Taint APIs (`taintObjectReference`, `taintUniq
 - [ ] `productionBrowserSourceMaps: false` confirmed
 - [ ] `NODE_ENV=production` in production deployments
 - [ ] Security response headers configured (CSP, HSTS, X-Frame-Options, etc.)
-- [ ] `serverActions.allowedOrigins` explicitly configured
+- [ ] `serverActions.allowedOrigins` explicitly configured if cross-origin Server Action invocation is needed (default: same-origin only)
 
 ### Authentication/Authorization
 - [ ] **Never rely on middleware alone** — verify auth independently in Server Components and Server Actions
@@ -535,7 +535,8 @@ export async function getProfileDTO(slug: string) {
 | **zhero_web_security** (Rachid Allam) | "The Stale Elixir", "Black Hole", "Eclipse on Next.js", "The Corrupt Middleware" | CVE-2025-29927, cache poisoning series, batcher race condition. Most prolific Next.js security researcher as of 2025 |
 | **Assetnote** | "Digging for SSRF in NextJS Apps" | CVE-2024-34351. Documented Vercel vs self-hosted security gap. Established Next.js pentest methodology |
 | **Lachlan Davidson** | React2Shell discovery | CVE-2025-55182/CVE-2025-66478 (CVSS 10.0) responsible disclosure |
-| **RyotaK** (Flatt Security) | RSC DoS/Source Leak | CVE-2025-55183, CVE-2025-55184 discovery |
+| **RyotaK** (GMO Flatt Security) | RSC DoS | CVE-2025-55184 / CVE-2025-67779 discovery |
+| **Andrew MacPherson** | RSC Source Leak | CVE-2025-55183 discovery |
 | **JFrog, Wiz, Akamai, Microsoft, AWS, Trend Micro** | Independent React2Shell analyses (2025.12) | Attack mechanics, detection signatures, cloud impact analysis |
 | **Sam Curry** | "Exploiting Web3's Hidden Attack Surface" (2022) | Netlify + Next.js UXSS |
 | **ProjectDiscovery** | Nuclei templates | CVE-2025-29927, CVE-2024-34351, CVE-2024-46982 detection |

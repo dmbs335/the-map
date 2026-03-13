@@ -15,7 +15,7 @@ WCD is not limited to authenticated pages or personal information. Public, unaut
 
 ### Axis 1 — Mutation Target (Primary Structure)
 
-The taxonomy is organized by **what structural component of the HTTP request the attacker manipulates** to create the cache discrepancy. There are nine top-level categories:
+The taxonomy is organized by **what structural component of the HTTP request the attacker manipulates** to create the cache discrepancy. There are ten top-level categories:
 
 | § | Mutation Target | Core Mechanism |
 |---|----------------|----------------|
@@ -176,7 +176,7 @@ The `Vary` response header instructs caches to include additional request header
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
 | **CDN ignores Vary entirely** | Response includes `Vary: X-Custom-Header` but CDN caches without differentiating on that header; attacker poisons with custom header value affecting all users | Cloudflare and several CDNs ignore Vary for non-standard headers |
-| **Selective Vary enforcement** | CDN respects `Vary: Accept-Encoding` but ignores `Vary: Cookie` or `Vary: Authorization` | CDN only implements Vary for a whitelist of headers |
+| **Selective Vary enforcement** | CDN supports `Vary` only for specific headers. For example, Cloudflare does not use `Vary` values for cache key differentiation by default, with limited exceptions for `Vary: Accept-Encoding` and image variants — other `Vary` values (including `Cookie`, `Authorization`) are effectively ignored | CDN's Vary implementation is limited to a narrow set of headers; behavior varies by CDN vendor |
 | **User-Agent Vary poisoning** | If `Vary: User-Agent` is respected, attacker poisons cache for specific User-Agent strings (e.g., Googlebot) to serve malicious content to crawlers | Cache segments by User-Agent but attacker can target specific values |
 
 ### §3-5. Cookie-Based Cache Poisoning
@@ -190,7 +190,7 @@ The `Vary` response header instructs caches to include additional request header
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **Smuggled Range → cached partial response** | Cache proxy does not forward the `Range` header by default (e.g., Varnish). Attacker smuggles `Range` via HRS or header injection. Backend returns `206 Partial Content` with the attacker-specified byte range. Cache proxy sees a 2xx status and stores the partial response. Subsequent users receive only the selected portion of the body. Browsers render a single-range 206 identically to a 200 — same Content-Type, rendered inline — allowing the attacker to select a byte range that escapes the rendering context | Cache proxy strips Range but caches 2xx (including 206); backend supports Range; Range reachable via HRS or header injection |
+| **Smuggled Range → cached partial response** | Attacker smuggles a `Range` header via HRS or header injection. Backend returns `206 Partial Content` with the attacker-specified byte range. Cache proxy sees a 2xx status and stores the partial response. Subsequent users receive only the selected portion of the body. Browsers render a single-range 206 identically to a 200 — same Content-Type, rendered inline — allowing the attacker to select a byte range that escapes the rendering context. Note: Varnish handles `Range` on the client side and disables backend range requests by default on cache miss (via `bereq.http.Range` removal), but this does not mean it strips client-side `Range` — the exact behavior depends on VCL configuration | Cache proxy does not properly handle Range in cache key or stores 206 as cacheable; backend supports Range; Range reachable via HRS or header injection |
 
 ---
 
@@ -334,8 +334,8 @@ These mutations target **application-internal caching mechanisms** rather than C
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **Next.js Pages Router poisoning** | Crafted request with specific headers/params poisons the internal Next.js cache for a server-side rendered route; all subsequent users receive poisoned HTML (CVE-2024-46982) | Next.js pages router with SSR; internal cache enabled (default) |
-| **Next.js RSC payload confusion** | Request for HTML content returns React Server Component (RSC) payload instead due to missing Vary header for RSC-distinguishing header; cached RSC payload served as HTML breaks page rendering (CVE-2025-49005) | Next.js 15.3.0–15.3.2; CDN does not distinguish RSC vs. HTML requests |
+| **Next.js Pages Router poisoning** | Crafted request poisons the internal Next.js cache for a non-dynamic server-side rendered route by triggering unintended Cache-Control header assignment; subsequent users receive stale/poisoned response (CVE-2024-46982) | Next.js pages router with SSR; internal cache enabled (default) |
+| **Next.js RSC payload confusion** | Request for HTML content returns React Server Component (RSC) payload instead due to missing Vary header for RSC-distinguishing header; cached RSC payload served as HTML breaks page rendering (CVE-2025-49005). On Vercel deployments, impact is limited to browser cache; CDN-level poisoning applies only to self-hosted deployments with external CDN | Next.js 15.3.0–15.3.2; self-hosted + external CDN for CDN poisoning; Vercel for browser cache only |
 | **Middleware authorization bypass** | `x-middleware-subrequest` header bypasses Next.js middleware auth checks; combined with cache poisoning, unauthenticated content gets cached for authenticated routes (CVE-2025-29927) | Next.js middleware-based auth; attacker adds internal header |
 
 ### §8-3. Framework Race Condition Cache Poisoning
@@ -375,7 +375,7 @@ These mutations target the **victim's browser cache** rather than shared server-
 
 ## §10. CDN Forwarding Request Inconsistencies & Amplification DoS
 
-CDNs modify client requests before forwarding them to origin servers — converting methods, stripping headers, and altering encoding negotiations. When these modifications increase the origin's response size relative to what the client receives, attackers can weaponize the CDN as an HTTP traffic amplifier. Systematic fuzzing of 22 CDN providers (REQSMINER, NDSS 2025) uncovered 74 amplification DoS vulnerabilities across three novel attack categories, with amplification factors reaching up to 1,920,000× under specific conditions.
+CDNs modify client requests before forwarding them to origin servers — converting methods, stripping headers, and altering encoding negotiations. When these modifications increase the origin's response size relative to what the client receives, attackers can weaponize the CDN as an HTTP traffic amplifier. Systematic fuzzing of 22 CDN providers (REQSMINER, NDSS 2024) uncovered 74 amplification DoS vulnerabilities across three novel attack categories, with amplification factors reaching up to 1,920,000× under specific conditions.
 
 ### §10-1. HEAD-to-GET Conversion Amplification (HeadAmp)
 
@@ -448,15 +448,15 @@ Beyond DoS amplification, CDN forwarding request modifications create CPDoS, WCP
 | Mutation Combination | CVE / Case | Impact / Bounty |
 |---------------------|-----------|----------------|
 | §1-4 + §2-2 (wildcard rule + encoded path escape) | ChatGPT Wildcard WCD (2024) | Account takeover via auth token theft; $6,500 bounty |
-| §8-2 (Next.js pages router internal cache) | CVE-2024-46982 | DoS + potential stored XSS; patched in Next.js 13.5.7 / 14.2.10 |
-| §8-2 (Next.js RSC Vary header) | CVE-2025-49005 | Cache poisoning via RSC payload confusion; patched in 15.3.3 |
+| §8-2 (Next.js pages router internal cache) | CVE-2024-46982 | Cache poisoning DoS on non-dynamic SSR routes via unintended Cache-Control headers; patched in Next.js 13.5.7 / 14.2.10 (NVD/GHSA do not describe stored XSS impact) |
+| §8-2 (Next.js RSC Vary header) | CVE-2025-49005 | RSC payload confusion; on Vercel deployments limited to browser cache impact, CDN cache poisoning possible only in self-hosted + external CDN configurations; patched in 15.3.3 |
 | §8-2 (Next.js middleware bypass) | CVE-2025-29927 | Middleware auth bypass; chainable with cache poisoning |
 | §7-1 (HHO CPDoS) | CVE-2019-0941 (IIS) | Denial of service via oversized header; Microsoft patch |
 | §7 (CPDoS variants) | Amazon CloudFront CPDoS (2019) | DoS; Amazon stopped caching 400 errors by default |
-| §5-1 (Fat GET) | GitHub cache poisoning (2020) | Parameter override in abuse reporting; fixed |
-| §3-1 (X-Forwarded-Host) | Red Hat Keycloak (2018) | Stored XSS via poisoned resource imports |
+| §5-1 (Fat GET) | GitHub cache poisoning (2020, primary source verification needed) | Parameter override in abuse reporting; fixed |
+| §3-1 (Host/X-Forwarded-Host) | CVE-2017-12158 (Red Hat Keycloak) | Admin console uses Host header to construct resource URLs — reflected XSS (not stored XSS via shared cache poisoning as originally implied) |
 | §1-1 (classic WCD) | ChatGPT WCD original (2023) | Account takeover via `.css` extension appending |
-| §6-1 + §2 (Azure cache key confusion) | OpenAI/Azure (2024) | Arbitrary cache poisoning + DoS on Azure-hosted services |
+| §6-1 + §2 (Azure cache key confusion) | OpenAI/Azure (2024, primary source verification needed) | Arbitrary cache poisoning + DoS on Azure-hosted services |
 | §7-3 (HMO CPDoS) | Play Framework (2019) | DoS via method override; patched in 1.5.3 / 1.4.6 |
 
 ---

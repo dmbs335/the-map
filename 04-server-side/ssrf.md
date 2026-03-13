@@ -416,7 +416,7 @@ When an AWS SDK client is initialized without explicit credentials (or credentia
 | §8-1 + §1 | **Capital One breach (2019)** | AWS metadata exfiltration via SSRF. $80M+ in damages. Landmark case |
 | §7-1 + §8-1 | **Shopify SSRF (HackerOne)** | 303 redirect bypass to cloud metadata. Significant bounty |
 | §8-1 + §1 | **EC2 IMDS campaign (March 2025)** | Systematic targeting of EC2 instances via SSRF for IAM credential theft |
-| — | **~~Oracle EBS CVE-2025-61882~~** | **Removed from SSRF mapping.** Pre-Auth RCE (CWE-287); 초기 NVD에 CWE-918 태그 후 제거됨. 핵심은 인증 우회 + XSLT RCE 체인이며 SSRF가 아님. See `ssi-esi-xslt-injection.md` §4-5 and `document-media-processing-library-rce.md` §8-1 |
+| — | **~~Oracle EBS CVE-2025-61882~~** | **Removed from SSRF mapping.** Pre-Auth RCE (CWE-287); initially tagged CWE-918 in NVD but later removed. The core issue is authentication bypass + XSLT RCE chain, not SSRF. See `ssi-esi-xslt-injection.md` §4-5 and `document-media-processing-library-rce.md` §8-1 |
 | §5-1 + §7-2 | **CVE-2021-26855 (Microsoft Exchange, ProxyLogon)** | Pre-auth SSRF via cookie-based backend selection (`X-BEResource`). `UriBuilder` parsing bypass grants access to arbitrary backend ports with Exchange machine account Kerberos ticket. Chained with CVE-2021-27065 (file write) for pre-auth RCE. Pwnie Award 2021 |
 | §5-1 | **CVE-2021-34473 (Microsoft Exchange, ProxyShell)** | Pre-auth path confusion → ACL bypass (SSRF component). Full chain requires two additional CVEs: PowerShell backend elevation (CVE-2021-34523) + arbitrary file write (CVE-2021-31207). **$200,000** Pwn2Own Vancouver 2021 (3-CVE chain total) |
 

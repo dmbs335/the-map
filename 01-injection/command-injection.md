@@ -195,7 +195,7 @@ The `$IFS` variable defaults to space-tab-newline. When spaces are blocked, `$IF
 |---|---|---|
 | **Basic IFS substitution** | `$IFS` expands to a space, separating command from arguments | `cat${IFS}/etc/passwd` |
 | **IFS with positional** | `$IFS$9` combines IFS with the (typically empty) 9th positional parameter, producing a cleaner separator | `cat$IFS$9/etc/passwd` |
-| **IFS redefinition** | Setting `IFS=;` causes semicolons in subsequent input to be treated as field separators rather than command terminators (defensive use); conversely, setting `IFS` to other values can alter parsing | `IFS=,;cmd,arg` |
+| **IFS redefinition** | Setting `IFS` to custom values alters word splitting behavior for unquoted expansions. Note: `IFS=;` changes how variable expansions are split, but does **not** change the shell's syntactic treatment of `;` as a command terminator — `;` remains a metacharacter regardless of IFS | `IFS=,;read -ra arr <<< "$input"` |
 
 ### §5-2. Variable Substring Extraction
 
@@ -255,7 +255,7 @@ This category covers techniques that transform the payload representation withou
 |---|---|---|
 | **URL encoding** | `%XX` encoding of metacharacters. `%0a` (newline), `%3b` (semicolon), `%7c` (pipe) | `127.0.0.1%0a%63%61%74%20%2f%65%74%63%2f%70%61%73%73%77%64` |
 | **Double URL encoding** | `%25XX` → decoded to `%XX` → decoded to character. Bypasses single-pass decode-then-filter patterns | `%250a` → `%0a` → newline |
-| **Unicode encoding** | `%uXXXX` encoding for bypassing ASCII-only filters | `%u003B` → `;` |
+| **Unicode encoding (legacy)** | `%uXXXX` encoding — non-standard (not in RFC 3986), but recognized by some legacy decoders (IIS, certain Java/ASP frameworks). Effective only against specific middleware | `%u003B` → `;` |
 
 ### §6-4. Quote-Based Obfuscation
 
@@ -267,7 +267,7 @@ Inserting quotes within command names does not alter execution but breaks signat
 | **Empty double quotes** | Linux | Same principle: `w"h"o"am"i` → `whoami` | `c"a"t /e"t"c/p"a"s"s"w"d` |
 | **Backslash insertion** | Linux | Backslash before a non-special character is ignored: `w\ho\am\i` → `whoami` | `c\at /e\tc/p\as\sw\d` |
 | **Caret insertion** | Windows | `^` is CMD's escape character and is stripped from commands: `w^h^o^a^m^i` → `whoami` | `p^o^w^e^r^s^h^e^l^l` |
-| **Backtick insertion** | Linux | Paired backticks containing nothing: `` wh``oami `` → `whoami` | `` c``at /e``tc/pa``sswd `` |
+| **Backtick insertion** | Linux | Adjacent empty backtick pairs trigger command substitution of an empty string: `` wh``oami `` → `whoami`. Note: backticks are command substitution syntax (`\`cmd\``), not quote-stripping — this works because empty substitution produces nothing | `` c``at /e``tc/pa``sswd `` |
 | **Dollar-at insertion** | Linux | `$@` expands to nothing (no positional parameters): `who$@ami` → `whoami` | `c$@at /etc/passwd` |
 
 ### §6-5. Case Manipulation
@@ -319,7 +319,7 @@ These functions pass the entire command string to a shell interpreter (`/bin/sh 
 
 A critical vulnerability in PHP running in CGI mode on Windows. The Windows "Best-Fit" character mapping converts certain Unicode characters (e.g., soft hyphen `0xAD`) to ASCII equivalents (`-`), allowing attackers to inject PHP command-line arguments even when the application filters ASCII hyphens. This enables `-d allow_url_include=1 -d auto_prepend_file=php://input` injection for arbitrary code execution.
 
-### §7-3. Safe-by-Default APIs (Vulnerable to §2 Only)
+### §7-3. Safe-by-Default APIs (Vulnerable to §2; also §7-5 on Windows)
 
 | Language | Safer Function(s) | Mechanism | Residual Risk |
 |---|---|---|---|
@@ -461,21 +461,21 @@ This section maps injection techniques to exploitation scenarios based on data e
 | §7-2 (PHP-CGI Unicode bypass) | CVE-2024-4577 | PHP (CGI mode, Windows) | Critical RCE. Unicode "Best-Fit" mapping bypasses `-` filtering. Actively exploited in the wild. |
 | §1-1 + §7-1 (semicolon + shell_exec) | CVE-2024-3400 | Palo Alto Networks PAN-OS | Critical RCE. Unauthenticated command injection in GlobalProtect gateway. CVSS 10.0. |
 | §1 + §7-1 (CLI injection) | CVE-2024-20399 | Cisco NX-OS | Authenticated admin → root command execution via CLI. Exploited by Velvet Ant (Chinese APT). |
-| §1 + §7-1 (CLI injection) | CVE-2024-21887 | Ivanti Connect Secure | Unauthenticated RCE via web component. Chained with auth bypass CVE-2023-46805. |
-| §2-1 (Git argument injection) | CVE-2025-53652 | Jenkins Git Parameter Plugin | RCE via unvalidated git parameter values passed to shell commands. 1,500+ servers exposed. |
+| §1 + §7-1 (CLI injection) | CVE-2024-21887 | Ivanti Connect Secure | Authenticated administrator command injection via web component. In-the-wild exploitation chained with auth bypass CVE-2023-46805 for unauthenticated RCE. |
+| §2-1 (Git argument injection) | CVE-2025-53652 | Jenkins Git Parameter Plugin | Users with Item/Build permission can inject arbitrary values into Git parameters. Downstream RCE depends on job/pipeline configuration. |
 | §2-1 (go-getter arg injection) | CVE-2024-3817 | HashiCorp go-getter | Argument injection when fetching remote default git branches. |
 | §9-1 (GH Actions expression) | CVE-2025-53104 | gluestack-ui | CVSS 9.1. RCE via crafted GitHub Discussion title in Actions workflow. |
 | §1 + §7-1 (proc_open) | CVE-2025-49141 | HaxCMS-PHP | URL input passed to `proc_open` via `git set_remote` without sanitization. |
 | §8-3 (WAF parsing discrepancy) | WAFFLED (ACSAC 2025) | AWS/Azure/Cloudflare/Cloud Armor/ModSecurity | 1,207 bypasses via request structure mutation. Google Cloud Armor: Tier 1, Priority 1, Severity 1. |
-| §2-1 (argument injection) | CloudImposer (BH 2024) | Google Cloud Platform | GCP command argument injection affecting millions of cloud servers, including Google's production. |
+| §2-1 (dependency confusion via argument injection) | CloudImposer (BH 2024) | Google Cloud Platform | GCP dependency confusion via `--extra-index-url` injection in Cloud Composer, affecting millions of cloud servers. Primarily a supply-chain/dependency confusion attack with argument injection as the vector. |
 | §1 + §7-1 (FortiSIEM CLI) | FG-IR-25-152 | Fortinet FortiSIEM | Unauthenticated OS command injection via crafted CLI requests. Exploit code found in the wild. |
 | §9-3 (supply chain) | tj-actions/changed-files (Mar 2025) | GitHub Actions ecosystem | Maintainer account compromise → backdoor in all versions → shell payload in consumer workflows. |
 | §1-4 + §8-1 (config injection) | CVE-2025-1974 (IngressNightmare) | Kubernetes ingress-nginx | Unauthenticated RCE → cluster-wide secret access → full cluster takeover. |
 | §2-1 (argument injection in AI agents) | Multiple (2025) | AI coding agents (MCP-based) | Argument injection in AI tool-calling flows enables arbitrary code execution on developer machines. |
 | §1 + §7-1 (glob CLI exec) | CVE-2025-64756 | glob CLI (npm) | Command injection via `--cmd` flag when processing files with malicious names. |
-| §7-5 (BatBadBut Windows escaping bypass) | CVE-2024-24576 / CERT VU#123335 | Rust std, Node.js, PHP, Haskell + others | Critical RCE (CVSS 10.0). Array-based "safe" APIs invoke cmd.exe for .bat/.cmd, defeating backslash-based argument escaping. |
+| §7-5 (BatBadBut Windows escaping bypass) | CVE-2024-24576 (Rust std) / CERT VU#123335 (multi-language) | Rust std (CVE-2024-24576), Node.js (CVE-2024-27980, CVE-2024-36138), PHP, Haskell + others | Critical RCE (CVSS 10.0 for Rust). Array-based "safe" APIs invoke cmd.exe for .bat/.cmd, defeating backslash-based argument escaping. Each language has separate CVE assignments. |
 | §1 + §7-1 (cloud infrastructure CLI) | CVE-2024-50603 | Aviatrix Controller | Unauthenticated RCE via `cloud_type` parameter injection in cloud gateway management API. CVSS 10.0. Actively exploited in the wild. |
-| §7-1 (format string → GOT overwrite) | CVE-2019-1579 (silently patched) | Palo Alto GlobalProtect SSL VPN | Pre-auth RCE via format string in `sslmgr` daemon. `scep-profile-name` parameter passed directly to `snprintf` as format string. Time-based detection via `%9999999c` (non-destructive delay). Exploitation: `%n` overwrites `strlen@GOT` → `system@PLT`, converting subsequent `strlen(input)` into `system(input)` |
+| §7-1 (format string → GOT overwrite) | CVE-2019-1579 (silently patched) | Palo Alto GlobalProtect SSL VPN | Pre-auth RCE via format string in `sslmgr` daemon. `scep-profile-name` parameter passed directly to `snprintf` as format string. Note: technically a memory corruption exploit (format string → GOT overwrite → `system()`), not classic command injection. Included here because the final primitive achieves command execution via `strlen@GOT` → `system@PLT` redirect. |
 | §1-1 + §7-1 (DSSAFE.pm bypass) | CVE-2019-11539 | Pulse Secure Connect VPN | Post-auth command injection bypassing `DSSAFE.pm` hooks (which intercept `system()`, `open()`, backticks). Bypass: use tcpdump's `-r` flag to generate error message `tcpdump: [payload]: No such file or directory` — Perl interprets `tcpdump:` as GOTO label and evaluates the rest as code |
 
 ---

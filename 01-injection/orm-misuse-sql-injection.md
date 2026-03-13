@@ -314,7 +314,7 @@ Beyond filter fields and operators, ORM query construction may expose internal s
 
 | Framework | Vulnerable Parameter | CVE | Impact |
 |---|---|---|---|
-| **Django** | `_connector` (AND/OR/XOR), `_negated` (boolean) | CVE-2025-64459 | Arbitrary SQL injection via connector value; CVSS 9.1 |
+| **Django** | `_connector` (AND/OR/XOR) | CVE-2025-64459 | Arbitrary SQL injection via connector keyword argument in `Q()` / QuerySet methods; CVSS 9.1 |
 
 **Mechanism:** Django's `Q()` objects and QuerySet methods (`filter()`, `exclude()`, `get()`) accept `_connector` as an internal keyword argument that controls how query conditions are combined. Prior to patching, this parameter was not validated when supplied through dictionary expansion.
 
@@ -359,7 +359,7 @@ Several JavaScript/TypeScript ORMs accept query operators as object properties. 
 
 | Framework | Vulnerable Version | Operator Syntax | CVE |
 |---|---|---|---|
-| **Sequelize** | < 4.12.0 | `$gt`, `$like`, `$ne`, `$regexp` | CVE-2019-10748 |
+| **Sequelize** | < 3.35.1 / < 4.44.3 / < 5.8.11 | `$gt`, `$like`, `$ne`, `$regexp` (string operators); NVD: JSON path key escaping flaw in MySQL/MariaDB dialect | CVE-2019-10748 |
 
 **Mechanism:** Early Sequelize versions accepted operator names as string keys in query objects:
 ```javascript
@@ -373,13 +373,13 @@ Several JavaScript/TypeScript ORMs accept query operators as object properties. 
 
 The `whereItemQuery()` function processed raw user input containing operator strings without validation, enabling arbitrary WHERE clause manipulation.
 
-**Fix:** Sequelize 4.12+ replaced string operators with Symbol-based operators (`Op.gt`, `Op.like`, `Op.ne`), preventing string-based injection. Applications must set `operatorsAliases: false` to fully disable legacy string operators.
+**Note:** The above string operator injection pattern is a historically documented risk. CVE-2019-10748 specifically describes a JSON path key escaping flaw in MySQL/MariaDB dialect. Sequelize 4.12+ replaced string operators with Symbol-based operators (`Op.gt`, `Op.like`, `Op.ne`); applications must set `operatorsAliases: false` to fully disable legacy string operators.
 
 ### §5-2. Nested Object Injection in Repository Methods
 
 | Framework | Vulnerable Method(s) | CVE | Mechanism |
 |---|---|---|---|
-| **TypeORM** | `repository.findOne(userInput)`, `repository.save()`, `repository.update()` | CVE-2022-33171, CVE-2025-60542 | Parsed JSON object passed directly to repository methods; nested objects not stringified by MySQL driver |
+| **TypeORM** | `repository.findOne(userInput)`, `repository.save()`, `repository.update()` | CVE-2022-33171 (disputed), CVE-2025-60542 | Parsed JSON object passed directly to repository methods; nested objects not stringified by MySQL driver |
 | **Prisma** | `findFirst()`, `findMany()`, `updateMany()`, `deleteMany()` | — | Query operators (`startsWith`, `contains`, `gt`, `not`, `in`) accepted as object properties |
 
 **TypeORM CVE-2022-33171 Example:**
@@ -431,12 +431,12 @@ ORDER BY, GROUP BY, and HAVING clauses are frequent injection targets because: (
 
 | Framework | Vulnerable Method(s) | Safe Since | Mitigation |
 |---|---|---|---|
-| **ActiveRecord** | `order(user_input)`, `reorder(user_input)` | Rails 6.1 (requires `Arel.sql()`) | Allowlist column names |
+| **ActiveRecord** | `order(user_input)`, `reorder(user_input)` | Rails 6.1+ requires `Arel.sql()` for raw SQL (explicit opt-in, not auto-safe — `Arel.sql()` must only wrap trusted strings) | Allowlist column names; never pass user input to `Arel.sql()` |
 | **Django** | `order_by(user_input)` | Generally safe for field names; vulnerable with `extra()` or `RawSQL()` | Validate against model fields |
 | **SQLAlchemy** | `order_by(text(user_input))` | — | Use column objects, not text |
 | **TypeORM** | `queryBuilder.orderBy(user_input)` | — | Allowlist columns |
-| **Eloquent** | `orderByRaw(user_input)` | — | Use bindings: `orderByRaw('col ?', [$dir])` |
-| **GORM** | `db.Order(user_input)` | — | Use `db.Order("col ?", dir)` |
+| **Eloquent** | `orderByRaw(user_input)` | — | Allowlist column names and directions. Note: Laravel docs state column names and ORDER BY directions are not PDO-bindable — `orderByRaw('col ?', [$dir])` does NOT safely bind the direction |
+| **GORM** | `db.Order(user_input)` | — | Allowlist column names. Note: `db.Order()` does not support parameterized placeholders — raw string is passed directly to SQL |
 | **Hibernate** | `createQuery("... ORDER BY " + user_input)` | — | Use Criteria API |
 
 **ActiveRecord Example (Pre-Rails 6.1):**
@@ -560,7 +560,7 @@ A fundamentally distinct attack class where the injection occurs not in SQL synt
 
 | Target | CVE | Driver(s) | Mechanism |
 |---|---|---|---|
-| **PostgreSQL** | CVE-2024-27304 | pgx (Go), Npgsql (.NET), Diesel (Rust), SQLx (Rust) | 32-bit message length overflow via parameter > 4GB |
+| **PostgreSQL** | CVE-2024-27304 | pgx (Go) | 32-bit message length overflow via parameter > 4GB. Similar issues may affect other drivers (Npgsql, Diesel, SQLx) but are tracked under separate advisories |
 
 **Mechanism:** PostgreSQL's wire protocol uses a 32-bit integer for message length fields. When a parameter string exceeds 2³² bytes, the length field overflows, causing the database to misinterpret subsequent bytes as a new protocol message. The attacker embeds a complete SQL statement in the overflow region.
 
@@ -579,9 +579,9 @@ A fundamentally distinct attack class where the injection occurs not in SQL synt
 
 | Target | CVE | Mechanism |
 |---|---|---|
-| **PostgreSQL** | CVE-2025-1094 | UTF-8 validation flaw in `libpq` escape functions (`PQescapeLiteral`, `PQescapeIdentifier`, `PQescapeStringConn`) allows SQL injection through invalid UTF-8 byte sequences |
+| **PostgreSQL** | CVE-2025-1094 | `libpq` quoting functions (`PQescapeLiteral`, `PQescapeIdentifier`, `PQescapeStringConn`) fail to properly handle certain invalid byte sequences when their output is reused in contexts like `psql` interactive commands or specific client-encoding combinations (e.g., BIG5). Not a generic UTF-8 validation bypass — exploitation requires specific client/server encoding configurations and consumption patterns |
 
-**Mechanism:** PostgreSQL's `libpq` client library escape functions incorrectly process invalid UTF-8 byte sequences. An attacker can craft input containing invalid UTF-8 that causes the escape routine to fail to neutralize a syntactically significant single quote (`0x27`), leaving it unescaped in the resulting SQL string. This is distinct from the classic BIG5/SJIS/GBK multibyte trailing-byte technique — CVE-2025-1094 specifically targets UTF-8 validation logic.
+**Mechanism:** PostgreSQL's `libpq` client library escape functions produce output that, when reused in certain contexts (e.g., `psql` interactive metacommand input, or specific client-encoding configurations like BIG5), can leave syntactically significant quotes unescaped. Exploitation requires the application to consume `libpq` escape output in a way that re-parses the result — standard parameterized queries via `PQexecParams` are not affected.
 
 ---
 
@@ -606,19 +606,19 @@ A fundamentally distinct attack class where the injection occurs not in SQL synt
 | §2-1 (alias injection) | CVE-2022-28346 | Django | `annotate()`, `aggregate()`, `extra()` — dict expansion alias injection |
 | §2-2 (JSONField key) | CVE-2024-42005 | Django | `values()` / `values_list()` on JSONField; CVSS 9.8 |
 | §2-1 (alias injection) | CVE-2025-59681 | Django | `annotate()`, `alias()`, `aggregate()`, `extra()` — MySQL/MariaDB backends |
-| §4-1 (connector injection) | CVE-2025-64459 | Django | `_connector` / `_negated` injection in `filter()`, `exclude()`, `get()`, `Q()`; CVSS 9.1 |
+| §4-1 (connector injection) | CVE-2025-64459 | Django | `_connector` injection in `filter()`, `exclude()`, `get()`, `Q()`; CVSS 9.1 |
 | §4-2 (FilteredRelation) | CVE-2025-57833 | Django | `FilteredRelation` alias injection via `annotate()`/`alias()` |
 | §6-2 (comment injection) | CVE-2023-22794 | ActiveRecord (Rails) | SQL comment injection in `annotate()` |
 | §5-1 (string operator) | CVE-2019-10748 | Sequelize | String-based operator injection (`$gt`, `$ne`, `$like`) |
 | §5-2 (replacements) | CVE-2023-25813 | Sequelize | SQL injection via `replacements` parameter |
-| §5-2 (nested object) | CVE-2022-33171 | TypeORM | `findOne()` parsed JSON injection |
+| §5-2 (nested object) | CVE-2022-33171 (disputed) | TypeORM | `findOne()` parsed JSON injection — NVD status: DISPUTED |
 | §5-2 (driver object) | CVE-2025-60542 | TypeORM | `repository.save()`/`update()` — mysql2 driver `stringifyObjects` default |
-| §8-1 (protocol overflow) | CVE-2024-27304 | pgx, Npgsql, Diesel, SQLx | PostgreSQL wire protocol 32-bit length overflow |
-| §8-2 (encoding mismatch) | CVE-2025-1094 | PostgreSQL (libpq) | Multibyte encoding mismatch quote escape bypass |
-| §7-1 (HQL injection) | CVE-2020-25638 | Hibernate | SQL comment injection in `@Where` annotation |
+| §8-1 (protocol overflow) | CVE-2024-27304 | pgx (Go) | PostgreSQL wire protocol 32-bit length overflow |
+| §8-2 (encoding mismatch) | CVE-2025-1094 | PostgreSQL (libpq) | Quote escape bypass via libpq escape output reuse in specific encoding/consumption contexts |
+| §7-1 (HQL injection) | CVE-2020-25638 | Hibernate | SQL comment injection in JPA Criteria API when `hibernate.use_sql_comments=true` |
 | §3-1 (ORM Leak) | CVE-2023-47117 | Django (Label Studio) | Filter parameter injection exfiltrating user data |
-| §3-1 (ORM Leak) | CVE-2023-31133 | Prisma (Ghost CMS) | Operator injection leaking member data |
-| §3-1 (ORM Leak) | CVE-2023-30843 | Prisma (Payload CMS) | Operator injection leaking credentials |
+| §3-1 (ORM Leak) | CVE-2023-31133 | Ghost CMS | Public content API filter parameter injection leaking member data. Note: Ghost uses Bookshelf/Knex, not Prisma |
+| §3-1 (ORM Leak) | CVE-2023-30843 | Payload CMS | Query filter injection leaking credentials. Note: Payload uses Mongoose/Drizzle, not Prisma |
 | §3-1 (Ransack Leak) | — (multiple apps) | Ransack (Rails) | Password reset token exfiltration (fablabs.io, CodeOcean, etc.) |
 
 ---

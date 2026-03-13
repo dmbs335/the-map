@@ -113,7 +113,7 @@ MongoDB supports JavaScript execution in several contexts: the `$where` query op
 
 ### §3-1. $where Clause Injection
 
-The `$where` operator accepts a JavaScript expression or function that is evaluated for each document. It provides access to the document via `this` and to the full JavaScript runtime.
+The `$where` operator accepts a JavaScript expression or function that is evaluated for each document. It provides access to the document via `this` and executes within MongoDB's embedded MozJS (SpiderMonkey) engine — a sandboxed JavaScript environment, not a full Node.js-like runtime.
 
 | Subtype | Mechanism | Payload Example | Key Condition |
 |---------|-----------|-----------------|---------------|
@@ -169,7 +169,7 @@ MongoDB's aggregation framework provides a powerful, multi-stage data processing
 
 | Subtype | Mechanism | Payload Example | Key Condition |
 |---------|-----------|-----------------|---------------|
-| **$mergeCursors (Shard Bypass)** | Internal stage for merging query results across shards. Improper authorization handling allows unauthorized data access by bypassing RBAC. | Specially crafted pipeline exploiting `$mergeCursors` | Sharded MongoDB deployment; CVE-2025-6713 |
+| **$mergeCursors (Shard Bypass)** | Internal stage for merging query results across shards. Improper authorization handling allows unauthorized data access by bypassing RBAC. Note: This is a server-side authorization flaw (RBAC bypass), not a query/operator injection — taxonomically distinct from NoSQL injection. | Specially crafted pipeline exploiting `$mergeCursors` | Sharded MongoDB deployment; CVE-2025-6713 (authorization bypass, not injection) |
 | **Dummy $match Elimination** | `{"$match":{"_id":{"$exists":false}}}` returns zero results from the original collection, ensuring only cross-collection data (via `$lookup`/`$unionWith`) is returned. | Prepended to pipeline before `$unionWith` | Used to isolate cross-collection results |
 | **$replaceWith (Document Swap)** | Replaces each document in the pipeline with a specified document, enabling injection of arbitrary content before `$merge`. | `{"$replaceWith":{"_id":"targetId","password":"newpass"}}` | Followed by `$merge` for data modification |
 
@@ -248,7 +248,7 @@ Redis operates on a command protocol rather than a query language, making inject
 | Subtype | Mechanism | Payload Example | Key Condition |
 |---------|-----------|-----------------|---------------|
 | **Command Chaining** | Injecting additional Redis commands via newline characters in command parameters. | `key\r\nFLUSHALL\r\n` | Input reaches Redis command string without sanitization |
-| **Lua Script Injection** | Redis EVAL command executes Lua scripts; injection enables arbitrary Lua code execution. | `EVAL "redis.call('SET','pwned','true')" 0` | User input reaches EVAL command arguments |
+| **Lua Script Injection** | Redis EVAL command executes Lua scripts within the Redis process; injection enables arbitrary Lua execution confined to Redis context (data manipulation, key enumeration), not direct OS command execution. | `EVAL "redis.call('SET','pwned','true')" 0` | User input reaches EVAL command arguments |
 | **SSRF via Gopher Protocol** | Combining SSRF vulnerabilities with Redis protocol to execute arbitrary commands remotely. | `gopher://redis:6379/_*3%0d%0a$3%0d%0aSET%0d%0a...` | SSRF exists that can reach Redis port |
 
 ### §5-7. Memcached Command Injection
@@ -280,7 +280,7 @@ The way user input is structured, encoded, and delivered to the application sign
 |---------|-----------|-----------------|---------------|
 | **Bracket Notation Array Injection** | Express-style query parsers interpret `param[$op]=value` as `{param: {$op: value}}`, converting flat parameters to nested objects. | `password[$ne]=invalid&password[$regex]=^a` | Node.js with `qs` or `express` default parser |
 | **PHP Array Parameter** | PHP interprets `param[key]=value` as associative arrays, enabling operator injection from URL parameters. | `password[$ne]=1` in PHP → `array('$ne' => '1')` | PHP with MongoDB driver |
-| **Duplicate Key Processing** | MongoDB processes duplicate JSON keys by retaining only the last occurrence. Can be used to override sanitized values. | `{"password":"sanitized","password":{"$ne":""}}` | Parser accepts duplicate keys; last-wins behavior |
+| **Duplicate Key Processing** | MongoDB's behavior with duplicate JSON keys is undefined — official documentation states duplicate field names are unsupported. In practice, some drivers exhibit last-wins behavior, but this is not guaranteed across versions or drivers. | `{"password":"sanitized","password":{"$ne":""}}` | Parser accepts duplicate keys; driver-specific behavior (not guaranteed) |
 | **GraphQL Filter Passthrough** | GraphQL resolvers that forward `args.filter` directly to `collection.find()` pass operator objects through the GraphQL layer. | GraphQL query: `{ users(filter: {password: {$ne: ""}}) { email } }` | Resolver does not validate/allowlist filter structure |
 
 ### §6-3. Encoding and Obfuscation
@@ -319,7 +319,7 @@ Object-Document Mappers (ODMs like Mongoose) and sanitization middleware (like `
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **Spring Data MongoDB @Query** | Spring's `@Query` annotation with string-based queries allows injection if parameters are interpolated rather than bound. | `@Query("{'field': '?0'}")` with unparameterized input |
+| **Spring Data MongoDB @Query** | Spring's `@Query` annotation uses `?0`, `?1` etc. as parameter binding placeholders, which are safe by design. Injection occurs when developers bypass this mechanism — e.g., via string concatenation or unsafe SpEL expressions (`#{...}`) that interpolate user input directly into the query string. | `@Query("{'field': '" + input + "'}")` or unsafe SpEL `#{[0]}` without validation |
 | **Spring N1QL @Query** | Similar to the above but for Couchbase integration via Spring Data. | `@Query("#{#n1ql.selectEntity} WHERE field = '#{[0]}'")` |
 | **Django Raw Queries** | Django's `raw()` method on MongoDB backends bypasses the ORM's parameterization. | `collection.find(json.loads(user_input))` |
 
@@ -397,7 +397,8 @@ NoSQL injection payloads may not execute immediately upon injection but instead 
 | **Authentication Bypass** | Login form passing user input to `find()` or `findOne()` without type validation | §1-1 + §1-2 + §6-1 |
 | **Blind Data Exfiltration** | No direct data output; requires oracle-based character extraction | §1-2 + §3-1 + §8-1 + §8-2 |
 | **Direct Data Leakage** | Application returns query results or error messages containing data | §4-1 + §5-1 + §8-3 |
-| **Remote Code Execution** | Server-side JavaScript enabled; SSJI context reachable | §3 + §5-6 (Redis Lua) |
+| **Remote Code Execution** | Server-side JavaScript enabled; SSJI context reachable | §3 (MongoDB SSJI) |
+| **Redis In-Context Script Execution** | Redis Lua scripting (EVAL) allows arbitrary Lua execution within Redis, but this is confined to the Redis process — not equivalent to host-level OS command execution | §5-6 (Redis Lua — confined to Redis context, not OS-level RCE) |
 | **Cross-Collection Data Access** | Aggregation pipeline injection point exists | §4-1 + §4-3 |
 | **Data Modification / Destruction** | Write permissions; aggregation or direct write operations accessible | §4-2 + §5-2 (Cypher DELETE) + §5-6 (Redis FLUSHALL) |
 | **Server-Side Request Forgery** | N1QL CURL enabled; Redis reachable via SSRF chain | §5-1 (N1QL CURL) + §5-6 (Gopher→Redis) |
@@ -413,13 +414,13 @@ NoSQL injection payloads may not execute immediately upon injection but instead 
 |---------------------|-----------|----------------|
 | §7-1 (Mongoose $or nesting bypass) | CVE-2025-23061 (Mongoose < 8.9.5) | RCE via `$where` in `populate().match()`. Incomplete fix for CVE-2024-53900. CVSS 9.1 |
 | §7-1 (Mongoose populate().match()) | CVE-2024-53900 (Mongoose < 8.8.3) | RCE via `$where` injection through `populate().match()` function |
-| §4-3 ($mergeCursors authorization bypass) | CVE-2025-6713 (MongoDB Server < 8.0.7) | Unauthorized data access bypassing RBAC in sharded deployments. CVSS 7.7 |
+| §4-3 ($mergeCursors authorization bypass) | CVE-2025-6713 (MongoDB Server < 8.0.7) | Unauthorized data access bypassing RBAC in sharded deployments. CVSS 7.7. Note: This is a server-side authorization flaw, not a NoSQL injection — included here for completeness as it involves aggregation internals |
 | §1-1 (Operator injection on password reset) | CVE-2024-48573 (AquilaCMS ≤ 1.409.20) | Unauthenticated password reset for any user including admin |
-| §1-1 + §8-1 (Blind extraction of reset tokens) | Rocket.Chat HackerOne #1130874 | Post-auth blind NoSQL injection leaking password reset tokens and 2FA secrets → admin account takeover → RCE. $3,000+ bounty |
+| §1-1 + §8-1 (Blind extraction of reset tokens) | Rocket.Chat HackerOne #1130874 | Post-auth blind NoSQL injection enabling extraction of sensitive tokens. Full impact chain (ATO→RCE) as described in report requires further verification against public disclosure details. $3,000+ bounty |
 | §8-2 (Timing oracle on unsanitized selectors) | CVE-2023-28359 (Rocket.Chat) | Time-based blind data extraction via unsanitized MongoDB selectors |
 | §5-1 (N1QL injection in Sync Gateway) | CVE-2019-9039 (Couchbase Sync Gateway) | N1QL statement injection via `_all_docs` endpoint parameters |
-| §5-5 (Elasticsearch scripting) | Multiple CVEs (Elasticsearch < 1.2) | Remote code execution via Groovy scripting in search queries |
-| §5-6 (Redis Lua sandbox escape) | CVE-2022-24735 (Redis < 7.0.0/6.2.7) | Arbitrary Lua code execution with elevated privileges |
+| §5-5 (Elasticsearch dynamic scripting) | CVE-2014-3120 (Elasticsearch < 1.2, dynamic scripting enabled by default), CVE-2015-1427 (Groovy sandbox bypass in < 1.3.8/1.4.3) | RCE via unsandboxed/sandbox-bypassed scripting. Note: distinct issue from "NoSQL injection" — this is a dynamic scripting exposure / sandbox escape, not query operator injection |
+| §5-6 (Redis Lua script injection) | Redis EVAL injection (no specific CVE) | Arbitrary Lua execution within Redis context via unsanitized EVAL arguments. Note: CVE-2022-24735 is a Git dubious ownership vulnerability, not Redis-related |
 
 ---
 
@@ -434,7 +435,7 @@ NoSQL injection payloads may not execute immediately upon injection but instead 
 | **NoSQLi Scanner** (Burp Suite extension) | MongoDB via HTTP | Passive/active scanning for NoSQL injection within Burp Suite |
 | **Burp-NoSQLiScanner** (Burp Suite extension) | MongoDB, broader NoSQL | Automated detection of operator and syntax injection patterns |
 | **NoSQLAttack** (Python, open-source) | MongoDB | Automated exploitation of default configuration weaknesses and injection |
-| **mongoshake / mongo-sanitize** (Node.js middleware) | MongoDB (defensive) | Strips `$` and `.` prefixed keys from user input |
+| **mongo-sanitize** (Node.js middleware) | MongoDB (defensive) | Strips `$` and `.` prefixed keys from user input |
 | **express-mongo-sanitize** (Node.js middleware) | MongoDB (defensive) | Sanitizes req.body/query/params/headers; removes operator keys |
 | **Mongoose sanitizeFilter** (ODM option) | MongoDB via Mongoose (defensive) | Built-in query filter sanitization (enabled via `sanitizeFilter: true`) |
 

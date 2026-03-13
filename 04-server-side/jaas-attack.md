@@ -42,7 +42,7 @@ The most actively exploited vector: systems that accept `sasl.jaas.config` as a 
 |---------|-----------|---------------|
 | **JndiLoginModule injection** | Specifying `com.sun.security.auth.module.JndiLoginModule` with `user.provider.url` pointing to an attacker's LDAP/RMI server. During `login()`, the module calls `InitialContext.lookup()` on the untrusted URL, triggering JNDI injection → deserialization RCE. | Attacker controls `sasl.jaas.config` (e.g., Kafka Connect connector creation) |
 | **LdapLoginModule injection** | Specifying `com.sun.security.auth.module.LdapLoginModule` with attacker-controlled LDAP server URL. The module deserializes LDAP response attributes, enabling gadget chain execution. | Same as JndiLoginModule; exploitable gadget classes on classpath |
-| **ProxyLoginModule bypass** | When JndiLoginModule is blocklisted, using `ProxyLoginModule` (a module that delegates to another module by name) to indirectly load JndiLoginModule or other dangerous modules, bypassing the blocklist. | ProxyLoginModule not blocklisted; target module available on classpath |
+| **ProxyLoginModule bypass** | In application servers with a `ProxyLoginModule` concept (e.g., JBoss/WildFly, Apache Karaf), using the proxy module to indirectly load JndiLoginModule or other dangerous modules, bypassing the blocklist. Note: this is product-specific — Apache Kafka's official mitigation (`org.apache.kafka.disallowed.login.modules`) blocks JndiLoginModule/LdapLoginModule directly and does not document ProxyLoginModule as a bypass vector | ProxyLoginModule available in the target runtime; target module on classpath |
 
 **Example — CVE-2023-25194 (Apache Kafka Connect):**
 ```
@@ -59,9 +59,9 @@ JDBC drivers that support JAAS-based authentication allow configuration injectio
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **Connection property injection** | JDBC drivers (PostgreSQL, Impala, Hive, Spark) accept properties like `jaasConfig` or `jaas.conf` that specify the LoginModule configuration inline or as a file path. When users control connection strings, they control the JAAS config. | User-controllable JDBC connection URL or properties |
-| **System property propagation** | Some JDBC drivers set `java.security.auth.login.config` as a system property from connection parameters, affecting the entire JVM's JAAS configuration — not just the current connection. | Driver propagates connection-level settings to JVM-level system properties |
-| **Config file content injection** | Certain drivers (e.g., Cat JDBC) write user-supplied values into a temporary JAAS config file. By injecting newlines and JAAS config syntax into the property value, the attacker can insert additional LoginModule entries (e.g., JndiLoginModule) that execute during authentication. | Driver constructs config file from unsanitized user input |
+| **Connection property injection** | Some JDBC drivers with Kerberos/SASL support accept properties that influence JAAS configuration (e.g., Hive/Impala `AuthMech` + Kerberos parameters). The exact property names and injection capabilities vary significantly by driver — not all drivers support inline JAAS config specification. | User-controllable JDBC connection URL or properties; driver-specific JAAS integration |
+| **System property propagation** | Some JDBC drivers may propagate connection-level Kerberos/JAAS settings to JVM-level system properties such as `java.security.auth.login.config`, affecting the entire JVM's JAAS configuration — not just the current connection (primary source verification needed for specific driver examples). | Driver propagates connection-level settings to JVM-level system properties |
+| **Config file content injection** | Certain drivers write user-supplied values into a temporary JAAS config file. By injecting newlines and JAAS config syntax into the property value, the attacker can insert additional LoginModule entries (e.g., JndiLoginModule) that execute during authentication (primary source verification needed for specific driver examples). | Driver constructs config file from unsanitized user input |
 
 ---
 
@@ -83,9 +83,9 @@ When JndiLoginModule is blocklisted (as in Kafka 3.4+), attackers chain multiple
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **ProxyLoginModule delegation** | `ProxyLoginModule` takes a `login.module.name` option and dynamically loads the specified module. If only `JndiLoginModule` is blocklisted but `ProxyLoginModule` is allowed, the attacker specifies `ProxyLoginModule` with `login.module.name=com.sun.security.auth.module.JndiLoginModule`. | ProxyLoginModule not in blocklist |
+| **ProxyLoginModule delegation** | In runtimes that provide `ProxyLoginModule` (e.g., JBoss/WildFly, Apache Karaf), it takes a `login.module.name` option and dynamically loads the specified module. If only `JndiLoginModule` is blocklisted but `ProxyLoginModule` is allowed, the attacker uses it to indirectly load `JndiLoginModule`. This is product-specific — not a generic JAAS or Kafka bypass | ProxyLoginModule available in the target runtime; not in blocklist |
 | **Dual-module file write + execution** | Combining two LoginModules in a single JAAS config: the first module generates a log file or output file containing attacker-controlled content (e.g., a webshell), and the second module or a subsequent operation uses that file for code execution. | Two complementary modules available; writable file system path |
-| **FileCallbackHandler abuse** | Specifying `FileCallbackHandler` (which reads credentials from a local file) as the CallbackHandler. This can be abused to read arbitrary local files by pointing it at sensitive paths — the file content is passed into the authentication flow as "credentials" and may be exposed through error messages or logging. | Ability to specify CallbackHandler class; target file readable by JVM process |
+| **Custom CallbackHandler abuse** | Specifying a custom or product-specific `CallbackHandler` implementation that reads credentials from a local file. This can potentially be abused to read arbitrary local files by pointing it at sensitive paths. Note: standard JDK JAAS provides `TextCallbackHandler` and `DialogCallbackHandler` — a generic `FileCallbackHandler` is not part of the JDK; this vector applies only to specific product/library implementations that provide such a class | Ability to specify CallbackHandler class; target product provides a file-reading CallbackHandler; target file readable by JVM process |
 
 ### §2-3. Custom LoginModule Vulnerabilities
 
@@ -107,7 +107,7 @@ Black Hat EU 2024 demonstrated that JDBC drivers represent a significant seconda
 
 | Driver Family | Products | Attack Vector | Key Condition |
 |---------------|----------|---------------|---------------|
-| **PostgreSQL JDBC** | PostgreSQL, Amazon Redshift, CockroachDB | Connection property `jaasLogin` + `jaasConfigName` can specify JAAS config; `authenticationPluginClassName` allows custom auth class loading | Attacker controls connection properties |
+| **PostgreSQL JDBC** | PostgreSQL, Amazon Redshift, CockroachDB | Connection properties `jaasLogin` and `jaasApplicationName` control GSS/SSPI JAAS authentication entry name; separately, `authenticationPluginClassName` enables arbitrary class instantiation (distinct from JAAS config injection). Note: pgJDBC does not support inline JAAS config injection via connection properties — the JAAS config must be set externally | Attacker controls connection properties; for `authenticationPluginClassName`, target class must be on classpath |
 | **Impala JDBC** | Cloudera Impala, AWS EMR | Connection URL accepts `AuthMech=1` (Kerberos) with `KrbAuthType` and JAAS config path, allowing LoginModule injection | Attacker controls connection URL parameters |
 | **Hive JDBC** | Apache Hive, Cloudera CDH/CDP, Databricks | Similar Kerberos authentication path with JAAS config injection via connection properties | Attacker controls connection properties |
 | **Spark JDBC** | Apache Spark (Thrift Server), AWS Glue, Databricks | Spark's Thrift JDBC interface inherits Hive JDBC driver behavior, propagating JAAS config injection | Attacker controls connection properties via Spark config |
@@ -139,7 +139,7 @@ When cloud data platforms accept user-provided JDBC connection strings, the JAAS
 |---------|-----------|---------------|
 | **Kafka Connect connector injection** | Authenticated users with connector create/modify permissions inject `sasl.jaas.config` specifying `JndiLoginModule` with attacker LDAP URL (CVE-2023-25194) | Kafka Connect 2.3.0–3.3.2; connector management access |
 | **Kafka Connect override properties** | Using `producer.override.sasl.jaas.config`, `consumer.override.sasl.jaas.config`, or `admin.override.sasl.jaas.config` to inject LoginModule configuration through connector definitions | Kafka Connect with client config overrides enabled |
-| **Kafka Broker config alteration** | Authenticated users with `AlterConfigs` ACL modify broker-level SASL JAAS configuration to inject malicious LoginModules (CVE-2025-27819) | Kafka Brokers 2.3.0–3.9.0; AlterConfigs permission |
+| **Kafka Broker config alteration** | Authenticated users with `AlterConfigs` ACL modify broker-level SASL JAAS configuration to inject malicious LoginModules (CVE-2025-27819) | Kafka Brokers 2.0.0–3.3.2 (affected); fixed in 3.9.1 / 4.0.0. Note: JndiLoginModule default blocking was introduced in 3.4.0, limiting exploitability in 3.4.0+; AlterConfigs permission required |
 | **Downstream propagation (Druid, Flink, etc.)** | Systems that use Kafka client libraries for ingestion inherit the SASL JAAS vulnerability — Apache Druid, Apache Flink, and similar platforms are exploitable through their Kafka ingestion configuration | Platform uses Kafka client with user-controllable SASL config |
 
 ### §4-2. Data Platforms

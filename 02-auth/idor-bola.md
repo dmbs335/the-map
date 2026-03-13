@@ -222,7 +222,7 @@ IDOR/BOLA becomes more nuanced when targeting objects connected through relation
 
 ### §5-2. Object Property Level Manipulation (BOPLA)
 
-BOPLA (Broken Object Property Level Authorization) is a refinement of BOLA where the attacker can access or modify specific *properties* of an object they may have partial access to.
+BOPLA (Broken Object Property Level Authorization) addresses a related but distinct risk from BOLA. OWASP API Security Top 10 (2023) treats them as separate entries: API1:2023 is BOLA (object-level access), while API3:2023 is BOPLA (property-level access — a consolidation of the former "Excessive Data Exposure" and "Mass Assignment" categories). BOPLA focuses on which *properties* of an object the user can access or modify.
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
@@ -348,17 +348,17 @@ The deployment architecture of modern applications creates authorization gaps at
 
 | Mutation Combination | CVE / Case | Impact / Bounty |
 |---------------------|-----------|----------------|
-| §1-1 + §4-1 (Sequential ID + REST sub-resource) | CVE-2024-1313 (Grafana) | Dashboard snapshot access by unauthenticated users in Grafana (20M+ users). Patch in v10.4.1 |
+| §1-1 + §4-1 (Sequential ID + REST sub-resource) | CVE-2024-1313 (Grafana) | Authenticated users in a different organization can delete dashboard snapshots in Grafana. Fixed in 9.5.18 / 10.0.13 / 10.1.9 / 10.2.6 / 10.3.5 (per Grafana advisory; 10.4.x was not affected) |
 | §1-1 + §5-3 (Sequential ID + multi-tenant) | CVE-2024-46528 (KubeSphere v3.4.1/v4.1.1) | Low-privileged users access sensitive Kubernetes cluster resources across tenants |
 | §4-1 + §5-1 (REST endpoint + horizontal access) | CVE-2023-3285 through CVE-2023-3290 (Easy!Appointments) | 6 BOLA vulnerabilities in this CVE range. Full customer/appointment data access |
-| §4-1 + §8-1 (REST + microservice trust) | CVE-2024-22278 (Harbor) | BOLA in cloud-native container registry; unauthorized access to container images and repositories |
-| §1-1 + §2-1 (Sequential ID + path param) | CVE-2024-56404 (One Identity Manager 9.x) | Identity management system IDOR; access to identity records across the enterprise |
-| §2-3 + §5-2 (Body param + mass assignment) | CVE-2024-1626 (Lunary AI) | IDOR in AI platform allowing unauthorized data access |
+| §4-1 + §8-1 (REST + microservice trust) | CVE-2024-22278 (Harbor) | Authenticated user can improperly modify project metadata/configuration without proper authorization (NVD/GitHub advisory) — not unauthorized access to container images/repositories |
+| §1-1 + §2-1 (Sequential ID + path param) | CVE-2024-56404 (One Identity Manager 9.x) | Privilege escalation in certain on-prem configurations (NVD/One Identity advisory) — the core issue is privilege escalation, not identity record enumeration |
+| §1-1 + §2-1 (Project ID + path param IDOR) | CVE-2024-1626 (Lunary AI) | Missing object-level authorization on `PATCH /v1/projects/:projectId` — any authenticated user can modify other projects. Classic BOLA, not mass assignment |
 | §1-1 + §5-1 (Numeric ID + horizontal) | CVE-2024-55471 (Oqtane Framework) | IDOR allowing cross-user data access in .NET CMS framework |
-| §1-1 + §2-1 (Numeric param + path param) | CVE-2025-40658 (DM Corporative CMS < 2025.01) | CVSS 7.5. IDOR in admin panel via `option` parameter manipulation in `/administer/selectionnode/framesSelection.asp`. |
-| §1-1 + §6-1 (Enumerable ID + direct feedback) | HackerOne #PayPal | $10,500. IDOR to add secondary users in PayPal business account management |
-| §6-2 + §3-1 (Blind IDOR + method bypass) | HackerOne #various | $12,500. IDOR allowing deletion of licenses/certifications from other users' profiles |
-| §5-3 + §8-3 (Cross-tenant + cloud) | Growatt Solar IoT (2025) | BOLA in solar inverter API allowed hackers to take control of IoT devices across organizations |
+| §1-1 + §2-1 (Numeric param + path param) | CVE-2025-40658 (DM Corporative CMS < 2025.01) | CVSS 6.9 (Medium, per CNA/INCIBE). IDOR via `option=0,1,2` parameter to access private area in `/administer/selectionnode/framesSelection.asp` |
+| §1-1 + §6-1 (Enumerable ID + direct feedback) | HackerOne #PayPal (public report ID/URL not available for verification) | $10,500. IDOR to add secondary users in PayPal business account management |
+| §6-2 + §3-1 (Blind IDOR + method bypass) | HackerOne #various (public report ID/URL not available for verification) | $12,500. IDOR allowing deletion of licenses/certifications from other users' profiles |
+| §5-3 + §8-3 (Cross-tenant + cloud) | Growatt Solar IoT (2025, Forescout SUN:DOWN research) | Multiple IDOR/BOLA vulnerabilities among several findings across multiple solar inverter vendors — Growatt API issues included cross-org device access, but this is one subset of a broader multi-vendor vulnerability disclosure |
 
 ---
 
@@ -366,11 +366,11 @@ The deployment architecture of modern applications creates authorization gaps at
 
 | Tool | Target Scope | Core Technique |
 |------|-------------|---------------|
-| **BOLABuster** (Palo Alto Unit 42) | REST APIs with OpenAPI spec | LLM-driven analysis of API specifications; generates BOLA test cases automatically; sends <1% of requests vs. traditional fuzzers |
+| **BOLABuster** (Palo Alto Unit 42) | REST APIs with OpenAPI spec | Research prototype/methodology for LLM-driven analysis of API specifications; generates BOLA test cases automatically (early-stage research, not a production scanner) |
 | **Autorize** (Burp Extension) | Any web application via proxy | Replays requests with low-privilege sessions; compares responses to detect authorization bypass |
 | **AuthMatrix** (Burp Extension) | Web apps with role-based access | Matrix-based testing of users × endpoints × methods; highlights authorization gaps visually |
 | **APIsec Scanner** | REST and GraphQL APIs | Automated BOLA detection with business logic understanding; CI/CD integration |
-| **Cloudflare API Shield** | APIs behind Cloudflare | Runtime BOLA detection via traffic pattern analysis; labels endpoints with `cf-risk-bola-enumeration` and `cf-risk-bola-pollution` |
+| **Cloudflare API Shield** | APIs behind Cloudflare (managed endpoints) | BOLA scanning via `cf-risk-bola-enumeration` and `cf-risk-bola-pollution` labels — currently in beta, applies to managed/discovered endpoints only (per Cloudflare docs). Not general-purpose runtime BOLA detection |
 | **Akto** | REST and GraphQL APIs | BOLA testing via parameter pollution; automated test generation from API traffic |
 | **Cequence UAP** | Enterprise API platforms | Network-based API discovery + behavioral analysis; detects enumeration patterns at runtime |
 | **InQL** (Burp Extension) | GraphQL APIs | GraphQL introspection analysis; identifies queryable types and authorization test surfaces |

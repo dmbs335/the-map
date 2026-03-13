@@ -40,7 +40,7 @@ When the proxy and backend differ in whether, when, and how they resolve `/../` 
 | **Partial dot-segment resolution** | Proxy resolves `/../` but not `/..;/` or `/%2e%2e/`; backend resolves all forms | Backend treats encoded or decorated dot-segments as equivalent to literal `..` |
 | **Asymmetric `/..` handling** | Apache resolves `/path/..` to `/` but Nginx treats trailing `/..` as a literal path component | Multi-tier architecture with Apache behind Nginx or vice versa |
 | **Caddy fastcgi internal normalization traversal** | Caddy's `fastcgi` transport module internally normalized the request path before constructing the `SCRIPT_FILENAME` parameter. In versions ≤2.4.x, dot-segments were resolved without root-jail enforcement: `GET /../../../../../any/path/www/index.php` traversed out of the configured document root, allowing execution of arbitrary PHP files (Caddy PR #4207; no CVE assigned) | Caddy with `fastcgi` transport to php-fpm; versions ≤2.4.x |
-| **Kong path non-normalization (CVE-2021-27306)** | Kong (based on Nginx) did not normalize the request path before forwarding. `/public/../admin` forwarded as-is; backend normalizes to `/admin`, bypassing Kong's path-based ACL | Kong API Gateway before patch |
+| **Kong JWT plugin access control bypass (CVE-2021-27306)** | NVD describes this as improper access control in Kong Gateway's JWT plugin — not a path normalization issue. The vulnerability is in JWT token validation/enforcement, not in path handling | Kong API Gateway before patch |
 | **Traefik / Envoy path non-normalization** | Traefik does not normalize the request path; path traversal sequences are forwarded to backends. Envoy's normalization is configuration-dependent — CVE-2019-9901 (< 1.9.1): path not normalized by default; later versions offer multiple normalization options that are complex to configure correctly | Traefik as gateway; Envoy without explicit normalization configuration |
 
 Example: `GET /public/..%2fadmin/config HTTP/1.1` — Nginx proxy sees literal path, applies ACL for `/public/`; Apache backend decodes `%2f` to `/`, resolves `..` → routes to `/admin/config`.
@@ -88,12 +88,12 @@ The most straightforward form: the proxy uses the `Host` header to select the ba
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
-| **Internal IP routing** | `Host: 169.254.169.254` or `Host: 10.0.0.1` — proxy routes to cloud metadata service or internal host | Proxy forwards to whatever host is specified without allowlist |
+| **Internal IP routing** | `Host: 169.254.169.254` or `Host: 10.0.0.1` — proxy routes to cloud metadata service or internal host. Note: this requires a proxy configured for dynamic/forward-proxy-style host-based upstream routing (e.g., open proxy, dynamic upstream selection). Standard reverse proxy configurations with fixed backend pools do NOT route based on client-supplied Host by default | Proxy performs dynamic upstream selection based on Host header without allowlist (forward proxy or misconfigured reverse proxy) |
 | **Internal hostname routing** | `Host: admin-panel.internal` — proxy resolves internal DNS and routes request | Proxy has DNS access to internal network; no host validation |
 | **Port-based routing escape** | `Host: internal-service:8080` — proxy routes to non-standard port on internal service | Proxy parses and respects port in Host header for routing |
 | **Absolute-URL request line** | `GET http://internal.host/admin HTTP/1.1` — some proxies route based on request-line URL rather than Host header | Proxy supports absolute-form request targets (RFC 7230 §5.3.2) |
 
-Example: `GET / HTTP/1.1\r\nHost: 169.254.169.254\r\n` → Proxy routes to AWS metadata endpoint → attacker retrieves IAM credentials.
+Example: `GET / HTTP/1.1\r\nHost: 169.254.169.254\r\n` → In a dynamic-routing proxy configuration, proxy routes to AWS metadata endpoint → attacker retrieves IAM credentials.
 
 ### §2-2. Host Header Override via Auxiliary Headers
 
@@ -125,7 +125,7 @@ HTTP/2 introduces four mandatory pseudo-headers (`:method`, `:path`, `:scheme`, 
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
-| **Absolute-URL injection via :scheme** | Setting `:scheme` to `http://internal.host/path?` causes HAProxy to construct request line: `GET http://internal.host/path?://original.host/ HTTP/1.1` | HAProxy 2.x — places non-standard :scheme values directly in request line |
+| **Absolute-URL injection via :scheme** | Setting `:scheme` to `http://internal.host/path?` causes HAProxy to construct request line: `GET http://internal.host/path?://original.host/ HTTP/1.1`. Note: this is based on specific research/experimentation — not confirmed via official HAProxy advisory. Behavior may vary by HAProxy version and configuration | HAProxy 2.x (research-reported; verification against specific versions needed) |
 | **Virtual host access via :scheme** | `:scheme: https://vhost2.internal` — backend proxy parses the full URL from request line, routes to different virtual host | Backend that supports absolute-form request targets |
 | **Protocol confusion via :scheme** | `:scheme: gopher` or `:scheme: file` — backend interprets as different protocol handler | Backend with multi-protocol URL handling |
 
@@ -221,9 +221,9 @@ When the proxy performs TLS-based routing (SNI routing, mTLS validation), discre
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
 | **SNI-Host mismatch** | TLS ClientHello SNI = `allowed.com` (passes TLS-level ACL); HTTP `Host: restricted-internal.com` (routes to different backend) | Proxy routes by SNI but backend routes by Host header |
-| **Multiple SNI values** | Sending two SNI extensions — proxy reads first value for routing; backend reads second | Non-conformant TLS stacks that accept multiple SNI |
-| **IP address in SNI** | RFC discourages IP in SNI but many implementations accept it; backend may interpret differently | SNI-based routing where IP addresses bypass hostname validation |
-| **Null byte in SNI** | `allowed.com\x00.attacker.com` — proxy validates `allowed.com`; backend sees full string | Legacy TLS implementations with C-string handling |
+| **Multiple SNI values** | Sending two SNI extensions — proxy reads first value for routing; backend reads second. Note: this is largely theoretical — modern TLS stacks typically reject or ignore duplicate SNI extensions per RFC 6066 | Non-conformant TLS stacks that accept multiple SNI (historical/theoretical) |
+| **IP address in SNI** | RFC discourages IP in SNI but some implementations accept it; backend may interpret differently | SNI-based routing where IP addresses bypass hostname validation |
+| **Null byte in SNI** | `allowed.com\x00.attacker.com` — proxy validates `allowed.com`; backend sees full string. Note: this is a historical technique applicable to legacy TLS implementations with C-string handling — modern TLS stacks typically handle SNI as length-prefixed, not null-terminated | Legacy TLS implementations with C-string handling (historical) |
 
 ### §6-2. TLS Termination Confusion
 
@@ -253,7 +253,7 @@ Misrouting through misconfigured proxy rules — the routing logic itself is the
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
-| **Annotation injection (IngressNightmare)** | Attacker-controlled Ingress annotations inject arbitrary Nginx configuration directives including `proxy_pass` targets | Kubernetes ingress-nginx ≤1.11.4 / ≤1.12.0 (CVE-2025-1097, CVE-2025-1098, CVE-2025-24514) |
+| **Annotation injection (IngressNightmare)** | Attacker-controlled Ingress annotations inject Nginx configuration directives. CVE-2025-1097: `auth-tls-match-cn` annotation validation bypass; CVE-2025-1098: `mirror-target`/`mirror-host` annotations inject arbitrary config; CVE-2025-24514: `auth-url` annotation injects configuration leading to credential exposure. Each has distinct injection path and impact | Kubernetes ingress-nginx ≤1.11.4 / ≤1.12.0 |
 | **Istio x-envoy header manipulation** | External attacker sends `x-envoy-original-dst-host` to override Envoy's routing decision | Istio mesh without strict external header sanitization |
 | **Service mesh path-based routing bypass** | Virtual service routes `/api/*` to service A; `/api/..%2f../internal` bypasses to different service | Service mesh that doesn't normalize paths before route matching |
 | **Ingress class confusion** | Multiple ingress controllers with overlapping rules; attacker crafts request that matches unintended controller | Multi-controller Kubernetes clusters with ambiguous routing |
@@ -289,23 +289,26 @@ Misrouting through misconfigured proxy rules — the routing logic itself is the
 
 | Mutation Combination | CVE / Case | Impact / Bounty |
 |---|---|---|
-| §1-1 + §4-1 (double decode + dot-segment) | CVE-2025-0108 (Palo Alto PAN-OS) | CVSS 9.1. Authentication bypass on firewall management interface via Nginx→Apache path confusion |
+| §1-1 + §4-1 (double decode + dot-segment) | CVE-2025-0108 (Palo Alto PAN-OS) | CVSS 8.8 (v3.1) / 5.9 (v4.0). Authentication bypass on firewall management interface via Nginx→Apache path confusion |
 | §7-3 + smuggled body (cache poisoning) | CVE-2025-4366 (Cloudflare Pingora) | High severity. Request smuggling on cache hits; leaks visitor URLs to attacker via 301 redirect chain |
 | §7-2 (annotation injection) | CVE-2025-1974 (Kubernetes ingress-nginx) | CVSS 9.8. Unauthenticated RCE → cluster takeover. 43% of cloud environments vulnerable |
-| §7-2 (annotation injection) | CVE-2025-1097, CVE-2025-1098, CVE-2025-24514 (Kubernetes ingress-nginx) | Arbitrary Nginx config injection via annotation fields |
+| §7-2 (annotation injection) | CVE-2025-1097 (ingress-nginx) | `auth-tls-match-cn` annotation validation bypass → config injection |
+| §7-2 (annotation injection) | CVE-2025-1098 (ingress-nginx) | `mirror-target`/`mirror-host` annotation injection → arbitrary config |
+| §7-2 (annotation injection) | CVE-2025-24514 (ingress-nginx) | `auth-url` annotation injection → credential exposure |
 | §4-2 (encoded slash bypass) | GHSA-4987-27fx-x6cf (Envoy) | Path traversal via `%2f` and `%5c`; bypasses RBAC, ext_authz, rate limiting |
 | §1-1 (dot-segment non-normalization) | GHSA-xcx5-93pw-jw2w (Envoy) | Path traversal via `/../` bypasses access control and rate limiting |
 | §1-4 (fragment in path) | GHSA-r222-74fw-jqr9 (Envoy) | `#fragment` in URI bypasses path-based authorization |
 | §5-1 (x-envoy header trust) | GHSA-ffhv-fvxq-r6mf (Envoy/Istio) | External attacker sends `x-envoy-*` headers; treated as internal traffic |
 | §1-2 (semicolon path param) | CVE-2018-11759 (Apache Tomcat mod_jk) | Reverse proxy ACL bypass via Tomcat path parameter handling |
-| §1-1 + §4-2 (path normalization) | CVE-2018-1271 (Spring Framework) | Directory traversal via reverse proxy path confusion |
-| §1-1 + §1-2 | CVE-2018-3760, CVE-2018-7212 (Ruby on Rails, Sinatra) | Path normalization 0-days chained for RCE in production |
-| §4-1 (encoding differential) | CVE-2024-27306, CVE-2024-39573 (Apache HTTP Server) | Incorrectly encoded request URLs bypass authentication via mod_proxy |
+| §1-1 (path traversal) | CVE-2018-1271 (Spring Framework) | Directory traversal in Windows filesystem-based static resource serving (NVD) — not a reverse proxy misrouting issue, but a framework-internal path handling flaw. Included for path normalization context |
+| §1-1 + §1-2 | CVE-2018-3760, CVE-2018-7212 (Ruby on Rails, Sinatra) | Framework-internal path normalization / static file serving flaws — not reverse proxy chain discrepancies. Included for path handling context |
+| §4-1 (encoding differential) | CVE-2024-38473 (Apache HTTP Server mod_proxy) | Incorrectly encoded request URLs bypass proxy authentication. Note: CVE-2024-27306 is aiohttp XSS (not Apache). CVE-2024-39573 is Apache mod_rewrite SSRF (separate issue) |
+| §4-1 (mod_rewrite SSRF) | CVE-2024-39573 (Apache HTTP Server mod_rewrite) | SSRF via mod_rewrite substitution rules |
 | §2-1 (Host-based SSRF) | Shopify HackerOne #429617 | Reverse proxy misrouting to internal services |
 | §2-1 (Host-based SSRF) | Yahoo Bug Bounty | $15,000. Routing-based SSRF via Host header manipulation |
 | §2-1 + §7-1 (Host SSRF + routing) | DoD networks (Cracking the Lens) | $30,000+. Systematic exploitation of reverse proxy misrouting across military infrastructure |
 | §7-1 (Nginx off-by-slash) | Multiple HackerOne reports | Path traversal via misconfigured Nginx alias directives |
-| §1-1 (path non-normalization) | CVE-2021-27306 (Kong) | Authentication bypass via path non-normalization in Kong API Gateway |
+| §2 (access control bypass) | CVE-2021-27306 (Kong) | Improper access control in Kong Gateway JWT plugin (NVD — not a path normalization issue) |
 | §1-1 (path non-normalization) | CVE-2019-9901 (Envoy < 1.9.1) | Access control bypass via unnormalized path; Envoy did not normalize by default |
 | §5-3 (header smuggling) | CVE-2019-16276 (Go net/http) | Header smuggling via trailing whitespace before colon; Go-based proxies (Traefik, Caddy) forwarded smuggled headers |
 

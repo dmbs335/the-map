@@ -55,7 +55,7 @@ When an unsigned integer goes below zero, it wraps to the maximum value of its t
 | **Decrement Past Zero** | Counter decremented below zero wraps to MAX | Loop or balance tracking without floor check |
 | **Length Subtraction** | `buffer_len - header_len` underflows when header exceeds buffer | Length fields from untrusted input |
 
-**Example**: In Ethereum smart contracts pre-Solidity 0.8, `balances[msg.sender] - value` where `value > balance` would wrap to ~2^256, granting the attacker an astronomical token balance. The BEC token exploit (CVE-2018-10299) exploited exactly this pattern, causing $900M+ in notional losses.
+**Example**: In Ethereum smart contracts pre-Solidity 0.8, `balances[msg.sender] - value` where `value > balance` would wrap to ~2^256, granting the attacker an astronomical token balance. The BEC token exploit (CVE-2018-10299) is commonly cited for this pattern — though the official description classifies it as an integer overflow in `batchTransfer` multiplication (`value * cnt`), not a subtraction underflow — causing $900M+ in notional losses.
 
 ### §1-3. Signed Integer Overflow
 
@@ -115,7 +115,7 @@ Dynamic languages automatically convert between types during comparisons and ope
 | **Numeric String Auto-Conversion** | Languages interpret strings like `"0x1A"`, `"0777"`, `"1e3"` as hex, octal, or scientific notation | User input silently converted to unintended numeric value |
 | **Boolean-to-Integer Coercion** | `true` becomes `1`, `false` becomes `0` in arithmetic contexts | Authorization checks where boolean result enters arithmetic |
 
-**Example**: In PHP < 8.0, if a password's MD5 hash starts with `0e` followed by digits (e.g., `0e462097431906509019562988736854`), comparing it with `==` to any other `0e...` string returns `true`, because PHP evaluates both as `0.0`. This enables authentication bypass by finding a password whose hash has this format. CVE-2023-43154 exploited this exact pattern in phpfm 1.7.9.
+**Example**: In PHP < 8.0, if a password's MD5 hash starts with `0e` followed by digits (e.g., `0e462097431906509019562988736854`), comparing it with `==` to any other `0e...` string returns `true`, because PHP evaluates both as `0.0`. This enables authentication bypass by finding a password whose hash has this format. CVE-2023-53894 exploited this exact pattern in phpfm 1.7.9 (note: CVE-2023-43154 is a separate loose comparison vulnerability in Macs Framework CMS 1.1.4f).
 
 ---
 
@@ -169,7 +169,7 @@ Boundary condition errors occur at the edges of valid ranges — the first eleme
 |---|---|---|
 | **Fence-Post Error (Off-by-One)** | Loop iterates one time too many or too few; `for (i = 0; i <= n; i++)` processes n+1 elements when n was intended | Array/buffer iteration with `<=` instead of `<` |
 | **Zero-Based vs One-Based Confusion** | Index 0 and index 1 confused between different components or APIs | Cross-language or cross-library boundaries |
-| **Null Terminator Off-by-One** | `strncpy`/`strncat` writes null terminator one byte past allocated buffer; overwrites LSB of saved frame pointer | String handling with manually calculated buffer sizes |
+| **Null Terminator Off-by-One** | `strncat` always appends a null terminator after copying up to `n` bytes, risking a write one byte past the allocated buffer. Conversely, `strncpy` does *not* null-terminate when the source length ≥ `n`, leaving an unterminated string — a distinct but related class of bug | String handling with manually calculated buffer sizes |
 | **Inclusive vs Exclusive Range** | Range [start, end] vs [start, end) confusion; one extra or one fewer element processed | API contracts unclear about range inclusivity |
 | **Empty Collection Edge Case** | Code assumes collection has at least one element; `array.length - 1` underflows when length is 0 | Unsigned arithmetic on `.length` or `.size()` |
 
@@ -225,7 +225,7 @@ These vulnerabilities occur when integer arithmetic errors propagate into memory
 | **Remaining Length Underflow** | `total_len - consumed` underflows when consumed > total_len, producing enormous `remaining` | Incremental parsing without cumulative bounds check |
 | **Buffer Offset Subtraction** | `buf_end - current_pos` underflows if `current_pos` advanced past `buf_end` | Pointer arithmetic without bounds verification |
 
-**Example**: CVE-2024-37079 (VMware vCenter Server) — an integer underflow in response header size calculation led to a heap buffer overflow enabling arbitrary code execution in the context of the vulnerable service.
+**Example**: CVE-2024-37079 (VMware vCenter Server) — a heap-overflow vulnerability in the DCERPC protocol implementation enabled arbitrary code execution. NVD/Broadcom advisories describe the root cause as a heap-overflow; specific internal mechanics (e.g., whether triggered by integer underflow in size calculation) are not detailed in public advisories.
 
 ---
 
@@ -355,18 +355,18 @@ These vulnerabilities exploit the window between checking a numeric value and us
 
 | Mutation Combination | CVE / Case | Impact / Bounty |
 |---|---|---|
-| §1-2 (unsigned underflow) | BEC Token (CVE-2018-10299) | $900M+ notional loss; Ethereum ERC-20 batch transfer overflow |
-| §1-2 (unsigned underflow) + §5-3 | CVE-2024-37079 (VMware vCenter) | RCE via heap overflow from integer underflow in response header size |
-| §1-1 (unsigned overflow) | CVE-2024-32972 (Go-Ethereum) | Integer underflow in `handleGetBlockHeaders` ETH protocol handler |
-| §5-1 (multiplication overflow) | CVE-2024-11477 (7-Zip Zstandard) | RCE via integer underflow before memory write in decompression |
+| §1-1 (unsigned overflow — multiplication) | BEC Token (CVE-2018-10299) | $900M+ notional loss; Ethereum ERC-20 `batchTransfer` multiplication overflow (`value * cnt`) |
+| §5-3 (heap overflow) | CVE-2024-37079 (VMware vCenter) | RCE via heap-overflow in DCERPC implementation (exact integer arithmetic root cause not detailed in public advisories) |
+| §1-1 (unsigned overflow/wraparound) | CVE-2024-32972 (Go-Ethereum) | Integer overflow/wraparound (`count-1` → `UINT64_MAX`) in `handleGetBlockHeaders` ETH protocol handler |
+| §1-2 (integer underflow) | CVE-2024-11477 (7-Zip Zstandard) | RCE via integer underflow before memory write in Zstandard decompression |
 | §1-2 (subtraction underflow) | CVE-2024-47606 (GStreamer) | Code execution via integer underflow in qtdemux parser |
-| §1-1 (unsigned overflow) | CVE-2024-0808 (Chrome WebUI) | Heap corruption via integer underflow in browser WebUI |
+| §1-2 (integer underflow) | CVE-2024-0808 (Chrome WebUI) | Integer underflow in WebUI leading to heap corruption |
 | §2-2 (truncation) | CVE-2025-49679 (Windows Shell) | Local privilege escalation to SYSTEM (CVSS 7.8) |
-| §3-1 (rounding direction) | Balancer V2 (Nov 2025) | $125M+ drained across multiple chains via rounding inconsistency |
+| §3-1 (rounding direction) | Balancer V2 (Nov 2025) | $125M+ drained across multiple chains via rounding inconsistency (primary source verification needed) |
 | §3-1 (precision loss) | OnyxProtocol (Nov 2023) | $2.1M lost via precision loss in share calculation |
-| §3-1 (precision loss) | Cetus DEX (May 2025) | $223M loss from missed overflow check in exchange calculation |
-| §1-1 (unchecked overflow) | Truebit (Jan 2026) | $26.4M drained via uint256 overflow in Solidity 0.6.10 contract |
-| §2-3 (PHP type juggling) | CVE-2023-43154 (phpfm 1.7.9) | Authentication bypass via 0e magic hash type juggling |
+| §3-1 (precision loss) | Cetus DEX (May 2025) | $223M loss from missed overflow check in exchange calculation (primary source verification needed) |
+| §1-1 (unchecked overflow) | Truebit (Jan 2026) | $26.4M drained via uint256 overflow in Solidity 0.6.10 contract (primary source verification needed) |
+| §2-3 (PHP type juggling) | CVE-2023-53894 (phpfm 1.7.9) | Authentication bypass via 0e magic hash type juggling (CVE-2023-43154 is Macs Framework CMS 1.1.4f) |
 | §2-1 (signedness) | CVE-2020-4032 (FreeRDP) | OOB read via signed-to-unsigned conversion of negative diff |
 | §3-3 (FP architectural) | CVE-2021-0086 (FPVI) | Transient execution attack via NaN-boxed values (CVSS 6.5) |
 | §3-3 (FP state leak) | CVE-2018-3665 (LazyFP) | Cryptographic key leakage via FPU register state disclosure |

@@ -569,7 +569,7 @@ The security firewall runs at priority `8` on `kernel.request`. Any listener reg
 | §1-1 (Remember-me deser) | CVE-2019-10912 | 2019 | 9.8 | RCE via remember-me cookie deserialization |
 | §1-1 (Cache deser) | CVE-2019-18889 | 2019 | 9.8 | RCE via cache adapter deserialization |
 | §4-3 (Sandbox bypass) | CVE-2022-23614 | 2022 | 9.8 | Twig sandbox bypass to full code execution |
-| §3-1 (_fragment RCE) | CVE-2020-15094 | 2020 | 9.1 | RCE via `_fragment` route with leaked `APP_SECRET` |
+| §3-1 (CachingHttpClient RCE) | CVE-2020-15094 | 2020 | 9.1 | RCE via CachingHttpClient `X-Body-Eval`/`X-Body-File` headers from untrusted remote responses |
 | §11-1 (Cache poisoning) | CVE-2022-24894 | 2022 | 8.8 | HTTP cache poisoning in HttpKernel Store |
 | §6-3 (Session fixation) | CVE-2022-24895 | 2022 | 8.8 | Session fixation via improper proxy handling |
 | §4-1 (Template path traversal) | CVE-2022-39261 | 2022 | 7.5 | Arbitrary file read via Twig `source()`/`include()` |

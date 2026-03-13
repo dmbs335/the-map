@@ -107,13 +107,13 @@ The HTTP invoker servlets transform a network-layer JMX attack into a web applic
 
 ## §2. Authentication and Authorization Subversion
 
-JMX authentication is layered and each layer has independent weaknesses. The default configuration in most JVM implementations ships with authentication **disabled**.
+JMX authentication is layered and each layer has independent weaknesses. Per Oracle's JMX agent documentation, when remote monitoring is enabled via `com.sun.management.jmxremote.port`, password authentication and SSL/TLS are **enabled by default**. Disabling authentication requires explicitly setting `authenticate=false`. However, many deployment guides and tutorials instruct users to disable authentication for convenience, leading to widespread insecure configurations in practice.
 
 ### §2-1. Unauthenticated Access
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
-| **Default No-Auth Configuration** | JMX remote access defaults to `com.sun.management.jmxremote.authenticate=false`. Many production deployments inherit this default | JMX enabled without explicit auth configuration |
+| **Explicit No-Auth Configuration** | JMX remote access defaults to authentication **enabled**, but many deployments explicitly set `com.sun.management.jmxremote.authenticate=false` following insecure deployment guides. This is a deliberate misconfiguration, not a default | JMX remote enabled with `authenticate=false` explicitly set |
 | **Localhost Binding Escape** | JMX bound to `localhost` is accessible to any local user on the system, including low-privilege service accounts in shared hosting or container environments | Multi-tenant host; JMX bound to `127.0.0.1` without OS-level access controls (CVE-2024-32656) |
 | **Container Network Exposure** | In Kubernetes/Docker, JMX bound to `0.0.0.0` inside a container is reachable from any pod in the same network namespace due to default flat networking | Containerized Java app; default K8s NetworkPolicy |
 
@@ -122,7 +122,7 @@ JMX authentication is layered and each layer has independent weaknesses. The def
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
 | **Brute Force (No Lockout)** | JMX authentication has no account lockout mechanism. Unlimited login attempts are possible at full network speed | Authentication enabled; weak or default passwords |
-| **Default Credential Exploitation** | Many application servers ship with well-known JMX credentials (e.g., ActiveMQ `admin:admin`, Tomcat `monitorRole:tomcat`) | Default credentials not changed post-deployment |
+| **Default Credential Exploitation** | Many application servers ship with well-known JMX credentials (e.g., ActiveMQ `admin:admin`). Note: `monitorRole`/`controlRole` are example role names from Oracle's JMX password file documentation, not Tomcat-specific default credentials — but they are frequently copied verbatim into production configurations | Default or example credentials not changed post-deployment |
 | **Credential File Permission Weakness** | JMX password files (`jmxremote.password`) may have excessive filesystem permissions, readable by non-admin users | Multi-user system; improper file ACLs |
 
 ### §2-3. Authorization Bypass
@@ -130,7 +130,7 @@ JMX authentication is layered and each layer has independent weaknesses. The def
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
 | **Read-Only to RCE Escalation** | Users with `readonly` JMX role can trigger deserialization attacks because object deserialization occurs *before* permission checks. Invoking any MBean method (even read) with a malicious serialized argument achieves RCE | Read-only JMX credentials; gadget chain in classpath |
-| **CVE-2016-3427: Credential Map Deserialization** | `JMXConnectorFactory.connect()` accepts a `Map<String, Object>` for credentials instead of just string username/password. A malicious object embedded in the credentials map is deserialized server-side before authentication | Pre-Java 8u77; gadget chain available; works against password-protected JMX |
+| **CVE-2016-3427: Credential Map Deserialization** | `JMXConnectorFactory.connect()` accepts a `Map<String, Object>` for credentials instead of just string username/password. A malicious object embedded in the credentials map is deserialized server-side before authentication | Pre-Java 8u91; gadget chain available; works against password-protected JMX |
 | **Role Model Bypass via MBean Method Invocation** | Even with role-based access, certain MBean methods (e.g., `getLoggerLevel()`) accept `Object` parameters that trigger deserialization regardless of the caller's role | Gadget chain in classpath; any valid credential (including read-only) |
 
 The CVE-2016-3427 pattern is particularly dangerous because it defeats the primary defense (enabling authentication) — the deserialization occurs *during* the authentication handshake, making password protection irrelevant.
@@ -161,7 +161,7 @@ The `javax.management.modelmbean.RequiredModelMBean` is a built-in JMX class tha
 |---|---|---|
 | **Instance Method Invocation** | Create a `RequiredModelMBean` with `ModelMBeanOperationInfo` entries pointing to public instance methods of any serializable object, then invoke those methods remotely | Authenticated JMX access (any role); target class must be serializable |
 | **Static Method Invocation** | Use the `class` field in the `Descriptor` to specify an arbitrary class and invoke its static methods. The managed resource can be any serializable object (even a String) — it is ignored for static calls | Same as instance method; extends to non-instantiable utility classes |
-| **TemplatesImpl RCE via RequiredModelMBean** | Wrap a `com.sun.org.apache.xalan.internal.xsltc.trinom.TemplatesImpl` object with embedded malicious bytecode as the RequiredModelMBean resource, expose `getOutputProperties()` or `newTransformer()`, then invoke to trigger class loading and arbitrary code execution | JMX access; no outbound connection required; works with default JDK classes only |
+| **TemplatesImpl RCE via RequiredModelMBean** | Wrap a `com.sun.org.apache.xalan.internal.xsltc.trax.TemplatesImpl` object with embedded malicious bytecode as the RequiredModelMBean resource, expose `getOutputProperties()` or `newTransformer()`, then invoke to trigger class loading and arbitrary code execution | JMX access; no outbound connection required; works with default JDK classes only |
 
 The RequiredModelMBean technique is the most powerful modern JMX exploitation primitive because it requires **no outbound connections**, **no application-specific MBeans**, and **no deserialization gadget chains** — it works using only classes present in every JDK installation.
 
@@ -169,7 +169,7 @@ The RequiredModelMBean technique is the most powerful modern JMX exploitation pr
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
-| **StandardMBean with TemplatesImpl** | Register a `StandardMBean` wrapping a `TemplatesImpl` instance, exposing the `Templates` interface. Reading the `OutputProperties` attribute triggers bytecode execution | JMX access; TemplatesImpl class available (standard JDK) |
+| **StandardMBean with TemplatesImpl** | Register a `StandardMBean` wrapping a `com.sun.org.apache.xalan.internal.xsltc.trax.TemplatesImpl` instance, exposing the `Templates` interface. Reading the `OutputProperties` attribute triggers bytecode execution | JMX access; TemplatesImpl class available (standard JDK) |
 | **StandardMBean with Custom Interface** | Create a StandardMBean exposing any interface implemented by a serializable class, enabling remote invocation of any method defined in that interface | JMX access; target class implements desired interface |
 
 ---
@@ -191,7 +191,7 @@ Java deserialization is the most pervasive attack vector in JMX. Deserialization
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
-| **`RMIServer.newClient()` Deserialization** | The `newClient(Object credentials)` method on the RMI server stub deserializes the credentials parameter. Pre-CVE-2016-3427, this accepted arbitrary objects | Pre-Java 8u77; post-patch restricted to String/String[] |
+| **`RMIServer.newClient()` Deserialization** | The `newClient(Object credentials)` method on the RMI server stub deserializes the credentials parameter. Pre-CVE-2016-3427, this accepted arbitrary objects | Pre-Java 8u91; post-patch restricted to String/String[] |
 | **`RMIConnection` Method Arguments** | After establishing a JMX connection, all `RMIConnection` method calls (getAttribute, invoke, createMBean, etc.) pass serialized arguments that are deserialized server-side **without JEP-290 filters** | Valid JMX connection (even read-only); gadget chain in classpath |
 | **MBean `invoke()` Parameter Deserialization** | Calling `MBeanServerConnection.invoke()` with serialized Object parameters triggers deserialization before the invoked MBean method ever executes | Any JMX connection; parameters are deserialized regardless of method implementation |
 
@@ -221,13 +221,13 @@ Many MBeans registered by default in the JVM or by application frameworks expose
 
 ### §5-1. JVM Platform MXBeans
 
-These MBeans are present in every JVM and accessible through any JMX connection.
+These MBeans are present in every HotSpot JVM. However, accessibility depends on JMX authorization configuration — individual operations may require `ManagementPermission("monitor")` or `ManagementPermission("control")`, and role-based access files can restrict which operations each role may invoke.
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
 | **DiagnosticCommandMBean — CompilerDirective File Read** | The `compilerDirectivesAdd` operation accepts a file path and attempts to parse it as compiler directives. On parse failure, the error message includes the file contents, enabling arbitrary text file read | JMX access; DiagnosticCommandMBean registered (default in HotSpot) |
-| **DiagnosticCommandMBean — Shared Library Loading** | The `vmDynlibs` or load operations can load native shared libraries (`.so`/`.dll`) from the filesystem, achieving native code execution | JMX access; attacker has written a malicious library to the filesystem (chain with §5-2) |
-| **FlightRecorderMXBean — Arbitrary File Write** | Java Flight Recorder (JFR) can dump recording data to a file with a user-specified path and extension. Since the extension is not enforced, writing a `.jsp` file to a web application directory achieves RCE via webshell | JMX access; JFR available (Java 11+ commercial, OpenJDK 11+); writable web directory |
+| **DiagnosticCommandMBean — Library Enumeration / Agent Loading** | `vmDynlibs` (VM.dynlibs) **lists** currently loaded dynamic libraries — it does not load new ones. Native code loading is achievable via `JVMTI.agent_load` (jcmd equivalent), which loads a JVMTI agent from a filesystem path | JMX access; for agent loading: attacker has written a malicious agent library to the filesystem (chain with §5-2); `JVMTI.agent_load` operation available |
+| **FlightRecorderMXBean — Arbitrary File Write** | Java Flight Recorder (JFR) can dump recording data to a file with a user-specified path and extension. Since the path/extension is not restricted, this provides an arbitrary file write primitive. However, the written content is JFR binary recording data, not attacker-controlled content — so writing a functional `.jsp` webshell is not directly achievable. The primitive is useful for DoS (overwriting files) or information disclosure (writing heap/thread data to accessible paths) | JMX access; JFR available (Java 11+ commercial, OpenJDK 11+); writable target directory |
 | **HotSpotDiagnosticMXBean — Heap Dump** | The `dumpHeap` operation writes a heap dump to any path. Heap dumps contain sensitive data (credentials, session tokens, encryption keys) and can be written to attacker-accessible locations | JMX access; sufficient disk space |
 | **RuntimeMXBean — Environment Disclosure** | The `SystemProperties` and `InputArguments` attributes expose environment variables, JVM flags, classpath, and startup arguments — frequently containing database passwords, API keys, and secret paths | JMX read access (even read-only role) |
 
@@ -336,7 +336,7 @@ Identifying JMX services is the first step in any attack. JMX uses dynamic port 
 
 | Mutation Combination | CVE / Case | Impact |
 |---|---|---|
-| §2-3 (Credential Map Deser) | CVE-2016-3427 (Oracle JDK) | Pre-auth RCE against password-protected JMX. CVSS 9.0. Patched in Java 8u77 |
+| §2-3 (Credential Map Deser) | CVE-2016-3427 (Oracle JDK) | Pre-auth RCE against password-protected JMX. CVSS 9.0. Patched in Java 8u91 |
 | §1-3 + §4-1 (JMX Invoker Deser) | CVE-2016-8735 (Apache Tomcat) | RCE via JmxRemoteLifecycleListener deserialization. Mirror of CVE-2016-3427 for Tomcat |
 | §1-3 + §5-2 (JBoss Invoker) | CVE-2013-4810 (JBoss AS) | Unauthenticated RCE via JMXInvokerServlet → BSHDeployer → WAR deployment → webshell. Actively exploited in the wild |
 | §5-3 + §6-1 (Log4J MBeans via Jolokia) | CVE-2022-41678 (Apache ActiveMQ) | Authenticated RCE via Jolokia → Log4J MBean reconfiguration → file write. No deserialization required |
@@ -393,7 +393,7 @@ JMX's entire attack surface stems from a single architectural assumption: **mana
 
 Every major JMX security patch has addressed a specific deserialization entry point while leaving others open:
 
-- **JEP-290** (2016) filtered RMI registry and DGC deserialization — but left the `RMIConnection` channel unfiltered
+- **JEP-290** (2017) filtered RMI registry and DGC deserialization — but left the `RMIConnection` channel unfiltered
 - **CVE-2016-3427 patch** restricted credential types to `String/String[]` — but MBean invocation parameters remain unrestricted
 - **Jolokia patches** addressed JNDI injection in proxy mode — but MBean operations accessible via Jolokia remain as powerful as direct JMX access
 - **JMXMP** was never included in any Oracle security patch scope, remaining permanently vulnerable
@@ -407,7 +407,7 @@ A truly secure JMX architecture would require:
 1. **Transport-layer replacement**: Replacing Java serialization with a safe wire format (JSON, Protocol Buffers) for all JMX communication — which Jolokia partially achieves but then re-exposes through unrestricted MBean operations
 2. **Operation-level authorization**: Every MBean operation (not just connection establishment) must be individually authorized against an explicit allow-list, with deserialization occurring only *after* authorization succeeds
 3. **Capability restriction**: Default JVM installations should not register MBeans capable of code loading, file I/O, or process execution. These should require explicit opt-in with security policy configuration
-4. **Network isolation enforcement**: JMX should bind to localhost-only by default, with remote access requiring explicit TLS+mutual-auth configuration — treating remote JMX as equivalent to SSH access
+4. **Network isolation enforcement**: Remote JMX already requires explicit opt-in (setting `com.sun.management.jmxremote.port`), but once enabled it binds to all interfaces. Binding to localhost-only by default when remote is enabled, with non-localhost access requiring explicit TLS+mutual-auth configuration, would treat remote JMX as equivalent to SSH access
 
 Until these structural changes are adopted, JMX remains a high-value target where a single exposed port can yield complete system compromise through multiple independent attack paths.
 

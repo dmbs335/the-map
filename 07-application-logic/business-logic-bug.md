@@ -467,7 +467,7 @@ Business logic vulnerabilities that are specific to particular industry vertical
 | Mutation Combination | CVE / Case | Impact / Bounty |
 |---|---|---|
 | §2-1 + §6-1 | CVE-2025-29927 (Next.js) — `x-middleware-subrequest` header bypass skipped authentication middleware entirely | Critical. Allowed complete auth bypass on all Next.js middleware-protected routes |
-| §1-4 + §3-1 | Mass assignment in various platforms (HackerOne aggregate) | 45% of total bounty awards on HackerOne directed at business logic errors |
+| §1-4 + §3-1 | Mass assignment in various platforms (HackerOne aggregate) | 45% of bounty awards in web3/crypto organizations on HackerOne directed at business logic errors (4% cross-industry average) |
 | §4-1 | Coupon race condition (HackerOne report) — Turbo Intruder used for 30 parallel coupon redemptions | $600,000 in unauthorized fee-free transactions |
 | §10-2 | DeFi smart contract logic exploits (2024 aggregate) — re-entrancy, oracle manipulation, bridge logic flaws | $2.013B total losses across 410 incidents in 2024 |
 | §7-3 | O2 UK location data exposure — call metadata revealed user location (Data Oracle + Missing Permissions) | Regulatory investigation; privacy violation |

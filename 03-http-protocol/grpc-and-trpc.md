@@ -29,7 +29,7 @@ This taxonomy organizes gRPC and tRPC attack vectors across three axes:
 
 ### Fundamental Mechanism: RPC Over HTTP/2
 
-Both gRPC and tRPC leverage HTTP/2 as transport (gRPC uses HTTP/2 framing directly; tRPC typically uses HTTP/2 features via modern web servers). This creates multiple interpretation boundaries:
+gRPC and tRPC have different transport models: gRPC uses HTTP/2 framing directly as its protocol foundation; tRPC is HTTP-based (request/response + WebSocket subscriptions) and does not require HTTP/2 — it works over HTTP/1.1 or HTTP/2 depending on the server configuration. This creates multiple interpretation boundaries:
 
 1. **Binary Serialization Boundary** — Protobuf (gRPC) vs JSON (tRPC)
 2. **HTTP/2 Framing Boundary** — Stream multiplexing, flow control, frame types
@@ -52,7 +52,8 @@ These attacks manipulate HTTP/2's stream lifecycle to create resource exhaustion
 | Subtype | Mechanism | Key Condition | CVE/Reference |
 |---------|-----------|---------------|---------------|
 | **HTTP/2 Rapid Reset** | Client opens stream, sends request, immediately sends RST_STREAM to cancel, repeats at high rate. Server allocates resources before cancellation, causing DoS. | Target doesn't enforce stream creation rate limits independent of cancellation rate. | CVE-2023-44487 (record: 398M rps) |
-| **GOAWAY + SETTINGS Frame Attack** | Send GOAWAY frame immediately followed by SETTINGS frame with SETTINGS_MAX_CONCURRENT_STREAMS=0. Exploits protocol-compliant frame ordering to bypass max concurrent streams limits. Originally discovered in Envoy/Istio (ISTIO-SECURITY-2021-008, affects Istio 1.10.0–1.10.3, 1.11.0); generalized as "MadeYouReset" (CVE-2025-55163) affecting broader HTTP/2 implementations. | Server processes SETTINGS after GOAWAY without proper validation. | CVE-2025-55163 / ISTIO-SECURITY-2021-008 |
+| **MadeYouReset (Stream Refresh)** | Client sends malformed control frames (e.g., WINDOW_UPDATE with increment=0, DATA/HEADERS on half-closed streams) that trigger the **server** to emit RST_STREAM on its own streams. This frees streams from the MAX_CONCURRENT_STREAMS limit while backend processing continues, enabling amplified DoS. | Server does not rate-limit self-initiated RST_STREAM or continues processing after stream reset. | CVE-2025-55163 (Netty HTTP/2 implementation — not a general gRPC CVE) |
+| **GOAWAY + SETTINGS Frame Attack** | Send GOAWAY frame immediately followed by SETTINGS frame with SETTINGS_MAX_CONCURRENT_STREAMS=0. Exploits protocol-compliant frame ordering to terminate streams in Envoy/Istio. | Server processes SETTINGS after GOAWAY without proper validation. | CVE-2021-32780 (within ISTIO-SECURITY-2021-008 advisory bundle) |
 | **gRPC-Go Stream Exhaustion** | Send requests and immediately cancel them. Valid per HTTP/2 spec, but gRPC-Go launches concurrent method handlers exceeding configured max stream limit. | Affects gRPC-Go < 1.56.3, < 1.57.1, < 1.58.3. Fixed in 1.59.0. | GMS-2023-3788 |
 
 **Cross-reference**: Stream exhaustion often combines with metadata attacks (§3-1) for amplification.
@@ -77,7 +78,7 @@ Protobuf is the serialization format for gRPC. Mutations target message structur
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **Recursive Protobuf Parsing (CVE-2025-4565)** | Send protobuf message with deeply nested or cyclic recursive elements. Pure-Python protobuf backend doesn't limit recursion depth, causing stack exhaustion. | Target uses protobuf Pure-Python backend. |
+| **Recursive Protobuf Parsing (CVE-2025-4565)** | Send protobuf message with an arbitrary number of recursive groups/messages or SGROUP tags. Pure-Python protobuf backend doesn't limit recursion depth, causing RecursionError/stack exhaustion. Note: this is deep nesting recursion, not cyclic object graphs | Target uses protobuf Pure-Python backend. |
 | **Varint Integer Overflow** | Exploit varint encoding (variable-length integers in protobuf). Send extremely large varint causing integer overflow in length calculations. Can lead to buffer overflows or memory corruption. | Protobuf implementation doesn't validate varint size before conversion. |
 | **Unknown Field Injection** | Protobuf allows unknown fields (forward compatibility). Inject fields not in .proto schema but processed by backend logic. Can bypass validation or trigger hidden functionality. | Application processes protobuf messages without strict schema enforcement. |
 | **Default Value Confusion** | Omit required fields relying on default values. In proto3, all fields are optional with defaults (0, "", false). Can cause logic errors if backend assumes presence. | Backend logic doesn't distinguish between explicitly set vs default values. |
@@ -102,13 +103,13 @@ gRPC metadata is implemented as HTTP/2 headers. Mutations exploit metadata handl
 | **Authentication Header Injection** | Inject or manipulate authentication metadata (e.g., `authorization`, custom token headers). If service doesn't validate metadata source, attacker can forge credentials. | Service trusts metadata without cryptographic validation or origin verification. |
 | **Hardcoded Token Exploitation** | Target uses hardcoded static authentication token in metadata. See §5-1 for detailed exploitation (CVE-2025-68926, RustFS). | Hardcoded credentials in code, non-rotatable tokens. | CVE-2025-68926 — details in §5-1 |
 | **Metadata Timeout Manipulation** | Set excessive timeout values in `grpc-timeout` metadata header. Can cause resource holding attacks where server holds connections/resources for extended periods. | Service honors client-specified timeouts without upper bound. |
-| **Binary Metadata Encoding Bypass** | Binary metadata values must end with `-bin` suffix and are base64-encoded. Craft metadata keys without `-bin` but containing binary data, or vice versa. Can trigger parser errors or bypass validation. | Implementation doesn't strictly enforce `-bin` suffix convention. |
+| **Binary Metadata Encoding Bypass** | Binary metadata values use keys ending with `-bin` suffix. Per gRPC documentation, binary headers do not need to be base64-encoded at the transport level (encoding is implementation-dependent). Craft metadata keys without `-bin` but containing binary data, or vice versa. Can trigger parser errors or bypass validation. | Implementation doesn't strictly enforce `-bin` suffix convention or encoding expectations. |
 
 ### §3-2. HPACK & Header Compression Attacks
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **HPACK Table Poisoning** | gRPC clients communicating through HTTP/2 proxies can poison the HPACK dynamic table (header compression state) between proxy and backend. Errors not cleared between header reads cause header key leakage to other clients. | HTTP/2 proxy shares HPACK state across clients without isolation. |
+| **HPACK Table Poisoning** | In theory, if an HTTP/2 proxy incorrectly shares HPACK dynamic table state across client connections, header values from one client could leak to another. Note: HPACK dynamic tables are per-connection state by design (RFC 7541) — this attack requires a proxy implementation bug that violates the spec, not a general HTTP/2 weakness. Practical exploitation evidence is limited | HTTP/2 proxy with implementation bug sharing HPACK state across connections (non-standard behavior). |
 | **Header Bombing** | Send headers with extremely long values (close to max header size). HPACK compression is ineffective for random data, causing memory exhaustion on decompression. | Target doesn't enforce practical limits on uncompressed header size. |
 
 ---
@@ -153,7 +154,7 @@ Attacks targeting access control mechanisms in gRPC/tRPC applications.
 | **URI Fragment Bypass (Istio)** | HTTP request with fragment in URI path (e.g., `/admin#.user/data`). Istio's URI path-based authorization compares paths but may ignore or process fragments incorrectly. | Istio authorization rules based on paths; fragment handling inconsistent. | Istio security advisory |
 | **Host Header Case Sensitivity Bypass (Istio)** | Istio authorization policy compares `Host` or `:authority` headers case-sensitively. Send `Host: API.example.com` when policy expects `api.example.com`. | Authorization rules use `hosts` or `notHosts` with case-sensitive matching. | Istio security advisory |
 | **tRPC Middleware Chain Bypass** | tRPC uses middleware for authentication/authorization. If middleware chain has gaps or middleware doesn't throw errors on failure, attacker can bypass by triggering edge cases. | Incomplete middleware coverage, missing error handling in middleware. | — |
-| **Prototype Pollution in tRPC Context** | If tRPC procedures use `experimental_caller` / `experimental_nextAppDirCaller`, prototype pollution vulnerability can inject properties into context object, potentially bypassing authorization checks. | Use of experimental tRPC functions without sanitization. | GHSA-43p4-m455-4f4j |
+| **Prototype Pollution in tRPC Context** | Prototype pollution in `experimental_nextAppDirCaller`'s `formDataToObject()` function (CVE-2025-68130) can inject properties into context object, potentially bypassing authorization checks. Note: this is specific to `formDataToObject()` in `experimental_nextAppDirCaller`, not `experimental_caller` broadly | Use of `experimental_nextAppDirCaller` with form data processing. | GHSA-43p4-m455-4f4j / CVE-2025-68130 |
 
 ---
 
@@ -213,7 +214,7 @@ Attacks exploiting reverse proxies, API gateways, gRPC-Web gateways, and service
 
 | Subtype | Mechanism | Key Condition | CVE/Reference |
 |---------|-----------|---------------|---------------|
-| **Envoy HTTP/2 SETTINGS DoS** | Send HTTP/2 SETTINGS frames with excessive parameters or malformed values. Envoy processes each frame, consuming CPU. CVE-2020-11080 relates to excessive CPU when processing SETTINGS frames. | Envoy version without rate limiting on SETTINGS frames. | CVE-2020-11080 (HIGH severity) |
+| **nghttp2 HTTP/2 SETTINGS DoS** | Send HTTP/2 SETTINGS frames with overly large payload. NVD classifies CVE-2020-11080 as an nghttp2 vulnerability (not Envoy-specific) — nghttp2 is used by many HTTP/2 implementations including Envoy. The issue is excessive CPU when processing large SETTINGS frame payloads. | nghttp2-based HTTP/2 implementation without SETTINGS frame size limits. | CVE-2020-11080 (nghttp2, HIGH severity) |
 | **Istio Authorization Policy Bypass (Fragment)** | Send HTTP request with URI fragment to bypass path-based authorization. Istio compares paths without normalizing fragments. | URI path authorization rules without fragment handling. | Istio advisory |
 | **Istio Authorization Policy Bypass (Host Case)** | Exploit case-sensitive host matching. Policy expects `api.example.com`; send `API.example.com` or `Api.Example.Com`. | Host-based authorization rules with case-sensitive matching. | Istio advisory |
 | **mTLS Session Reuse Bypass** | After mTLS validation settings change, Envoy reuses old cached sessions without re-validation. Attacker with previously valid cert can continue access after revocation or CA change. | Envoy doesn't flush mTLS session cache on policy update. | CVE-2022-21654 |
@@ -250,16 +251,16 @@ This table maps attack scenarios to the primary mutation categories that enable 
 |---------------------|-----------|----------------|------------|
 | §6-2 (WebSocket) + §7 (validation) | CVE-2025-43855 (tRPC 11 WebSocket) | Unauthenticated DoS, crash entire tRPC server via invalid connectionParams | 8.7 (HIGH) |
 | §5-1 (auth bypass) + §3-1 (metadata) | CVE-2025-68926 (RustFS gRPC) | Complete data disclosure, modification, cluster control via hardcoded token "rustfs rpc" | 9.8 (CRITICAL) |
-| §1-1 (stream mgmt) + §8-2 (service mesh) | CVE-2025-55163 (MadeYouReset) | DDoS via HTTP/2 max streams bypass using GOAWAY+SETTINGS frames | HIGH |
+| §1-1 (stream mgmt) | CVE-2025-55163 (Netty HTTP/2) | DDoS via HTTP/2 max streams bypass using server-induced RST_STREAM (Netty-specific, not a general gRPC CVE) | HIGH |
 | §2-2 (compression) | CVE-2024-36129 (OpenTelemetry Collector) | DoS via compression bomb (validates compressed but not uncompressed size) | - |
 | §1-1 (stream mgmt) | CVE-2024-37168 (gRPC Node.js) | DoS via memory allocation with excessive size value | - |
 | §1-1 (stream mgmt) | CVE-2023-44487 (HTTP/2 Rapid Reset) | Record-breaking DDoS: 398M rps (Google), 201M rps (Cloudflare), 155M rps (Amazon) | - |
-| §8-2 (service mesh) + §1-1 (stream) | ISTIO-SECURITY-2021-008 | Envoy termination via GOAWAY+SETTINGS(STREAMS=0) | - |
+| §8-2 (service mesh) + §1-1 (stream) | CVE-2021-32780 (ISTIO-SECURITY-2021-008) | Envoy termination via GOAWAY+SETTINGS(STREAMS=0) — specific CVE within the multi-CVE Istio advisory bundle | - |
 | §8-2 (service mesh) | CVE-2022-21654 (Istio/Envoy) | mTLS session reuse without re-validation after policy change | - |
-| §8-2 (service mesh) | CVE-2020-11080 (Envoy) | DoS via excessive CPU processing HTTP/2 SETTINGS frames | HIGH |
+| §8-2 (HTTP/2 library) | CVE-2020-11080 (nghttp2) | DoS via excessive CPU processing large HTTP/2 SETTINGS frame payload (nghttp2, not Envoy-specific) | HIGH |
 | §2-1 (protobuf) | CVE-2025-4565 (Protobuf Pure-Python) | DoS via recursive protobuf elements causing stack exhaustion | - |
 | §5-2 (authz) + §8-2 (service mesh) | Istio Fragment/Host Bypass | Authorization policy bypass via URI fragment or case-insensitive host matching | - |
-| §5-2 (authz) + §7-2 (type) | GHSA-43p4-m455-4f4j (tRPC) | Prototype pollution in experimental_caller/experimental_nextAppDirCaller | - |
+| §5-2 (authz) + §7-2 (type) | GHSA-43p4-m455-4f4j / CVE-2025-68130 (tRPC) | Prototype pollution in `experimental_nextAppDirCaller`'s `formDataToObject()` specifically | - |
 
 ---
 
@@ -317,7 +318,7 @@ The vulnerability surface stems from **four fundamental properties**:
 
 Each CVE fix addresses a specific mutation instance but doesn't close the structural gaps:
 
-- **CVE-2023-44487 (Rapid Reset)** → Vendors added stream creation rate limits. But this doesn't address §1-1 MadeYouReset (SETTINGS manipulation) or §1-1 gRPC-Go exhaustion (cancellation vs handler launching).
+- **CVE-2023-44487 (Rapid Reset)** → Vendors added stream creation rate limits. But this doesn't address §1-1 MadeYouReset (server-induced RST_STREAM) or §1-1 gRPC-Go exhaustion (cancellation vs handler launching).
 - **CVE-2025-68926 (Hardcoded Token)** → RustFS removed hardcoded token. But this doesn't prevent §3-1 metadata injection or §5-1 weak JWT replay in other services.
 - **CVE-2025-43855 (tRPC WebSocket)** → tRPC fixed specific validation error handling. But this doesn't address §7-2 type bypass or §5-2 middleware chain gaps.
 

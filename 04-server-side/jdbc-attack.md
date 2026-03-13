@@ -164,7 +164,7 @@ When applications attempt to blacklist dangerous keywords like `INIT`, `RUNSCRIP
 | **Comment Injection** | SQL comments between keywords | `INIT=/**/RUNSCRIPT/**/FROM` |
 | **Semicolon Chaining** | Multiple INIT statements separated by `\;` | `INIT=S1\;S2\;S3` |
 
-**Patch**: CVE-2022-23221 fixed in H2 2.1.210. Additional bypass CVE-2025-32966 addressed case sensitivity issues.
+**Patch**: CVE-2022-23221 fixed in H2 2.1.210. Additional bypass CVE-2025-32966 in DataEase (< 2.10.8) addressed case sensitivity issues in its H2 JDBC connection handling.
 
 ---
 
@@ -392,7 +392,7 @@ When applications construct JDBC URLs from user input, attackers can inject addi
 | §8-2 (Redshift Metadata API SQLi) | CVE-2024-12744 (Amazon Redshift JDBC) | Privilege escalation via metadata API injection |
 | §2-1 + §2-2 (Class Instantiation) | CVE-2022-21724 (PostgreSQL JDBC) | CVSS 9.8. RCE via socketFactory/sslfactory/authPlugin class loading |
 | §3-1 (H2 INIT RUNSCRIPT) | CVE-2022-23221 (H2 Database) | RCE via JDBC URL INIT parameter |
-| §3-4 (H2 Case Sensitivity Bypass) | CVE-2025-32966 (H2 Database) | Bypass of CVE-2022-23221 patch via case variation |
+| §3-4 (H2 Case Sensitivity Bypass) | CVE-2025-32966 (DataEase, via H2 JDBC) | Bypass of CVE-2022-23221 patch via case variation |
 | §5-1 (DB2 JNDI clientReroute) | CVE-2023-27867 (IBM DB2 JDBC) | CVSS 6.3. RCE via JNDI injection |
 | §5-1 (DB2 traceFile Write) | CVE-2023-27869 (IBM DB2 JDBC) | CVSS 6.3. Arbitrary file write via logger injection |
 | §5-1 (DB2 Additional JNDI) | CVE-2023-27868 (IBM DB2 JDBC) | CVSS 6.3. RCE via JNDI injection |

@@ -57,7 +57,7 @@ An attack class where the attacker creates an account **before the victim regist
 | **Verification Link Reuse** | Reuse a previously used verification link for a new email change | Verification token not bound to a specific email address | D3 |
 | **Auto-Login on Registration** | Auto-login on registration completion without email verification; attacker registers with the victim's email and immediately obtains a session | Email verification decoupled from the registration flow | D1, D4 |
 | **Post-Authentication Email Change Without Re-verification** | Authenticated user changes account email via profile API without ownership verification of the new address — attacker with a compromised session redirects the recovery channel to their own inbox (CVE-2023-6152) | Email change endpoint does not require new-address verification; `verify_email_enabled` applies only at sign-up | D1, D4 |
-| **Username–Email Binding Gap** | Username and email stored as separate identifiers without mutual validation — attacker registers `username="victim@x.com"` (unverified as email) with `email="attacker@y.com"` (verified), blocking victim's registration and receiving their password reset tokens (CVE-2023-6152) | Username and email fields not cross-validated at registration; email change endpoint lacks re-verification | D1, D6 |
+| **Username–Email Binding Gap** | Username and email stored as separate identifiers without mutual validation — attacker registers `username="victim@x.com"` (unverified as email) with `email="attacker@y.com"` (verified), blocking victim's registration and receiving their password reset tokens | Username and email fields not cross-validated at registration; email change endpoint lacks re-verification | D1, D6 |
 
 ### §1-3. Mass Assignment / Parameter Injection
 
@@ -191,7 +191,7 @@ MFA is the **last line of defense** against ATO, yet implementation flaws enable
 | **MFA Downgrade (2FA → No FA)** | 2FA deactivation request requires no re-authentication, allowing an attacker to remove MFA after session hijack | 2FA deactivation does not require current 2FA code verification | D4 |
 | **MFA Setup Hijack** | TOTP seed exposed in API response during 2FA setup, or accessible from another session before setup completion | TOTP seed exposure + insufficient session isolation in setup flow | D3, D2 |
 | **Session Binding Mismatch** | MFA verification is not bound to the same session as the first factor — attacker completes first-factor auth in one session and satisfies MFA in a different session they control | Session ID not validated across authentication steps; MFA code accepted for any pending session | D2, D4 |
-| **User Agent Classification Bypass** | MFA enforcement policies exempt certain user agents classified as "unknown" (uncommon browsers, Python scripts, CLI tools) from MFA requirements | SSO policy does not enforce MFA for unrecognized user agents (Okta vulnerability, 2024) | D4 |
+| **User Agent Classification Bypass** | MFA enforcement policies exempt certain user agents classified as "unknown" (uncommon browsers, Python scripts, CLI tools) from MFA requirements | SSO policy does not enforce MFA for unrecognized user agents (attributed to Okta, 2024 — no public advisory or CVE confirmed) | D4 |
 | **TOCTOU in MFA Verification** | Race condition between MFA check and access grant allows requests that slip through during the verification window | MFA check and authorization are not atomic; concurrent request processing (CVE-2025-62004) | D5 |
 | **OpenID Connect MFA Enforcement Gap** | The RP does not verify whether the IdP actually performed MFA during the OIDC flow — ignores `acr`/`amr` claims, or IdP issues high-assurance claims without requiring MFA | RP does not validate `acr`/`amr` claims; or IdP issues claims without requiring MFA | D4, D6 |
 | **Unauthenticated TOTP Rebinding** | TOTP/MFA setup endpoint does not require re-authentication, allowing an attacker with session access to rebind the victim's TOTP secret to an attacker-controlled authenticator | TOTP enrollment/reset endpoint accessible without re-authentication | D4 |
@@ -201,11 +201,11 @@ MFA is the **last line of defense** against ATO, yet implementation flaws enable
 
 | Subtype | Mechanism | Key Condition | Discrepancy |
 |---------|-----------|---------------|-------------|
-| **SIM Swap** | Deceive the carrier into transferring the victim's number to the attacker's SIM → receive SMS OTP — 1,055% increase in UK in 2024 | SMS-based MFA + inadequate carrier identity verification | D7 |
+| **SIM Swap** | Deceive the carrier into transferring the victim's number to the attacker's SIM → receive SMS OTP — significant year-over-year increase reported (exact figures vary by source and region) | SMS-based MFA + inadequate carrier identity verification | D7 |
 | **SS7 Interception** | Exploit SS7 protocol vulnerabilities to intercept SMS OTP at the network level | SS7's lack of authentication/encryption (legacy design) | D7 |
 | **MFA Prompt Bombing / Fatigue** | Repeatedly send MFA approval push notifications to the victim, inducing accidental or fatigue-driven approval | Push-based MFA + no notification rate limit | D7 |
 | **OAuth Device Code Phishing** | Abuse the OAuth 2.0 Device Authorization Grant flow to trick the victim into entering the attacker's device code on a legitimate Microsoft authentication page — actively used by state-sponsored actors since January 2025 | OAuth Device Code Flow + social engineering | D7 |
-| **AiTM (Adversary-in-the-Middle) Phishing** | Real-time reverse proxy (Evilginx, Modlishka, etc.) relays the legitimate site while simultaneously capturing MFA tokens and session cookies — 46% year-over-year surge in 2025, with lure delivery evolving from QR codes to HTML/SVG attachments | Real-time phishing proxy + session token not bound to device | D7 |
+| **AiTM (Adversary-in-the-Middle) Phishing** | Real-time reverse proxy (Evilginx, Modlishka, etc.) relays the legitimate site while simultaneously capturing MFA tokens and session cookies — significant year-over-year increase reported, with lure delivery evolving from QR codes to HTML/SVG attachments (exact growth figures unverifiable) | Real-time phishing proxy + session token not bound to device | D7 |
 | **Phishing-as-a-Service (PhaaS) Kits** | Commercial-grade AitM platforms (Tycoon 2FA, Sneaky 2FA, NakedPages, EvilProxy, Saiga 2FA) provide turnkey infrastructure with anti-detection, lure templating, and cookie exfiltration — lowering the bar for AitM attacks to commodity level | PhaaS subscription; target organization uses cloud SSO without device-bound tokens | D7 |
 | **Browser Extension AitM** | Malicious browser extension intercepts authentication flows and exfiltrates session cookies directly from the browser's cookie store after successful authentication, bypassing MFA without any network-level proxy | Victim installs malicious extension with cookie access permissions (Cookie-Bite technique) | D7 |
 | **DNS Cache Poisoning → Password Reset Interception (Kaminsky-Style)** | Poison the target domain's MX records or mail server DNS to redirect password reset emails to an attacker-controlled mail server. When the victim requests a password reset, the email containing the reset token is delivered to the attacker, enabling account takeover. Must induce the reset request within the DNS TTL window, typically combined with social engineering | DNS resolver vulnerable to cache poisoning + target mail server DNS responses are spoofable + password reset flow relies on email channel | D7 |
@@ -356,12 +356,12 @@ Passwordless authentication creates a new attack surface.
 | Mutation Combination | CVE / Case | Impact / Bounty |
 |---------------------|-----------|----------------|
 | §5-1 + CSRF→ATO Chain (CORS + CSRF + OAuth) | CVE-2025-34291 (Langflow) | Critical — ATO + RCE. Cross-origin requests enable token refresh |
-| XSS→ATO Chain (Zero-Click XSS) | Meta CAPI Gateway XSS (2026) | Full Facebook ATO. CORS whitelist + Stored XSS chain |
+| XSS→ATO Chain (Zero-Click XSS) | Meta CAPI Gateway XSS (2026, unverified — no public advisory or CVE) | Full Facebook ATO. CORS whitelist + Stored XSS chain |
 | §3-2 + §4-3 (Session Theft + MFA Bypass) | MITRE Corporation Breach (2024) | Citrix vulnerability → session cookie theft → MFA bypass |
 | §5-2 (Domain Ownership Change) | Google OAuth Domain Takeover | Mass SaaS ATO. Domain ownership change enables access to former employees' accounts |
 | §4-3 (Device Code Phishing) | UNK_SneakyStrike Campaign (2025-01) | 80,000+ accounts targeted, ~100 cloud tenants attacked |
 | §6-1 (Credential Stuffing) | Snowflake Customer Breach (2024) | Massive data breach. Leaked credentials + MFA not enforced |
-| §2-1 + §2-3 (Predictable Token + Brute-Force) | RubyGems Password Reset (2024) | Package manager ATO possible. MD5(timestamp)-based token |
+| §2-1 + §2-3 (Predictable Token + Brute-Force) | RubyGems Password Reset (2024, unverified — no public advisory or CVE found) | Package manager ATO possible. MD5(timestamp)-based token |
 | §4-3 (SIM Swap) | T-Mobile Arbitration Ruling (2024) | $33M award. Single SIM swap leading to cryptocurrency theft |
 | §8-1 (IDOR → Password Change) | HackerOne Bounty Report | $500. IDOR enabling password change for other users |
 | XSS→ATO Chain (Stored XSS + IDOR) | Label Studio GHSA-2mq9 | Full ATO. Stored XSS + IDOR chain via custom_hotkeys field |
@@ -370,12 +370,12 @@ Passwordless authentication creates a new attack surface.
 | §8-2 (Admin Endpoint Exposure) | CVE-2024-5910 (Palo Alto Expedition) | CVSS 9.3. Missing authentication for critical admin function → admin ATO |
 | §8-2 (E-Commerce Checkout Session Hijack) | CVE-2025-61922 (PrestaShop Checkout < 5.0.5) | CVSS 9.1. Zero-click ATO via Express Checkout endpoint: unauthenticated POST with victim email grants authenticated session |
 | §5-1 (Open Redirect in OAuth) | CVE-2025-6023 (Grafana) | High. Incomplete fix → path traversal + open redirect → Full ATO |
-| §3-3 + §4-2 (Session + MFA) | CVE-2025-1723 (ADSelfService Plus) | Session mismanagement enabling unauthorized access to user enrollment data when MFA not enabled |
+| §3-3 + §4-2 (Session + MFA) | CVE-2025-1723 (ADSelfService Plus) | Session mismanagement enabling unauthorized access to unenrolled MFA user enrollment data — not full ATO, limited to enrollment information disclosure |
 | XSS→ATO Chain (Self-XSS) | Facebook Self-XSS Payments | $62,500. Self-XSS in payment flow chained to Full ATO |
 | XSS→ATO Chain (FXAuth Token Abuse) | Facebook Two-Click ATO | $30,000. FXAuth token abuse for two-click ATO |
 | §1-2 (Unicode Case Folding Collision) | CVE-2019-19844 (Django < 3.0.1) | CVSS 9.8. Turkish dotless-ı in email bypasses `iexact` lookup → password reset token sent to attacker |
 | §2-4 (Multi-Email Parameter Injection) | CVE-2023-7028 (GitLab CE/EE 16.1–16.7) | CVSS 10.0. JSON array of two emails in password reset → token delivered to both addresses |
-| §1-2 (Username–Email Binding Gap + Email Change Re-verification) | CVE-2023-6152 (Grafana < 10.3.3) | CVSS 5.4. Username/email field separation + email change without re-verification → account blocking and recovery hijack |
+| §1-2 (Post-Auth Email Change Without Re-verification) | CVE-2023-6152 (Grafana < 10.3.3) | CVSS 5.4. Authenticated user can change account email without ownership verification of the new address — core issue is missing re-verification on email change, not username/email binding |
 
 ---
 

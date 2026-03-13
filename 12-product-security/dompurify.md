@@ -264,7 +264,7 @@ The rendering context can differ from the sanitization context, creating exploit
 |---|---|---|
 | **SVG document embedding** | Application sanitizes HTML but embeds output inside an SVG document, changing namespace context for all elements | `<svg>` wrapper around sanitized output |
 | **XHTML document embedding** | Sanitized HTML placed in XHTML context follows XML parsing rules (case-sensitive, no void elements), creating structural mismatches | Content-Type: application/xhtml+xml |
-| **Base href pollution** | `<base>` tag (allowed by default) creates origin confusion between DOMPurify's parsing context and the receiving document | Base tag redirects relative URLs to attacker domain |
+| **Base href pollution** | `<base>` tag can create origin confusion between DOMPurify's parsing context and the receiving document. Note: DOMPurify's default configuration implicitly blocks `<base>` (it is not in the default ALLOWED_TAGS) — this vector requires explicit `ADD_TAGS: ['base']` or `WHOLE_DOCUMENT: true` configuration | Base tag explicitly allowed via configuration; redirects relative URLs to attacker domain |
 
 ---
 
@@ -294,7 +294,7 @@ Even when DOMPurify correctly sanitizes all XSS vectors, the remaining "safe" el
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
-| **jsdom/happy-dom inconsistencies** | Server-side DOM implementations don't perfectly replicate browser parsing; happy-dom < 15.10.0 enables XSS and potentially RCE | Server-side DOMPurify with non-browser DOM |
+| **jsdom/happy-dom inconsistencies** | Server-side DOM implementations don't perfectly replicate browser parsing. DOMPurify README explicitly warns that happy-dom is not safe and should not be used with DOMPurify. Specific version boundaries and RCE potential are not detailed in DOMPurify's official documentation | Server-side DOMPurify with non-browser DOM (happy-dom explicitly unsupported) |
 | **Headless browser differences** | Different headless browser engines may parse HTML differently from the target client browser | Server-side pre-rendering with sanitization |
 
 ---
@@ -320,18 +320,18 @@ Even when DOMPurify correctly sanitizes all XSS vectors, the remaining "safe" el
 | §1-1 (mglyph namespace flip) | DOMPurify < 2.0.17 | Full bypass via MathML namespace confusion with nested forms |
 | §1-1 (MathML namespace) + §6-1 | DOMPurify 2.0.0 | Full bypass via MathML text integration point confusion with nested forms |
 | §1-2 (SVG style) + §6-1 | DOMPurify < 2.0.1 | SVG-based mXSS in Chrome 77; separate vector from 2.0.0 MathML bypass |
-| §2-1 (depth overflow) + §1-2 | CVE-2024-47875 / DOMPurify ≤ 3.1.0 | Full bypass via 512-depth node flattening + caption insertion mode |
+| §2-1 (depth overflow) + §1-2 | CVE-2024-47875 / DOMPurify < 2.5.0 and >= 3.0.0 < 3.1.3 | Full bypass via 512-depth node flattening + caption insertion mode (both 2.x and 3.x branches affected per GitHub Advisory/NVD) |
 | §3-1 (parentNode clobbering) + §2-1 | DOMPurify 3.1.1 | Full bypass via DOM clobbering of depth counter |
 | §3-1 (__depth clobbering) + §2-2 | DOMPurify 3.1.2 | Full bypass via elevator mutation + second-order clobbering |
-| §3-2 (prototype pollution) + §2 | CVE-2024-45801 / DOMPurify < 2.5.4, < 3.1.3 | Depth check weakening via prototype pollution; CVSS 7.3 |
+| §3-2 (prototype pollution) + §2 | CVE-2024-45801 / DOMPurify < 2.5.4, < 3.1.3 | Depth check weakening via prototype pollution; GitHub Advisory CVSS 8.3 (NVD score may differ) |
 | §3-2 (prototype pollution) | CVE-2024-48910 / DOMPurify < 2.4.2 | Prototype pollution tampering; related but separately assigned from CVE-2024-45801 |
 | §4-1 (template regex) + §1-3 | CVE-2025-26791 / DOMPurify < 3.2.4 | mXSS via incorrect template literal regex; CVSS 4.5 |
 | §4-3 (xmlns prefix) | DOMPurify (pre-fix) | `javascript:` via SVG namespace alias; requires user click |
-| §5-2 (`is` attribute) + §1 | DOMPurify 3.2.1 (non-default) | Arbitrary content in `is` attr when in ALLOWED_ATTR |
+| §5-2 (`is` attribute) + §1 | DOMPurify 3.2.1 (non-default) | `is` attribute for customized built-in elements can carry unexpected content when explicitly added to ALLOWED_ATTR — this is a configuration foot-gun rather than a confirmed vulnerability (no official advisory) |
 | §5-1 + §5-4 (custom element + template) | DOMPurify 3.2.3 (non-default) | mXSS via incorrectly opened comment + template removal |
 | §5-4 (Processing Instruction) | DOMPurify (XHTML mode) | XSS via `<?img >` PI injection in XML parsing mode |
 | §5-4 (CDATA section) | DOMPurify (XHTML mode) | XSS via CDATA section in XML parsing mode |
-| §5-3 (forceKeepAttr) | DOMPurify 3.1.3–3.1.5 | Regex bypass when forceKeepAttr set in hooks |
+| §5-3 (forceKeepAttr) | DOMPurify 3.1.3–3.1.5 | Research-identified potential regex bypass when forceKeepAttr set in hooks (no official advisory/GHSA/NVD entry — treat as research finding, not confirmed vulnerability) |
 | §6-1 (noscript differential) | DOMPurify (historic) | `<noscript>` scripting-flag mismatch |
 | §2-3 (triple-parse) | DOMPurify ≤ 3.1.2 | Defeats double sanitization; affects Firefox, Chrome, Safari |
 | §7-1 (jQuery gadget) | jQuery ≤ 3.4.1 + DOMPurify | Post-sanitization tag normalization re-enables XSS |
@@ -347,7 +347,7 @@ Even when DOMPurify correctly sanitizes all XSS vectors, the remaining "safe" el
 | **GMSGadget** (Gadget DB) | Post-sanitization XSS via CSP/sanitizer bypass | Collection of JavaScript gadgets for bypassing DOMPurify and CSP; maps gadgets to popular libraries |
 | **DOMPurify Demo** (Testing) | Manual payload testing | Interactive sanitization tester with sample payloads and configuration options |
 | **Browser DevTools** (Manual) | Mutation inspection | Compare `DOMPurify.sanitize()` output DOM with `innerHTML` re-parse DOM tree |
-| **Sanitizer API** (Browser-native) | mXSS-free sanitization | W3C/WICG proposal; `setHTML()` avoids serialize-parse roundtrip entirely; still in incubation |
+| **Sanitizer API** (Browser-native) | Reduced mXSS exposure | W3C/WICG proposal; `setHTML()` avoids the serialize-parse roundtrip, reducing mXSS exposure. However, if sanitized DOM is subsequently serialized back to string (e.g., via `.innerHTML`) and re-parsed, mutation issues can recur. Not absolutely "mXSS-free" in all usage patterns; still in incubation |
 
 ---
 

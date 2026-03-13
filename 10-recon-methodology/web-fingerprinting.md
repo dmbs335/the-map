@@ -65,7 +65,7 @@ The TLS ClientHello message contains numerous fields whose combination identifie
 | **JA3 Hash** | Concatenates TLS version, cipher suites, extensions, elliptic curves, and EC point formats from the ClientHello, then MD5-hashes the result into a 32-character fingerprint. | TLS handshake must be visible; effectiveness reduced by extension randomization (Chrome 2023+) |
 | **JA4 / JA4+ Family** | Produces structured, multi-component fingerprints resilient to extension randomization. JA4 covers ClientHello; JA4S fingerprints ServerHello; JA4H analyzes HTTP headers; JA4X examines X.509 certificates. | TLS handshake visible; designed to withstand GREASE and extension reordering |
 | **JARM (Active Server TLS)** | Sends 10 specially crafted ClientHello packets varying TLS versions and cipher orders, then hashes the server's responses to fingerprint the TLS server implementation. | Active access to the server's TLS port required |
-| **ALPN / SNI Leakage** | Application-Layer Protocol Negotiation values and Server Name Indication fields in the ClientHello reveal intended protocol and destination hostname, even over encrypted transport. | Observable ClientHello (SNI is plaintext in TLS 1.2; ECH in TLS 1.3 mitigates this) |
+| **ALPN / SNI Leakage** | Application-Layer Protocol Negotiation values and Server Name Indication fields in the ClientHello reveal intended protocol and destination hostname, even over encrypted transport. | Observable ClientHello (SNI is plaintext in all TLS versions including TLS 1.3 unless Encrypted Client Hello (ECH) is used; ECH is the mitigation, not TLS 1.3 itself) |
 | **Certificate Chain Profiling** | The structure, ordering, and metadata of the server's certificate chain (issuer, SAN wildcards, OCSP stapling behavior) reveal server identity and deployment patterns. | Server certificate must be observable |
 | **Session Resumption Behavior** | How a client handles session tickets, PSK, and 0-RTT reveals implementation details. | Multiple connections from same client must be observed |
 
@@ -123,7 +123,7 @@ WebGPU, the successor to WebGL, introduces compute shaders that dramatically exp
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
-| **GPU Adapter Feature Set** | `requestAdapter()` returns supported features and limits that differ per GPU family and driver. | WebGPU available (Chrome 113+, Firefox experimental) |
+| **GPU Adapter Feature Set** | `requestAdapter()` returns supported features and limits that differ per GPU family and driver. | WebGPU available (Chrome 113+; Firefox enabled by default on Windows and select macOS Apple Silicon builds as of 2025, with broader rollout ongoing) |
 | **Compute Shader Timing** | Micro-benchmarking compute shaders to measure execution unit count, cache hierarchy, and memory bandwidth reveals hardware-specific performance characteristics. Identification accuracy reaches 98% with compute shaders, and identification time is reduced to ~150ms. | WebGPU compute shader support |
 | **GPU Cache Side-Channel** | Using compute shaders to probe GPU cache behavior (eviction patterns, line sizes) to spy on concurrent rendering activity, achieving ~90% accuracy for website fingerprinting of top 100 sites. | WebGPU compute shader support; concurrent GPU activity |
 | **Rendering Pipeline Differential** | Similar to WebGL but with more control over pipeline stages, enabling finer-grained rendering differences. | WebGPU rendering pipeline support |
@@ -148,12 +148,12 @@ WebRTC's peer-to-peer connection establishment leaks network and media informati
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
-| **ICE Candidate IP Leakage** | STUN requests discover local and public IP addresses, exposed through `RTCPeerConnection.onicecandidate`. This bypasses VPN tunnels because WebRTC's UDP STUN requests operate outside the browser's HTTP stack. | WebRTC API available; STUN server reachable |
-| **Media Device Enumeration** | `navigator.mediaDevices.enumerateDevices()` returns the list of cameras, microphones, and speakers with device IDs. | Permission granted or fingerprinting before permission prompt |
+| **ICE Candidate IP Leakage** | STUN requests discover local and public IP addresses, exposed through `RTCPeerConnection.onicecandidate`. In some proxy configurations, ICE/STUN traffic may travel outside the HTTP stack, potentially leaking the real IP even when a proxy or certain VPN configurations are in use. However, this is not a universal VPN bypass — full-tunnel VPNs that route all UDP traffic typically prevent this leak. | WebRTC API available; STUN server reachable |
+| **Media Device Enumeration** | `navigator.mediaDevices.enumerateDevices()` returns a list of available media devices. Per MDN, without explicit permission, browsers may return only default devices with empty `label` fields; full device details (labels, non-default device IDs) require user permission grant. The entropy available without permission is limited but non-zero (device count, types). | Permission state affects detail level; some fingerprint entropy available even without permission |
 | **DTLS Fingerprinting** | The DTLS handshake used by WebRTC has its own client fingerprint (analogous to TLS JA3) revealing the browser's DTLS implementation details. | WebRTC DTLS handshake observable on the network |
 | **Codec Support Profiling** | `RTCRtpSender.getCapabilities()` and `RTCRtpReceiver.getCapabilities()` reveal supported audio/video codecs and their parameters. | WebRTC API available |
 
-The mDNS ICE candidates draft (IETF) aims to obfuscate local IPs by replacing them with `.local` addresses, but public IP exposure through STUN remains unsolved at the protocol level.
+The mDNS ICE candidates draft (IETF) aims to obfuscate local/host IPs by replacing them with `.local` addresses. Public/server-reflexive candidate exposure depends on multiple factors: browser ICE policy settings, TURN-only mode availability, VPN/network configuration, and browser implementation. The situation is more nuanced than a single "unsolved" designation — mitigations exist but vary by deployment context.
 
 ---
 
@@ -486,18 +486,30 @@ The most resilient fingerprinting techniques combine multiple signal sources or 
 
 ---
 
-## CVE / Bounty Mapping (2023–2025)
+## CVE / Vulnerability Mapping
 
-| Mutation Category | CVE / Case | Impact / Bounty |
+| Mutation Category | CVE / Case | Impact |
 |---|---|---|
 | §2-5 (WebRTC IP Leak) | CVE-2018-6849 (DuckDuckGo Privacy Browser 4.2.0) | Private IP leak via STUN request in DuckDuckGo browser. Note: WebRTC IP leak is a broader class affecting multiple browsers, but this specific CVE targets DuckDuckGo only |
 | §2-1 (Canvas) + §4 (System) | CVE-2024-23206 (Apple Safari/WebKit) | Maliciously crafted webpage could fingerprint users. Fixed in iOS 17.3, macOS Sonoma 14.3 |
-| §6-1 (CMS Fingerprint) → RCE | CVE-2024-34102 (Magento CosmicSting) | ScreamedJungle campaign: 115+ e-commerce sites compromised to inject Bablosoft fingerprinting JS via exploited Magento vulnerabilities |
-| §6-1 (CMS Fingerprint) → RCE | CVE-2024-20720 (Magento) | Used in combination with CVE-2024-34102 for fingerprint injection campaigns |
-| §1-2 (TLS) + §9 (Cross-layer) | Chrome TLS Extension Randomization (2023) | Deliberately weakened JA3 effectiveness; drove adoption of JA4 |
-| §2-3 (WebGPU) | WebGPU-SPY (ACM ASIACCS 2024) | GPU cache side-channel achieves 90% website fingerprinting accuracy via WebGPU compute shaders |
-| §3 (CSS) | Cascading Spy Sheets (NDSS 2025) | 97.95% browser-OS identification using pure CSS; affects email clients |
-| §5-4 (Multi-layer) | Untangle (NDSS 2024) | First multi-layer server fingerprinting methodology; 90.3% second-layer accuracy |
+
+## Exploit Campaigns Using Fingerprinting Payloads
+
+These are not fingerprinting vulnerabilities per se, but exploitation campaigns where fingerprinting JS was injected as a post-compromise payload.
+
+| Exploitation CVE | Campaign | Fingerprinting Role |
+|---|---|---|
+| CVE-2024-34102 (Magento CosmicSting) | ScreamedJungle campaign | 115+ e-commerce sites compromised; Bablosoft fingerprinting JS injected as post-exploitation payload |
+| CVE-2024-20720 (Magento) | Used with CVE-2024-34102 | Same campaign; fingerprinting injection after RCE exploitation |
+
+## Browser Privacy Hardening & Research
+
+| Category | Case | Significance |
+|---|---|---|
+| §1-2 (TLS anti-fingerprinting) | Chrome TLS Extension Randomization (2023) | Browser privacy hardening change (not a vulnerability or bounty). Deliberately weakened JA3 effectiveness; drove adoption of JA4 |
+| §2-3 (WebGPU) | WebGPU-SPY (ACM ASIACCS 2024) | Research paper: GPU cache side-channel achieves 90% website fingerprinting accuracy via WebGPU compute shaders |
+| §3 (CSS) | Cascading Spy Sheets (NDSS 2025) | Research paper: 97.95% browser-OS identification using pure CSS; affects email clients |
+| §5-4 (Multi-layer) | Untangle (NDSS 2024) | Research paper: first multi-layer server fingerprinting methodology; 90.3% second-layer accuracy |
 
 ---
 
@@ -510,7 +522,7 @@ The most resilient fingerprinting techniques combine multiple signal sources or 
 | **FingerprintJS (Open Source)** | Browser client | Queries 50+ browser attributes (Canvas, WebGL, Audio, fonts, navigator); ~40-60% accuracy |
 | **Fingerprint Pro (Commercial)** | Browser + server-side | Server-side signal processing + ML; 99.5% claimed accuracy |
 | **CreepJS** | Browser client | Advanced fingerprinting with lie detection (detects spoofed values); designed to bypass anti-detect browsers |
-| **Nmap** | Network/OS | Sends 16 crafted TCP/UDP/ICMP probes; matches against 6000+ OS signature database |
+| **Nmap** | Network/OS | Sends 16 crafted TCP/UDP/ICMP probes; matches against 2,600+ OS signature database |
 | **p0f** | Network/OS (Passive) | Analyzes SYN packets passively; TTL, window size, TCP options matching |
 | **JARM** | TLS server | Active TLS probing with 10 ClientHello variants; hashes combined server responses |
 | **Wappalyzer** | Web application | Regex matching against HTML, JS, cookies, and headers for technology identification |

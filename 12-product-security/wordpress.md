@@ -394,8 +394,8 @@ Information leakage provides reconnaissance data for subsequent attacks or direc
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **Author parameter enumeration** | `?author=N` redirects to `/author/username/`, revealing usernames | Default WordPress behavior; no plugin needed |
-| **REST API user listing** | `/wp-json/wp/v2/users/` returns user IDs, usernames, and display names | Default endpoint enabled for unauthenticated access |
+| **Author parameter enumeration** | `?author=N` may redirect to `/author/slug/`, revealing user slugs. Effectiveness depends on theme support for author archives and permalink/rewrite configuration — not universally reliable across all setups. | Well-known enumeration technique; behavior varies by theme and configuration |
+| **REST API user listing** | `/wp-json/wp/v2/users/` returns user IDs, slugs, names, and avatar URLs for users who have published posts. Response fields are context-dependent (unauthenticated requests receive `view` context with limited fields — slug/name/id, not raw usernames or emails). | Default endpoint enabled; scope limited to authors with published content |
 | **Login error message differential** | `wp-login.php` returns different errors for "invalid username" vs. "incorrect password" | Default WordPress behavior reveals valid usernames |
 | **RSS/Atom feed author exposure** | Feed includes author display names and potentially email addresses | WordPress feeds enabled; author information not filtered |
 | **XML sitemap enumeration** | WordPress sitemap (`/wp-sitemap.xml`) reveals site structure, post types, taxonomies | Sitemap enabled by default since WordPress 5.5 |
@@ -461,8 +461,8 @@ WordPress Multisite introduces additional attack surfaces through shared infrast
 |---------------------|-----------|----------------|
 | §3-1 (auth bypass) + cookie manipulation | CVE-2025-5947 (Service Finder Bookings ≤6.0) | Admin account takeover; exploited day after patch |
 | §3-1 (predictable token) | CVE-2025-13390 (WP Directory Kit ≤1.4.4) | Auth bypass via MD5(user_id) token prediction |
-| §3-1 (2FA bypass) | CVE-2024-10924 (Really Simple Security, 4M+ sites) | Authentication bypass via crafted API call |
-| §3-1 (API header bypass) | SureTriggers Plugin ≤1.0.78 (April 2025) | Admin account creation; exploited within 4 hours of disclosure |
+| §3-1 (2FA bypass) | CVE-2024-10924 (Really Simple Security, 4M+ sites) | Authentication bypass via crafted API call. **Precondition**: 2FA feature must be explicitly enabled (disabled by default) |
+| §3-1 (API header bypass) | CVE-2025-3102 (SureTriggers Plugin ≤1.0.78, April 2025) | Admin account creation via authorization bypass. **Precondition**: plugin installed and activated but API key not yet configured (empty secret_key comparison). Exploited within 4 hours of disclosure |
 | §2-1 (SQLi, unauthenticated) | CVE-2024-27956 (WP Automatic ≤3.92.0, 40K+ sites) | Arbitrary SQL execution |
 | §2-1 (SQLi, CVSS 9.8) | CVE-2024-2879 (LayerSlider 7.9.11–7.10.0) | SQL injection via `ls_get_popup_markup` |
 | §2-1 (blind SQLi) | CVE-2025-9807 (The Events Calendar) | Time-based blind SQLi, unauthenticated |
@@ -473,21 +473,21 @@ WordPress Multisite introduces additional attack surfaces through shared infrast
 | §7-1 (Twig SSTI) | CVE-2024-6386 (WPML ≤4.6.12, CVSS 9.9, 1M+ installs) | RCE via Twig template injection in shortcode |
 | §7-1 (Twig SSTI) | CVE-2025-10380 (Advanced Views ≤3.7.19) | Author-level RCE via SSTI |
 | §5-1 (race condition upload) | CVE-2024-7627 (Bit File Manager 6.0–6.5.5) | Unauthenticated RCE via race condition |
-| §5-2 (path traversal) | CVE-2024-32111 (WordPress Core 4.1–6.5.4) | Critical path traversal affecting millions |
+| §5-2 (path traversal) | CVE-2024-32111 (WordPress Core 6.4–6.5.4) | Directory traversal requiring Contributor+ role. Primarily affects Windows-hosted installations. CVSS Medium (5.3), not Critical |
 | §5-1 (file upload) | WordPress File Upload Plugin ≤4.24.11 | Unauthenticated file read/delete via path traversal |
 | §3-2 (user meta role injection) | CVE-2024-8253 (Post Grid Gutenberg Blocks) | Subscriber → administrator via meta update; 40K+ sites |
 | §3-2 (email change → takeover) | CVE-2024-8290 (WCFM WooCommerce Manager) | Admin account takeover via email change; 20K+ sites |
 | §3-2 (arbitrary option update) | CVE-2024-3895 (WP Datepicker) | Subscriber → admin via option manipulation; $493 bounty |
-| §1-1 (stored XSS → privilege escalation) | CVE-2024-47374 (LiteSpeed Cache ≤6.5.0.2, 6M+ sites) | Unauthenticated stored XSS → admin takeover via single HTTP request |
+| §1-1 (stored XSS) | CVE-2024-47374 (LiteSpeed Cache ≤6.5.0.2, 6M+ sites) | Unauthenticated stored XSS. Admin session hijacking is a possible exploitation chain but not part of the CVE description itself |
 | §3-3 (CSRF → file upload) | CVE-2025-12821 (NewsBlogger theme) | CSRF → arbitrary file upload → RCE |
 | §8-4 (payment token exposure) | CVE-2025-13457 (WooCommerce Square ≤5.1.1) | Unauthenticated credit card token access; 80K+ sites |
 | §9-1 (supply chain) | June 2024 (5 plugins via wordpress.org) | Developer accounts compromised; admin credential exfiltration |
-| §9-1 (supply chain) | July 2025 (Gravity Forms 2.9.11.1) | Backdoor in manual download; 5M+ sites affected |
+| §9-1 (supply chain) | July 2025 (Gravity Forms 2.9.11.1) | Backdoor in manual download package during specific time window. Only manual downloads and certain Composer paths affected — auto-updates via Gravity API were not compromised. Total affected scope significantly smaller than the 5M+ install base |
 | §9-2 (trojan plugin) | January 2025 (WP-antymalwary-bot.php) | Fake security tool; wp-cron.php backdoor; admin access |
-| §4-2 (SSRF TOCTOU) | CVE-2022-3590 (WordPress Core, all versions) | Blind SSRF via pingback.ping with TOCTOU race |
+| §4-2 (SSRF TOCTOU) | CVE-2022-3590 (WordPress Core, ~4.1–6.1.1) | Blind SSRF via pingback.ping with TOCTOU race. Fixed in 6.1.1; does not affect "all versions" |
 | §1-4 (Gutenberg stored XSS) | CVE-2024-10178 (Gutentor ≤3.3.x) | Stored XSS via Countdown widget |
 | §3-1 (WooCommerce auth bypass) | WooCommerce Payments 4.8.0–5.6.1 | Unauthenticated privilege escalation |
-| §8-3 (cache poisoning) | CVE-2025-9501 (W3 Total Cache) | RCE via critical caching plugin vulnerability; 1M+ installs |
+| §8-3 (cache poisoning) | CVE-2025-9501 (W3 Total Cache) | RCE via caching plugin vulnerability. **Precondition**: specific features (e.g., fragment caching with mfunc/mclude) must be explicitly enabled — not exploitable in default configuration. 1M+ install base but affected subset is significantly smaller |
 
 ---
 

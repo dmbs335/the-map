@@ -145,7 +145,7 @@ ORM reverse relations (the "other side" of a ForeignKey) allow traversal in dire
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
 | **Django reverse FK** | If `Order` has FK to `User`, then `User.objects.filter(order__total__gt=1000)` traverses the reverse relation. Attackers can inject `user__order__creditcard__number__startswith` from an endpoint filtering users. | Reverse relations not restricted in filter allowlist |
-| **Implicit reverse query name** | Django auto-generates reverse relation names (lowercase model name + `_set`), which are usable in filter expressions even if developers are unaware of them. | Default reverse relation naming not overridden or blocked |
+| **Implicit reverse query name** | Django auto-generates reverse relation names for query lookups using the lowercase model name (e.g., `order` not `order_set`). The `_set` suffix applies to the related manager API (e.g., `user.order_set.all()`), while filter expressions use the model name directly (e.g., `User.objects.filter(order__total__gt=1000)`). Developers may not realize these implicit lookup names exist. | Default `related_query_name` not overridden or blocked |
 
 ### §2-4. Access Control Bypass via Relational Filters
 
@@ -212,7 +212,7 @@ Regex operators provide the most expressive matching capability but also enable 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
 | **Django `regex` / `iregex`** | `password__regex="^(?=^pbkdf2).*.*.*.*.*.*.*.*!!!!$"` crafts a ReDoS payload. On MySQL (32ms regex timeout), a matching prefix triggers a timeout error (HTTP 500), while non-matching returns normally (HTTP 200). | Django with MySQL backend; regex operator not restricted |
-| **Authentik regex injection** | `{"action__regex": "^6.*"}` in the events endpoint uses regex matching to enumerate values character-by-character. (CVE-2024-42490) | Django filter accepts `__regex` operator from user input |
+| **Authentik regex injection** | `{"action__regex": "^6.*"}` in the events endpoint uses regex matching to enumerate values character-by-character. Note: CVE-2024-42490 is officially classified as improper authorization on certificate/private key view endpoints per Authentik advisory, not as a regex injection issue. The regex technique here is a general Django ORM leak pattern. | Django filter accepts `__regex` operator from user input |
 
 **Note**: ReDoS-based extraction works on MySQL (which has a default regex timeout) but **fails on PostgreSQL** (no timeout) and **MariaDB** (no regex limit).
 
@@ -321,7 +321,7 @@ Different HTTP methods may apply different validation or binding rules, allowing
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **PUT vs POST binding scope** | PUT requests may bind to different (broader) sets of fields than POST requests. In Authentik, PUT allowed modifying the `user` field on tokens while POST did not. (CVE-2024-37905) | Different binding/validation rules per HTTP method |
+| **PUT vs POST binding scope** | PUT requests may bind to different (broader) sets of fields than POST requests. Note: CVE-2024-37905 (Authentik) is officially described as improper authorization allowing API token user reassignment, not specifically HTTP method confusion. The PUT vs POST framing here illustrates the general pattern but is not the official root cause classification. | Different binding/validation rules per HTTP method |
 
 ---
 
@@ -338,7 +338,7 @@ When the application exposes ORM include/select/expand directives to user input,
 | **Prisma `include` injection** | `{ include: { createdBy: true } }` includes all fields of the related user model in the response, including password and token fields. | User controls Prisma query options beyond `where` |
 | **Prisma `select` injection** | `{ select: { createdBy: { select: { password: true } } } }` explicitly requests only the password field of a related model. | User controls Prisma `select` clause |
 | **OData `$expand`** | `$expand=Credentials` includes related entities in the OData response, potentially exposing sensitive properties of related models. | OData EDM includes sensitive navigation properties |
-| **GraphQL field selection** | GraphQL's per-query field selection allows requesting any field defined in the schema, including `passwordHash`, `apiToken`, `tfaSecret` if not individually authorized. | Schema exposes sensitive fields without per-field authorization |
+| **GraphQL field selection** | GraphQL's per-query field selection allows requesting any field defined in the schema, including `passwordHash`, `apiToken`, `tfaSecret` if not individually authorized. Note: This is a schema exposure / field-level authorization issue distinct from ORM DSL leakage — included here as it often co-occurs with ORM-backed resolvers. | Schema exposes sensitive fields without per-field authorization |
 
 **Example — Prisma include injection:**
 ```json
@@ -372,9 +372,9 @@ Frameworks' default serialization includes all model fields unless explicitly ex
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **Django REST Framework `fields = '__all__'`** | `ModelSerializer` with `fields = '__all__'` serializes every model field, including `password`, `secret_key`, internal flags. | DRF serializer uses `__all__` or doesn't specify field exclusions |
+| **Django REST Framework `fields = '__all__'`** | `ModelSerializer` with `fields = '__all__'` includes every model field in the serializer. If the model contains sensitive fields (e.g., `password`, `secret_key`), they will be serialized unless explicitly excluded or overridden as write-only. In practice, well-written User serializers typically override `password` as write-only, but the risk applies to any model where sensitive fields exist and aren't individually excluded. | DRF serializer uses `__all__` without per-field write-only or exclusion overrides |
 | **Rails `as_json` without `only/except`** | `user.as_json` returns all attributes. Without `only: [:id, :name]` or `except: [:password_digest]`, sensitive fields are exposed. | `.as_json` / `.to_json` called without field restrictions |
-| **GraphQL introspection + full schema** | Schema introspection reveals all types, fields, and relationships. Even if fields are individually authorized, the schema structure itself leaks the data model. | GraphQL introspection enabled in production |
+| **GraphQL introspection + full schema** | Schema introspection reveals all types, fields, and relationships. Even if fields are individually authorized, the schema structure itself leaks the data model. Note: This is a GraphQL schema exposure issue, not an ORM-layer vulnerability — included here as it amplifies ORM-backed data exposure. | GraphQL introspection enabled in production |
 
 ---
 
@@ -466,17 +466,17 @@ Legacy or misconfigured operator alias systems allow injecting query operators t
 
 | Mutation Combination | CVE / Case | Impact / Bounty |
 |---------------------|-----------|----------------|
-| §1-2 + §8-1 (Beego parseExprs + field overwrite) | CVE-2025-30086 (Harbor) | Admin can leak all users' password hashes and salts. Three patches bypassed before proper fix. |
+| §1-2 + §8-1 (Beego parseExprs + field overwrite) | CVE-2025-30086 (Harbor) | Admin can infer user attributes (including password hashes/salts) via fuzzy-search ORM leak. Per GHSA/NVD, the scope is admin-level arbitrary attribute inference — "all users' complete hashes" overstates the practical extraction confirmed in the advisory. Three patches bypassed before proper fix. |
 | §1-2 + §3-3 (URL auto-mapping + regex) | CVE-2024-47062 (Navidrome) | Multiple SQL injections + ORM Leak. Parameter names not escaped. |
-| §1-1 + §3-3 + §7-2 (filter injection + regex + schema) | CVE-2024-42490 (Authentik) | Information disclosure leading to private key exposure chain. |
-| §5-3 (HTTP method confusion in binding) | CVE-2024-37905 (Authentik) | Privilege escalation to superuser via PUT-based token reassignment. |
+| §1-1 + §3-3 + §7-2 (filter injection + regex + schema) | CVE-2024-42490 (Authentik) | Improper authorization on certificate/private key view endpoints (per official advisory). Not an ORM regex leak — classified here for context but the root cause is missing authorization checks, not ORM filter injection. |
+| §5-3 (HTTP method confusion in binding) | CVE-2024-37905 (Authentik) | Improper authorization allowing API token user reassignment (per official advisory). Privilege escalation to superuser. Root cause is missing authorization on token user field, not specifically HTTP method confusion. |
 | §4-1 (Q object _connector injection) | CVE-2025-64459 (Django) | SQL injection via ORM query structure manipulation. NVD has not yet assigned an independent CVSS score. |
 | §4-2 (order_by alias injection) | CVE-2026-1312 (Django) | SQL injection through FilteredRelation + order_by with period characters. |
 | §1-3 (search on concealed fields) | CVE-2025-64748 (Directus) | Concealed field existence inference — search on directus_users returns success/failure for masked values (tokens, TFA secrets), enabling boolean-based extraction of whether a concealed value exists. Not direct value leak. |
-| §8-2 (Mongoose operator injection) | CVE-2025-23061 (Mongoose) | Search injection via nested `$where` operator in `populate()` match option — allows server-side JavaScript execution scoped to MongoDB query context, not general arbitrary JS execution. |
+| §8-2 (Mongoose operator injection) | CVE-2025-23061 (Mongoose) | RCE via nested `$where` operator in `populate().match()` — officially classified as NoSQL injection leading to code execution (CVSS 9.1), not an ORM leak/information disclosure issue. Included here as the entry point is ORM-layer operator injection, but the impact class (RCE) belongs in NoSQL injection taxonomy. |
 | §8-3 (Sequelize operator aliases) | CVE-2019-10748/10749 (Sequelize) | SQL injection via unescaped JSON path keys on MySQL/MariaDB and operator alias injection. |
 | §8-3 (Sequelize replacement escaping) | CVE-2023-25813 (Sequelize) | SQL injection through improper parameter escaping. |
-| §1-1 + §2-1 (filter injection + FK traversal) | CVE-2023-47117 (Label Studio) | Authenticated user leaks full password hash of any account. Chained with hardcoded SECRET_KEY for full admin compromise. |
+| §1-1 + §2-1 (filter injection + FK traversal) | CVE-2023-47117 (Label Studio) | Authenticated user leaks password hashes via ORM filter chain. Combined with hardcoded SECRET_KEY, session token forgery becomes possible — but "full admin compromise" depends on the SECRET_KEY exposure being separately exploitable. |
 | §1-1 + §3-1 (filter injection + startswith) | CVE-2023-31133 (Ghost CMS) | ORM Leak in content API. |
 | §1-1 (filter parameter injection) | CVE-2023-30843 (Payload CMS) | ORM Leak vulnerability in CMS API. |
 | §5-1 (direct model attribute overwrite) | GitHub SSH Key Injection (2012) | Mass assignment on Rails allowed injecting SSH public keys into GitHub user accounts. Landmark incident for mass assignment awareness. |
