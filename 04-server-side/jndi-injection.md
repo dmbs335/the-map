@@ -18,7 +18,7 @@ The mutation space of JNDI injection is organized along three orthogonal axes:
 
 | Protocol | Object Types Supported | Remote Codebase | Restriction Version | Key Property |
 |----------|----------------------|-----------------|--------------------|----|
-| **RMI** | Serialized, Reference | Yes (pre-8u121) | JDK 7u21+ / 8u121+ | `java.rmi.server.useCodebaseOnly` |
+| **RMI** | Serialized, Reference | Yes (pre-7u21 / 6u45) | JDK 6u45 / 7u21+ (May 2013) defaulted `useCodebaseOnly=true`; 8u121 added the RMI Registry serialization filter | `java.rmi.server.useCodebaseOnly` |
 | **LDAP** | Serialized, Reference, Attributes | Yes (pre-8u191) | JDK 6u211 / 7u201 / 8u191 / 11.0.1+ | `com.sun.jndi.ldap.object.trustURLCodebase` |
 | **DNS** | Limited (exfiltration only) | N/A | None | N/A |
 | **CORBA/IIOP** | Serialized, IOR | Yes | Security Manager dependent | N/A |

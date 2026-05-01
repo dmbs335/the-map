@@ -246,7 +246,7 @@ Database drivers translate application queries into wire protocol messages. Flaw
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
-| **PostgreSQL JDBC preferQueryMode=SIMPLE** | The PostgreSQL JDBC driver in simple query mode concatenates parameters directly into SQL strings sent via the wire protocol's simple query message, bypassing the prepared statement path that provides parameterization (CVE-2024-1597, CVSS 10.0) | PostgreSQL JDBC with `preferQueryMode=SIMPLE`; applications using this mode for compatibility |
+| **PostgreSQL JDBC preferQueryMode=SIMPLE** | The PostgreSQL JDBC driver in simple query mode concatenates parameters directly into SQL strings sent via the wire protocol's simple query message, bypassing the prepared statement path that provides parameterization (CVE-2024-1597, NVD 9.8 / PostgreSQL CNA 10.0) | PostgreSQL JDBC with `preferQueryMode=SIMPLE`; applications using this mode for compatibility |
 | **pgx wire protocol message splitting** | As detailed in §2-1: the Go pgx driver's 32-bit size calculation causes message framing corruption, enabling injection of protocol messages (CVE-2024-27304) | Large user-controlled parameter values; pgx driver |
 | **MySQL Connector autoDeserialize** | MySQL Connector/J with `autoDeserialize=true` deserializes BLOB results from `SHOW SESSION STATUS` into Java objects, enabling gadget chain execution (→ cross-ref `jdbc-attack.md` §1 for full chain analysis) | Attacker-controlled JDBC URL or connection reaching malicious MySQL server |
 
@@ -353,7 +353,7 @@ Service protocol authentication mechanisms can be exploited through timing attac
 |---|---|---|
 | §2-1 (pgx message overflow) | CVE-2024-27304 (Go pgx/pgproto3) | **CVSS Critical.** Wire protocol message framing corruption → SQL injection at protocol level. DEF CON 32 presentation. |
 | §2-1 (pgx simple protocol) | CVE-2024-27289 (Go pgx v4) | SQL injection via simple protocol parameter pattern. |
-| §4-4 (PostgreSQL JDBC) | CVE-2024-1597 (PostgreSQL JDBC) | **CVSS 10.0.** preferQueryMode=SIMPLE SQL injection; affects Keycloak and hundreds of Java applications. |
+| §4-4 (PostgreSQL JDBC) | CVE-2024-1597 (PostgreSQL JDBC) | **NVD 9.8 (CNA 10.0).** preferQueryMode=SIMPLE SQL injection; affects Keycloak and hundreds of Java applications. |
 | §2-1 + §4-4 (psql UTF-8) | CVE-2025-1094 (PostgreSQL psql) | **Actively exploited.** Chained in BeyondTrust breach affecting 17+ enterprise customers including US Treasury. |
 | §2-2 (MongoDB compression) | CVE-2025-14847 (MongoDB, "MongoBleed") | **CVSS 7.5 (v3.1) / 8.7 (v4.0).** Unauthenticated heap memory disclosure; broad internet exposure reported by third-party sources. Public PoC. Akamai and Qualys report CISA KEV listing and active exploitation. |
 | §2-3 (FastCGI overflow) | CVE-2025-23016 (libfcgi) | Integer overflow in parameter parsing → heap overflow → RCE on 32-bit systems. |

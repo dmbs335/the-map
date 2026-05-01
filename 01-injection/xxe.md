@@ -501,7 +501,7 @@ This section consolidates bypass techniques from across the taxonomy, organized 
 | Mutation Combination | CVE / Case | Impact / Bounty |
 |---------------------|-----------|----------------|
 | §7-5 (nested deserialization → XXE) + §1-2 + §7-2 | CVE-2024-34102 — Adobe Commerce/Magento "CosmicSting" | CVSS 9.8. Unauthenticated XXE via nested deserialization; admin JWT forgery, chainable with CVE-2024-2961 for RCE. Actively exploited in the wild. |
-| §6-3 (.NET parser bypass) + §1-2 + §4-3 | CVE-2024-30043 — Microsoft SharePoint | CVSS 7.1. URL parsing confusion bypasses DTD prohibition; file read with Farm Service Account, NTLM relay, SSRF. Affects both on-prem and cloud. |
+| §6-3 (.NET parser bypass) + §1-2 + §4-3 | CVE-2024-30043 — Microsoft SharePoint | CVSS 7.5 NVD (6.5 Microsoft CNA — Microsoft requires PR:L). URL parsing confusion bypasses DTD prohibition; file read with Farm Service Account, NTLM relay, SSRF. Affects both on-prem and cloud. |
 | §1-1 + §3-2 + §7-2 | CVE-2025-58360 — GeoServer | CVSS High. XXE via GetMap WMS operation; file read, SSRF, DoS. Added to CISA KEV catalog; actively exploited. |
 | §4-1 (PDF/XFA carrier) + §1-1 | CVE-2025-66516 — Apache Tika | CVSS 8.4. XXE via crafted XFA content embedded in PDF files; affects tika-core, tika-pdf-module, tika-parsers. |
 | §1-1 + §6-1 (Java) | CVE-2024-45072 — IBM WebSphere Application Server | Privileged user XXE; sensitive information exposure, memory consumption. |

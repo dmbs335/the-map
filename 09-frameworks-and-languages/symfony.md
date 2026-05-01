@@ -49,7 +49,7 @@ User-controlled data reaches `unserialize()` through Symfony components that his
 
 | Subtype | Mechanism | Key Condition | Impact |
 |---------|-----------|---------------|--------|
-| **Remember-me cookie deserialization** | `remember_me` cookie passed user-controlled data directly to `unserialize()`, allowing arbitrary object injection | Symfony 2.7–4.2 with token-based remember-me (CVE-2019-10912) | RCE |
+| **Remember-me cookie deserialization** | `remember_me` cookie passed user-controlled data directly to `unserialize()`, allowing arbitrary object injection | Symfony 2.8.0–2.8.49, 3.4.0–3.4.25, 4.1.0–4.1.11, 4.2.0–4.2.6 with token-based remember-me; fixed in 2.8.50 / 3.4.26 / 4.1.12 / 4.2.7 (CVE-2019-10912) | RCE |
 | **Cache adapter deserialization** | `PhpArrayAdapter` and `TagAwareAdapter` deserialized attacker-controlled cache data without type filtering | Symfony 3.x–4.x cache components (CVE-2019-18889) | RCE |
 | **Serializer component mass assignment** | `Serializer::deserialize()` with user input to objects set all writable properties without restriction | Symfony 3.x–4.x Serializer | AUTHZ |
 | **UriSigner timing attack** | Non-constant-time HMAC comparison in `UriSigner` enabled timing-based forgery of signed URLs | Symfony HttpKernel (CVE-2019-18887) | AUTHZ |
@@ -151,7 +151,7 @@ The `_fragment` route provides a framework-level endpoint that invokes arbitrary
 
 | Subtype | Mechanism | Key Condition | Impact |
 |---------|-----------|---------------|--------|
-| **Direct RCE via _fragment** | `FragmentListener` parses `_path` query param to extract `_controller` attribute, then invokes it as a PHP callable. HMAC over the full URL is verified using `APP_SECRET` | `_fragment` route enabled (default) + `APP_SECRET` known (CVE-2012-6431/CVE-2012-6432) | RCE |
+| **Direct RCE via _fragment** | `FragmentListener` parses `_path` query param to extract `_controller` attribute, then invokes it as a PHP callable. HMAC over the full URL is verified using `APP_SECRET` | `_fragment` route enabled (default) + `APP_SECRET` known or weak (no single CVE — exploitation depends on default/leaked `APP_SECRET`; predecessors `/_internal` and `/_proxy` had related issues, e.g. CVE-2012-6432) | RCE |
 | **ESI injection escalation** | Stored XSS containing `<esi:include src="/_fragment?...">` triggers server-side fragment fetch through ESI-capable cache (Varnish, Symfony HttpCache) | ESI processing enabled + stored XSS + `APP_SECRET` known | RCE |
 | **Profiler-to-fragment chain** | Step 1: `/_profiler/latest?panel=config` extracts `APP_SECRET`. Step 2: Forge `_fragment` URL with extracted secret | Debug profiler accessible in production | RCE |
 

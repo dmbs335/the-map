@@ -181,7 +181,7 @@ SAML's XML-based assertions create unique trust boundaries around signature vali
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **XML Signature Wrapping (XSW)** | Attacker moves signed assertion to a non-validated location and inserts forged assertion where the application reads it | Application validates signature on one XML node but reads identity from another (CVE-2024-45409, CVE-2024-6800) |
+| **XML Signature Wrapping (XSW)** | Attacker moves signed assertion to a non-validated location and inserts forged assertion where the application reads it. Closely related: signature-verification bypasses where the library uses an over-broad XPath (e.g., `//ds:Reference` instead of `./ds:Reference`) so an injected, attacker-controlled assertion is treated as covered by a valid signature on a different element — CWE-347 (Improper Verification of Cryptographic Signature) | Application validates signature on one XML node but reads identity from another, or library uses descendant-axis XPath when locating the signed reference (CVE-2024-45409 — ruby-saml incorrect XPath selector / signature-verification bypass; CVE-2024-6800 — GHES SAML SSO bypass) |
 | **Comment Injection in NameID** | Comment inserted in NameID value (e.g., `admin@example.com<!---->.attacker.com`) parsed differently by IdP and SP | IdP and SP use different XML parsers with different comment handling |
 | **Assertion Replay** | Valid SAML assertion reused after its intended session; no timestamp or one-time-use validation | Missing `NotOnOrAfter` enforcement; no assertion ID tracking |
 | **Recipient Mismatch** | Assertion intended for Service Provider A accepted by Service Provider B | SP doesn't validate `Recipient` attribute in `SubjectConfirmationData` |
@@ -215,7 +215,7 @@ Server-side template engines are designed to render trusted templates with untru
 | **WAF Filter Bypass via String Construction** | Attacker builds restricted strings from arithmetic operations, list indices, or encoding to bypass pattern-based WAF rules | WAF uses regex/string matching; template engine allows dynamic string construction |
 | **Double Rendering / Recursive Evaluation** | Template output is itself rendered as a template again — user input in the first pass becomes template code in the second pass, crossing from data to code context twice | Template engine configured to render output recursively; or CMS stores user content that is re-evaluated as template |
 | **Template Inclusion via User Input** | User controls which template file is loaded via path parameter (e.g., `{% include user_input %}`), crossing from the data context into template-file selection — effectively converting path traversal into code execution | Template inclusion directive accepts user-controlled values; no allowlist on includable templates |
-| **Prototype Pollution → Template RCE** | In Node.js, prototype pollution injects properties (e.g., `__proto__.type`, `__proto__.block`) that template engines (Pug, Handlebars, EJS) evaluate as template directives during compilation, crossing from object data into template code execution | Node.js application with prototype pollution vector; template engine accesses polluted prototype properties during compilation (CVE-2022-29078, CVE-2023-33592) |
+| **Prototype Pollution → Template RCE** | In Node.js, prototype pollution injects properties (e.g., `__proto__.type`, `__proto__.block`) that template engines (Pug, Handlebars, EJS) evaluate as template directives during compilation, crossing from object data into template code execution | Node.js application with prototype pollution vector; template engine accesses polluted prototype properties during compilation (CVE-2022-29078 — EJS-via-prototype-pollution) |
 
 ### §5-3. Query Language Trust
 
@@ -422,7 +422,7 @@ CI/CD pipelines implicitly trust their inputs: source code, environment variable
 | §4-3 (SAML) | CVE-2024-6202 (HaloITSM) | Critical SAML user impersonation |
 | §5-3 (GraphQL) | CVE-2024-50312 (OpenShift) | GraphQL introspection information disclosure |
 | §2-2 (Host Header) | CVE-2024-40686 (IBM SmartCloud) | Cache poisoning and session hijacking via Host Header Injection |
-| §3-2 (postMessage) | CVE-2024-49038 (Copilot Studio) | CVSS 9.3. Origin validation bypass via postMessage |
+| §3-2 (postMessage) | CVE-2024-49038 (Copilot Studio) | CVSS 9.3. Cross-Site Scripting (CWE-79: improper neutralization of input during web page generation) — postMessage was the delivery vector enabling token theft / privilege elevation, but NVD/MSRC classify the root cause as XSS rather than a pure origin-validation bypass |
 | §1-1 (SSRF) | 2025 Campaign (F5 Labs report) | Mass campaign targeting EC2 metadata via SSRF |
 | §8-1 (DNS Rebinding) | CVE-2024-28224 (Ollama) | AI model server access via DNS rebinding |
 | §10-1 (Supply Chain) | September 2025 npm attack | 18 packages, 2.6B weekly downloads compromised; credential theft |

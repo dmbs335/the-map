@@ -464,7 +464,7 @@ Node.js's `crypto` module wraps OpenSSL, exposing its full breadth — including
 
 ### §7-1. Deprecated Encryption — createCipher()
 
-`crypto.createCipher()` (deprecated since Node 10, fully functional) uses OpenSSL's `EVP_BytesToKey`: MD5-based key derivation, no salt, single iteration, deterministic IV.
+`crypto.createCipher()` (runtime-deprecated since Node 10 as DEP0106; moved to end-of-life and removed in Node.js 22.0.0) uses OpenSSL's `EVP_BytesToKey`: MD5-based key derivation, no salt, single iteration, deterministic IV. Legacy applications running on Node ≤ 21 LTS remain in scope.
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|

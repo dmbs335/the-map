@@ -54,7 +54,7 @@ Exploits Unicode representations of path characters. Particularly effective agai
 
 | Subtype | Mechanism | Example Payload | Key Condition |
 |---------|-----------|-----------------|---------------|
-| **Standard Unicode** | Use `%uXXXX` format | `%u002e%u002e%u002f` (dot, dot, slash) | Legacy IIS or Windows parsers |
+| **IIS `%uXXXX` (non-standard)** | IIS-proprietary `%uXXXX` Unicode escape (never codified by any RFC) | `%u002e%u002e%u002f` (dot, dot, slash) | Legacy IIS or Windows parsers that accept the non-standard `%u` escape |
 | **Fullwidth Characters** | Unicode fullwidth variants | `％２ｅ` (U+FF05, U+FF12, U+FF45) | Unicode normalization post-validation |
 | **Canonical Equivalence** | Different codepoints, same glyph | U+FF0E (fullwidth full stop) → `.` | NFKC normalization |
 | **Compatibility Forms** | Decomposed vs composed | Various combining sequences | Form normalization after check |
@@ -76,7 +76,7 @@ Non-standard multi-byte UTF-8 representations bypass validators expecting canoni
 
 ### §1-4. Null Byte Injection
 
-Inserts URL-encoded null byte (`%00`) to truncate string processing. Exploits languages (C, PHP < 5.3.4, .NET < 8.0) where null terminates strings at a lower level than validation.
+Inserts URL-encoded null byte (`%00`) to truncate string processing. Exploits languages (C, PHP < 5.3.4) where null terminates strings at a lower level than validation, or libraries that pass user-controlled paths into Win32 APIs that themselves truncate at null (e.g., CSLA.NET's `LoadFromAssemblyPath` — a library bug, not a runtime-level .NET behavior).
 
 | Subtype | Mechanism | Example Payload | Key Condition |
 |---------|-----------|-----------------|---------------|

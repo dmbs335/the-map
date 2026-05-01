@@ -160,7 +160,7 @@ Over 340 known weak JWT secrets have been cataloged. The attack is entirely offl
 |---|---|---|
 | **Psychic Signatures (zero-value r,s)** | Submit an ECDSA signature where both `r` and `s` are zero (or specific degenerate values); the verification equation `0 = 0` becomes trivially true | Java 15–18 with built-in JCA provider (CVE-2022-21449) |
 | **ECDSA nonce reuse** | If the server signs two different tokens with the same ECDSA nonce (`k`), the private key can be recovered mathematically | Server-side ECDSA implementation with broken RNG or deterministic nonce failure |
-| **Invalid curve attack** | Supply a public key point on a different (weaker) curve; the server performs operations on the weak curve, allowing key recovery | Library doesn't validate that the public key point lies on the expected curve |
+| **Invalid curve attack** | Supply a public key point on a different (weaker) curve; the server performs operations on the weak curve, allowing key recovery. Note: this primarily affects JWE ECDH-ES key agreement (recipient's static EC private key recovery) rather than ECDSA signature verification — see `cryptographic-implementation-vulnerabilities.md` for the generalized treatment | Library doesn't validate that the public key point lies on the expected curve |
 | **Degenerate point injection** | Use curve points of small order to leak bits of the private key through multiple interactions | Library doesn't check point order |
 
 ### §3-3. RSA Implementation Flaws

@@ -189,7 +189,7 @@ Port numbers in TCP/UDP are 16-bit values (0–65535). Browsers validate against
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **65536 addition bypass** | When port 6667 (IRC) was restricted, the attacker specified port 72203 (6667 + 65536). The browser accepted this non-restricted value, but the TCP stack truncated it to 16 bits, producing the original port 6667 on the wire. | Older browser/OS combinations that didn't validate port range; largely patched |
+| **65536 addition bypass** | When port 6667 (IRC) was restricted, the attacker specified port 72203 (6667 + 65536). The browser accepted this non-restricted value, but the TCP stack truncated it to 16 bits, producing the original port 6667 on the wire. Largely historical: the WHATWG URL Standard and current browser URL parsers reject any port outside `0-65535` at parse time, so this primitive is only available against legacy/non-conforming URL parsers (older browser/OS combinations, custom URL handlers). | Older browser/OS combinations that didn't validate port range; non-WHATWG-conformant URL parsers |
 | **Negative port interpretation** | Specifying negative port values that, when cast to unsigned 16-bit, produce the restricted port number. Similar to the addition bypass but exploiting signed/unsigned conversion. | Extremely implementation-specific; rare |
 
 ### §4-4. Non-HTTP Transport Channels

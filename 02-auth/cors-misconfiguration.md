@@ -386,7 +386,7 @@ Protocols adjacent to HTTP that bypass or are not governed by CORS, enabling cro
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **SameSite Bypass via Subdomain** | CORS exploit hosted on subdomain of target bypasses `SameSite=Lax` because subdomains are same-site | Subdomain XSS or takeover (§7-1) |
+| **SameSite Bypass via Subdomain** | CORS exploit hosted on subdomain of target bypasses `SameSite=Lax` because subdomains share the same registrable domain (eTLD+1) and are therefore *same-site*. Clarification: this is not a true cross-site bypass — `fetch()` from `evil.target.com` to `api.target.com` is a same-site request that already carries `Lax`/`Strict` cookies; the "bypass" is that the attacker has obtained code execution on a same-site origin (via subdomain XSS/takeover) rather than defeating the SameSite policy itself. Cross-origin distinctions (CORS, COOP, origin checks) still apply | Subdomain XSS or takeover (§7-1) |
 | **Tracking Protection Interaction** | Firefox ETP/Total Cookie Protection, Safari ITP, and Chromium's SameSite=Lax default each limit third-party-cookie CORS exploitation differently — but same-registrable-domain requests still include cookies | Exploit must be on same eTLD+1 or subdomain, or rely on browser-specific cookie behavior |
 | **Top-Level Navigation with Cookie** | SameSite=Lax allows cookies on top-level GET navigations. Attacker uses `window.location` redirect to target, then reads response via CORS on a subsequent same-origin page. | Multi-step chain exploiting Lax exception |
 

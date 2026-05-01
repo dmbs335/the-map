@@ -110,7 +110,7 @@ Attack: /user/orange%2Fsecret.yml%3F
 mod_rewrite: Sees "/user/orange%2Fsecret.yml" (stops at %3F = ?)
 Validation: Rejects if not ending in .yml
 Backend: Accesses "/user/orange/secret.yml?" (full path decoded)
-Result: Bypass suffix-based restrictions (CVE-2024-38475)
+Result: Bypass suffix-based restrictions (CVE-2024-38474)
 ```
 
 ---

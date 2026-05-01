@@ -545,7 +545,7 @@ Blind XSS payloads typically use `import()` or external script loading with out-
 | §9-2 (Markdown to JSX) | CVE-2024-21535 (markdown-to-jsx) | XSS via malicious iframe in markdown `src` property |
 | §2-3 (Stored XSS in PAN-OS) | CVE-2024-5920 (Palo Alto PAN-OS) | Admin impersonation via stored XSS pushed from Panorama |
 | §10-1 (CRLF to XSS) | CVE-2024-52875 (GFI KerioControl) | CRLF injection in `dest` parameter; 1-click RCE chain |
-| §6-3 (postMessage to XSS) | CVE-2024-49038 (Microsoft Copilot Studio) | CVSS 9.3; XSS / Elevation of Privilege per NVD. MSRC describes postMessage-based root cause; official classification is broader than token theft alone |
+| §6-1/§6-3 (XSS in Copilot Studio) | CVE-2024-49038 (Microsoft Copilot Studio) | CVSS 9.6 NVD; CWE-79 (Improper Neutralization of Input During Web Page Generation). XSS leading to elevation of privilege over network. Specific delivery vector (postMessage vs direct DOM sink) not documented in NVD/MSRC; do not assume postMessage |
 | §9-1 (Vue template XSS) | CVE-2024-6783 (vue-template-compiler) | Prototype pollution enables XSS in Vue 2.x template compiler |
 | §6-3 (postMessage chain) | ZoomInfo Chat (July 2024) | Two-stage: token leakage via `postMessage('*')` + DOM XSS |
 | §6-3 (postMessage ATO) | Meta Conversion API Gateway (Jan 2026, personal blog report) | Account takeover via unvalidated postMessage origin. Source: individual researcher blog post — details not independently confirmed by Meta advisory |

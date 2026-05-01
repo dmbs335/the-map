@@ -94,7 +94,7 @@ Memory allocation and initialization are separated by a timing window. If an int
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **Buffer.alloc() interruption** | Node.js performance optimizations deferred memory zero-initialization for `Buffer.alloc()` and `TypedArray` constructors. When the `vm` module's `timeout` option interrupts execution between allocation and initialization, the resulting buffer contains residual heap data — secrets, tokens, and application state from prior allocations | Node.js with `vm` module using `timeout` option; multi-tenant or plugin execution environments (CVE-2025-55131) |
+| **Buffer.alloc() interruption** | `Buffer.alloc()` itself zero-fills allocated memory by design (since Node 4.5; only `Buffer.allocUnsafe()` skips zero-fill for performance). The CVE-2025-55131 issue is that the zero-fill step is implemented as a separate post-allocation operation: when the `vm` module's `timeout` option interrupts execution between the underlying allocation and the zero-fill, the partially initialized buffer becomes observable and contains residual heap data — secrets, tokens, and application state from prior allocations | Node.js with `vm` module using `timeout` option; multi-tenant or plugin execution environments (CVE-2025-55131) |
 
 ### §2-5. Language Runtime Memory Bleed
 

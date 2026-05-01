@@ -170,7 +170,7 @@ Attacks targeting the DNS hosting layer rather than the registrar.
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
 | **Hosted zone reclamation** | Domain delegates authority to a DNS provider (Route 53, Cloudflare, etc.) but the hosted zone is deleted; attacker creates new zone at the same provider | Provider assigns new zone with same NS names; delegation chain intact without the legitimate owner's zone |
-| **Zone transfer information disclosure (AXFR)** | Request a full zone transfer from a misconfigured authoritative DNS server, obtaining the complete inventory of all DNS records including internal hostnames and IPs | Server allows AXFR from any source; provides reconnaissance data for further attacks (CVE-1999-0532, still prevalent) |
+| **Zone transfer information disclosure (AXFR)** | Request a full zone transfer from a misconfigured authoritative DNS server, obtaining the complete inventory of all DNS records including internal hostnames and IPs | Server allows AXFR from any source; provides reconnaissance data for further attacks. Often tagged as CVE-1999-0532 / Nessus plugin 10595, but that identifier is a generic policy/configuration placeholder rather than a specific code-level CVE |
 | **Dynamic DNS update exploitation** | Exploit insecure dynamic DNS update configurations to inject or modify DNS records without authentication | DNS server allows unauthenticated dynamic updates; common in poorly configured BIND installations |
 
 ### §4-3. DHCP-Based DNS Record Spoofing
@@ -188,7 +188,7 @@ Exploiting BGP route announcements to intercept DNS traffic at the network routi
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
-| **BGP prefix hijack of resolver IP** | Announce a more-specific BGP route for a public DNS resolver's IP prefix (e.g., 1.1.1.1/32), diverting DNS queries from all users routing through the hijacker's AS to attacker-controlled infrastructure | BGP peering access; target resolver uses globally routable IP; no RPKI/ROA enforcement on transit networks |
+| **BGP prefix hijack of resolver IP** | Announce a more-specific BGP route for a public DNS resolver's prefix (in practice a /24, since most DFZ transit operators filter announcements longer than /24 — the June 27, 2024 Cloudflare 1.1.1.1 incident combined an AS267613 /32 origination *and* an AS262504 1.1.1.0/24 route leak, propagated via AS1031), diverting DNS queries from users whose AS-path traverses the hijacker to attacker-controlled infrastructure | BGP peering access; target resolver uses globally routable IP; no RPKI/ROA enforcement *and* no DFZ /24-max-length filtering on transit networks |
 | **BGP hijack for CA validation interception** | Temporarily hijack the target domain's IP prefix via BGP during a Certificate Authority's domain validation process, intercepting the HTTP-01 or DNS-01 challenge to obtain a fraudulent TLS certificate | CA validates from limited network vantage points; BGP hijack active during validation window; no multi-perspective validation (Birge-Lee et al., 2018 — demonstrated practical BGP attacks against DV certificate issuance; Let's Encrypt adopted multi-perspective validation in response) |
 
 ---
@@ -259,7 +259,7 @@ Exploiting the overlap between internal/private domain names and the public DNS 
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
-| **Internal TLD collision** | Organization uses a non-reserved TLD internally (e.g., `.corp`, `.local`, `.internal`); ICANN later delegates the TLD publicly, allowing external parties to register matching domains and intercept internal traffic | Organization uses unregistered TLD for internal DNS; TLD becomes publicly resolvable; `.llc` TLD case caused credential interception |
+| **Internal TLD collision** | Organization uses a non-reserved TLD internally (e.g., `.corp`, `.local`, `.internal`); if the TLD is later delegated publicly, external parties can register matching domains and intercept internal traffic. ICANN's February 2018 board resolution permanently deferred delegation of `.corp`, `.home`, and `.mail` precisely because Interisle's 2013 query-traffic study found these strings were heavily used by enterprise internal naming systems and posed credential-interception risk | Organization uses unregistered TLD for internal DNS; TLD becomes publicly resolvable |
 | **Search domain suffix collision** | Devices configured with DNS search domains append suffixes to unqualified hostnames; if the resulting FQDN resolves externally, traffic leaks to attacker-controlled servers | Short hostnames used in configurations; DNS search suffix + hostname creates resolvable public domain |
 | **Split-horizon DNS leakage** | Internal DNS queries that should be answered by internal resolvers leak to external resolvers due to misconfiguration, VPN split tunneling, or mobile device roaming | DNS split-horizon misconfigured; VPN doesn't capture all DNS traffic |
 

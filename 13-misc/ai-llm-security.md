@@ -225,7 +225,7 @@ The Model Context Protocol (MCP) and similar tool-integration frameworks enable 
 | **Rug Pull Attack** | Initially providing benign tool descriptions to pass user approval, then modifying them to include malicious instructions after installation | No continuous validation of tool descriptions post-approval |
 | **Cross-Tool Escalation** | Using one compromised tool to influence the model's behavior when interacting with other tools — e.g., a poisoned read-file tool manipulating data shown to a write-file tool | Multiple tools share context within the same agent session |
 | **OAuth Token Exfiltration** | Extracting OAuth tokens stored by MCP servers for services like Gmail, GitHub, Slack — compromise of one server yields access to all connected services | MCP server stores tokens in config files or memory without encryption |
-| **Sandbox Escape** | Exploiting filesystem or process isolation flaws in tool servers to access the host system — demonstrated in Anthropic's Filesystem-MCP server | Tool server runs with insufficient process/filesystem isolation |
+| **Sandbox Escape** | Exploiting filesystem or process isolation flaws in tool servers to access the host system — demonstrated in Anthropic's Filesystem-MCP server via path-traversal / symlink-bypass advisories (CVE-2025-53109, CVE-2025-53110) that defeat the allowed-directory enforcement | Tool server runs with insufficient process/filesystem isolation |
 
 ### §6-2. Excessive Agency and Capability Abuse
 

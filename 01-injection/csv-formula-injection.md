@@ -331,7 +331,7 @@ The file format used to deliver the injected payload affects which techniques ar
 | §1-1 + basic formula | CVE-2024-28111 | (Application) | Formula injection in CSV export |
 | §1-1 + §2 (exfiltration) | CVE-2024-29381 | Medplum | CSV/formula injection enabling data exfiltration when admin exports |
 | §6-2 (XXE) | CVE-2024-45293 | PhpSpreadsheet (XLSX reader) | XXE via encoding bypass in XML scanner; server-side file read & SSRF |
-| §6-2 (XXE) | CVE-2024-45084 | IBM Cognos Controller 11.0.0–11.1.0 | Formula injection (CWE-1236) in enterprise reporting platform |
+| §1-1 (formula injection) | CVE-2024-45084 | IBM Cognos Controller 11.0.0–11.1.0 | Formula injection (CWE-1236) in enterprise reporting platform — improper validation of file contents enables arbitrary command execution |
 | §1-1 + basic formula | CVE-2025-13133 | WordPress Simple User Import Export ≤1.1.7 | Formula injection in user import/export plugin |
 | §6-2 (XXE) | CVE-2018-19277 | PhpSpreadsheet | XXE injection in XLSX parsing |
 | §6-2 (XXE) | CVE-2017-5992 | openpyxl (Python) | XXE in XLSX parsing |

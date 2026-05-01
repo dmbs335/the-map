@@ -92,11 +92,11 @@ PHAR (PHP Archive) files contain serialized metadata that is **automatically des
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **File Operation Trigger** | Any of 30+ filesystem functions (`file_exists`, `is_dir`, `fopen`, `copy`, `stat`, `filemtime`, etc.) on a `phar://` path triggers metadata deserialization | PHP < 8.0; attacker controls file path argument |
+| **File Operation Trigger** | Any of 30+ filesystem functions (`file_exists`, `is_dir`, `fopen`, `copy`, `stat`, `filemtime`, etc.) on a `phar://` path triggers metadata deserialization | Attacker controls file path argument; `phar://` stream wrapper triggers `unserialize()` on all PHP versions (including 8.x) |
 | **Polyglot PHAR** | PHAR files crafted as valid JPEG/GIF/PNG (polyglot files) to bypass upload filters while retaining PHAR functionality | Image upload + file operation on uploaded path |
 | **Renamed Extension** | PHAR files with non-`.phar` extensions (`.jpg`, `.txt`) are still processed as PHAR when accessed via `phar://` wrapper | No extension whitelist on `phar://` access |
 
-PHP 8.0 disabled automatic PHAR metadata deserialization, largely mitigating this class. However, applications explicitly using `Phar` class methods remain vulnerable.
+PHP 8.x did **not** disable automatic PHAR metadata deserialization — the `phar://` stream wrapper still calls `unserialize()` on metadata when any filesystem function is invoked on a `phar://` path. Mitigation requires application-level controls (e.g., disabling the `phar` stream wrapper, validating file paths) rather than a runtime fix.
 
 ### §2-3. Session-Based Deserialization
 

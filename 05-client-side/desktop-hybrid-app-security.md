@@ -346,7 +346,7 @@ Platform impact varies: macOS and Ubuntu are fully vulnerable because their file
 | §4-1 (ASAR integrity bypass) | CVE-2024-46992 (Electron) | ASAR integrity check bypassable by content modification |
 | §4-1 (ASAR integrity bypass) | CVE-2025-55305 (Electron) | ASAR integrity bypass via resource modification |
 | §7-2 (Chromium N-day patch gap) | CVE-2025-4609 (Chromium) | Sandbox escape → RCE; affected Cursor and Windsurf |
-| §7-1 (npm supply chain — worm) | npm Shai-Hulud 1.0/2.0 (Aug–Nov 2025) | 796 packages compromised; self-propagating via npm token theft with post-install scripts; Shai-Hulud 2.0 introduced refined package targeting and evasion. Distinct from Sept 2025 maintainer compromise (18 packages, 2.6B weekly downloads) |
+| §7-1 (npm supply chain — worm) | npm Shai-Hulud 1.0/2.0 (Aug–Nov 2025) | Self-propagating via npm token theft with post-install scripts; reported package counts vary by tracker and wave (StepSecurity ~187 in early reporting; Aikido / Datadog later catalogued ~796 unique packages across Shai-Hulud 2.0, ~1,092 versions, >20M weekly downloads); Shai-Hulud 2.0 introduced refined package targeting and evasion. Distinct from Sept 2025 maintainer compromise (18 packages, 2.6B weekly downloads) |
 | §4-1 (ASAR persistence) | Slack ASAR injection (pentest case) | Persistence via PowerShell payload in `electron.asar` |
 | §1 + §2 + §7-2 (IPC → context isolation bypass → Chromium N-day chain) | Pwn2Own Vancouver 2023 — Microsoft Teams (Viettel Cyber Security) | Full RCE via 2-bug chain: improper MessagePorts configuration in Electron renderer compromise → Chromium sandbox escape |
 | §1-3 (Tauri scope bypass) | GHSA-q9wv-22m9-vhqh (Tauri) | Filesystem scope partially bypassable via special character escaping |

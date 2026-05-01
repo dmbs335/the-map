@@ -143,7 +143,7 @@ Override the `Array` or `Object` constructor so that when the included script's 
 |---|---|---|
 | **Setter-based interception** | `Object.defineProperty(Object.prototype, 'key', {set: function(v){exfil(v)}})` | Target response uses known property name |
 
-Modern browsers (post-2018) no longer allow overriding native constructors for cross-origin script parsing, but setter-based interception remains viable when the target response uses known property names.
+The original `Array` constructor override against JSON arrays (Jeremiah Grossman, 2006) was patched in Firefox in 2007, and equivalent Object/Array overrides have not been viable in mainstream browsers since the early ECMAScript 5 era; setter-based interception via `Object.defineProperty(Object.prototype, ...)` remains viable when the target response uses known property names.
 
 ### §4-2. Prototype Chain Poisoning
 
@@ -263,7 +263,7 @@ Modern browsers have implemented multiple layers of protection against XSSI. Thi
 
 ### §7-1. SameSite Cookie Bypass
 
-The most impactful browser-side defense against XSSI is the `SameSite` cookie attribute. Since 2021, Chromium-based browsers default to `SameSite=Lax`, preventing cookies from being sent with cross-site `<script>` requests.
+The most impactful browser-side defense against XSSI is the `SameSite` cookie attribute. Chrome shipped Lax-by-default in Chrome 80 (released February 4, 2020; staged rollout to 100% from February 17, 2020 onward), preventing cookies from being sent with cross-site `<script>` requests. Other Chromium-based browsers followed.
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|

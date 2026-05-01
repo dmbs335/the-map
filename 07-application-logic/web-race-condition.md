@@ -210,7 +210,7 @@ The database layer is the ultimate arbiter of state consistency — but most app
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
 | **Read Committed overdraw** | Default isolation in most databases (PostgreSQL, MySQL, Oracle). Concurrent transactions each SELECT the same stale balance, pass the check, then each UPDATE independently | Application uses `SELECT balance; ... UPDATE SET balance = balance - amount` pattern |
-| **Repeatable Read bypass (MySQL/MariaDB)** | MySQL's Repeatable Read does NOT use true Snapshot Isolation; phantom reads remain possible, allowing race conditions that PostgreSQL's Repeatable Read prevents | MySQL/MariaDB-specific behavior; PostgreSQL is safe at this level |
+| **Repeatable Read bypass (MySQL/MariaDB)** | InnoDB Repeatable Read uses MVCC for consistent reads and next-key locks (gap + index-record locks) on locking reads, so traditional phantom reads are largely prevented. The exploitable gap vs. PostgreSQL is **write skew / lost update** on non-locking `SELECT`-then-`UPDATE` patterns: MySQL RR does not perform first-committer-wins serialization checks, so two concurrent transactions can each read a value, decide based on it, and both write — only Serializable (or explicit `SELECT ... FOR UPDATE`) closes the window | MySQL/MariaDB-specific behavior; PostgreSQL RR (snapshot isolation) is safer for read-only consistency but, as noted below, also does not prevent write skew |
 | **Non-repeatable read exploitation** | Between two reads within the same transaction, another transaction modifies the data; the second read sees different values, causing inconsistent logic | Read Committed isolation without explicit locking |
 | **Application-side calculation race** | Application reads value into memory variable, performs calculation, writes back; concurrent transaction does the same with the same initial value | Business logic performed in application code rather than database (`UPDATE SET balance = balance - X`) |
 
@@ -219,7 +219,7 @@ The database layer is the ultimate arbiter of state consistency — but most app
 | Database | Read Uncommitted | Read Committed | Repeatable Read | Serializable |
 |----------|-----------------|----------------|-----------------|--------------|
 | **MySQL** | Vulnerable | Vulnerable | Vulnerable | Safe |
-| **PostgreSQL** | Vulnerable | Vulnerable | Safe (Snapshot Isolation) | Safe |
+| **PostgreSQL** | Vulnerable | Vulnerable | Snapshot Isolation (prevents phantoms / non-repeatable reads, but **does not prevent write skew** — only Serializable / SSI does) | Safe |
 | **MariaDB** | Vulnerable | Vulnerable | Vulnerable | Safe |
 
 ### §5-2. Locking Mechanism Failures
@@ -362,7 +362,7 @@ Race conditions are not confined to server-side processing. The browser environm
 
 | Mutation Combination | CVE / Case | Impact / Bounty |
 |---------------------|-----------|----------------|
-| §6-2 (JSP compilation race) + §6-1 (symlink) | CVE-2024-50379 / CVE-2024-56337 (Apache Tomcat) | CVSS 9.8. RCE via TOCTOU race in JSP compilation on case-insensitive filesystems (Windows). CVE-56337 is incomplete fix of CVE-50379 |
+| §6-2 (JSP compilation race) + §6-1 (symlink) | CVE-2024-50379 / CVE-2024-56337 (Apache Tomcat) | RCE via TOCTOU race in JSP compilation on case-insensitive filesystems (Windows / case-insensitive macOS APFS / certain NFS). Apache classifies both as **Important** severity; NVD has not assigned a score, while CISA-ADP rated each at CVSS 9.8. Requires non-default config (default servlet `readonly=false`). CVE-2024-56337 is the incomplete-fix follow-up to CVE-2024-50379 (additionally requires `sun.io.useCanonCaches=false` on Java ≤17) |
 | §2-1 (signal handler race) | CVE-2024-6387 "regreSSHion" (OpenSSH) | Unauthenticated RCE via race condition in SIGALRM signal handler during LoginGraceTime. Affects sshd on glibc-based Linux |
 | §1-1 (balance overdraw) + §5-1 | CVE-2024-58248 (nopCommerce) | Duplicate gift card redemption due to missing order placement locking |
 | §8-3 (framework cache race) | CVE-2024-46982 (Next.js) | Cache poisoning via race condition in Pages Router. Patched in 13.5.7 / 14.2.10 |

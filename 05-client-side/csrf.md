@@ -116,7 +116,7 @@ The Double Submit Cookie pattern sends the same token value in both a cookie and
 
 ## §2. SameSite Cookie Restriction Bypass
 
-Chromium-based browsers and some other modern browsers default cookies without an explicit `SameSite` attribute to `SameSite=Lax`; Firefox and Safari differ, relying more on Total Cookie Protection / ITP and not universally enabling Lax-by-default. Where Lax-by-default applies, it blocks most cross-site subresource/POST cookie sends while allowing top-level safe-method navigations. `SameSite=Strict` blocks cookies on all cross-site requests. These bypasses subvert this browser-level defense.
+Chromium-based browsers and Firefox (since v96, January 2022) default cookies without an explicit `SameSite` attribute to `SameSite=Lax`; Safari differs, relying more on ITP / Total Cookie Protection-style isolation rather than enforcing Lax-by-default uniformly. Where Lax-by-default applies, it blocks most cross-site subresource/POST cookie sends while allowing top-level safe-method navigations. `SameSite=Strict` blocks cookies on all cross-site requests. These bypasses subvert this browser-level defense.
 
 ### §2-1. Lax Mode Bypasses
 

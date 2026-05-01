@@ -294,7 +294,7 @@ RPO exploitability varies significantly across server platforms, frameworks, and
 | Browser | Quirks Mode CSS Parsing | Standards Mode CSS Parsing | `nosniff` Enforcement |
 |---|---|---|---|
 | **Chrome / Chromium** | Refuses to parse `text/html` as CSS in both modes (strict CORB/ORB enforcement since ~2018) | Blocked | Strict |
-| **Firefox** | Parses `text/html` as CSS in Quirks Mode (historically); modern versions increasingly strict | Blocked | Strict in modern versions |
+| **Firefox** | Parsed `text/html` as CSS in Quirks Mode historically; Firefox 50 (November 2016) added `X-Content-Type-Options: nosniff` enforcement and tightened cross-origin stylesheet MIME handling, so cross-origin `text/html` is no longer accepted as CSS in current versions | Blocked | Strict since Firefox 50 |
 | **Internet Explorer 11** | Parses `text/html` as CSS in Quirks Mode; supports `expression()` for JS execution | Partially blocked; depends on doctype | Weaker enforcement |
 | **Edge (Legacy)** | Similar to IE11 for compatibility; inherited quirks mode behavior | Blocked in standards mode | Moderate |
 | **Safari** | Historically lenient in Quirks Mode; modern versions align with Chrome/Firefox | Blocked | Strict in recent versions |
