@@ -520,15 +520,15 @@ Django's built-in validators use regular expressions susceptible to catastrophic
 
 | Mutation Combination | CVE / Case | Severity | Impact |
 |---------------------|-----------|----------|--------|
-| §1-1 (_connector injection) | CVE-2025-64459 | **Critical (9.1)** | Auth bypass, data exfiltration via ORM query logic manipulation |
+| §1-1 (_connector injection) | CVE-2025-64459 | **Critical (9.1, CISA-ADP)** | SQL injection via ORM query-structure manipulation; can enable auth/authz bypass depending on how QuerySet filters are built |
 | §1-1 (FilteredRelation alias) | CVE-2025-57833 | High | SQL injection via column alias in annotate()/alias() |
-| §1-1 (FilteredRelation PostgreSQL) | CVE-2025-13372 | High | SQL injection in column aliases on PostgreSQL |
-| §1-4 (annotate/alias MySQL) | CVE-2025-59681 | High | SQL injection in annotate(), alias(), aggregate(), extra() on MySQL/MariaDB |
+| §1-1 (FilteredRelation PostgreSQL) | CVE-2025-13372 | Medium (4.3, CISA-ADP) | SQL injection in column aliases on PostgreSQL |
+| §1-4 (annotate/alias MySQL) | CVE-2025-59681 | Critical (9.8, NVD) | SQL injection in annotate(), alias(), aggregate(), extra() on MySQL/MariaDB |
 | §1-3 (HasKey Oracle) | CVE-2024-53908 | High | SQL injection via HasKey lookup on Oracle |
 | §1-4 (values/values_list) | CVE-2024-42005 | High | SQL injection via QuerySet.values() and values_list() |
-| §6-3 (raster PostGIS) | CVE-2026-1207 | High | SQL injection via GIS raster lookups on PostGIS |
-| §1-1 (column alias control chars) | CVE-2026-1287 | High | SQL injection via control characters in column aliases |
-| §1-4 (order_by + FilteredRelation) | CVE-2026-1312 | High | SQL injection via order_by() with FilteredRelation |
+| §6-3 (raster PostGIS) | CVE-2026-1207 | Medium (5.4, CISA-ADP) | SQL injection via GIS raster band index on PostGIS; requires attacker influence over lookup parameters |
+| §1-1 (column alias control chars) | CVE-2026-1287 | Medium (5.4, CISA-ADP) | SQL injection via control characters in column aliases; requires crafted dictionary expansion into QuerySet methods |
+| §1-4 (order_by + FilteredRelation) | CVE-2026-1312 | Medium (5.4, CISA-ADP) | SQL injection via `order_by()` aliases containing periods with crafted FilteredRelation input |
 | §2-3 (strip_tags DoS) | CVE-2025-32873 | Medium | DoS via nested HTML entities in strip_tags() |
 | §2-3 (strip_tags DoS) | CVE-2024-53907 | Medium | DoS via large sequences in strip_tags() |
 | §2-3 (urlize DoS) | CVE-2024-38875 | Medium | DoS in urlize() |
@@ -536,7 +536,7 @@ Django's built-in validators use regular expressions susceptible to catastrophic
 | §2-3 (urlize DoS) | CVE-2024-45230 | Medium | DoS in urlize() |
 | §2-3 (Truncator ReDoS) | CVE-2024-27351 | Medium | ReDoS in Truncator.words() |
 | §2-3 (floatformat memory) | CVE-2024-41989 | Medium | Memory exhaustion via floatformat() |
-| §2-3 (Truncator HTML DoS) | CVE-2026-1285 | Medium | DoS in Truncator HTML methods |
+| §2-3 (Truncator HTML DoS) | CVE-2026-1285 | High (7.5, CISA-ADP) | DoS in Truncator HTML methods via many unmatched HTML end tags |
 | §6-2 (ASGI header DoS) | CVE-2025-14550 | Medium | DoS via duplicate headers in ASGI |
 | §3-1 (redirect DoS Windows) | CVE-2025-27556 | Medium | DoS in LoginView/LogoutView on Windows |
 | §3-1 (redirect Unicode DoS) | CVE-2025-64458 | Medium | DoS via Unicode in redirect URLs |

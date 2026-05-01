@@ -702,7 +702,7 @@ Taxonomy §N-M → Template ID
 ...
 ```
 
-See [TAXONOMY_MAPPING.md](TAXONOMY_MAPPING.md) for complete mapping.
+Include a `TAXONOMY_MAPPING.md` file in generated template bundles when a complete mapping is needed.
 
 ## Payloads
 
@@ -774,7 +774,7 @@ nuclei -u https://target.com -w workflows/[workflow].yaml
 
 ### Vulnerable Test Applications
 
-See [examples/vulnerable-targets.md](examples/vulnerable-targets.md) for:
+When generating an examples bundle, include `examples/vulnerable-targets.md` with:
 - Intentionally vulnerable applications
 - Expected detections
 - Payload effectiveness

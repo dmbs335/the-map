@@ -97,7 +97,7 @@ The CVE-2025-42957 attack chain is devastating: with a single low-privileged acc
 |---------|-----------|--------------------|---------------|
 | **Gateway ACL command execution** | When SAP Gateway ACLs are misconfigured (e.g., `HOST=*` in `reginfo`/`secinfo`), unauthenticated attackers can invoke OS commands through the Gateway service. Note: the actual default ACL behavior depends on SAP kernel version and applied security notes — `HOST=*` is a known misconfiguration pattern but not necessarily the out-of-the-box default in all versions | V-CONFIG | SAP Gateway on ports TCP/3300-3399 with permissive ACLs |
 | **SMDAgent command execution** | Unauthenticated SOAP requests to Solution Manager's EEM endpoint relay OS commands to connected SMDAgents, executing as the `daaadm` user | V-AUTH | Connected SMDAgents (see §1-1) |
-| **Wily Introscope JNLP injection** | Malicious JNLP files crafted via a public-facing URL trigger command execution when processed by the Introscope server | V-AUTH | SAP Wily Introscope Enterprise Manager (CVE-2026-0500, CVSS 9.6) |
+| **Wily Introscope JNLP injection** | An unauthenticated attacker can craft a malicious JNLP file at a public URL; exploitation requires a victim to open the URL, after which OS commands can execute on the victim machine | V-AUTH + UI | SAP Wily Introscope Enterprise Manager WorkStation (CVE-2026-0500, CVSS 9.6 CNA / 8.8 NVD, UI:R) |
 
 ### §2-3. SQL Injection
 
@@ -281,7 +281,7 @@ SAP exposes proprietary binary protocols on well-known port patterns that are of
 
 | Subtype | Mechanism | Boundary Violation | Key Condition |
 |---------|-----------|--------------------|---------------|
-| **Message Server ACL bypass (10KBLAZE)** | Permissive `HOST=*` configuration in Message Server ACL allows anonymous users to register as application servers, redirect user sessions, or intercept traffic | V-CONFIG | SAP Message Server with permissive ACL. Note: the "90% of deployments" estimate originates from the 10KBLAZE research presentation, not from SAP official data — actual prevalence may vary |
+| **Message Server ACL bypass (10KBLAZE)** | Permissive `HOST=*` configuration in Message Server ACL allows anonymous users to register as application servers, redirect user sessions, or intercept traffic | V-CONFIG | SAP Message Server with permissive ACL. Note: prevalence estimates originate from the 10KBLAZE research presentation, not from SAP official data; actual prevalence may vary |
 | **Internal port exposure** | Message Server internal communication port accessible from client networks, allowing registration of rogue application servers | V-CONFIG | Unsegmented MS internal/public communications |
 
 ### §9-4. Diag Protocol
@@ -368,7 +368,7 @@ This vulnerability class is uniquely dangerous because it turns SAP's own change
 | §2-1 (SolMan code inj) | CVE-2025-42887 | 2025 | 9.9 | Authenticated code injection with cross-scope impact |
 | §5-1 (Print Service traversal) | CVE-2025-42937 | 2025 | 9.8 | Unauthenticated directory traversal → system file overwrite |
 | §1-1 (BO BI SSO bypass) | CVE-2024-41730 | 2024 | 9.8 | Unauthenticated logon token retrieval when SSO enabled |
-| §2-2 (Wily Introscope) | CVE-2026-0500 | 2026 | 9.6 | Unauthenticated RCE via malicious JNLP file |
+| §2-2 (Wily Introscope) | CVE-2026-0500 | 2026 | 9.6 CNA / 8.8 NVD | User-interaction-required command execution via malicious JNLP file; not unauthenticated server-side RCE |
 | §2-3 (S/4HANA SQL injection) | CVE-2026-0501 | 2026 | 9.9 | Authenticated arbitrary SQL execution on financial data |
 | §11-1 (Transport tamper) | CVE-2021-38178 | 2021 | 9.1 | Supply chain attack through transport request manipulation |
 | §6-1 (Adobe Doc SSRF) | CVE-2024-47578 | 2024 | 9.1 | Admin-level SSRF → arbitrary file read/modify |
@@ -376,7 +376,7 @@ This vulnerability class is uniquely dangerous because it turns SAP's own change
 | §10-1 (Commerce XSS) | CVE-2025-27434 | 2025 | 8.8 | DOM-based XSS via bundled Swagger UI |
 | §6-2 (Web Dispatcher) | CVE-2024-47590 | 2024 | 8.8 | XSS → SSRF → RCE chain |
 | §8-3 (HANA privesc) | CVE-2026-0492 | 2026 | 8.8 | User impersonation → admin escalation |
-| §7-1 (Logon ticket crash) | CVE-2025-42902 | 2025 | — | NULL pointer deref → process termination |
+| §7-1 (Logon ticket crash) | CVE-2025-42902 | 2025 | 5.3 | NULL pointer deref / memory corruption via malformed SAP Logon or Assertion Ticket → process termination with low availability impact |
 
 ### Threat Actor Mapping (2025 Campaigns)
 
@@ -439,7 +439,7 @@ SAP's patch velocity has increased dramatically — but the fundamental vulnerab
 - **The protocol surface is vast and proprietary**: RFC, Diag, Router, P4, and ICM implement custom binary protocols that receive less scrutiny than open standards. Each protocol parser is a potential memory corruption or deserialization target.
 - **Dynamic code execution is a feature**: ABAP's ability to generate and execute code at runtime is used by legitimate business processes, making it impossible to simply remove the capability. The attack surface is in the *validation*, not the *mechanism*.
 - **Configuration complexity creates systemic exposure**: With hundreds of authorization objects, gateway ACLs, message server ACLs, transport routes, and RFC connections, the permutation space for misconfiguration is enormous. The 10KBLAZE research estimated a high percentage of deployments were affected by permissive ACL configurations, though this figure originates from the researchers' analysis, not SAP official data.
-- **Exploit weaponization timelines are compressing**: RECON (CVE-2020-6287) saw reliable exploits within 72 hours. In 2025, CVE-2025-31324 was being exploited by nation-state actors within days of disclosure, with public "turnkey" exploits released by August 2025.
+- **Exploit weaponization timelines are compressing**: RECON (CVE-2020-6287) saw reliable exploits shortly after disclosure. In 2025, CVE-2025-31324 was being exploited by nation-state actors within days of disclosure, with public "turnkey" exploits released by August 2025.
 
 ### Structural Solutions
 
@@ -455,23 +455,33 @@ A structural improvement in SAP security requires three paradigm shifts:
 
 ## References
 
-- Onapsis Research Labs — SAP vulnerability research, CVE-2025-31324 / CVE-2025-42999 threat intelligence, ICMAD / RECON scanner tools
-- SEC Consult — RFC vulnerability research whitepaper ("From RFC to RCE"), SAP kernel authentication bypass advisory
-- SecurityBridge — CVE-2025-42957 discovery and wild exploitation confirmation, transport system vulnerability research
-- Forescout — Chinese APT campaign threat analysis targeting SAP NetWeaver
-- EclecticIQ — China-nexus actor SAP exploitation intelligence (UNC5221, UNC5174, CL-STA-0048)
-- Palo Alto Unit 42 — CVE-2025-31324 threat brief and post-exploitation analysis
-- ReliaQuest — Initial CVE-2025-31324 discovery and disclosure
-- CISA — SAP business application exploitation advisories (2016, 2019, 2025)
-- Martin Doyhenard (DEF CON 30) — Advanced Inter-Process Desynchronization in SAP's HTTP Server
-- Alexander Polyakov (Black Hat 2011) — A Crushing Blow at the Heart of SAP J2EE Engine
-- gelim (OPCDE 2019) — SAP Message Server research
-- Tenable, Arctic Wolf, ZeroPath — Technical CVE analyses and exploitation details
-- OWASP pySAP project — Open source SAP protocol library
-- SecureAuthCorp — SAP Wireshark Dissection plug-in
-- Airbus SecLab — PowerSAP assessment tool
-- Pathlock — RFC callback attack defense and S_RFC authorization guidance
-- Layer Seven Security — SAP penetration testing methodology and critical security note analysis
+- [Onapsis Research Labs — SAP vulnerability research and scanner tools](https://onapsis.com/research/)
+- [Onapsis — Active Exploitation of SAP Vulnerability CVE-2025-31324](https://onapsis.com/blog/active-exploitation-of-sap-vulnerability-cve-2025-31324/)
+- [SAP Security Patch Day — January 2026](https://support.sap.com/en/my-support/knowledge-base/security-notes-news/january-2026.html)
+- [CVE Program Record — CVE-2025-31324 (NetWeaver Visual Composer Metadata Uploader missing authorization)](https://cveawg.mitre.org/api/cve/CVE-2025-31324)
+- [CVE Program Record — CVE-2025-42999 (NetWeaver Visual Composer deserialization)](https://cveawg.mitre.org/api/cve/CVE-2025-42999)
+- [CVE Program Record — CVE-2025-42944 (NetWeaver RMI-P4 deserialization)](https://cveawg.mitre.org/api/cve/CVE-2025-42944)
+- [CVE Program Record — CVE-2025-42957 (S/4HANA ABAP code injection via RFC)](https://cveawg.mitre.org/api/cve/CVE-2025-42957)
+- [CVE Program Record — CVE-2025-42902 (NetWeaver logon/assertion ticket memory corruption)](https://cveawg.mitre.org/api/cve/CVE-2025-42902)
+- [CVE Program Record — CVE-2026-0500 (SAP Wily Introscope Enterprise Manager WorkStation)](https://cveawg.mitre.org/api/cve/CVE-2026-0500)
+- [CVE Program Record — CVE-2026-0501 (SAP S/4HANA Financials General Ledger SQL injection)](https://cveawg.mitre.org/api/cve/CVE-2026-0501)
+- [CVE Program Record — CVE-2026-0492 (SAP HANA privilege escalation)](https://cveawg.mitre.org/api/cve/CVE-2026-0492)
+- [SEC Consult — From RFC to RCE: SAP RFC Vulnerability Research](https://sec-consult.com/fileadmin/user_upload/sec-consult/Dynamisch/Blogartikel/2023_06/SEC_Consult_Whitepaper_SAP_RFC_Vulnerability_Research_From_RFC_To_RCE.pdf)
+- [SecurityBridge — CVE-2025-42957 SAP Remote Code Execution](https://securitybridge.com/blog/cve-2025-42957-sap-remote-code-execution/)
+- [Forescout — SAP Vulnerability Exploited in the Wild by Chinese Threat Actor](https://www.forescout.com/blog/threat-analysis-sap-vulnerability-exploited-in-the-wild-by-chinese-threat-actor/)
+- [The Hacker News — China-Linked APTs Exploit SAP CVE-2025-31324](https://thehackernews.com/2025/05/china-linked-apts-exploit-sap-cve-2025.html)
+- [Palo Alto Unit 42 — Threat Brief: CVE-2025-31324](https://unit42.paloaltonetworks.com/threat-brief-sap-netweaver-cve-2025-31324/)
+- [ReliaQuest — New Critical Vulnerability in SAP NetWeaver](https://reliaquest.com/blog/threat-spotlight-reliaquest-uncovers-vulnerability-behind-sap-netweaver-compromise/)
+- [CISA — Exploitation of SAP Business Applications](https://www.cisa.gov/news-events/alerts/2016/05/11/exploitation-sap-business-applications)
+- [Martin Doyhenard — SAP ICMAD / Advanced Inter-Process Desynchronization research](https://mdoyhenard.com/)
+- [Alexander Polyakov — A Crushing Blow at the Heart of SAP J2EE Engine (Black Hat USA 2011)](https://www.blackhat.com/html/bh-us-11/bh-us-11-briefings.html)
+- [Security Silverbacks — SAP Message Server / OPCDE 2019 reference](https://playbook.securitysilverbacks.com/SAP_ABAP_Platform/reconnaissance/network_service_discovery/sap_message_server/)
+- [Tenable — CVE-2025-31324 SAP NetWeaver Exploited in the Wild](https://www.tenable.com/blog/cve-2025-31324-zero-day-vulnerability-in-sap-netweaver-exploited-in-the-wild)
+- [OWASP pySAP project — Open source SAP protocol library](https://github.com/OWASP/pysap)
+- [SecureAuthCorp — SAP Wireshark Dissection plug-in](https://github.com/SecureAuthCorp/SAP-Dissection-plug-in-for-Wireshark)
+- [Airbus SecLab — Security publications and tools](https://airbus-seclab.github.io/)
+- [Pathlock — RFC Callback Attacks: Defending Your SAP System](https://pathlock.com/rfc-callback-attacks-defending-your-sap-system-with-pathlock/)
+- [Layer Seven Security — SAP Zero-Day Vulnerability CVE-2025-31324](https://www.layersevensecurity.com/sap-zero-day-vulnerability-cve-2025-31324/)
 
 ---
 

@@ -225,7 +225,7 @@ These headers control whether a page can be framed, preventing clickjacking.
 | **Double Framing X-FO: SAMEORIGIN** | X-Frame-Options: SAMEORIGIN prevents cross-origin framing but allows same-origin; attacker uses double iframe | `attacker.com` (top) frames `victim.com/page-A` (intermediary) which frames `victim.com/page-B` (target); legacy browsers only checked the immediate parent's origin, so page-B sees page-A as same-origin and allows framing despite the top-level being attacker.com |
 | **Frame-Ancestors Null Origin** | CSP frame-ancestors validation doesn't properly reject null origin | Sandboxed iframe with null origin bypasses frame-ancestors check |
 | **Clickjacking on XFO Error Page** | Firefox native error page when X-FO blocks framing can itself be clickjacked (CVE-2024-5691) | Attacker frames the error page and performs clickjacking on it |
-| **Portal Element Frame Bypass** | The experimental `<portal>` element embeds cross-origin pages for seamless navigation transitions. Portals ignore `X-Frame-Options` because embedded content is treated as a top-level browsing context rather than a frame (Bentkowski / Securitum, 2019; the $10K Google bounty was for a related SOP bypass / local file disclosure bug, not for the X-FO bypass itself — the X-FO behavior is a spec-level design decision). CSP `frame-ancestors` also does not cover `<portal>` — the directive's scope is limited to `<frame>`, `<iframe>`, `<object>`, `<embed>` per spec, with no mention of portals. An attacker uses `<portal src="https://victim.com">` to embed protected pages; portal activation (user click) navigates the top-level context to the embedded page, enabling clickjacking disguised as interactions with the attacker's page | Target browser supports `<portal>` element (Chrome experimental); victim page relies on X-Frame-Options or frame-ancestors without additional defenses (Bentkowski / Securitum, 2019) |
+| **Portal Element Frame Bypass** | The experimental `<portal>` element embeds cross-origin pages for seamless navigation transitions. Portals ignore `X-Frame-Options` because embedded content is treated as a top-level browsing context rather than a frame (Bentkowski / Securitum, 2019; a related Google bounty covered an SOP bypass / local file disclosure bug, not the X-FO bypass itself, which is a spec-level design decision). CSP `frame-ancestors` also does not cover `<portal>` — the directive's scope is limited to `<frame>`, `<iframe>`, `<object>`, `<embed>` per spec, with no mention of portals. An attacker uses `<portal src="https://victim.com">` to embed protected pages; portal activation (user click) navigates the top-level context to the embedded page, enabling clickjacking disguised as interactions with the attacker's page | Target browser supports `<portal>` element (Chrome experimental); victim page relies on X-Frame-Options or frame-ancestors without additional defenses (Bentkowski / Securitum, 2019) |
 
 ### §4-2. Iframe Sandbox Escapes
 
@@ -330,7 +330,7 @@ DOM clobbering exploits HTML's ability to create named properties on the global 
 | **Clobbering for CSP Bypass** | Clobbering configuration objects used in script loading logic bypasses CSP | DOMPurify vulnerability: <form id="sanitizer"><input name="removed" value="<img src=x onerror=alert(1)>"> |
 | **Clobbering for XSS** | Clobbering variables used in innerHTML/eval sinks enables XSS | <a id="userConfig"><a id="userConfig" name="htmlTemplate" href="cid:&quot;onerror=alert(1)//"> |
 
-Khodayari & Pellegrino (IEEE S&P 2023, "It's (DOM) Clobbering Time") found that approximately 9.8% of top 5K websites are vulnerable to DOM clobbering, including major platforms like GitHub, Trello, and Wikibooks.
+Khodayari & Pellegrino (IEEE S&P 2023, "It's (DOM) Clobbering Time") found DOM clobbering vulnerabilities across a measurable share of popular websites, including major platforms like GitHub, Trello, and Wikibooks.
 
 ### §6-3. Mutation XSS (mXSS)
 
@@ -373,7 +373,7 @@ Trusted Types is a browser API that enforces type safety for dangerous DOM sinks
 | **Script Gadget Exploitation** | Trusted Types doesn't prevent exploitation of script gadgets (benign DOM elements triggering execution) | Polluting attributes on existing safe elements that trigger script execution |
 | **Trusted Types Policy Bypass** | Custom Trusted Types policy with unsafe createPolicy() implementation | policy.createHTML() doesn't properly sanitize, allowing HTML injection |
 
-While Trusted Types significantly reduces DOM XSS (Google reports near-elimination on 130 services), adoption remains low (14.2% of Chrome page views as of 2024) and legacy sinks remain unprotected.
+While Trusted Types significantly reduces DOM XSS in large deployments, adoption remains incomplete and legacy sinks remain unprotected.
 
 ---
 
@@ -517,7 +517,7 @@ Service Workers act as programmable network proxies with broad privileges. Compr
 | **Service Worker Cache Poisoning** | Attacker poisons SW cache with malicious responses served persistently | SW caches attacker's response; legitimate requests receive poisoned content |
 | **Service Worker Persistence** | Once registered, SW persists until explicitly unregistered or data cleared | Attacker SW remains active for months/years, monitoring victim activity |
 
-Research found SW-XSS vulnerabilities in 40 websites with over 100 million combined monthly visitors. Service Workers' lifecycle (background execution, persistence until manual clearing) makes them exceptionally dangerous for persistent attacks.
+Research found SW-XSS vulnerabilities on high-traffic websites. Service Workers' lifecycle (background execution, persistence until manual clearing) makes them exceptionally dangerous for persistent attacks.
 
 ### §9-4. Fetch Metadata Bypass
 
@@ -580,11 +580,11 @@ Browser extensions have broad privileges and weak security boundaries.
 |---------|-----------|---------------|
 | **Extension Repackaging and Obfuscation** | Malicious actor repackages legitimate extension with added malware; obfuscation bypasses automated review | Extensions use code obfuscation, delayed execution to evade Chrome Web Store / Mozilla Add-ons scanning |
 | **Extension Permission Escalation** | Extension requests minimal permissions initially, then updates to request dangerous permissions | Users approve initial install with safe permissions; update requests host_permissions: ["<all_urls>"] |
-| **Extension Supply Chain Compromise** | Legitimate extension developer account compromised; attacker uploads malicious version | Phishing attack against developer; TamperedChef campaign compromised 16 extensions affecting 3.2M users (2025) |
+| **Extension Supply Chain Compromise** | Legitimate extension developer account compromised; attacker uploads malicious version | Phishing attack against developer; TamperedChef campaign compromised extensions with a large combined install base (2025) |
 | **Manifest V3 Evasion** | Despite Manifest V3 restrictions, extensions use remote code loading, WebAssembly, or service workers for evasion | Extension loads remote script via fetch() + eval() or uses WASM blob |
 | **Extension CSP Bypass (CVE-2025-9866)** | Chromium Extensions CSP bypass via crafted HTML page | Inappropriate implementation in Extensions code path allows bypass |
 
-In December 2024, over 33 malicious Chrome extensions (2.6M+ users) harvested credentials for 18 months. In February 2025, TamperedChef compromised 16 extensions affecting 3.2M users. Despite Manifest V3, 2025 research successfully bypassed both Firefox and Chrome security mechanisms.
+In December 2024, a set of malicious Chrome extensions harvested credentials for an extended period. In February 2025, TamperedChef compromised extensions with a large install base. Despite Manifest V3, 2025 research successfully bypassed both Firefox and Chrome security mechanisms.
 
 ### §11-2. JavaScript Engine Vulnerabilities
 
@@ -597,7 +597,7 @@ JavaScript engine (V8, SpiderMonkey, JavaScriptCore) bugs enable arbitrary code 
 | **Use-After-Free** | Memory freed but pointer still used, enabling arbitrary memory read/write | Garbage collector frees object while reference still exists |
 | **ArrayBuffer/TypedArray Exploitation** | Incorrect bounds checking on ArrayBuffer or TypedArray | Out-of-bounds write in Uint32Array overwrites adjacent memory |
 
-Chrome reported over 50 high-severity and critical vulnerabilities in 2024, including actively exploited zero-days like CVE-2024-7971 and CVE-2024-7965. Differential fuzzing tools like JIT-Picker (CCS 2022) discovered 32 previously unknown bugs in JavaScript engines, earning a $10,000 Mozilla bug bounty.
+Chrome reported many high-severity and critical vulnerabilities in 2024, including actively exploited zero-days like CVE-2024-7971 and CVE-2024-7965. Differential fuzzing tools like JIT-Picker (CCS 2022) discovered previously unknown bugs in JavaScript engines.
 
 ### §11-3. Supply Chain and Dependency Attacks
 
@@ -605,7 +605,7 @@ Third-party dependencies introduce vulnerabilities into web applications.
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **Compromised CDN** | Attacker compromises CDN serving JavaScript libraries; malicious code served to all dependent sites | Polyfill.io compromise (2024) injected malware into 100K+ websites |
+| **Compromised CDN** | Attacker compromises CDN serving JavaScript libraries; malicious code served to all dependent sites | Polyfill.io compromise (2024) injected malware into many dependent websites |
 | **Vulnerable Library Version** | Application uses outdated library with known vulnerabilities | jQuery < 3.5.0 with prototype pollution; DOMPurify < 3.1.3 with mXSS bypass |
 | **Typosquatting** | Attacker publishes malicious package with name similar to popular library | npm package "cross-env-malware" instead of "cross-env" |
 | **Dependency Confusion** | Attacker publishes public package with same name as internal private package; package manager installs public version | Internal package @company/auth; attacker publishes public @company/auth with higher version |
@@ -655,10 +655,10 @@ This table maps primary attack scenarios to the Security Mechanism categories wh
 | §11-1 | TamperedChef Campaign (Feb 2025) | 16 Chrome extensions compromised affecting 3.2M users; credential harvesting |
 | §1 | HTTP/2 CrossPUSH / CrossSXG (Tsinghua 2024) | SOP bypass affecting 11/14 browsers including Chrome, Edge, Instagram, WeChat. Arbitrary XSS |
 | — | HTTP/2 CONTINUATION Flood (Bartek Nowotarski Jan 2024) | DoS via unlimited CONTINUATION frames causing OOM crash. Multiple vendors affected |
-| §6-2 | Google VRP (DOM Clobbering) | $500 bounty for DOM clobbering via 0.CL desync using early response gadgets |
+| §6-2 | Google VRP (DOM Clobbering) | DOM clobbering via 0.CL desync using early response gadgets |
 | §10-1 | WebAuthn API Hijacking (SquareX DEF CON 2025) | Passkey login bypass via API hijacking through XSS/malicious extension |
 | §10-1 | Synced Passkey Downgrade (Proofpoint 2025) | Entra ID phishing proxy spoofs unsupported browser; user downgrades to SMS/OTP |
-| §9-3 | Service Worker XSS (2024 Research) | 40 websites with 100M+ monthly visitors vulnerable to persistent SW-XSS |
+| §9-3 | Service Worker XSS (2024 Research) | High-traffic websites vulnerable to persistent SW-XSS |
 | §2-1 | CVE-2018-5175 (Firefox < 60) | Universal CSP `strict-dynamic` bypass via Firefox's internal require.js (`resource://devtools-client-jsonview/lib/require.js`) marked `contentaccessible=yes`. The browser resource bypassed CSP, and require.js's `data-main` attribute acted as a script gadget to execute arbitrary code via `data:` URI payload |
 
 ### Server-Side Cases Referenced for Context
@@ -697,7 +697,7 @@ The following are **not browser security model issues** but are referenced in §
 | **SubFinder + HTTPX + Nuclei** (Offensive) | Subdomain enumeration → vulnerability detection pipeline | Automated pipeline for discovering subdomains and testing for browser security bypasses |
 | **OWASP Dependency-Check** (Defensive) | Supply chain vulnerability detection | Scans project dependencies for known CVEs in libraries |
 | **Mozilla Observatory** (Defensive) | Website security analysis | Tests CSP, cookies, HSTS, subresource integrity, referrer policy |
-| **DiffCSP** (Research) | CSP enforcement differential testing | Generates 25K+ adversarial HTML instances × 1K+ CSPs; executes across 8 browsers (3 desktop + 5 mobile); decision-tree analysis compresses 19M execution results into ~1K analyzable paths. Found 37 bugs (29 security) in Chrome/Firefox/Safari; 12 patched; $4K bounty. NDSS 2023 |
+| **DiffCSP** (Research) | CSP enforcement differential testing | Generates adversarial HTML/CSP combinations and executes them across desktop and mobile browsers. Decision-tree analysis compressed large execution results into analyzable paths and found security bugs in Chrome/Firefox/Safari. NDSS 2023 |
 
 ---
 

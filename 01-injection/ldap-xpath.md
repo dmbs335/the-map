@@ -129,7 +129,7 @@ XML documents have no enforced schema at query time (unless validated), so attac
 | **name() element identification** | `name(/*[1])` returns the name of the first child element; iterated to discover all element names | `and name(/*[1])='users'` | BLIND |
 | **string-length() name sizing** | `string-length(name(/*[1]))` determines how many characters are in an element name, bounding the search space | `string-length(name(//node))=INT` | BLIND |
 | **starts-with() brute-force** | `starts-with(name(..), 'a')` iterates through alphabet to discover element names character-by-character | `1=starts-with(name(..), 'u')` | BLIND |
-| **Wordlist-based name guessing** | Testing known common element names (`user`, `password`, `email`, `role`, `admin`, `config`) against `string-length()` and `name()` for rapid discovery | 20,000-word scan in ~3 minutes | BLIND |
+| **Wordlist-based name guessing** | Testing known common element names (`user`, `password`, `email`, `role`, `admin`, `config`) against `string-length()` and `name()` for rapid discovery | Large wordlist scans can quickly enumerate likely element names | BLIND |
 | **string-to-codepoints() character extraction** | Converting element names to Unicode codepoint sequences for environments where string comparison is filtered | `string-to-codepoints(name(/*[1]))` | BLIND |
 | **comment() and processing-instruction() discovery** | Testing for XML comments and processing instructions that may contain sensitive metadata | `count(/comment())=1` | BLIND |
 
@@ -424,22 +424,22 @@ The structural solution requires defense at multiple layers:
 
 ## References
 
-- OWASP — LDAP Injection: https://owasp.org/www-community/attacks/LDAP_Injection
-- OWASP — XPath Injection: https://owasp.org/www-community/attacks/XPATH_Injection
-- OWASP — Blind XPath Injection: https://owasp.org/www-community/attacks/Blind_XPath_Injection
-- OWASP — LDAP Injection Prevention Cheat Sheet: https://cheatsheetseries.owasp.org/cheatsheets/LDAP_Injection_Prevention_Cheat_Sheet.html
-- BlackHat Europe 2008 — LDAP Injection & Blind LDAP Injection in Web Applications (Alonso, Parada): https://blackhat.com/presentations/bh-europe-08/Alonso-Parada/Whitepaper/bh-eu-08-alonso-parada-WP.pdf
-- BlackHat USA 2016 — A Journey From JNDI/LDAP Manipulation to RCE Dream Land (Munoz): https://blackhat.com/docs/us-16/materials/us-16-Munoz-A-Journey-From-JNDI-LDAP-Manipulation-To-RCE-wp.pdf
-- BlackHat Europe 2012 — Hacking XPath 2.0 (Siddharth): https://media.blackhat.com/bh-eu-12/Siddharth/bh-eu-12-Siddharth-Xpath-WP.pdf
-- Watchfire — Blind XPath Injection Whitepaper: https://repository.root-me.org/Exploitation%20-%20Web/EN%20-%20Blind%20Xpath%20injection.pdf
-- PayloadsAllTheThings — LDAP Injection: https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/LDAP%20Injection
-- PayloadsAllTheThings — XPath Injection: https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/XPATH%20Injection
-- HackTricks — LDAP Injection: https://book.hacktricks.wiki/pentesting-web/ldap-injection.html
-- HackTricks — XPath Injection: https://book.hacktricks.wiki/pentesting-web/xpath-injection.html
-- XCat — XPath Injection Tool: https://github.com/orf/xcat
-- CVE-2024-36401 — GeoServer RCE: https://github.com/geoserver/geoserver/security/advisories/GHSA-6jj6-gm7p-fcvv
-- CVE-2024-39565 — Juniper J-Web XPath Injection: https://nvd.nist.gov/vuln/detail/CVE-2024-39565
-- CVE-2024-49112/49113 — Windows LDAP RCE/DoS: https://www.trendmicro.com/en_us/research/25/a/what-we-know-about-cve-2024-49112-and-cve-2024-49113.html
-- CVE-2025-29810 — Active Directory LDAP Injection: https://nvd.nist.gov/vuln/detail/CVE-2025-29810
-- Rhino Security Labs — XPath Injection Attack and Defense: https://rhinosecuritylabs.com/penetration-testing/xpath-injection-attack-defense-techniques/
-- SANS — Understanding and Exploiting Web-based LDAP: https://www.sans.org/blog/understanding-and-exploiting-web-based-ldap
+- [OWASP — LDAP Injection](https://owasp.org/www-community/attacks/LDAP_Injection)
+- [OWASP — XPath Injection](https://owasp.org/www-community/attacks/XPATH_Injection)
+- [OWASP — Blind XPath Injection](https://owasp.org/www-community/attacks/Blind_XPath_Injection)
+- [OWASP — LDAP Injection Prevention Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/LDAP_Injection_Prevention_Cheat_Sheet.html)
+- [BlackHat Europe 2008 — LDAP Injection & Blind LDAP Injection in Web Applications (Alonso, Parada)](https://blackhat.com/presentations/bh-europe-08/Alonso-Parada/Whitepaper/bh-eu-08-alonso-parada-WP.pdf)
+- [BlackHat USA 2016 — A Journey From JNDI/LDAP Manipulation to RCE Dream Land (Munoz)](https://blackhat.com/docs/us-16/materials/us-16-Munoz-A-Journey-From-JNDI-LDAP-Manipulation-To-RCE-wp.pdf)
+- [BlackHat Europe 2012 — Hacking XPath 2.0 (Siddharth)](https://media.blackhat.com/bh-eu-12/Siddharth/bh-eu-12-Siddharth-Xpath-WP.pdf)
+- [Watchfire — Blind XPath Injection Whitepaper](https://repository.root-me.org/Exploitation%20-%20Web/EN%20-%20Blind%20Xpath%20injection.pdf)
+- [PayloadsAllTheThings — LDAP Injection](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/LDAP%20Injection)
+- [PayloadsAllTheThings — XPath Injection](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/XPATH%20Injection)
+- [HackTricks — LDAP Injection](https://book.hacktricks.wiki/pentesting-web/ldap-injection.html)
+- [HackTricks — XPath Injection](https://book.hacktricks.wiki/pentesting-web/xpath-injection.html)
+- [XCat — XPath Injection Tool](https://github.com/orf/xcat)
+- [CVE-2024-36401 — GeoServer RCE](https://github.com/geoserver/geoserver/security/advisories/GHSA-6jj6-gm7p-fcvv)
+- [CVE-2024-39565 — Juniper J-Web XPath Injection](https://nvd.nist.gov/vuln/detail/CVE-2024-39565)
+- [CVE-2024-49112/49113 — Windows LDAP RCE/DoS](https://www.trendmicro.com/en_us/research/25/a/what-we-know-about-cve-2024-49112-and-cve-2024-49113.html)
+- [CVE-2025-29810 — Active Directory LDAP Injection](https://nvd.nist.gov/vuln/detail/CVE-2025-29810)
+- [Rhino Security Labs — XPath Injection Attack and Defense](https://rhinosecuritylabs.com/penetration-testing/xpath-injection-attack-defense-techniques/)
+- [SANS — Understanding and Exploiting Web-based LDAP](https://www.sans.org/blog/understanding-and-exploiting-web-based-ldap)

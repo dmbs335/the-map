@@ -276,7 +276,7 @@ In certain architectural scenarios, the attack scope extends beyond a single NAT
 | **2021 Feb** | Browser patches for v2 | Chrome 87.0.4280.141, Firefox 85, Safari 14.0.3; STUN restricted-port bypass fixed | Significant mitigation |
 | **2021 Mar** | Chrome blocks 7 additional ports | Ports 69, 137, 161, 554, 1719, 1720, 1723, 6566 added to restricted list | Prophylactic mitigation |
 | **2021 Apr** | Chrome blocks port 10080 | Port 10080 restricted (Firefox already blocked it) | Incremental mitigation |
-| **2022+** | Private Network Access / Local Network Access | W3C spec requiring CORS preflight for requests from public to private networks; Chrome enforcement begins | Structural defense at browser level |
+| **2022–2026** | Private Network Access / Local Network Access | PNA proposed CORS preflights for public-to-private requests; Chrome later shifted toward LNA permission prompts. Official Chrome documentation lists `fetch()`, subresource loading, and subframe navigation in the first milestone, with WebSockets/WebTransport/WebRTC planned for later integration | Structural defense at browser level |
 
 ---
 
@@ -318,7 +318,7 @@ In certain architectural scenarios, the attack scope extends beyond a single NAT
 |---------|-----------|---------------|
 | **Restricted port list** | Browsers block HTTP/HTTPS/FTP to ALG-associated ports (5060, 5061, 1720, 6667, 21, 69, 554, etc.) | High for direct connections; bypassed by WebRTC STUN (pre-patch) |
 | **WebRTC IP masking (mDNS)** | Private IPs in ICE candidates replaced with `.local` hostnames | Partial; depends on mDNS resolver availability |
-| **Private Network Access (Local Network Access)** | CORS preflight required for requests from public origins to private/local networks; private targets must respond with `Access-Control-Allow-Private-Network: true` | Strong structural defense; enforcement rolling out gradually |
+| **Private / Local Network Access** | Browser-mediated controls for public-origin access to private/local networks: PNA-style preflights in some designs, Chrome LNA permission prompts in newer Chromium | Strong structural defense; enforcement and request-type coverage vary by browser/version |
 | **STUN restricted port enforcement** | WebRTC STUN/TURN connections now consult the restricted port list | Closes v2's primary bypass vector |
 
 ### Network-Level Defenses
@@ -339,26 +339,28 @@ NAT Slipstreaming exploits a fundamental architectural tension in network securi
 
 Incremental patches have addressed individual attack vectors — browsers now block ALG ports, mask WebRTC IPs, and enforce restricted-port lists on STUN connections. But these are band-aids over the fundamental problem. As long as NAT devices contain ALGs that automatically create forwarding expectations based on packet content, new bypass vectors will emerge. The v1-to-v2 evolution demonstrates this: when SIP port 5060 was restricted, the attack pivoted to H.323 on port 1720 via STUN; when STUN was patched, the focus shifted to other delivery mechanisms.
 
-The structural solution requires two parallel efforts: (1) **eliminating ALGs from NAT devices** — modern VoIP and multimedia protocols use ICE/STUN/TURN for NAT traversal and do not need ALGs, making them a legacy attack surface with minimal legitimate utility; and (2) **browser-enforced Private Network Access**, which shifts the security boundary from the network perimeter (which the browser can bypass) to the browser itself (which mediates all web-originated requests). The W3C Private Network Access specification, currently being implemented across major browsers, represents the most promising structural defense: it requires explicit opt-in from internal network targets before a public website can reach them, fundamentally inverting the ALG trust model.
+The structural solution requires two parallel efforts: (1) **eliminating ALGs from NAT devices** — modern VoIP and multimedia protocols use ICE/STUN/TURN for NAT traversal and do not need ALGs, making them a legacy attack surface with minimal legitimate utility; and (2) **browser-enforced Private/Local Network Access**, which shifts the security boundary from the network perimeter (which the browser can bypass) to the browser itself (which mediates web-originated requests). PNA-style preflights and Chrome's newer LNA permission prompts both move toward explicit opt-in before a public website can reach local network resources, fundamentally inverting the ALG trust model.
 
 ---
 
 ## References
 
-- Samy Kamkar, "NAT Slipstreaming" (2020) — https://samy.pl/slipstream/
-- Samy Kamkar, Ben Seri & Gregory Vishnipolsky (Armis), "NAT Slipstreaming v2.0" (2021) — https://samy.pl/slipstream/ , https://www.armis.com/research/nat-slipstreaming-v2-0/
-- Samy Kamkar, "NAT Pinning" (2010) — https://samy.pl/natpin/
-- samyk/slipstream GitHub repository — https://github.com/samyk/slipstream
-- jrozner/slipstream GitHub repository — https://github.com/jrozner/slipstream
-- WICG, "Private Network Access" specification — https://wicg.github.io/private-network-access/
-- WICG, "Local Network Access" specification — https://wicg.github.io/local-network-access/
-- IETF, "Using Multicast DNS to protect privacy when exposing ICE candidates" — https://www.ietf.org/archive/id/draft-ietf-mmusic-mdns-ice-candidates-02.html
-- RFC 8900, "IP Fragmentation Considered Fragile" — https://datatracker.ietf.org/doc/html/rfc8900
-- regit/secure-conntrack-helpers, "Secure use of iptables and connection tracking helpers" — https://github.com/regit/secure-conntrack-helpers
-- IPFire, "Security Announcement: Mitigating NAT Slipstreaming" — https://www.ipfire.org/blog/security-announcement-mitigating-nat-slipstreaming
-- Sophos, "NAT Slipstreaming Advisory" — https://www.sophos.com/en-us/security-advisories/sophos-sa-20201207-nat-slipstreaming
-- Palo Alto Networks, "PAN-SA-2021-0002" — https://security.paloaltonetworks.com/PAN-SA-2021-0002
-- Chromium, "Port 5060 blocking" — https://bugzilla.mozilla.org/show_bug.cgi?id=1674735
+- [Samy Kamkar, "NAT Slipstreaming" (2020)](https://samy.pl/slipstream/)
+- [Samy Kamkar, Ben Seri & Gregory Vishnipolsky (Armis), "NAT Slipstreaming v2.0" (2021)](https://samy.pl/slipstream/)
+- [Armis, "NAT Slipstreaming v2.0"](https://www.armis.com/research/nat-slipstreaming-v2-0/)
+- [Samy Kamkar, "NAT Pinning" (2010)](https://samy.pl/natpin/)
+- [samyk/slipstream GitHub repository](https://github.com/samyk/slipstream)
+- [jrozner/slipstream GitHub repository](https://github.com/jrozner/slipstream)
+- [WICG, "Private Network Access" specification](https://wicg.github.io/private-network-access/)
+- [WICG, "Local Network Access" specification](https://wicg.github.io/local-network-access/)
+- [Chrome for Developers, "New permission prompt for Local Network Access"](https://developer.chrome.com/blog/local-network-access)
+- [IETF, "Using Multicast DNS to protect privacy when exposing ICE candidates"](https://www.ietf.org/archive/id/draft-ietf-mmusic-mdns-ice-candidates-02.html)
+- [RFC 8900, "IP Fragmentation Considered Fragile"](https://datatracker.ietf.org/doc/html/rfc8900)
+- [regit/secure-conntrack-helpers, "Secure use of iptables and connection tracking helpers"](https://github.com/regit/secure-conntrack-helpers)
+- [IPFire, "Security Announcement: Mitigating NAT Slipstreaming"](https://www.ipfire.org/blog/security-announcement-mitigating-nat-slipstreaming)
+- [Sophos, "NAT Slipstreaming Advisory"](https://www.sophos.com/en-us/security-advisories/sophos-sa-20201207-nat-slipstreaming)
+- [Palo Alto Networks, "PAN-SA-2021-0002"](https://security.paloaltonetworks.com/PAN-SA-2021-0002)
+- [Chromium, "Port 5060 blocking"](https://bugzilla.mozilla.org/show_bug.cgi?id=1674735)
 
 ---
 

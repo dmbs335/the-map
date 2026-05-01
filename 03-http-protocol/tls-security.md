@@ -90,8 +90,8 @@ The attacker modifies the ClientHello to remove strong cipher suites, forcing se
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
-| **Export-Grade RSA (FREAK)** | MitM rewrites ClientHello to request `RSA_EXPORT` cipher suites (512-bit RSA). The server uses a static 512-bit export key, factorable in ~7 hours on EC2 (~$100). The attacker recovers the session key and decrypts traffic. | Server supports `RSA_EXPORT` suites. Static export key reused across connections. |
-| **Export-Grade DH (Logjam)** | MitM modifies the handshake to request `DHE_EXPORT` (512-bit DH). Precomputed Number Field Sieve tables for common 512-bit groups enable real-time downgrade. A single 1024-bit DH group was shared by ~18% of the HTTPS Top 1M, making precomputation cost-effective for nation-state attackers. | Server supports `DHE_EXPORT`. Common DH groups enable precomputation. |
+| **Export-Grade RSA (FREAK)** | MitM rewrites ClientHello to request `RSA_EXPORT` cipher suites (512-bit RSA). The server uses a static 512-bit export key that is cheap enough to factor in practice. The attacker recovers the session key and decrypts traffic. | Server supports `RSA_EXPORT` suites. Static export key reused across connections. |
+| **Export-Grade DH (Logjam)** | MitM modifies the handshake to request `DHE_EXPORT` (512-bit DH). Precomputed Number Field Sieve tables for common 512-bit groups enable real-time downgrade. Shared 1024-bit DH groups made precomputation cost-effective for well-resourced attackers. | Server supports `DHE_EXPORT`. Common DH groups enable precomputation. |
 | **64-bit Block Cipher Birthday (SWEET32)** | Ciphers with 64-bit blocks (3DES, Blowfish) encounter birthday-bound collisions after ~2^32 blocks (~32GB). In long-lived TLS connections (HTTP/2 multiplexing, WebSocket), block collisions leak XOR of plaintext blocks. | 3DES or Blowfish cipher suites enabled. Long-lived connections transferring >32GB. |
 | **RC4 Statistical Bias** | RC4's output bytes exhibit statistical biases. The second output byte has a 2/256 probability of being zero. With ~2^30 encryptions of the same plaintext (cookies sent across repeated connections), biases recover plaintext bytes. | RC4 cipher suites enabled (deprecated since RFC 7465). Same secret encrypted across many connections. |
 | **NULL Cipher Negotiation** | Misconfigured servers accept `TLS_RSA_WITH_NULL_SHA` or similar null-encryption suites. Traffic is authenticated but transmitted in cleartext. Scanning shows this persists in internal services and IoT devices. | Server configuration includes NULL cipher suites. No enforcement of minimum cipher strength. |
@@ -100,7 +100,7 @@ The attacker modifies the ClientHello to remove strong cipher suites, forcing se
 
 SSLv2 support on *any* server sharing the same RSA private key enables a Bleichenbacher-style oracle attack against TLS 1.2 connections to a different server. A mail server supporting SSLv2 can be used to decrypt web traffic from a TLS 1.2 web server that shares the same certificate/key.
 
-The general DROWN requires ~2^40 SSLv2 connections and 2^50 computation; the special DROWN variant (exploiting specific OpenSSL bugs) requires only ~2^17 connections. At disclosure, ~33% of all HTTPS servers were vulnerable because they shared keys with SSLv2-enabled services.
+The general DROWN requires ~2^40 SSLv2 connections and 2^50 computation; the special DROWN variant (exploiting specific OpenSSL bugs) requires only ~2^17 connections. At disclosure, a large share of HTTPS servers were vulnerable because they shared keys with SSLv2-enabled services.
 
 ---
 
@@ -115,7 +115,7 @@ In TLS ≤1.2, RSA key exchange encrypts the premaster secret under the server's
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
 | **Bleichenbacher Padding Oracle** | RSA PKCS#1 v1.5 padding is verified during decryption. When the server reveals padding validity through error messages, timing, or behavioral differences, the attacker iteratively crafts ciphertexts to narrow the plaintext range. Typically ~10,000–100,000 queries for a 2048-bit key. Originally discovered in 1998. | Server distinguishes valid from invalid PKCS#1 v1.5 padding. RSA key exchange enabled. |
-| **ROBOT (Return of Bleichenbacher's Oracle Threat)** | Modern variant using subtle oracles: TCP RST vs. timeout, duplicated TLS alerts, HTTP status code differences. Affected ~27% of Alexa Top 100 in 2017. Products from F5, Citrix, Palo Alto, IBM, and Cisco remained vulnerable 19 years after the original disclosure. | RSA key exchange enabled. Any observable behavioral difference on padding failure — even at TCP level. |
+| **ROBOT (Return of Bleichenbacher's Oracle Threat)** | Modern variant using subtle oracles: TCP RST vs. timeout, duplicated TLS alerts, HTTP status code differences. Public testing found major sites and products still vulnerable years after the original disclosure. | RSA key exchange enabled. Any observable behavioral difference on padding failure — even at TCP level. |
 | **Marvin Attack (Everlasting ROBOT)** | Even implementations claiming Bleichenbacher countermeasures leak information through timing side-channels. When the cryptographic library returns different error types (valid padding vs. invalid padding), any downstream branching or memory lookup depending on the error leaks through response timing. Found in OpenSSL, NSS, Go, GnuTLS, Java, libgcrypt, and the Linux kernel. | RSA PKCS#1 v1.5 decryption with non-constant-time error handling. Any application processing RSA key exchange. |
 
 **Note:** TLS 1.3 eliminates RSA key exchange entirely, removing this entire attack surface. However, TLS 1.2 with RSA key exchange remains widely deployed.
@@ -125,7 +125,7 @@ In TLS ≤1.2, RSA key exchange encrypts the premaster secret under the server's
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
 | **Small Subgroup Attack** | Attacker sends a DH public value from a small subgroup of the multiplicative group. The shared secret is confined to a small set of values, recoverable by brute force. | DH group parameters lack safe-prime validation. Server does not validate peer's public value order. |
-| **Weak DH Parameter Reuse** | Many servers reuse the same DH parameters (particularly 1024-bit groups). Precomputation of discrete logarithm tables for popular groups enables passive decryption. An academic estimate suggests a nation-state could break a single 1024-bit group for ~$100M, then passively decrypt any connection using that group. | Common 1024-bit DH groups. No server-side generation of unique DH parameters. |
+| **Weak DH Parameter Reuse** | Many servers reuse the same DH parameters (particularly 1024-bit groups). Precomputation of discrete logarithm tables for popular groups enables passive decryption. Academic estimates frame single-group precomputation as feasible for nation-state-level attackers, after which any connection using that group can be passively decrypted. | Common 1024-bit DH groups. No server-side generation of unique DH parameters. |
 | **Raccoon Attack (DH Timing)** | A timing side-channel in DH key exchange: when the shared secret has leading zero bytes, the server's HMAC computation during key derivation processes fewer bytes, producing a measurable timing difference. Combined with precomputed tables, the premaster secret is recoverable. | TLS-DHE or TLS-DH. Non-constant-time processing of DH shared secret leading zeros. |
 
 ### §2-3. Elliptic Curve Key Exchange Vulnerabilities
@@ -300,9 +300,9 @@ The TLS ClientHello contains rich metadata (cipher suites, extensions, elliptic 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
 | **JA3 Client Fingerprinting** | Hashes the TLS version, cipher suites, extensions, elliptic curves, and EC point formats from the ClientHello. Identifies the TLS stack (and thus the application) without decrypting traffic. | Passive network observation. |
-| **JA4+ Family** | JA4 sorts extensions alphabetically before hashing, making it resistant to Chrome's extension randomization. JA4+ adds JA4S (ServerHello), JA4H (HTTP headers), JA4X (X.509), JA4T (TCP SYN). Cross-layer correlation achieves 92–98% identification accuracy. | Passive observation with TCP and TLS visibility. |
+| **JA4+ Family** | JA4 sorts extensions alphabetically before hashing, making it resistant to Chrome's extension randomization. JA4+ adds JA4S (ServerHello), JA4H (HTTP headers), JA4X (X.509), JA4T (TCP SYN). Cross-layer correlation can improve client identification compared with single-layer TLS fingerprints. | Passive observation with TCP and TLS visibility. |
 | **JARM Active Server Fingerprinting** | Sends 10 specially crafted ClientHello messages with varying parameters and hashes the ServerHello responses. Identifies the TLS implementation and configuration on the server side. | Active scanner with network access to server. |
-| **TLS Fingerprint Spoofing / Evasion** | Attackers use custom TLS clients (uTLS, curl-impersonate) to mimic browser fingerprints, evading bot detection and fingerprint-based blocking. Custom TLS clients spoof JA3 with ~80% success, but JA4's GREASE detection flags 88% of spoofs. | Anti-bot systems using TLS fingerprinting. Custom clients attempting to mimic browsers. |
+| **TLS Fingerprint Spoofing / Evasion** | Attackers use custom TLS clients (uTLS, curl-impersonate) to mimic browser fingerprints, evading bot detection and fingerprint-based blocking. JA4-style fingerprints make some JA3 spoofing less reliable because they account for GREASE and extension-order behavior. | Anti-bot systems using TLS fingerprinting. Custom clients attempting to mimic browsers. |
 
 ---
 
@@ -323,7 +323,7 @@ Beyond protocol-level weaknesses, individual TLS library implementations contain
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
-| **Heartbleed (Heartbeat Over-Read)** | OpenSSL's TLS Heartbeat extension (RFC 6520) echoes a payload whose length is specified by the sender. The implementation trusted the sender's length field, reading up to 64KB of heap memory per request. ~17% of TLS servers affected at disclosure. Leaked private keys, session tokens, user data. (CVE-2014-0160) | OpenSSL 1.0.1–1.0.1f. TLS Heartbeat enabled (default). See `web-memory-disclosure.md` §1-1 for detailed treatment. |
+| **Heartbleed (Heartbeat Over-Read)** | OpenSSL's TLS Heartbeat extension (RFC 6520) echoes a payload whose length is specified by the sender. The implementation trusted the sender's length field, reading up to 64KB of heap memory per request. A large deployed population was affected at disclosure. Leaked private keys, session tokens, user data. (CVE-2014-0160) | OpenSSL 1.0.1–1.0.1f. TLS Heartbeat enabled (default). See `web-memory-disclosure.md` §1-1 for detailed treatment. |
 | **Ticketbleed (Session Ticket ID Padding)** | F5 BIG-IP's TLS implementation pads Session IDs shorter than 32 bytes with uninitialized memory, leaking up to 31 bytes per connection. Leaked session data and key material. (CVE-2016-9244) | F5 BIG-IP with Session Tickets enabled. See `web-memory-disclosure.md` §1-1. |
 | **TLS 1.3 Certificate Decompression DoS** | A TLS 1.3 connection using certificate compression can force allocation of up to ~22MB per connection before decompression, without checking against the configured certificate size limit. | TLS 1.3 with certificate compression. Unauthenticated. |
 
@@ -376,9 +376,9 @@ Even with perfect TLS encryption, traffic metadata reveals information about com
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
-| **Page-Level Identification** | Encrypted traffic patterns (page sizes, resource counts, timing) uniquely identify visited pages. ML classifiers achieve >90% accuracy in controlled settings. Each page has a distinctive "fingerprint" of resource sizes and load sequence. | HTTPS without traffic padding. Distinctive page structures. |
+| **Page-Level Identification** | Encrypted traffic patterns (page sizes, resource counts, timing) uniquely identify visited pages. ML classifiers can achieve high accuracy in controlled settings. Each page has a distinctive "fingerprint" of resource sizes and load sequence. | HTTPS without traffic padding. Distinctive page structures. |
 | **API Endpoint Identification** | Different API endpoints return responses of characteristic sizes. An observer classifies API calls by response size distribution, identifying user actions (search queries, login, payment) without decryption. | API with distinctive response sizes. No response padding. |
-| **Token-by-Token LLM Streaming Fingerprinting** | When LLMs stream responses token-by-token over HTTPS, each token is sent as a separate encrypted packet. Packet sizes correlate with token lengths, enabling response reconstruction using LLM-based sequence prediction. 27% accurate full reconstruction; 53% topic inference. | LLM API with token-by-token streaming. No per-token padding. See `web-timing-attack.md` §8-2 for detailed treatment. |
+| **Token-by-Token LLM Streaming Fingerprinting** | When LLMs stream responses token-by-token over HTTPS, each token is sent as a separate encrypted packet. Packet sizes correlate with token lengths, enabling response and topic inference using LLM-based sequence prediction. | LLM API with token-by-token streaming. No per-token padding. See `web-timing-attack.md` §8-2 for detailed treatment. |
 
 ### §9-2. Connection Metadata Analysis
 
@@ -411,7 +411,7 @@ The transition from classical to post-quantum (PQ) cryptography in TLS creates a
 
 ### §10-3. PQ Deployment Status
 
-Over 50% of web traffic through Cloudflare used PQ key agreement (X25519Kyber768) by late 2025. Chrome, Firefox, and major CDNs support PQ-hybrid key exchange. NIST finalized ML-KEM (FIPS 203), ML-DSA (FIPS 204), and SLH-DSA (FIPS 205) in August 2024. HQC was selected as an additional KEM for standardization in March 2025. The IETF is developing TLS integration standards for PQ algorithms.
+Cloudflare reported broad production use of PQ key agreement (X25519Kyber768) by late 2025. Chrome, Firefox, and major CDNs support PQ-hybrid key exchange. NIST finalized ML-KEM (FIPS 203), ML-DSA (FIPS 204), and SLH-DSA (FIPS 205) in August 2024. HQC was selected as an additional KEM for standardization in March 2025. The IETF is developing TLS integration standards for PQ algorithms.
 
 ---
 
@@ -433,14 +433,14 @@ Over 50% of web traffic through Cloudflare used PQ key agreement (X25519Kyber768
 
 | Mutation Combination | CVE / Case | Impact / Bounty |
 |---|---|---|
-| §7-2 (heartbeat over-read) | CVE-2014-0160 (OpenSSL, "Heartbleed") | 64KB heap leak per request. ~17% of TLS servers affected. Private keys recoverable. |
+| §7-2 (heartbeat over-read) | CVE-2014-0160 (OpenSSL, "Heartbleed") | 64KB heap leak per request. Large deployed impact. Private keys recoverable. |
 | §7-1 (state machine) | CVE-2014-0224 (OpenSSL, "CCS Injection") | MitM via early ChangeCipherSpec. All OpenSSL clients, servers ≤1.0.1g. |
 | §7-1 (goto fail) | CVE-2014-1266 (Apple SecureTransport) | Certificate validation completely bypassed. iOS 7, OS X 10.9. |
 | §7-1 (chain skip) | CVE-2014-0092 (GnuTLS) | Certificate chain verification skipped. All GnuTLS < 3.2.12. |
 | §1-1 (version downgrade) | CVE-2014-3566 ("POODLE") | CBC padding oracle via SSL 3.0 downgrade. ~1 byte per 256 requests. |
 | §7-2 (session ticket padding) | CVE-2016-9244 (F5 BIG-IP, "Ticketbleed") | 31 bytes uninitialized memory per connection. TLS key material leaked. |
-| §1-3 (cross-protocol) | CVE-2016-0800 ("DROWN") | SSLv2 oracle decrypts TLS 1.2 sessions. ~33% of HTTPS servers vulnerable. |
-| §2-1 (RSA padding oracle) | ROBOT (2017, multi-vendor) | ~27% of Alexa Top 100. F5, Citrix, Palo Alto, IBM, Cisco. |
+| §1-3 (cross-protocol) | CVE-2016-0800 ("DROWN") | SSLv2 oracle decrypts TLS 1.2 sessions. Large deployment impact at disclosure. |
+| §2-1 (RSA padding oracle) | ROBOT (2017, multi-vendor) | Major sites and products affected. F5, Citrix, Palo Alto, IBM, Cisco. |
 | §3-1 (CBC padding) | Zombie POODLE / GOLDENDOODLE (2019) | Revived padding oracle on patched TLS 1.2 implementations. |
 | §2-2 (DH timing) | Raccoon Attack (2020) | DH premaster secret recovery via timing. TLS-DHE. |
 | §6-3 (cross-protocol) | ALPACA (2021) | Application-layer protocol confusion. 1.4M servers vulnerable. |
@@ -515,7 +515,7 @@ TLS 1.3 represents a significant structural improvement — eliminating RSA key 
 - Aviram, N. et al. "DROWN: Breaking TLS using SSLv2." USENIX Security 2016.
 - Adrian, D. et al. "Imperfect Forward Secrecy: How Diffie-Hellman Fails in Practice (Logjam)." ACM CCS 2015.
 - Al Fardan, N. & Paterson, K. "Lucky Thirteen: Breaking the TLS and DTLS Record Protocols." IEEE S&P 2013.
-- Kario, H. "The Marvin Attack." Red Hat, 2023. https://people.redhat.com/~hkario/marvin/
+- [Kario, H. "The Marvin Attack." Red Hat, 2023.](https://people.redhat.com/~hkario/marvin/)
 - Bhargavan, K. et al. "Triple Handshakes and Cookie Cutters: Breaking and Fixing Authentication over TLS." IEEE S&P 2014.
 - Duong, T. & Rizzo, J. "The CRIME Attack." Ekoparty 2012.
 - Gluck, Y. et al. "BREACH: Reviving the CRIME Attack." Black Hat USA 2013.

@@ -4,7 +4,7 @@
 
 ## Classification Structure
 
-WordPress powers over 40% of the web, making it the single most targeted CMS platform. Its vulnerability surface is not monolithic — it spans core application logic, a vast plugin/theme ecosystem (96%+ of vulnerabilities), REST/XML-RPC API layers, authentication/authorization subsystems, database interaction patterns, file system operations, and the supply chain itself. In 2024 alone, 7,966 new WordPress vulnerabilities were disclosed (a 34% year-over-year increase), with XSS accounting for 47.7%, broken access control 14.19%, and CSRF 11.35%.
+WordPress powers a large share of the web, making it the single most targeted CMS platform. Its vulnerability surface is not monolithic — it spans core application logic, a vast plugin/theme ecosystem, REST/XML-RPC API layers, authentication/authorization subsystems, database interaction patterns, file system operations, and the supply chain itself. Recent vulnerability disclosures are dominated by plugin/theme issues, especially XSS, broken access control, and CSRF.
 
 This taxonomy classifies the WordPress attack surface along three orthogonal axes:
 
@@ -98,7 +98,7 @@ User-supplied input is directly concatenated into SQL queries without parameteri
 | **ORDER BY / LIMIT injection** | Sort column or pagination values injected into non-parameterizable clauses | `$wpdb->prepare()` cannot parameterize `ORDER BY`; raw input used |
 | **Time-based blind SQLi** | No visible output; attacker infers data via response time differences | `SLEEP()` or `BENCHMARK()` injected into boolean conditions |
 
-(CVE-2024-27956: WP Automatic plugin arbitrary SQL execution, 40K+ sites; CVE-2024-2879: LayerSlider CVSS 9.8; CVE-2025-9807: The Events Calendar time-based blind SQLi)
+(CVE-2024-27956: WP Automatic plugin arbitrary SQL execution; CVE-2024-2879: LayerSlider CVSS 9.8; CVE-2025-9807: The Events Calendar time-based blind SQLi)
 
 ### §2-2. Second-Order SQL Injection
 
@@ -130,7 +130,7 @@ WordPress's authentication system relies on cookies, nonces, capability checks, 
 |---------|-----------|---------------|
 | **Cookie-based identity assumption** | Plugin reads a cookie value (e.g., `original_user_id`) and authenticates as that user without verification | No HMAC/signature on cookie; attacker crafts `Cookie: original_user_id=1` (CVE-2025-5947) |
 | **Predictable auto-login token** | Plugin generates login tokens using weak algorithms (MD5 of user ID) | Token = `md5(user_id)` without salt or expiration (CVE-2025-13390) |
-| **API header bypass** | REST endpoint validates custom header (e.g., `ST-Authorization`) but accepts empty/missing values | `if (empty($header)) return;` skips auth instead of denying (CVE-2025-critical SureTriggers) |
+| **API header bypass** | REST endpoint validates custom header (e.g., `ST-Authorization`) but accepts empty/missing values | `if (empty($header)) return;` skips auth instead of denying (CVE-2025-3102: SureTriggers <=1.0.78; patched in 1.0.79) |
 | **Two-factor authentication bypass** | 2FA verification endpoint accepts crafted API calls that skip the second factor | Login API processes `user_id` parameter without requiring 2FA completion (CVE-2024-10924: Really Simple Security) |
 | **WooCommerce platform checkout bypass** | Payment platform authentication function (`determine_current_user_for_platform_checkout`) trusts unauthenticated requests | Missing request origin validation in platform checkout flow |
 | **Password reset token prediction** | Reset token generated with insufficient entropy or predictable seed | `wp_generate_password()` called with insufficient length; time-based seed |
@@ -337,7 +337,7 @@ This category covers vulnerabilities arising from flawed application logic, race
 | **Payment amount tampering** | Cart total modified client-side before payment gateway submission | Server doesn't re-validate order total before processing (WooCommerce PayPal parameter tampering) |
 | **Subscription bypass** | Membership/subscription plugin's access check bypassed via direct URL or API | Content restriction relies on template-level check, not server-side authorization |
 | **Unauthenticated order creation** | WooCommerce allows creating orders without authentication | Missing auth check on order creation endpoint (pre-WooCommerce 9.4.3) |
-| **Payment token exposure** | Stored credit card tokens accessible without authorization | Token retrieval function lacks ownership validation (CVE-2025-13457: WooCommerce Square, 80K+ sites) |
+| **Payment token exposure** | Stored credit card tokens accessible without authorization | Token retrieval function lacks ownership validation (CVE-2025-13457: WooCommerce Square) |
 
 ---
 
@@ -455,32 +455,32 @@ WordPress Multisite introduces additional attack surfaces through shared infrast
 
 ---
 
-## CVE / Bounty Mapping (2024–2025)
+## CVE / Bounty Mapping (2024–2026)
 
 | Mutation Combination | CVE / Case | Impact / Bounty |
 |---------------------|-----------|----------------|
-| §3-1 (auth bypass) + cookie manipulation | CVE-2025-5947 (Service Finder Bookings ≤6.0) | Admin account takeover; exploited day after patch |
+| §3-1 (auth bypass) + cookie manipulation | CVE-2025-5947 (Service Finder Bookings ≤6.0; patched in 6.1) | Authentication bypass via user-switch cookie; later reported under active exploitation |
 | §3-1 (predictable token) | CVE-2025-13390 (WP Directory Kit ≤1.4.4) | Auth bypass via MD5(user_id) token prediction |
-| §3-1 (2FA bypass) | CVE-2024-10924 (Really Simple Security, 4M+ sites) | Authentication bypass via crafted API call. **Precondition**: 2FA feature must be explicitly enabled (disabled by default) |
-| §3-1 (API header bypass) | CVE-2025-3102 (SureTriggers Plugin ≤1.0.78, April 2025) | Admin account creation via authorization bypass. **Precondition**: plugin installed and activated but API key not yet configured (empty secret_key comparison). Exploited within 4 hours of disclosure |
-| §2-1 (SQLi, unauthenticated) | CVE-2024-27956 (WP Automatic ≤3.92.0, 40K+ sites) | Arbitrary SQL execution |
+| §3-1 (2FA bypass) | CVE-2024-10924 (Really Simple Security) | Authentication bypass via crafted API call. **Precondition**: 2FA feature must be explicitly enabled (disabled by default) |
+| §3-1 (API header bypass) | CVE-2025-3102 (SureTriggers Plugin ≤1.0.78, April 2025) | Admin account creation via authorization bypass. **Precondition**: plugin installed and activated but API key not yet configured (empty secret_key comparison). Exploited shortly after disclosure |
+| §2-1 (SQLi, unauthenticated) | CVE-2024-27956 (WP Automatic ≤3.92.0) | Arbitrary SQL execution |
 | §2-1 (SQLi, CVSS 9.8) | CVE-2024-2879 (LayerSlider 7.9.11–7.10.0) | SQL injection via `ls_get_popup_markup` |
 | §2-1 (blind SQLi) | CVE-2025-9807 (The Events Calendar) | Time-based blind SQLi, unauthenticated |
-| §6-1 + §6-3 (PHP OI → POP → RCE) | CVE-2025-7384 (CF7 Database ≤1.4.3, CVSS 9.8) | Unauthenticated RCE via deserialization; wp-config.php deletion; 70K+ sites |
+| §6-1 + §6-3 (PHP OI → POP → RCE) | CVE-2025-7384 (CF7 Database ≤1.4.3, CVSS 9.8) | Unauthenticated RCE via deserialization; wp-config.php deletion |
 | §6-1 (cookie deserialization) | CVE-2024-4371 (CoDesigner ≤4.4.1) | PHP object injection via `recently_viewed_products` cookie |
 | §6-2 + §6-3 (stored OI → RCE) | CVE-2024-8353 (GiveWP ≤3.16.3) | PHP OI → RCE in donation plugin, 100K+ installs |
-| §6-1 (deserialization) | CVE-2026-0726 (Nexter Extension ≤4.4.6) | Unauthenticated PHP OI via `nxt_unserialize_replace` |
+| §6-1 (deserialization) | CVE-2026-0726 (Nexter Extension ≤4.4.6) | Unauthenticated PHP object injection via `nxt_unserialize_replace`; Wordfence/NVD note no known POP chain in the vulnerable plugin, so impact depends on an additional plugin/theme providing a usable POP chain |
 | §7-1 (Twig SSTI) | CVE-2024-6386 (WPML ≤4.6.12, CVSS 9.9, 1M+ installs) | RCE via Twig template injection in shortcode |
 | §7-1 (Twig SSTI) | CVE-2025-10380 (Advanced Views ≤3.7.19) | Author-level RCE via SSTI |
 | §5-1 (race condition upload) | CVE-2024-7627 (Bit File Manager 6.0–6.5.5) | Unauthenticated RCE via race condition |
 | §5-2 (path traversal) | CVE-2024-32111 (WordPress Core 6.4–6.5.4) | Directory traversal requiring Contributor+ role. Primarily affects Windows-hosted installations. CVSS Medium (5.3), not Critical |
 | §5-1 (file upload) | WordPress File Upload Plugin ≤4.24.11 | Unauthenticated file read/delete via path traversal |
-| §3-2 (user meta role injection) | CVE-2024-8253 (Post Grid Gutenberg Blocks) | Subscriber → administrator via meta update; 40K+ sites |
-| §3-2 (email change → takeover) | CVE-2024-8290 (WCFM WooCommerce Manager) | Admin account takeover via email change; 20K+ sites |
-| §3-2 (arbitrary option update) | CVE-2024-3895 (WP Datepicker) | Subscriber → admin via option manipulation; $493 bounty |
-| §1-1 (stored XSS) | CVE-2024-47374 (LiteSpeed Cache ≤6.5.0.2, 6M+ sites) | Unauthenticated stored XSS. Admin session hijacking is a possible exploitation chain but not part of the CVE description itself |
+| §3-2 (user meta role injection) | CVE-2024-8253 (Post Grid Gutenberg Blocks) | Subscriber → administrator via meta update |
+| §3-2 (email change → takeover) | CVE-2024-8290 (WCFM WooCommerce Manager) | Admin account takeover via email change |
+| §3-2 (arbitrary option update) | CVE-2024-3895 (WP Datepicker) | Subscriber → admin via option manipulation |
+| §1-1 (stored XSS) | CVE-2024-47374 (LiteSpeed Cache ≤6.5.0.2) | Unauthenticated stored XSS. Admin session hijacking is a possible exploitation chain but not part of the CVE description itself |
 | §3-3 (CSRF → file upload) | CVE-2025-12821 (NewsBlogger theme) | CSRF → arbitrary file upload → RCE |
-| §8-4 (payment token exposure) | CVE-2025-13457 (WooCommerce Square ≤5.1.1) | Unauthenticated credit card token access; 80K+ sites |
+| §8-4 (payment token exposure) | CVE-2025-13457 (WooCommerce Square ≤5.1.1) | Unauthenticated credit card token access |
 | §9-1 (supply chain) | June 2024 (5 plugins via wordpress.org) | Developer accounts compromised; admin credential exfiltration |
 | §9-1 (supply chain) | July 2025 (Gravity Forms 2.9.11.1) | Backdoor in manual download package during specific time window. Only manual downloads and certain Composer paths affected — auto-updates via Gravity API were not compromised. Total affected scope significantly smaller than the 5M+ install base |
 | §9-2 (trojan plugin) | January 2025 (WP-antymalwary-bot.php) | Fake security tool; wp-cron.php backdoor; admin access |
@@ -497,7 +497,7 @@ WordPress Multisite introduces additional attack surfaces through shared infrast
 |------|-------------|---------------|
 | **WPScan** (CLI scanner) | WordPress core, plugins, themes | Version fingerprinting against 64K+ vulnerability database; user enumeration; brute force |
 | **Wordfence** (WAF + scanner) | Real-time protection + malware scanning | WAF rules, file integrity monitoring, IP reputation; 3,427 vulnerabilities published in 2024 |
-| **Patchstack** (managed patching) | Virtual patching + vulnerability database | Priority scoring; received 4,853 valid reports in 2024; $16,400 record bounty |
+| **Patchstack** (managed patching) | Virtual patching + vulnerability database | Priority scoring; vulnerability report intake and bounty program |
 | **Sucuri SiteCheck** (remote scanner) | External fingerprinting + malware detection | Remote HTTP-based checks for known malware signatures, blocklist status |
 | **Nuclei** (template-based scanner) | WordPress detection + specific CVE checks | YAML templates for WordPress-specific vulnerabilities; `wordpress-detect.yaml` |
 | **Burp Suite** (proxy/scanner) | Interactive testing + passive scanning | Proxy-based testing; custom extensions for WordPress-specific checks |
@@ -514,7 +514,7 @@ WordPress Multisite introduces additional attack surfaces through shared infrast
 
 ### Why WordPress Is Uniquely Vulnerable
 
-The WordPress vulnerability surface is fundamentally a **complexity/trust boundary problem**. WordPress core is relatively well-secured — only 7 core vulnerabilities were found in 2024 out of 7,966 total. The overwhelming attack surface (96%) resides in the **plugin and theme ecosystem**, where tens of thousands of independent developers implement security-critical operations (authentication, database queries, file handling, input sanitization) with varying levels of competence. WordPress's architecture grants plugins deep access to core functionality through hooks, filters, and direct database access via `$wpdb`, creating a situation where a single poorly-written plugin can compromise an otherwise hardened installation.
+The WordPress vulnerability surface is fundamentally a **complexity/trust boundary problem**. WordPress core is relatively well-secured compared with the broader ecosystem. The overwhelming attack surface resides in the **plugin and theme ecosystem**, where tens of thousands of independent developers implement security-critical operations (authentication, database queries, file handling, input sanitization) with varying levels of competence. WordPress's architecture grants plugins deep access to core functionality through hooks, filters, and direct database access via `$wpdb`, creating a situation where a single poorly-written plugin can compromise an otherwise hardened installation.
 
 ### Why Incremental Fixes Fail
 
@@ -535,6 +535,10 @@ A meaningful reduction in the WordPress attack surface would require: (a) **mand
 ## References
 
 - [Wordfence Threat Intelligence — WordPress Vulnerability Database](https://www.wordfence.com/threat-intel/vulnerabilities)
+- [Wordfence — CVE-2025-5947: Service Finder Bookings Authentication Bypass](https://www.wordfence.com/blog/2025/10/attackers-actively-exploiting-critical-vulnerability-in-service-finder-bookings-plugin/)
+- [Wordfence — CVE-2025-3102: SureTriggers Authorization Bypass](https://www.wordfence.com/threat-intel/vulnerabilities/wordpress-plugins/suretriggers/suretriggers-1078-authorization-bypass-due-to-missing-empty-value-check-to-unauthenticated-administrative-user-creation)
+- [NVD — CVE-2026-0726: Nexter Extension PHP Object Injection](https://nvd.nist.gov/vuln/detail/CVE-2026-0726)
+- [Wordfence — CVE-2026-0726: Nexter Extension PHP Object Injection](https://www.wordfence.com/threat-intel/vulnerabilities/id/02de9287-68e4-46ce-a491-3f6cbb7fc0ed)
 - [Patchstack — WordPress Vulnerability Statistics 2024](https://patchstack.com/database/statistics/wordpress/2024)
 - [Patchstack — State of WordPress Security 2025](https://patchstack.com/whitepaper/state-of-wordpress-security-in-2025/)
 - [Patchstack — 2025 Mid-Year Vulnerability Report](https://patchstack.com/whitepaper/2025-mid-year-vulnerability-report/)

@@ -343,7 +343,7 @@ Exploiting differences in how proxy/WAF and application normalize URL paths, all
 | §2-1 (Kerberos Cert Auth) | CVE-2025-26647 | Windows Kerberos | Certificate-based auth bypass when cert issuer not in NTAuth store |
 | §2-1 (Kerberos Storage) | CVE-2025-29809 | Windows Kerberos | Security feature bypass via insecure storage of Kerberos keys; CVSS 7.1 |
 | §6-1 (WSO2 mTLS) | CVE-2025-9312 | WSO2 Products | mTLS auth bypass → admin privileges on REST/SOAP APIs |
-| MFA (TOCTOU) → [ATO §4-2](account-takeover.md) | CVE-2025-62004 | BullWall Server | Race condition bypassing MFA after initial admin auth; CVSS 7.5 |
+| MFA startup ordering → [ATO §4-2](account-takeover.md) | CVE-2025-62004 | BullWall Server Intrusion Protection | SIP MFA service initializes after login services during startup; authenticated user can log in during the boot-time window before MFA is enforced |
 | §5-4 (NTLM Relay) | CVE-2021-33768, CVE-2022-21979 | Microsoft Exchange (ProxyRelay) | NTLM relay between Exchange servers via PrinterBug coercion. Machine accounts in Exchange Servers group have `ms-Exch-EPI-Token-Serialization` right by default, enabling impersonation of any user. Architectural design flaw |
 | §7-2 (Pre-auth File Read) | CVE-2018-13379 | Fortinet FortiGate SSL VPN | Pre-auth arbitrary file read via `snprintf` buffer overflow stripping `.json` suffix; leaks session files containing plaintext credentials |
 | §7-2 (Hardcoded Backdoor) | CVE-2018-13382 | Fortinet FortiGate SSL VPN | Hardcoded "magic" parameter in login interface allows password reset for any user without authentication |

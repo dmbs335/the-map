@@ -582,21 +582,21 @@ Targets that exploit browser or desktop application configuration for indirect c
 
 ## Reference
 
-- Jorian Woltjer, "Arbitrary File Write," *Practical CTF*, https://book.jorianwoltjer.com/web/server-side/arbitrary-file-write
-- Doyensec, "A New Vector For 'Dirty' Arbitrary File Write to RCE," 2023, https://blog.doyensec.com/2023/02/28/new-vector-for-dirty-arbitrary-file-write-2-rce.html
-- siunam, "Python Dirty Arbitrary File Write to RCE via Writing Shared Object Files Or Overwriting Bytecode Files," 2024, https://siunam321.github.io/research/python-dirty-arbitrary-file-write-to-rce-via-writing-shared-object-files-or-overwriting-bytecode-files/
-- Conviso AppSec, "From Arbitrary File Write to RCE in Restricted Rails Apps," 2024, https://blog.convisoappsec.com/en/from-arbitrary-file-write-to-rce-in-restricted-rails-apps/
-- Datadog Security Labs, "CVE-2025-48384: Git vulnerable to arbitrary file write," 2025, https://securitylabs.datadoghq.com/articles/git-arbitrary-file-write/
-- CNCF, "runc container breakout vulnerabilities: A technical overview," 2025, https://www.cncf.io/blog/2025/11/28/runc-container-breakout-vulnerabilities-a-technical-overview/
-- SpecterOps, "Revisiting COM Hijacking," 2025, https://specterops.io/blog/2025/05/28/revisiting-com-hijacking/
-- VirusTotal, "COM Objects Hijacking," 2024, https://blog.virustotal.com/2024/03/com-objects-hijacking.html
-- Palo Alto Networks, "Gaining Persistency on Vulnerable Lambdas," 2024, https://unit42.paloaltonetworks.com/gaining-persistency-vulnerable-lambdas/
-- Mandiant/Google, "Deleting Your Way Into SYSTEM: Why Arbitrary File Deletion Vulnerabilities Matter," https://cloud.google.com/blog/topics/threat-intelligence/arbitrary-file-deletion-vulnerabilities/
-- MatteoLupinacci, "python_dirty_arbitrary_file_write" (tool), https://github.com/MatteoLupinacci/python_dirty_arbitrary_file_write
-- Convisolabs, "rails_arb_file_write_bootsnap" (tool), https://github.com/convisolabs/rails_arb_file_write_bootsnap
-- OffSec, "CVE-2024-46986 – Arbitrary File Write in Camaleon CMS Leading to RCE," https://www.offsec.com/blog/cve-2024-46986/
-- Bishop Fox, "Poisoned Pipeline Execution Attacks," https://bishopfox.com/blog/poisoned-pipeline-attack-execution-a-look-at-ci-cd-environments
-- MITRE ATT&CK, "Poisoned Pipeline Execution, T1677," https://attack.mitre.org/techniques/T1677/
+- [Jorian Woltjer, "Arbitrary File Write," *Practical CTF*](https://book.jorianwoltjer.com/web/server-side/arbitrary-file-write)
+- [Doyensec, "A New Vector For 'Dirty' Arbitrary File Write to RCE," 2023](https://blog.doyensec.com/2023/02/28/new-vector-for-dirty-arbitrary-file-write-2-rce.html)
+- [siunam, "Python Dirty Arbitrary File Write to RCE via Writing Shared Object Files Or Overwriting Bytecode Files," 2024](https://siunam321.github.io/research/python-dirty-arbitrary-file-write-to-rce-via-writing-shared-object-files-or-overwriting-bytecode-files/)
+- [Conviso AppSec, "From Arbitrary File Write to RCE in Restricted Rails Apps," 2024](https://blog.convisoappsec.com/en/from-arbitrary-file-write-to-rce-in-restricted-rails-apps/)
+- [Datadog Security Labs, "CVE-2025-48384: Git vulnerable to arbitrary file write," 2025](https://securitylabs.datadoghq.com/articles/git-arbitrary-file-write/)
+- [CNCF, "runc container breakout vulnerabilities: A technical overview," 2025](https://www.cncf.io/blog/2025/11/28/runc-container-breakout-vulnerabilities-a-technical-overview/)
+- [SpecterOps, "Revisiting COM Hijacking," 2025](https://specterops.io/blog/2025/05/28/revisiting-com-hijacking/)
+- [VirusTotal, "COM Objects Hijacking," 2024](https://blog.virustotal.com/2024/03/com-objects-hijacking.html)
+- [Palo Alto Networks, "Gaining Persistency on Vulnerable Lambdas," 2024](https://unit42.paloaltonetworks.com/gaining-persistency-vulnerable-lambdas/)
+- [Mandiant/Google, "Deleting Your Way Into SYSTEM: Why Arbitrary File Deletion Vulnerabilities Matter,"](https://cloud.google.com/blog/topics/threat-intelligence/arbitrary-file-deletion-vulnerabilities/)
+- [MatteoLupinacci, "python_dirty_arbitrary_file_write" (tool)](https://github.com/MatteoLupinacci/python_dirty_arbitrary_file_write)
+- [Convisolabs, "rails_arb_file_write_bootsnap" (tool)](https://github.com/convisolabs/rails_arb_file_write_bootsnap)
+- [OffSec, "CVE-2024-46986 – Arbitrary File Write in Camaleon CMS Leading to RCE,"](https://www.offsec.com/blog/cve-2024-46986/)
+- [Bishop Fox, "Poisoned Pipeline Execution Attacks,"](https://bishopfox.com/blog/poisoned-pipeline-attack-execution-a-look-at-ci-cd-environments)
+- [MITRE ATT&CK, "Poisoned Pipeline Execution, T1677,"](https://attack.mitre.org/techniques/T1677/)
 
 ---
 

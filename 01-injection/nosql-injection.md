@@ -302,7 +302,7 @@ Object-Document Mappers (ODMs like Mongoose) and sanitization middleware (like `
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **$or Nesting Bypass** | Mongoose's `sanitizeFilter` inspects only top-level properties of objects. Wrapping `$where` inside an `$or` array bypasses the check because the sanitizer does not recurse into array elements. The payload reaches the `sift` library for evaluation, enabling RCE. | Mongoose < 8.9.5; `populate().match()` with user-controlled filter (CVE-2025-23061) |
+| **$or Nesting Bypass** | Mongoose's `sanitizeFilter` inspects only top-level properties of objects. Wrapping `$where` inside an `$or` array bypasses the check because the sanitizer does not recurse into array elements. The payload reaches the query/evaluation path, enabling search/code injection depending on where the predicate is evaluated. | Mongoose < 8.9.5 / < 7.8.4 / < 6.13.6; `populate().match()` with user-controlled filter (CVE-2025-23061) |
 | **Incomplete Patch Iteration** | CVE-2025-23061 was an incomplete fix for CVE-2024-53900. The original fix blocked direct `$where` injection but not `$where` nested within `$or`. This pattern of incremental bypass is common in sanitization layers. | Mongoose 8.8.3–8.9.4 (patched first CVE but not second) |
 | **populate().match() Attack Surface** | Mongoose's `populate()` method with a `match` parameter passes user-controlled objects into query construction. This is a less obvious injection surface compared to direct `find()` calls. | Application uses `populate().match(userInput)` |
 
@@ -383,7 +383,7 @@ NoSQL injection payloads may not execute immediately upon injection but instead 
 |---------|-------|--------|
 | **NoSQLi → Authentication Bypass → Account Takeover** | Operator injection on login → access as admin → full application compromise | Authentication bypass escalated to full access |
 | **NoSQLi → Token Extraction → Password Reset Hijack** | Blind extraction of password reset tokens or 2FA secrets → account takeover without credentials | Blind data extraction escalated to account takeover |
-| **SSRF → Redis → RCE** | SSRF vulnerability reaches Redis service → Lua script injection → command execution on Redis host | Protocol-level chaining |
+| **SSRF → Redis → Data Tampering / RCE Chain** | SSRF vulnerability reaches Redis service → protocol-level command injection can manipulate keys, flush data, write configuration-backed files, or abuse module/loading features in exposed legacy or misconfigured deployments. Redis Lua (`EVAL`) itself executes only inside the Redis process and should not be described as direct OS command execution. | Protocol-level chaining; host-level RCE requires a separate Redis misconfiguration or dangerous feature chain |
 | **NoSQLi → Aggregation → Cross-Collection Read → Privilege Escalation** | Operator injection in find() → pivot to aggregation pipeline → $lookup on admin collection → extract admin credentials | Query-level escalation to data-level impact |
 | **NoSQLi → $merge → Data Tampering** | Aggregation pipeline injection → $merge to overwrite user roles/permissions in target collection | Read-level injection escalated to write-level impact |
 | **Prototype Pollution → NoSQLi** | Prototype pollution sets `Object.prototype.$gt = ""` → all subsequent queries include implicit operator → universal bypass | Requires separate prototype pollution vulnerability |
@@ -397,7 +397,7 @@ NoSQL injection payloads may not execute immediately upon injection but instead 
 | **Authentication Bypass** | Login form passing user input to `find()` or `findOne()` without type validation | §1-1 + §1-2 + §6-1 |
 | **Blind Data Exfiltration** | No direct data output; requires oracle-based character extraction | §1-2 + §3-1 + §8-1 + §8-2 |
 | **Direct Data Leakage** | Application returns query results or error messages containing data | §4-1 + §5-1 + §8-3 |
-| **Remote Code Execution** | Server-side JavaScript enabled; SSJI context reachable | §3 (MongoDB SSJI) |
+| **Application-Layer Code Execution** | ODM/application layer evaluates attacker-controlled predicates in the host runtime, as in Mongoose `populate().match()` `$where` bugs | §7-1 (Mongoose / Node.js evaluation path) |
 | **Redis In-Context Script Execution** | Redis Lua scripting (EVAL) allows arbitrary Lua execution within Redis, but this is confined to the Redis process — not equivalent to host-level OS command execution | §5-6 (Redis Lua — confined to Redis context, not OS-level RCE) |
 | **Cross-Collection Data Access** | Aggregation pipeline injection point exists | §4-1 + §4-3 |
 | **Data Modification / Destruction** | Write permissions; aggregation or direct write operations accessible | §4-2 + §5-2 (Cypher DELETE) + §5-6 (Redis FLUSHALL) |
@@ -412,15 +412,15 @@ NoSQL injection payloads may not execute immediately upon injection but instead 
 
 | Mutation Combination | CVE / Case | Impact / Bounty |
 |---------------------|-----------|----------------|
-| §7-1 (Mongoose $or nesting bypass) | CVE-2025-23061 (Mongoose < 8.9.5) | RCE via `$where` in `populate().match()`. Incomplete fix for CVE-2024-53900. CVSS 9.1 |
-| §7-1 (Mongoose populate().match()) | CVE-2024-53900 (Mongoose < 8.8.3) | RCE via `$where` injection through `populate().match()` function |
+| §7-1 (Mongoose $or nesting bypass) | CVE-2025-23061 (Mongoose < 8.9.5 / < 7.8.4 / < 6.13.6) | Code/search injection via nested `$where` in `populate().match()`. Incomplete fix for CVE-2024-53900. GitHub scores 9.1; NVD analysis lists 9.8 |
+| §7-1 (Mongoose populate().match()) | CVE-2024-53900 (Mongoose < 8.8.3 / < 7.8.3 / < 6.13.5) | Search/code injection via `$where` in `populate().match()`; impact depends on the application path that evaluates the predicate |
 | §4-3 ($mergeCursors authorization bypass) | CVE-2025-6713 (MongoDB Server < 8.0.7) | Unauthorized data access bypassing RBAC in sharded deployments. CVSS 7.7. Note: This is a server-side authorization flaw, not a NoSQL injection — included here for completeness as it involves aggregation internals |
 | §1-1 (Operator injection on password reset) | CVE-2024-48573 (AquilaCMS ≤ 1.409.20) | Unauthenticated password reset for any user including admin |
-| §1-1 + §8-1 (Blind extraction of reset tokens) | Rocket.Chat HackerOne #1130874 | Post-auth blind NoSQL injection enabling extraction of sensitive tokens. Full impact chain (ATO→RCE) as described in report requires further verification against public disclosure details. $3,000+ bounty |
+| §1-1 + §8-1 (Blind extraction of reset tokens) | Rocket.Chat HackerOne #1130874 | Post-auth blind NoSQL injection enabling extraction of sensitive tokens. Full impact chain (ATO→RCE) as described in report requires further verification against public disclosure details. Public bounty report |
 | §8-2 (Timing oracle on unsanitized selectors) | CVE-2023-28359 (Rocket.Chat) | Time-based blind data extraction via unsanitized MongoDB selectors |
 | §5-1 (N1QL injection in Sync Gateway) | CVE-2019-9039 (Couchbase Sync Gateway) | N1QL statement injection via `_all_docs` endpoint parameters |
 | §5-5 (Elasticsearch dynamic scripting) | CVE-2014-3120 (Elasticsearch < 1.2, dynamic scripting enabled by default), CVE-2015-1427 (Groovy sandbox bypass in < 1.3.8/1.4.3) | RCE via unsandboxed/sandbox-bypassed scripting. Note: distinct issue from "NoSQL injection" — this is a dynamic scripting exposure / sandbox escape, not query operator injection |
-| §5-6 (Redis Lua script injection) | Redis EVAL injection (no specific CVE) | Arbitrary Lua execution within Redis context via unsanitized EVAL arguments. Note: CVE-2022-24735 is a Git dubious ownership vulnerability, not Redis-related |
+| §5-6 (Redis Lua script injection) | Redis EVAL injection / CVE-2022-24735 (Redis < 6.2.7 / < 7.0.0) | Unsanitized application input to `EVAL` can execute attacker-controlled Lua inside Redis context. CVE-2022-24735 is a related Redis Lua execution-environment flaw where lower-privileged users could cause Lua code to execute later with another user's privileges; it is not the same as application-layer command injection |
 
 ---
 
@@ -453,21 +453,25 @@ NoSQL injection payloads may not execute immediately upon injection but instead 
 
 ## References
 
-- PortSwigger Web Security Academy — NoSQL Injection: https://portswigger.net/web-security/nosql-injection
-- OWASP Web Security Testing Guide — Testing for NoSQL Injection: https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/07-Input_Validation_Testing/05.6-Testing_for_NoSQL_Injection
-- PayloadsAllTheThings — NoSQL Injection: https://swisskyrepo.github.io/PayloadsAllTheThings/NoSQL%20Injection/
-- HackTricks — NoSQL Injection: https://book.hacktricks.wiki/pentesting-web/nosql-injection.html
-- Soroush Dalili — MongoDB NoSQL Injection with Aggregation Pipelines (2024): https://soroush.me/blog/2024/06/mongodb-nosql-injection-with-aggregation-pipelines/
-- OPSWAT — Technical Discovery of Mongoose CVE-2025-23061 and CVE-2024-53900: https://www.opswat.com/blog/technical-discovery-mongoose-cve-2025-23061-cve-2024-53900
-- ZeroPath — MongoDB CVE-2025-6713 Unauthorized Data Access: https://zeropath.com/blog/mongodb-cve-2025-6713-unauthorized-data-access
-- WithSecure Labs — N1QL Injection: Kind of SQL Injection in a NoSQL Database: https://labs.withsecure.com/publications/n1ql-injection-kind-of-sql-injection-in-a-nosql-database
-- Intigriti — NoSQL Injection Advanced Exploitation Guide: https://www.intigriti.com/researchers/blog/hacking-tools/exploiting-nosql-injection-nosqli-vulnerabilities
-- Imperva — NoSQL SSJI Authentication Bypass: https://www.imperva.com/blog/nosql-ssji-authentication-bypass/
-- NullSweep — NoSQL Injection Cheatsheet: https://nullsweep.com/nosql-injection-cheatsheet/
-- SecOps Group — A Pentester's Guide to NoSQL Injection: https://secops.group/a-pentesters-guide-to-nosql-injection/
-- PMC/ScienceDirect — The MongoDB Injection Dataset (2024): https://pmc.ncbi.nlm.nih.gov/articles/PMC10997947/
-- Rocket.Chat HackerOne Report #1130874: https://hackerone.com/reports/1130874
-- OWASP NoSQL Security Cheat Sheet: https://cheatsheetseries.owasp.org/cheatsheets/NoSQL_Security_Cheat_Sheet.html
+- [PortSwigger Web Security Academy — NoSQL Injection](https://portswigger.net/web-security/nosql-injection)
+- [OWASP Web Security Testing Guide — Testing for NoSQL Injection](https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/07-Input_Validation_Testing/05.6-Testing_for_NoSQL_Injection)
+- [PayloadsAllTheThings — NoSQL Injection](https://swisskyrepo.github.io/PayloadsAllTheThings/NoSQL%20Injection/)
+- [HackTricks — NoSQL Injection](https://book.hacktricks.wiki/pentesting-web/nosql-injection.html)
+- [Soroush Dalili — MongoDB NoSQL Injection with Aggregation Pipelines (2024)](https://soroush.me/blog/2024/06/mongodb-nosql-injection-with-aggregation-pipelines/)
+- [OPSWAT — Technical Discovery of Mongoose CVE-2025-23061 and CVE-2024-53900](https://www.opswat.com/blog/technical-discovery-mongoose-cve-2025-23061-cve-2024-53900)
+- [ZeroPath — MongoDB CVE-2025-6713 Unauthorized Data Access](https://zeropath.com/blog/mongodb-cve-2025-6713-unauthorized-data-access)
+- [CVE Program Record — CVE-2025-23061 (Mongoose nested `$where` in `populate().match()`)](https://cveawg.mitre.org/api/cve/CVE-2025-23061)
+- [CVE Program Record — CVE-2024-53900 (Mongoose `$where` in `populate().match()`)](https://cveawg.mitre.org/api/cve/CVE-2024-53900)
+- [CVE Program Record — CVE-2025-6713 (MongoDB `$mergeCursors` authorization bypass)](https://cveawg.mitre.org/api/cve/CVE-2025-6713)
+- [CVE Program Record — CVE-2022-24735 (Redis Lua execution environment ACL issue)](https://cveawg.mitre.org/api/cve/CVE-2022-24735)
+- [WithSecure Labs — N1QL Injection: Kind of SQL Injection in a NoSQL Database](https://labs.withsecure.com/publications/n1ql-injection-kind-of-sql-injection-in-a-nosql-database)
+- [Intigriti — NoSQL Injection Advanced Exploitation Guide](https://www.intigriti.com/researchers/blog/hacking-tools/exploiting-nosql-injection-nosqli-vulnerabilities)
+- [Imperva — NoSQL SSJI Authentication Bypass](https://www.imperva.com/blog/nosql-ssji-authentication-bypass/)
+- [NullSweep — NoSQL Injection Cheatsheet](https://nullsweep.com/nosql-injection-cheatsheet/)
+- [SecOps Group — A Pentester's Guide to NoSQL Injection](https://secops.group/a-pentesters-guide-to-nosql-injection/)
+- [PMC/ScienceDirect — The MongoDB Injection Dataset (2024)](https://pmc.ncbi.nlm.nih.gov/articles/PMC10997947/)
+- [Rocket.Chat HackerOne Report #1130874](https://hackerone.com/reports/1130874)
+- [OWASP NoSQL Security Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/NoSQL_Security_Cheat_Sheet.html)
 
 ---
 

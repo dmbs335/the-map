@@ -141,7 +141,7 @@ When the taken-over subdomain serves critical infrastructure resources, the take
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
 | **Software update channel hijack** | Subdomain previously served software updates or package repositories; attacker serves malicious updates from the taken-over domain | Clients configured to pull updates from the subdomain; no code signing or additional integrity verification |
-| **Container image registry hijack** | Subdomain hosted a container registry; attacker serves malicious container images | Kubernetes/Docker configurations reference the subdomain for image pulls; approximately 150 deprovisioned S3 buckets discovered serving 8M+ requests (2024-2025 research) |
+| **Container image registry hijack** | Subdomain hosted a container registry; attacker serves malicious container images | Kubernetes/Docker configurations reference the subdomain for image pulls; research found deprovisioned cloud storage still receiving large request volumes |
 | **JavaScript/CDN dependency hijack** | Subdomain served JavaScript libraries or CDN assets embedded in other sites; attacker serves malicious scripts | Third-party websites include `<script src="...">` from the taken-over subdomain; no Subresource Integrity (SRI) |
 | **SSL VPN configuration hijack** | Subdomain provided VPN configuration files; attacker distributes configurations pointing to attacker-controlled infrastructure | VPN clients auto-fetch configuration from the taken-over subdomain |
 
@@ -179,7 +179,7 @@ Exploiting DHCP's integration with DNS dynamic updates — particularly in Activ
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
-| **DHCP DNS Dynamic Update spoofing** | DHCP servers in Active Directory environments perform DNS dynamic updates on behalf of clients. An attacker sends crafted DHCP requests with arbitrary hostnames, causing the DHCP server to create or overwrite DNS A/AAAA records for those names — effectively achieving unauthenticated DNS record injection | AD-integrated DHCP with DNS dynamic updates enabled (default); no DHCP name protection configured; Akamai research (Dec 2023): 40% of monitored networks ran vulnerable DHCP config; 57% had DHCP on a domain controller (worst case — enables unauthenticated ADIDNS record overwriting) |
+| **DHCP DNS Dynamic Update spoofing** | DHCP servers in Active Directory environments perform DNS dynamic updates on behalf of clients. An attacker sends crafted DHCP requests with arbitrary hostnames, causing the DHCP server to create or overwrite DNS A/AAAA records for those names — effectively achieving unauthenticated DNS record injection | AD-integrated DHCP with DNS dynamic updates enabled (default); no DHCP name protection configured; Akamai research found vulnerable DHCP configurations in monitored enterprise networks, with domain-controller DHCP placement as the worst case |
 | **Machine account DNS record poisoning** | In AD environments, authenticated domain machines can update their own DNS records. A compromised or attacker-controlled machine modifies its DNS record to point to a different IP, enabling MitM against services that resolve that hostname | Domain-joined machine compromised; DNS scavenging not aggressive enough to detect changes |
 
 ### §4-4. BGP-Based DNS Traffic Hijacking
@@ -341,8 +341,8 @@ Attacks targeting security mechanisms that rely on DNS records for authenticatio
 | §2-3 (MCP SDK - TypeScript) | CVE-2025-66414 (MCP TypeScript SDK) | Same class as above. Fixed in v1.24.0 |
 | §2-3 (MCP Inspector RCE) | CVE-2025-49596 (Anthropic MCP Inspector) | CVSS 9.4. Critical RCE via DNS rebinding + browser-based exploit |
 | §2-2 (SSRF via rebinding) | CVE-2025-15104 (Nu Html Checker) | SSRF bypasses hostname protection via DNS rebinding TOCTOU |
-| §3-1 (S3 bucket takeover) | Multiple cases (2024-2025 research) | ~150 deprovisioned S3 buckets found; 8M+ requests interceptable; supply chain risk |
-| §4-3 (DHCP DNS spoofing) | No CVE assigned (Akamai research 2023) | Unauthenticated DNS record spoofing in 57% of monitored AD networks |
+| §3-1 (S3 bucket takeover) | Multiple cases (2024-2025 research) | Deprovisioned S3 buckets still receiving large request volumes; supply chain risk |
+| §4-3 (DHCP DNS spoofing) | No CVE assigned (Akamai research 2023) | Unauthenticated DNS record spoofing in monitored AD networks |
 | §4-4 (BGP DNS hijack) | Cloudflare 1.1.1.1 incident (June 2024) | Brazilian ISP announced 1.1.1.1/32; DNS resolution disrupted globally |
 | §7-1 (TLD collision) | .llc TLD collision case | Windows credential interception via passive MitM on organizations using `.llc` internally |
 | §8-1 (SPF bypass) | CVE-2024-7208, CVE-2024-7209 | Multi-tenant SPF exploitation enables cross-tenant email spoofing |
@@ -390,7 +390,7 @@ DNS was designed in the 1980s as a distributed, hierarchical naming system with 
 
 ### Why Incremental Fixes Fail
 
-Each generation of DNS security fixes addresses specific attack vectors while leaving the structural problem intact. DNSSEC prevents cache poisoning but introduces algorithmic complexity attacks (KeyTrap). DoH prevents eavesdropping but eliminates network-level security monitoring. DNS pinning prevents rebinding but breaks legitimate dynamic DNS use cases. RPKI prevents BGP hijacking of DNS traffic but adoption remains at ~50% after years of deployment. The fundamental issue is that DNS occupies a **trust-critical position** in the web security architecture while remaining a **best-effort, eventually-consistent** system. No single incremental fix can bridge this gap because the mutations exploit different facets of the same structural weakness.
+Each generation of DNS security fixes addresses specific attack vectors while leaving the structural problem intact. DNSSEC prevents cache poisoning but introduces algorithmic complexity attacks (KeyTrap). DoH prevents eavesdropping but eliminates network-level security monitoring. DNS pinning prevents rebinding but breaks legitimate dynamic DNS use cases. RPKI prevents BGP hijacking of DNS traffic but adoption remains uneven. The fundamental issue is that DNS occupies a **trust-critical position** in the web security architecture while remaining a **best-effort, eventually-consistent** system. No single incremental fix can bridge this gap because the mutations exploit different facets of the same structural weakness.
 
 ### The Structural Solution
 

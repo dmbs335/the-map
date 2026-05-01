@@ -87,9 +87,9 @@ Jailbreaking attacks target the safety alignment layer of LLMs — the behaviora
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
 | **Crescendo Attack** | Gradually escalating from benign to harmful requests across many turns, normalizing each step | Per-turn safety evaluation without full-conversation context |
-| **Deceptive Delight** | Engaging the model in interactive conversation that progressively bypasses safety guardrails through distraction and camouflage — achieving ~65% ASR within 3 turns | Multi-turn context management weakens per-turn safety |
+| **Deceptive Delight** | Engaging the model in interactive conversation that progressively bypasses safety guardrails through distraction and camouflage | Multi-turn context management weakens per-turn safety |
 | **Bad Likert Judge** | Asking the model to rate response harmfulness on a Likert scale, then requesting examples at each harm level — extracting the highest-scored harmful content | Model's evaluation capability conflicts with content generation restrictions |
-| **Sycophancy Exploitation** | Leveraging the model's tendency to agree with users across turns to progressively weaken safety boundaries — elevating ASR from ~18% to ~86% | Model optimized for user satisfaction over safety |
+| **Sycophancy Exploitation** | Leveraging the model's tendency to agree with users across turns to progressively weaken safety boundaries | Model optimized for user satisfaction over safety |
 
 ### §2-3. Adaptive and Optimization-Based Attacks
 
@@ -104,7 +104,7 @@ Jailbreaking attacks target the safety alignment layer of LLMs — the behaviora
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **Adversarial Fine-Tuning** | Fine-tuning on as few as 10 adversarially designed examples to remove safety guardrails — reducing refusal rate from 100% to ~1% at cost < $0.20 | Access to fine-tuning API (e.g., OpenAI, open-source model) |
+| **Adversarial Fine-Tuning** | Fine-tuning on a small number of adversarially designed examples to remove safety guardrails | Access to fine-tuning API (e.g., OpenAI, open-source model) |
 | **Benign Data Degradation** | Fine-tuning on innocuous, general-purpose datasets that unintentionally erode safety alignment | Third-party fine-tuning without alignment preservation |
 | **Quantization-Phase Injection (QURA)** | Injecting backdoors during model quantization by manipulating weight rounding, targeting GGUF/INT4/INT8 conversion — requires minimal compute | Access to quantization pipeline |
 | **LoRA Safety Stripping** | Using quantized low-rank adaptation (LoRA) to cheaply fine-tune safety-aligned models into unrestricted versions | Open-weight models with LoRA fine-tuning support |
@@ -130,7 +130,7 @@ System prompt leakage attacks target the confidentiality of internal instruction
 |---------|-----------|---------------|
 | **Differential Probing** | Comparing model responses across variations of the same query to infer hidden instructions from behavioral patterns | Sufficient query budget for statistical analysis |
 | **Boundary Testing** | Probing the model's refusal boundaries to reverse-engineer the rules encoded in the system prompt | System prompt contains explicit allow/deny rules |
-| **Multi-Turn Sycophancy Exploitation** | Leveraging sycophancy effect across turns to gradually extract system prompt — achieving 86% ASR vs. 18% in single-turn | Model exhibits sycophantic behavior in multi-turn |
+| **Multi-Turn Sycophancy Exploitation** | Leveraging sycophancy effect across turns to gradually extract system prompt more effectively than single-turn attempts | Model exhibits sycophantic behavior in multi-turn |
 | **Agentic Multi-Agent Extraction** | Deploying cooperative AI agents (via frameworks like AG2/AutoGen) to collaboratively probe and extract target LLM's system prompt | Automated multi-agent query orchestration |
 
 ### §3-3. Side-Channel and Metadata Leakage
@@ -140,7 +140,7 @@ System prompt leakage attacks target the confidentiality of internal instruction
 | **Embedding Space Leakage** | Extracting semantic information about system prompts through embedding similarity analysis | Access to embedding API or vector store |
 | **Token Probability Analysis** | Analyzing token-level log probabilities to infer system prompt content from statistical distribution shifts | API exposes log probabilities (logprobs) |
 | **Timing Side-Channel** | Measuring response latency variations to infer prompt length or content | Consistent network conditions for timing measurement |
-| **Token-Length Side-Channel on Streaming** | When LLMs stream responses token-by-token over HTTPS, each token is sent as a separate encrypted packet. Packet sizes correlate with token lengths. An eavesdropper can reconstruct responses using LLM-based sequence prediction from length sequences. 27% of AI assistant responses accurately reconstructed; 53% topic inference rate. (USENIX Security 2024, "What Was Your Prompt?") | LLM API using token-by-token streaming over HTTPS. No padding applied to individual token responses. Network-positioned attacker. |
+| **Token-Length Side-Channel on Streaming** | When LLMs stream responses token-by-token over HTTPS, each token is sent as a separate encrypted packet. Packet sizes correlate with token lengths. An eavesdropper can reconstruct responses or infer topics using LLM-based sequence prediction from length sequences. (USENIX Security 2024, "What Was Your Prompt?") | LLM API using token-by-token streaming over HTTPS. No padding applied to individual token responses. Network-positioned attacker. |
 | **Error Message Leakage** | Triggering error conditions that include fragments of system prompts or internal configuration in error messages | Application surfaces verbose error messages |
 
 ---
@@ -243,9 +243,9 @@ The Model Context Protocol (MCP) and similar tool-integration frameworks enable 
 |---------|-----------|---------------|
 | **Code Interpreter Escape** | Breaking out of sandboxed code execution environments to access the host system or network | Code execution sandbox has escape vulnerabilities |
 | **Command Injection via LLM Output** | LLM output containing shell commands, SQL, or API calls is executed by downstream systems without sanitization (§7-1 overlap) | Application passes LLM output to system execution without validation |
-| **MCP Remote RCE (CVE-2025-6514)** | Malicious MCP server sends crafted `authorization_endpoint` passed directly to system shell by mcp-remote OAuth proxy — 437K+ downloads affected | Application uses mcp-remote for MCP server authentication |
-| **Workflow Engine Exploitation** | Exploiting AI workflow platforms (n8n, LangChain) to achieve remote code execution through unsafe evaluation or deserialization — n8n CVE-2026-21858 rated CVSS 10.0 | AI integrated into workflow automation platforms |
-| **Workflow Expression Sandbox Escape** | Expressions supplied by authenticated users during workflow configuration are evaluated in an execution context not sufficiently isolated from the underlying runtime, enabling arbitrary code execution as the n8n process. Distinct from CVE-2026-21858 (unauthenticated); this requires authenticated workflow edit access (CVE-2025-68613, CWE-913) | n8n >= 0.211.0, < 1.122.0; authenticated user with workflow edit permissions |
+| **MCP Remote RCE (CVE-2025-6514)** | Malicious MCP server sends crafted `authorization_endpoint` passed directly to system shell by mcp-remote OAuth proxy | Application uses mcp-remote for MCP server authentication |
+| **Workflow Engine Exploitation** | Exploiting AI workflow platforms (n8n, LangChain) through unsafe evaluation, deserialization, or file-access primitives — n8n CVE-2026-21858 is a CVSS 10.0 unauthenticated file-access issue in versions >= 1.65.0, < 1.121.0 that may enable further compromise depending on deployment and vulnerable form-based workflow exposure | AI integrated into workflow automation platforms |
+| **Workflow Expression Sandbox Escape** | Expressions supplied by authenticated users during workflow configuration are evaluated in an execution context not sufficiently isolated from the underlying runtime, enabling arbitrary code execution as the n8n process. Distinct from CVE-2026-21858 (unauthenticated file access / compromise-chain primitive); this requires authenticated workflow edit access (CVE-2025-68613, CWE-913) | n8n >= 0.211.0, < 1.122.0; authenticated user with workflow edit permissions |
 
 ---
 
@@ -277,10 +277,10 @@ When LLM outputs are consumed by downstream systems — rendered in browsers, ex
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **Slopsquatting** | LLM hallucinates non-existent but plausible package names in generated code — attackers register these names on package registries (PyPI, npm) with malicious packages. Studies show 20% hallucination rate with 43% reproducibility | Developers install LLM-suggested packages without verification |
+| **Slopsquatting** | LLM hallucinates non-existent but plausible package names in generated code — attackers register these names on package registries (PyPI, npm) with malicious packages. Studies show package hallucination can be reproducible. | Developers install LLM-suggested packages without verification |
 | **Phantom API Endpoint Generation** | LLM generates API calls to non-existent endpoints that could be registered by attackers for man-in-the-middle attacks | Generated code targets external APIs without verification |
 | **Misinformation Propagation** | LLM generates authoritative-sounding but factually incorrect information that influences downstream decisions | Application treats LLM output as authoritative without verification |
-| **Insecure Code Pattern Reproduction** | LLM reproduces vulnerable code patterns from training data — 51-62% of generated code contains security vulnerabilities (buffer overflows, SQL injection, hardcoded secrets) | Developers adopt LLM-generated code without security review |
+| **Insecure Code Pattern Reproduction** | LLM reproduces vulnerable code patterns from training data, including buffer overflows, SQL injection, and hardcoded secrets | Developers adopt LLM-generated code without security review |
 
 ---
 
@@ -331,7 +331,7 @@ As LLMs evolve into multimodal systems processing text, images, audio, and video
 | **Adversarial Image Perturbation** | Adding imperceptible pixel-level perturbations to images that cause vision-language models to misclassify, generate incorrect descriptions, or follow hidden instructions | Model processes images through a vision encoder |
 | **Text-in-Image Injection** | Embedding textual instructions within images (visible or steganographic) that the model's OCR/vision capabilities extract and follow as instructions | Model performs OCR or text extraction from images |
 | **Visual Prompt Injection** | Optimizing adversarial image examples to be close to target textual instructions in the joint embedding space — jailbreaking models where text alone fails | Shared text-image embedding space (CLIP-based architectures) |
-| **Virtual Scenario Hypnosis (VSH)** | Exploiting weaknesses in text-image encoding during multimodal processing to conduct jailbreak attacks — achieving >82% attack success rate | Vision-language model with cross-modal fusion |
+| **Virtual Scenario Hypnosis (VSH)** | Exploiting weaknesses in text-image encoding during multimodal processing to conduct jailbreak attacks | Vision-language model with cross-modal fusion |
 | **Chain of Attack** | Step-by-step adversarial updates based on previous multi-modal semantics, using targeted contrastive matching to align adversarial and target examples | Iterative access to model responses for optimization |
 
 ### §9-2. Audio Adversarial Attacks
@@ -400,7 +400,7 @@ Attacks that degrade the availability or dramatically increase the operational c
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **Credential Theft and API Abuse** | Stealing API keys to generate massive usage bills — documented cases of $46K+ daily costs | Exposed or compromised API credentials |
+| **Credential Theft and API Abuse** | Stealing API keys to generate massive usage bills | Exposed or compromised API credentials |
 | **Quota Maximization** | Systematically targeting the most expensive model tiers and maximum token outputs to maximize cost per request | API pricing varies by model tier and output length |
 | **Proxy Abuse** | Setting up proxy services that relay requests through stolen API credentials, selling access while victim pays | API credentials accessible in code repositories or config files |
 | **Cost Amplification via Tool Use** | Triggering expensive tool calls (web searches, API calls, code execution) through crafted prompts | Agent has access to metered external tools |
@@ -431,7 +431,7 @@ Attacks that degrade the availability or dramatically increase the operational c
 
 ---
 
-## CVE / Bounty Mapping (2024–2025)
+## CVE / Bounty Mapping (2024–2026)
 
 | Mutation Combination | CVE / Case | Impact / Bounty |
 |---------------------|-----------|----------------|
@@ -441,10 +441,10 @@ Attacks that degrade the availability or dramatically increase the operational c
 | §8-1 (Tensor deserialization) | CVE-2025-62164 (vLLM) | RCE via `torch.load()` on Base64-encoded user embeddings |
 | §8-2 (Serialization injection) | CVE-2025-68664 (LangChain Core) | CVSS 9.3. Secret extraction via reserved 'lc' serialization markers |
 | §8-2 (Serialization injection) | CVE-2025-68665 (LangChainJS) | Similar serialization mechanics enabling secret extraction |
-| §6-3 (MCP RCE) | CVE-2025-6514 (mcp-remote) | Critical OS command injection via crafted `authorization_endpoint`. 437K+ downloads |
+| §6-3 (MCP RCE) | CVE-2025-6514 (mcp-remote) | Critical OS command injection via crafted `authorization_endpoint` |
 | §6-2 (Agent impersonation) | CVE-2025-12420 (ServiceNow) | Admin impersonation via email-only input to AI agent API |
-| §6-3 (Workflow RCE) | CVE-2026-21858 (n8n) | CVSS 10.0. Unauthenticated RCE via AI workflow platform |
-| §6-3 (Workflow expression sandbox escape) | CVE-2025-68613 (n8n) | CRITICAL. Authenticated expression sandbox escape → RCE as n8n process. Affects n8n >= 0.211.0 |
+| §6-3 (Workflow file access) | CVE-2026-21858 (n8n) | CVSS 10.0. Unauthenticated file access via certain form-based workflows in n8n >= 1.65.0, < 1.121.0; may enable further compromise depending on deployment configuration |
+| §6-3 (Workflow expression sandbox escape) | CVE-2025-68613 (n8n) | CRITICAL. Authenticated expression sandbox escape → RCE as n8n process. Affects n8n >= 0.211.0 and prior to 1.120.4, 1.121.1, and 1.122.0 |
 | §8-1 (Path traversal) | CVE-2024-39722 (Ollama) | Arbitrary file read via path traversal on model server |
 | §8-1 (Auth bypass) | CVE-2025-51471 (Ollama) | Authentication bypass on Ollama inference API |
 | §8-1 (DoS) | CVE-2024-39721 (Ollama) | Denial-of-service via crafted requests |
@@ -485,10 +485,10 @@ Attacks that degrade the availability or dramatically increase the operational c
 
 ## References
 
-- OWASP Top 10 for LLM Applications 2025 — https://genai.owasp.org/llm-top-10/
-- MITRE ATLAS — Adversarial Threat Landscape for AI Systems — https://atlas.mitre.org/
+- [OWASP Top 10 for LLM Applications 2025](https://genai.owasp.org/llm-top-10/)
+- [MITRE ATLAS — Adversarial Threat Landscape for AI Systems](https://atlas.mitre.org/)
 - NIST AI 100-2e2025 — Adversarial Machine Learning: A Taxonomy and Terminology of Attacks and Mitigations
-- NVIDIA garak — LLM Vulnerability Scanner — https://github.com/NVIDIA/garak
+- [NVIDIA garak — LLM Vulnerability Scanner](https://github.com/NVIDIA/garak)
 - PoisonedRAG — USENIX Security 2025 — Knowledge Corruption Attacks to RAG
 - ShadowMQ Vulnerability Pattern — Oligo Security Research, 2025
 - MCP Security Notification: Tool Poisoning Attacks — Invariant Labs, April 2025

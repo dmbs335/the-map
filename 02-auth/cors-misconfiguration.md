@@ -302,12 +302,12 @@ Attacks that exploit CORS to cross network boundaries or use DNS-level technique
 | **Localhost Service Exploitation** | Local development servers or desktop apps with web UIs use permissive CORS | Victim visits attacker's page while running local service (e.g., CVE-2024-28224 Ollama) |
 | **Cloud Metadata Access** | CORS misconfiguration combined with SSRF-like patterns to access cloud metadata (169.254.169.254) | Internal service reflects CORS headers + accessible metadata endpoint |
 
-### §8-2. Private Network Access (PNA) Bypass
+### §8-2. Private/Local Network Access Transition Bypass
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **PNA Preflight Absence** | Browsers not yet enforcing PNA preflight (Firefox, older Chrome) allow cross-origin requests to private IPs | Target browser doesn't implement PNA |
-| **PNA Header Misconfiguration** | Server returns `Access-Control-Allow-Private-Network: true` without proper origin validation (CVE-2024-6221 in Flask-CORS) | Framework defaults allow private network access |
+| **Legacy PNA/LNA Absence** | Browsers or versions without Private Network Access preflights or Local Network Access permission gating allow cross-origin requests to private IPs | Target browser lacks PNA/LNA enforcement for the request type |
+| **PNA Header Misconfiguration** | Server returns `Access-Control-Allow-Private-Network: true` without proper origin validation (CVE-2024-6221 in Flask-CORS) | Framework defaults allow private-network access under PNA-style preflight implementations |
 | **Router/IoT Exploitation** | Home routers and IoT devices with web interfaces lack CORS protection entirely | Victim's browser on same network as target device |
 
 ### §8-3. DNS Rebinding
@@ -387,7 +387,7 @@ Protocols adjacent to HTTP that bypass or are not governed by CORS, enabling cro
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
 | **SameSite Bypass via Subdomain** | CORS exploit hosted on subdomain of target bypasses `SameSite=Lax` because subdomains are same-site | Subdomain XSS or takeover (§7-1) |
-| **Tracking Protection Interaction** | Firefox ETP and Chrome's SameSite=Lax default block third-party cookies, limiting CORS exploitation — but same-registrable-domain requests still include cookies | Exploit must be on same eTLD+1 or subdomain |
+| **Tracking Protection Interaction** | Firefox ETP/Total Cookie Protection, Safari ITP, and Chromium's SameSite=Lax default each limit third-party-cookie CORS exploitation differently — but same-registrable-domain requests still include cookies | Exploit must be on same eTLD+1 or subdomain, or rely on browser-specific cookie behavior |
 | **Top-Level Navigation with Cookie** | SameSite=Lax allows cookies on top-level GET navigations. Attacker uses `window.location` redirect to target, then reads response via CORS on a subsequent same-origin page. | Multi-step chain exploiting Lax exception |
 
 ---
@@ -418,10 +418,10 @@ Protocols adjacent to HTTP that bypass or are not governed by CORS, enabling cro
 | §1-1 | CVE-2025-55462 (Eramba) | Origin reflection with `ACAC: true` — attacker-controlled origin reflected in ACAO. |
 | §8-2 | CVE-2024-6221 (Flask-CORS 4.0.1) | `Access-Control-Allow-Private-Network: true` set by default without configuration option. |
 | §1-1 + §5-2 | CVE-2024-47084 (Gradio) | CORS origin validation bypassed when cookie present; any origin could access local Gradio server. |
-| §8-3 | CVE-2024-28224 (Ollama) | DNS rebinding attack accessed Ollama API without authorization. Data exfiltration in ~3 seconds. |
+| §8-3 | CVE-2024-28224 (Ollama) | DNS rebinding attack accessed Ollama API without authorization; rapid data exfiltration possible once the browser reaches the local API. |
 | §8-4 + §8-1 | Tesla Internal (of-CORS) | Typosquat domain (`eslamotors.com`) probed internal network CORS misconfigs via service workers. |
 | §6-1 | Yahoo View (Bug Bounty) | Safari backtick character bypass in origin validation. |
-| §1-2 | Google (Bug Bounty) | Origin validation regex bypass. $2,500 bounty. |
+| §1-2 | Google (Bug Bounty) | Origin validation regex bypass. |
 | §9-1 | Prometheus (GitHub #15406) | Missing `Vary: Origin` enabled cache poisoning against CORS-enabled metrics endpoints. |
 | §5-2 + §9-2 | Mozilla Bug 1200869 | CORS preflight cache poisoning — credential flag mismatch in cache key generation. |
 
@@ -463,28 +463,29 @@ Protocols adjacent to HTTP that bypass or are not governed by CORS, enabling cro
 
 **The fundamental property** that makes the entire CORS mutation space possible is the delegation of access control decisions to the server based on an **attacker-influenced input** — the `Origin` header. Unlike authentication (which verifies the user) or authorization (which verifies permissions), CORS verifies the *calling context* — and this context is trivially spoofable at the HTTP level. The browser is the sole enforcer; any non-browser client ignores CORS entirely. This creates a security model where the server must correctly implement what is essentially an origin-based ACL using string matching against an input the attacker partially controls.
 
-**Incremental patches fail** because the attack surface is combinatorial. A server may fix regex anchoring (§1-2) but remain vulnerable to null origin (§2), or fix both but trust all subdomains (§7-1), or fix everything at the application layer but get undermined by caching (§9) or DNS rebinding (§8-3). Each CORS header (`ACAO`, `ACAC`, `ACAH`, `ACAM`, `ACEH`, `ACMA`) introduces its own mutation surface, and interactions between them multiply the risk. Browser-specific parser differentials (§6) mean that even a "correct" regex can be bypassed in specific browsers. The SameSite cookie evolution and Private Network Access specification are positive developments, but they create their own transition-period gaps where legacy behavior coexists with new restrictions.
+**Incremental patches fail** because the attack surface is combinatorial. A server may fix regex anchoring (§1-2) but remain vulnerable to null origin (§2), or fix both but trust all subdomains (§7-1), or fix everything at the application layer but get undermined by caching (§9) or DNS rebinding (§8-3). Each CORS header (`ACAO`, `ACAC`, `ACAH`, `ACAM`, `ACEH`, `ACMA`) introduces its own mutation surface, and interactions between them multiply the risk. Browser-specific parser differentials (§6) mean that even a "correct" regex can be bypassed in specific browsers. The SameSite cookie evolution, PNA preflight designs, and Chrome's newer Local Network Access permission model are positive developments, but they create transition-period gaps where legacy behavior coexists with new restrictions.
 
-**A structural solution** would require three shifts: (1) **Explicit opt-in** rather than opt-out — origins should be denied by default, with CORS policies defined declaratively (not via dynamic reflection), ideally in a separate security policy file rather than in application code. (2) **Cache-aware design** — CORS responses must always include `Vary: Origin`, and caching infrastructure must respect it. (3) **Defense in depth** — CORS should never be the sole security boundary. Every sensitive endpoint should validate authentication independently, use CSRF tokens for state-changing operations, and implement `SameSite` cookies, `COOP`, and `CORP` headers as layered defenses. The emerging Private Network Access specification represents the right architectural direction — treating network boundary crossing as a distinct security decision requiring explicit preflight and user consent.
+**A structural solution** would require three shifts: (1) **Explicit opt-in** rather than opt-out — origins should be denied by default, with CORS policies defined declaratively (not via dynamic reflection), ideally in a separate security policy file rather than in application code. (2) **Cache-aware design** — CORS responses must always include `Vary: Origin`, and caching infrastructure must respect it. (3) **Defense in depth** — CORS should never be the sole security boundary. Every sensitive endpoint should validate authentication independently, use CSRF tokens for state-changing operations, and implement `SameSite` cookies, `COOP`, and `CORP` headers as layered defenses. Private/Local Network Access represents the right architectural direction — treating network boundary crossing as a distinct browser-mediated security decision, implemented either through explicit preflights or permission prompts depending on browser generation.
 
 ---
 
 ## References
 
-- PortSwigger, "Exploiting CORS misconfigurations for Bitcoins and bounties" — https://portswigger.net/research/exploiting-cors-misconfigurations-for-bitcoins-and-bounties
-- PortSwigger, "URL validation bypass cheat sheet — 2024 Edition" — https://portswigger.net/web-security/ssrf/url-validation-bypass-cheat-sheet
-- Corben Leo, "Advanced CORS Exploitation Techniques" — https://www.corben.io/advanced-cors-techniques/
-- HackTricks, "CORS - Misconfigurations & Bypass" — https://book.hacktricks.xyz/pentesting-web/cors-bypass
-- Intigriti, "CORS Misconfigurations: Advanced Exploitation Guide" — https://www.intigriti.com/researchers/blog/hacking-tools/exploiting-cors-misconfiguration-vulnerabilities
-- Outpost24, "Exploiting trust: Weaponizing permissive CORS configurations" — https://outpost24.com/blog/exploiting-permissive-cors-configurations/
-- PT SWARM, "Bypassing browser tracking protection for CORS misconfiguration abuse" — https://swarm.ptsecurity.com/bypassing-browser-tracking-protection-for-cors-misconfiguration-abuse/
-- Truffle Security, "Bypass firewalls with of-CORs and typo-squatting" — https://trufflesecurity.com/blog/of-cors
-- 0xn3va, "CORS Misconfiguration — Application Security Cheat Sheet" — https://0xn3va.gitbook.io/cheat-sheets/web-application/cors-misconfiguration
-- PayloadsAllTheThings, "CORS Misconfiguration" — https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/CORS%20Misconfiguration
-- WICG, "Private Network Access Specification" — https://wicg.github.io/private-network-access/
-- Mozilla MDN, "Cross-Origin Resource Sharing (CORS)" — https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CORS
-- PortSwigger Web Security Academy, "CORS" — https://portswigger.net/web-security/cors
-- OWASP, "Testing Cross Origin Resource Sharing" — https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/11-Client-side_Testing/07-Testing_Cross_Origin_Resource_Sharing
+- [PortSwigger, "Exploiting CORS misconfigurations for Bitcoins and bounties"](https://portswigger.net/research/exploiting-cors-misconfigurations-for-bitcoins-and-bounties)
+- [PortSwigger, "URL validation bypass cheat sheet — 2024 Edition"](https://portswigger.net/web-security/ssrf/url-validation-bypass-cheat-sheet)
+- [Corben Leo, "Advanced CORS Exploitation Techniques"](https://www.corben.io/advanced-cors-techniques/)
+- [HackTricks, "CORS - Misconfigurations & Bypass"](https://book.hacktricks.xyz/pentesting-web/cors-bypass)
+- [Intigriti, "CORS Misconfigurations: Advanced Exploitation Guide"](https://www.intigriti.com/researchers/blog/hacking-tools/exploiting-cors-misconfiguration-vulnerabilities)
+- [Outpost24, "Exploiting trust: Weaponizing permissive CORS configurations"](https://outpost24.com/blog/exploiting-permissive-cors-configurations/)
+- [PT SWARM, "Bypassing browser tracking protection for CORS misconfiguration abuse"](https://swarm.ptsecurity.com/bypassing-browser-tracking-protection-for-cors-misconfiguration-abuse/)
+- [Truffle Security, "Bypass firewalls with of-CORs and typo-squatting"](https://trufflesecurity.com/blog/of-cors)
+- [0xn3va, "CORS Misconfiguration — Application Security Cheat Sheet"](https://0xn3va.gitbook.io/cheat-sheets/web-application/cors-misconfiguration)
+- [PayloadsAllTheThings, "CORS Misconfiguration"](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/CORS%20Misconfiguration)
+- [WICG, "Private Network Access Specification"](https://wicg.github.io/private-network-access/)
+- [WICG, "Local Network Access Specification"](https://wicg.github.io/local-network-access/)
+- [Mozilla MDN, "Cross-Origin Resource Sharing (CORS)"](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CORS)
+- [PortSwigger Web Security Academy, "CORS"](https://portswigger.net/web-security/cors)
+- [OWASP, "Testing Cross Origin Resource Sharing"](https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/11-Client-side_Testing/07-Testing_Cross_Origin_Resource_Sharing)
 
 ---
 

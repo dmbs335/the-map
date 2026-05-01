@@ -86,6 +86,9 @@ The most widely applicable post-restriction technique. Apache Tomcat's `org.apac
 | **MVEL exec** | `BeanFactory` invokes `org.mvel2.sh.ShellSession.exec()` to execute MVEL expressions | MVEL2 on classpath |
 | **BeanShell eval** | `BeanFactory` invokes `bsh.Interpreter.eval()` for BeanShell script execution | BeanShell on classpath |
 | **XStream fromXML** | `BeanFactory` invokes `com.thoughtworks.xstream.XStream.fromXML()` with malicious XML payload | XStream on classpath |
+| **GroovyClassLoader parseClass** | `BeanFactory` invokes `groovy.lang.GroovyClassLoader.parseClass()` with attacker-supplied Groovy source; compile-time meta-programming (`@ASTTest`, `@Grab`) executes code during compilation | Groovy on classpath; useful when GroovyShell is filtered |
+| **MLet remote class loading** | `BeanFactory` invokes `javax.management.loading.MLet.addURL()` to register attacker-controlled codebase, then `loadClass()` to load and instantiate malicious class; bypasses `trustURLCodebase` since MLet is a local classpath class | JDK (MLet is built-in); unpatched BeanFactory |
+| **NativeLibLoader loadLibrary** | `BeanFactory` invokes `com.sun.glass.utils.NativeLibLoader.loadLibrary()` to load attacker-controlled native library (`.so`/`.dll`) from filesystem; bypasses all Java-level restrictions | JavaFX/OpenJFX on classpath; attacker must pre-upload native library to known path |
 
 > **Note:** Tomcat versions 10.1.0-M14+, 10.0.21+, 9.0.63+, and 8.5.79+ removed the `forceString` attribute from `BeanFactory`, blocking all subtypes in this category on patched Tomcat installations.
 
@@ -105,6 +108,7 @@ IBM WebSphere Application Server includes proprietary `ObjectFactory` implementa
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
 | **ClientJ2CCFFactory abuse** | Exploits `com.ibm.ws.client.applicationclient.ClientJ2CCFFactory` as an alternative ObjectFactory for achieving code execution | IBM WebSphere on classpath |
+| **ServiceFactory OOB XXE** | `com.ibm.ws.webservices.engine.client.ServiceFactory` processes WSDL URL from Reference; XML parser follows external entities, enabling OOB data exfiltration via DNS/HTTP | IBM WebSphere on classpath; outbound HTTP/DNS permitted |
 
 ### §2-4. JDBC DataSource Factories
 
@@ -113,6 +117,7 @@ DataSource `ObjectFactory` implementations create database connections using att
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
 | **Tomcat DBCP DataSource** | `org.apache.tomcat.dbcp.dbcp2.BasicDataSourceFactory` creates a DataSource with attacker-controlled JDBC URL | Tomcat DBCP on classpath |
+| **Commons DBCP DataSource** | `org.apache.commons.dbcp2.BasicDataSourceFactory` (or DBCP 1.x `o.a.c.dbcp.BasicDataSourceFactory`) creates DataSource with attacker-controlled JDBC URL; same mechanism as Tomcat DBCP but standalone dependency | Apache Commons DBCP on classpath (common in Spring apps) |
 | **Druid DataSource** | `com.alibaba.druid.pool.DruidDataSourceFactory` connects to attacker-controlled database | Alibaba Druid on classpath |
 | **HikariCP DataSource** | `com.zaxxer.hikari.HikariJNDIFactory` creates HikariCP pool with malicious JDBC URL | HikariCP on classpath |
 | **Tomcat JDBC Pool + initSQL** | `org.apache.tomcat.jdbc.pool.DataSourceFactory` with `initSQL` attribute executes SQL on connection initialization | Tomcat JDBC Pool on classpath; HSQLDB/H2 as target DB |
@@ -363,7 +368,7 @@ Beyond code execution, JNDI injection (particularly via Log4Shell) enables data 
 | **JNDIMap** (Offensive) | High-version JDK bypass testing | Supports RMI/LDAP/LDAPS with multiple bypass methods for modern JDK restrictions |
 | **ROGUE JNDI NG** (Offensive) | Advanced rogue JNDI server | Flexible script payloads (JS/Groovy/JShell); generic serialized payload support; H2/HSQLDB exploitation |
 | **marshalsec** (Offensive) | LDAP/RMI referral server | Creates referral-based redirect chains for class loading exploitation |
-| **rogue-jndi** (Offensive) | Malicious LDAP server | Veracode's rogue LDAP server for JNDI injection testing |
+| **rogue-jndi** (Offensive) | Rogue LDAP/HTTP server | Veracode's JNDI exploitation server with 5 payload types: RemoteReference (pre-8u191), BeanFactory+EL, BeanFactory+Groovy, WebSphere ServiceFactory XXE, WebSphere ClientJ2CCFFactory |
 | **ysoserial** (Offensive) | Deserialization payload generation | Generates serialized gadget chain payloads for delivery via JNDI |
 | **Java-Chains** (Offensive) | Unified Java exploitation framework | Modular JNDI chain testing with DNSLog-based detection for batch verification |
 | **log4j-scan** (Defensive) | Log4Shell detection | Scans for Log4j JNDI injection via callback-based verification |
@@ -396,20 +401,21 @@ A comprehensive defense requires layering: (1) **Eliminate injection surfaces** 
 
 ## References
 
-- Black Hat USA 2016: "A Journey From JNDI/LDAP Manipulation to Remote Code Execution Dream Land" — https://blackhat.com/docs/us-16/materials/us-16-Munoz-A-Journey-From-JNDI-LDAP-Manipulation-To-RCE.pdf
-- Veracode Research: "Exploiting JNDI Injections in Java" — https://www.veracode.com/blog/research/exploiting-jndi-injections-java
-- MOGWAI LABS: "JNDI Mind Tricks" (December 2024) — https://mogwailabs.de/en/blog/2024/12/jndi-mind-tricks/
-- Source Incite: "JNDI Injection RCE via Path Manipulation in MemoryUserDatabaseFactory" (July 2024) — https://srcincite.io/blog/2024/07/21/jndi-injection-rce-via-path-manipulation-in-memoryuserdatabasefactory.html
-- Cloudflare: "Exploitation of CVE-2021-44228 and Evolution of WAF Evasion Patterns" — https://blog.cloudflare.com/exploitation-of-cve-2021-44228-before-public-disclosure-and-evolution-of-waf-evasion-patterns/
-- VulHub Java Chains: JNDI Module Documentation — https://java-chains.vulhub.org/docs/module/jndi
-- HackTricks: "JNDI - Java Naming and Directory Interface & Log4Shell" — https://book.hacktricks.wiki/pentesting-web/deserialization/jndi-java-naming-and-directory-interface-and-log4shell.html
-- F5 DevCentral: "Mitigating New Gadget Leveraging JNDI Injection into Remote Code Execution" — https://community.f5.com/kb/technicalarticles/mitigating-new-gadget-leveraging-jndi-injection-into-remote-code-execution-using/282849
-- Mbechler: "PSA: Log4Shell and the current state of JNDI Injection" — https://mbechler.github.io/2021/12/10/PSA_Log4Shell_JNDI_Injection/
-- CVE-2024-22319 (IBM ODM) — https://www.vicarius.io/vsociety/posts/unveiling-cve-2024-22319-a-novices-journey-of-a-whitebox-pentest-from-nothing-to-everything-jndi-injection-rce-in-ibm-odm
-- CVE-2024-49194 (Databricks JDBC) — https://nvd.nist.gov/vuln/detail/CVE-2024-49194
-- CVE-2025-58782 (Apache Jackrabbit) — https://securityonline.info/cve-2025-58782-apache-jackrabbit-vulnerability-exposes-systems-to-jndi-injection-and-rce/
-- CVE-2020-2551 (WebLogic IIOP) — https://medium.com/@qazbnm456/cve-2020-2551-unauthenticated-remote-code-execution-in-iiop-protocol-via-malicious-jndi-lookup-119bac7c1eb2
-- GitHub — JNDI-Injection-Exploit-Plus (80+ gadgets) — https://github.com/cckuailong/JNDI-Injection-Exploit-Plus
-- GitHub — JNDIMap (High-version JDK bypass) — https://github.com/X1r0z/JNDIMap
-- GitHub — Log4Shell WAF Bypass Payloads — https://github.com/Puliczek/CVE-2021-44228-PoC-log4j-bypass-words
-- Intigriti: "Log4Shell (Log4J): Advanced Exploitation Guide" — https://www.intigriti.com/researchers/blog/hacking-tools/exploiting-log4shell-log4j
+- [Black Hat USA 2016: "A Journey From JNDI/LDAP Manipulation to Remote Code Execution Dream Land"](https://blackhat.com/docs/us-16/materials/us-16-Munoz-A-Journey-From-JNDI-LDAP-Manipulation-To-RCE.pdf)
+- [Veracode Research: "Exploiting JNDI Injections in Java"](https://www.veracode.com/blog/research/exploiting-jndi-injections-java)
+- [b1ue: "高版本JDK下的JNDI注入" (JNDI Injection under High-Version JDK)](https://b1ue.cn/archives/529.html)
+- [MOGWAI LABS: "JNDI Mind Tricks" (December 2024)](https://mogwailabs.de/en/blog/2024/12/jndi-mind-tricks/)
+- [Source Incite: "JNDI Injection RCE via Path Manipulation in MemoryUserDatabaseFactory" (July 2024)](https://srcincite.io/blog/2024/07/21/jndi-injection-rce-via-path-manipulation-in-memoryuserdatabasefactory.html)
+- [Cloudflare: "Exploitation of CVE-2021-44228 and Evolution of WAF Evasion Patterns"](https://blog.cloudflare.com/exploitation-of-cve-2021-44228-before-public-disclosure-and-evolution-of-waf-evasion-patterns/)
+- [VulHub Java Chains: JNDI Module Documentation](https://java-chains.vulhub.org/docs/module/jndi)
+- [HackTricks: "JNDI - Java Naming and Directory Interface & Log4Shell"](https://book.hacktricks.wiki/pentesting-web/deserialization/jndi-java-naming-and-directory-interface-and-log4shell.html)
+- [F5 DevCentral: "Mitigating New Gadget Leveraging JNDI Injection into Remote Code Execution"](https://community.f5.com/kb/technicalarticles/mitigating-new-gadget-leveraging-jndi-injection-into-remote-code-execution-using/282849)
+- [Mbechler: "PSA: Log4Shell and the current state of JNDI Injection"](https://mbechler.github.io/2021/12/10/PSA_Log4Shell_JNDI_Injection/)
+- [CVE-2024-22319 (IBM ODM)](https://www.vicarius.io/vsociety/posts/unveiling-cve-2024-22319-a-novices-journey-of-a-whitebox-pentest-from-nothing-to-everything-jndi-injection-rce-in-ibm-odm)
+- [CVE-2024-49194 (Databricks JDBC)](https://nvd.nist.gov/vuln/detail/CVE-2024-49194)
+- [CVE-2025-58782 (Apache Jackrabbit)](https://securityonline.info/cve-2025-58782-apache-jackrabbit-vulnerability-exposes-systems-to-jndi-injection-and-rce/)
+- [CVE-2020-2551 (WebLogic IIOP)](https://medium.com/@qazbnm456/cve-2020-2551-unauthenticated-remote-code-execution-in-iiop-protocol-via-malicious-jndi-lookup-119bac7c1eb2)
+- [GitHub — JNDI-Injection-Exploit-Plus (80+ gadgets)](https://github.com/cckuailong/JNDI-Injection-Exploit-Plus)
+- [GitHub — JNDIMap (High-version JDK bypass)](https://github.com/X1r0z/JNDIMap)
+- [GitHub — Log4Shell WAF Bypass Payloads](https://github.com/Puliczek/CVE-2021-44228-PoC-log4j-bypass-words)
+- [Intigriti: "Log4Shell (Log4J): Advanced Exploitation Guide"](https://www.intigriti.com/researchers/blog/hacking-tools/exploiting-log4shell-log4j)

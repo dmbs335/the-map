@@ -394,7 +394,7 @@ Bypasses targeting the browser's built-in Sanitizer API (`setHTML()`), which eli
 
 **Why incremental patches fail.** Each DOMPurify bypass follows a pattern: a researcher discovers a new mutation vector, the maintainer adds a specific check, and the next researcher finds a mutation the new check doesn't cover. This is not a failure of DOMPurify's engineering — it's a fundamental property of the problem space. The HTML specification defines different parsing rules for three namespaces, multiple text content modes (RAWTEXT, RCDATA, PLAINTEXT), scripting-dependent behavior, and extensive error recovery. The combinatorial space of nesting patterns, namespace transitions, and context interactions is vast enough that no sanitizer can model all possible browser behaviors through blacklisting individual mutation patterns. The approximately 1,500 pages of HTML parsing specification create an attack surface that dwarfs any sanitizer's test coverage.
 
-**What structural defense looks like.** The only architecturally sound defense against mXSS is **eliminating the serialize-parse roundtrip**. This can be achieved through: (1) using `RETURN_DOM` / `RETURN_DOM_FRAGMENT` in DOMPurify to pass DOM nodes directly without serialization, (2) adopting the browser-native **Sanitizer API** (`setHTML()`) which builds the sanitized DOM directly without intermediate string serialization, or (3) using **Trusted Types** to prevent strings from reaching `innerHTML` and similar sinks. The Sanitizer API is architecturally the strongest option — by having the browser itself perform sanitization using its own parser, the parser differential problem is eliminated by definition. However, as of March 2026 `setHTML()` has **limited availability** (MDN): Chrome 146+ and Firefox 148+ support it in stable, but Safari has no support or public commitment, giving ~0.14% global usage. Until availability broadens, the combination of `DOMPurify.sanitize(input, {RETURN_DOM_FRAGMENT: true})` plus Trusted Types enforcement represents the most practical cross-browser defense, with `setHTML()` as a progressive enhancement where supported.
+**What structural defense looks like.** The only architecturally sound defense against mXSS is **eliminating the serialize-parse roundtrip**. This can be achieved through: (1) using `RETURN_DOM` / `RETURN_DOM_FRAGMENT` in DOMPurify to pass DOM nodes directly without serialization, (2) adopting the browser-native **Sanitizer API** (`setHTML()`) which builds the sanitized DOM directly without intermediate string serialization, or (3) using **Trusted Types** to prevent strings from reaching `innerHTML` and similar sinks. The Sanitizer API is architecturally the strongest option — by having the browser itself perform sanitization using its own parser, the parser differential problem is eliminated by definition. However, as of March 2026 `setHTML()` has **limited availability** (MDN): Chrome 146+ and Firefox 148+ support it in stable, but Safari has no support or public commitment, so global usage remains low. Until availability broadens, the combination of `DOMPurify.sanitize(input, {RETURN_DOM_FRAGMENT: true})` plus Trusted Types enforcement represents the most practical cross-browser defense, with `setHTML()` as a progressive enhancement where supported.
 
 ---
 
@@ -411,37 +411,37 @@ Bypasses targeting the browser's built-in Sanitizer API (`setHTML()`), which eli
 
 ## References
 
-- SonarSource. "mXSS: The Vulnerability Hiding in Your Code." https://www.sonarsource.com/blog/mxss-the-vulnerability-hiding-in-your-code/
-- SonarSource. "mXSS Cheatsheet — Explained." https://sonarsource.github.io/mxss-cheatsheet/explained/
-- SonarSource. "mXSS Cheatsheet — Payload Examples." https://sonarsource.github.io/mxss-cheatsheet/examples/
-- SonarSource. "Code Vulnerabilities Put Proton Mails at Risk." https://www.sonarsource.com/blog/code-vulnerabilities-leak-emails-in-proton-mail/
-- Securitum Research. "Write-up of DOMPurify 2.0.0 bypass using mutation XSS." https://research.securitum.com/dompurify-bypass-using-mxss/
-- Securitum Research. "Mutation XSS via namespace confusion — DOMPurify < 2.0.17 bypass." https://research.securitum.com/mutation-xss-via-mathml-mutation-dompurify-2-0-17-bypass/
-- PortSwigger Research. "Bypassing DOMPurify again with mutation XSS." https://portswigger.net/research/bypassing-dompurify-again-with-mutation-xss
-- PortSwigger Research (Gareth Heyes). "Bypassing Firefox's HTML Sanitizer API." https://portswigger.net/research/bypassing-firefoxs-html-sanitizer-api
-- Flatt Security Research. "Bypassing DOMPurify with good old XML." https://flatt.tech/research/posts/bypassing-dompurify-with-good-old-xml/
-- kevin mizu. "Exploring the DOMPurify library: Bypasses and Fixes." https://mizu.re/post/exploring-the-dompurify-library-bypasses-and-fixes
-- kevin mizu. "Playing with DOMPurify's custom elements handling." https://mizu.re/post/playing-with-dompurify-ce-handling
-- s1r1us. "MXSS Evolution and Timeline: A primer to MXSS." https://s1r1us.ninja/posts/mxss-101/
-- Jorian Woltjer. "Mutation XSS: Explained, CVE and Challenge." https://jorianwoltjer.com/blog/p/hacking/mutation-xss
-- Daniel Santos. "From SVG and back, yet another mutation XSS via namespace confusion for DOMPurify 2.2.2 bypass." https://vovohelo.medium.com/from-svg-and-back-yet-another-mutation-xss-via-namespace-confusion-for-dompurify-2-2-2-bypass-5d9ae8b1878f
-- Huli (aszx87410). "Beyond XSS — Bypassing Your Defense: Mutation XSS." https://aszx87410.github.io/beyond-xss/en/ch2/mutation-xss/
-- Huli (aszx87410). "Latest XSS Defense: Trusted Types and Built-in Sanitizer API." https://aszx87410.github.io/beyond-xss/en/ch2/trust-types/
-- Bishop Fox. "LEXSS: Bypassing Lexical Parsing Security Controls." https://bishopfox.com/blog/lexss-bypassing-lexical-parsing-security-controls
-- Insomnihack 2024. "Beating the Sanitizer: Why you should add mXSS to your Toolbox." https://insomnihack.ch/talks/beating-the-sanitizer-why-you-should-add-mxss-to-your-toolbox/
-- Cure53. "mXSS Attacks: Attacking well-secured Web-Applications." https://cure53.de/fp170.pdf
-- Frederik Braun. "Why the Sanitizer API is just." https://frederikbraun.de/why-sethtml.html
-- WICG. "Sanitizer API — Rethink how we make sanitizeToString an mXSS-safe method." https://github.com/WICG/sanitizer-api/issues/37
-- WHATWG. "HTML Standard — Dynamic markup insertion." https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html
-- WHATWG. "HTML Standard — Parsing." https://html.spec.whatwg.org/multipage/parsing.html
-- W3C. "DOM Parsing and Serialization." https://w3c.github.io/DOM-Parsing/
-- David Klein, Martin Johns — *Parse Me, Baby, One More Time: Bypassing HTML Sanitizer via Parsing Differentials* (IEEE S&P 2024). 11 sanitizers × 5 languages; 5 parsing issues (PI), 2 serialization issues (SI); 16 bypasses; 19,843 coercion payloads. https://www.ias.cs.tu-bs.de/publications/parsing_differentials.pdf
-- CVE-2024-47875. "DOMPurify nesting-based mXSS." https://github.com/advisories/GHSA-gx9m-whjm-85jf
-- CVE-2025-26791. "DOMPurify incorrect template literal regex." https://github.com/advisories/GHSA-vhxf-7vqr-mrjg
-- CVE-2024-52595. "lxml_html_clean namespace confusion bypass." https://www.miggo.io/vulnerability-database/cve/GHSA-mm7x-qfjj-5g2c
-- CVE-2020-6802. "Bleach mutation XSS in noscript handling." https://bugzilla.mozilla.org/show_bug.cgi?id=1615315
-- CVE-2020-6816. "Bleach mutation XSS with math/SVG and RCDATA tags." https://bugzilla.mozilla.org/show_bug.cgi?id=1621692
-- msrkp. "Awesome MXSS — Curated mXSS resource collection." https://github.com/msrkp/MXSS
+- [SonarSource. "mXSS: The Vulnerability Hiding in Your Code."](https://www.sonarsource.com/blog/mxss-the-vulnerability-hiding-in-your-code/)
+- [SonarSource. "mXSS Cheatsheet — Explained."](https://sonarsource.github.io/mxss-cheatsheet/explained/)
+- [SonarSource. "mXSS Cheatsheet — Payload Examples."](https://sonarsource.github.io/mxss-cheatsheet/examples/)
+- [SonarSource. "Code Vulnerabilities Put Proton Mails at Risk."](https://www.sonarsource.com/blog/code-vulnerabilities-leak-emails-in-proton-mail/)
+- [Securitum Research. "Write-up of DOMPurify 2.0.0 bypass using mutation XSS."](https://research.securitum.com/dompurify-bypass-using-mxss/)
+- [Securitum Research. "Mutation XSS via namespace confusion — DOMPurify < 2.0.17 bypass."](https://research.securitum.com/mutation-xss-via-mathml-mutation-dompurify-2-0-17-bypass/)
+- [PortSwigger Research. "Bypassing DOMPurify again with mutation XSS."](https://portswigger.net/research/bypassing-dompurify-again-with-mutation-xss)
+- [PortSwigger Research (Gareth Heyes). "Bypassing Firefox's HTML Sanitizer API."](https://portswigger.net/research/bypassing-firefoxs-html-sanitizer-api)
+- [Flatt Security Research. "Bypassing DOMPurify with good old XML."](https://flatt.tech/research/posts/bypassing-dompurify-with-good-old-xml/)
+- [kevin mizu. "Exploring the DOMPurify library: Bypasses and Fixes."](https://mizu.re/post/exploring-the-dompurify-library-bypasses-and-fixes)
+- [kevin mizu. "Playing with DOMPurify's custom elements handling."](https://mizu.re/post/playing-with-dompurify-ce-handling)
+- [s1r1us. "MXSS Evolution and Timeline: A primer to MXSS."](https://s1r1us.ninja/posts/mxss-101/)
+- [Jorian Woltjer. "Mutation XSS: Explained, CVE and Challenge."](https://jorianwoltjer.com/blog/p/hacking/mutation-xss)
+- [Daniel Santos. "From SVG and back, yet another mutation XSS via namespace confusion for DOMPurify 2.2.2 bypass."](https://vovohelo.medium.com/from-svg-and-back-yet-another-mutation-xss-via-namespace-confusion-for-dompurify-2-2-2-bypass-5d9ae8b1878f)
+- [Huli (aszx87410). "Beyond XSS — Bypassing Your Defense: Mutation XSS."](https://aszx87410.github.io/beyond-xss/en/ch2/mutation-xss/)
+- [Huli (aszx87410). "Latest XSS Defense: Trusted Types and Built-in Sanitizer API."](https://aszx87410.github.io/beyond-xss/en/ch2/trust-types/)
+- [Bishop Fox. "LEXSS: Bypassing Lexical Parsing Security Controls."](https://bishopfox.com/blog/lexss-bypassing-lexical-parsing-security-controls)
+- [Insomnihack 2024. "Beating the Sanitizer: Why you should add mXSS to your Toolbox."](https://insomnihack.ch/talks/beating-the-sanitizer-why-you-should-add-mxss-to-your-toolbox/)
+- [Cure53. "mXSS Attacks: Attacking well-secured Web-Applications."](https://cure53.de/fp170.pdf)
+- [Frederik Braun. "Why the Sanitizer API is just."](https://frederikbraun.de/why-sethtml.html)
+- [WICG. "Sanitizer API — Rethink how we make sanitizeToString an mXSS-safe method."](https://github.com/WICG/sanitizer-api/issues/37)
+- [WHATWG. "HTML Standard — Dynamic markup insertion."](https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html)
+- [WHATWG. "HTML Standard — Parsing."](https://html.spec.whatwg.org/multipage/parsing.html)
+- [W3C. "DOM Parsing and Serialization."](https://w3c.github.io/DOM-Parsing/)
+- [David Klein, Martin Johns — *Parse Me, Baby, One More Time: Bypassing HTML Sanitizer via Parsing Differentials* (IEEE S&P 2024). 11 sanitizers × 5 languages; 5 parsing issues (PI), 2 serialization issues (SI); 16 bypasses; 19,843 coercion payloads.](https://www.ias.cs.tu-bs.de/publications/parsing_differentials.pdf)
+- [CVE-2024-47875. "DOMPurify nesting-based mXSS."](https://github.com/advisories/GHSA-gx9m-whjm-85jf)
+- [CVE-2025-26791. "DOMPurify incorrect template literal regex."](https://github.com/advisories/GHSA-vhxf-7vqr-mrjg)
+- [CVE-2024-52595. "lxml_html_clean namespace confusion bypass."](https://www.miggo.io/vulnerability-database/cve/GHSA-mm7x-qfjj-5g2c)
+- [CVE-2020-6802. "Bleach mutation XSS in noscript handling."](https://bugzilla.mozilla.org/show_bug.cgi?id=1615315)
+- [CVE-2020-6816. "Bleach mutation XSS with math/SVG and RCDATA tags."](https://bugzilla.mozilla.org/show_bug.cgi?id=1621692)
+- [msrkp. "Awesome MXSS — Curated mXSS resource collection."](https://github.com/msrkp/MXSS)
 
 ---
 

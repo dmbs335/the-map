@@ -90,7 +90,7 @@ Host: target.com
 
 The response contains the injected CRLF sequences. The front-end sees two complete responses where only one was expected — the queue shifts.
 
-This transforms a typically-low-severity header injection into full account takeover via pipeline response misrouting. ($12,500 bounty in documented cases.)
+This transforms a typically-low-severity header injection into full account takeover via pipeline response misrouting, with bounty-confirmed cases.
 
 ### §1-4. RQP Race Conditions
 
@@ -98,7 +98,7 @@ This transforms a typically-low-severity header injection into full account take
 |---------|-----------|---------------|
 | **Low-traffic timing** | On low-traffic targets, there may be no other users on the poisoned connection to receive misaligned responses, making exploitation unreliable | Attacker must race against connection idle timeout |
 | **Connection pool lottery** | On high-traffic targets with large connection pools, the attacker's poisoned connection must serve the target victim | Probability proportional to 1/(pool size) |
-| **Brute-force capture** | Send thousands of smuggled requests to statistically guarantee capturing target responses | 27,000 requests used to successfully exploit GitLab's RQP, capturing vulnerability reports ($7,000 bounty) |
+| **Brute-force capture** | Send many smuggled requests to statistically increase the chance of capturing target responses | Public GitLab RQP case captured vulnerability reports via high-volume request attempts |
 
 ---
 
@@ -319,7 +319,7 @@ A critical but underappreciated property: the pipeline **amplifies** the severit
 | Amplifier | Mechanism | Scale |
 |-----------|-----------|-------|
 | **CDN shared connection pools** | CDNs multiplex thousands of users onto a small pool of backend connections. One poisoned connection affects many users | Netlify: captured responses from **every site on the platform** |
-| **Load balancer connection reuse** | LBs reuse backend connections across request batches. Pipeline poisoning persists across user sessions | Akamai: 74 reports from single vulnerability, $221,000 total |
+| **Load balancer connection reuse** | LBs reuse backend connections across request batches. Pipeline poisoning persists across user sessions | Akamai Ghost request-smuggling class; do not conflate CVE-specific impact with Akamai program-wide 2025 bounty statistics |
 | **Microservice mesh** | Internal service-to-service HTTP/1.1 connections share pipelines across unrelated API calls | One desync in service mesh poisons cross-service communication |
 
 ---
@@ -410,24 +410,24 @@ Sometimes what appears to be a pipelining false positive is actually a **real vu
 
 | Pipeline Attack Type | CVE / Case | Impact / Bounty |
 |---------------------|-----------|----------------|
-| §1-1 RQP + §6-2 Amplification | Netlify CDN (all sites) | Continuous response stream from every site — auth tokens leaked. Claimed out-of-scope, **$0** |
-| §1-4 RQP brute-force | GitLab | 27,000 requests → captured vulnerability reports. **$7,000** |
-| §1-3 Header-injection → RQP | Various targets | CRLF injection escalated to critical via pipeline. **$12,500** |
-| §3-3 Double-desync (0.CL→CL.0) | Akamai / T-Mobile staging | Early-response gadget enabled 0.CL exploitation. **$12,000** |
-| §3-3 + §5-1 | Akamai / GitLab | Obfuscated Expect header 0.CL variant. **$7,000** |
-| §3-3 + §5-1 | Akamai / EXNESS | Same class, different target. **$7,500** |
-| §5-1 Expect-based + §6-2 | CVE-2025-32094 (Akamai Ghost CDN) | 74 reports, **$221,000** total. OPTIONS + Expect + obs-fold. 65-day remediation |
-| §4-2 Pause-based CSD | CVE-2022-22720 (Apache) | 60-second timeout window. **$4,000** (IBB) |
+| §1-1 RQP + §6-2 Amplification | Netlify CDN (all sites) | Continuous response stream from every site; auth tokens leaked; disputed/out-of-scope handling |
+| §1-4 RQP brute-force | GitLab | High-volume RQP attempts captured vulnerability reports |
+| §1-3 Header-injection → RQP | Various targets | CRLF injection escalated to critical via pipeline |
+| §3-3 Double-desync (0.CL→CL.0) | Akamai / T-Mobile staging | Early-response gadget enabled 0.CL exploitation |
+| §3-3 + §5-1 | Akamai / GitLab | Obfuscated Expect header 0.CL variant |
+| §3-3 + §5-1 | Akamai / EXNESS | Same class, different target |
+| §5-1 Expect-based + §6-2 | CVE-2025-32094 (Akamai Ghost CDN) | Akamai Ghost request smuggling via crafted traffic. Bounty/report totals are not publicly tied to this CVE; avoid conflating it with program-wide statistics |
+| §4-2 Pause-based CSD | CVE-2022-22720 (Apache) | Timeout-window CSD variant; public bounty case |
 | §4-2 Pause-based CSD | CVE-2022-23959 (Varnish) | 15-second timeout window |
 | §4-3 Web VPN CSD | CVE-2022-20713 (Cisco ASA WebVPN) | Client-side cache poisoning in VPN context |
-| §7-1 H2.0 downgrade | AWS Application Load Balancer | HTTP/2 body dropped during downgrade. **$13,500**. 5-day fix |
-| §7-1 H2.CL | Cloudflare CDN (~24M websites) | **$7,000**. Fixed within hours |
-| §7-1 H2.TE | Netflix (Zuul/Netty) | CVE-2021-21295. **$20,000** maximum bounty |
+| §7-1 H2.0 downgrade | AWS Application Load Balancer | HTTP/2 body dropped during downgrade; rapid vendor fix |
+| §7-1 H2.CL | Cloudflare CDN | Fixed quickly after report |
+| §7-1 H2.TE | Netflix (Zuul/Netty) | CVE-2021-21295; public bounty case |
 | §7-1 H2.CL (caching) | CVE-2025-4366 (Pingora/Cloudflare) | Pipeline smuggling when caching enabled on persistent connections |
 | §7-3 TLS upgrade | CVE-2025-49812 (Apache ≤2.4.63) | MitM desync during TLS upgrade |
 | §1 RQP (via CL.0) | CVE-2024-34350 (Next.js) | CVSS 7.5. Response queue poisoning via rewrites feature |
 
-**Total documented bounties from pipeline-specific research (2019–2025): >$700,000**
+**Pipeline-specific research produced numerous public bounty cases across multiple vendors.**
 
 ---
 

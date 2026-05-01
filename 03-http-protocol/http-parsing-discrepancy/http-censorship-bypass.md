@@ -597,22 +597,22 @@ The following sources informed this taxonomy. Consistent with the document's met
 - "A Survey of Internet Censorship and its Measurement: Methodology, Trends, and Challenges" — 2025
 
 ### Tools and Projects
-- Geneva: https://geneva.cs.umd.edu/
-- GoodbyeDPI: https://github.com/ValdikSS/GoodbyeDPI
-- zapret: https://github.com/bol-van/zapret
-- Xray-core (XTLS/REALITY): https://github.com/XTLS/Xray-core
-- ShadowTLS: https://github.com/ihciah/shadow-tls
-- uTLS: https://github.com/refraction-networking/utls
-- OONI Probe: https://ooni.org
-- GFW Report: https://gfw.report/
-- Tor Project Pluggable Transports: https://www.torproject.org
-- Refraction Networking: https://refraction.network/
-- Censored Planet: https://censoredplanet.org/
+- [Geneva](https://geneva.cs.umd.edu/)
+- [GoodbyeDPI](https://github.com/ValdikSS/GoodbyeDPI)
+- [zapret](https://github.com/bol-van/zapret)
+- [Xray-core (XTLS/REALITY)](https://github.com/XTLS/Xray-core)
+- [ShadowTLS](https://github.com/ihciah/shadow-tls)
+- [uTLS](https://github.com/refraction-networking/utls)
+- [OONI Probe](https://ooni.org)
+- [GFW Report](https://gfw.report/)
+- [Tor Project Pluggable Transports](https://www.torproject.org)
+- [Refraction Networking](https://refraction.network/)
+- [Censored Planet](https://censoredplanet.org/)
 
 ### Community and Reporting
-- net4people/bbs: https://github.com/net4people/bbs
-- Tor Project Forum — Censorship Circumvention: https://forum.torproject.org
-- Open Technology Fund: https://www.opentech.fund/
+- [net4people/bbs](https://github.com/net4people/bbs)
+- [Tor Project Forum — Censorship Circumvention](https://forum.torproject.org)
+- [Open Technology Fund](https://www.opentech.fund/)
 
 ---
 

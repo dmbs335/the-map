@@ -84,7 +84,7 @@ MongoDB historically provided multiple contexts for executing arbitrary JavaScri
 
 ### §2-1. $where Operator Injection
 
-The `$where` operator evaluates a JavaScript expression for each document, with `this` bound to the current document. On the MongoDB server, `$where` executes in MongoDB's embedded MozJS engine — not Node.js — so server-side exploitation is limited to data exfiltration, timing attacks, and DoS (not direct OS command execution). However, when `$where` is evaluated in the application's Node.js runtime (e.g., via Mongoose's sift library), full RCE is possible (see §7-1).
+The `$where` operator evaluates a JavaScript expression for each document, with `this` bound to the current document. On the MongoDB server, `$where` executes in MongoDB's embedded MozJS engine — not Node.js — so server-side exploitation is limited to data exfiltration, timing attacks, and DoS (not direct OS command execution). ODM/application-side predicate evaluation can create separate code-injection risk, but OS-command RCE requires an evaluation path with access to host APIs (see §7-1).
 
 | Subtype | Mechanism | Example Payload | Key Condition |
 |---|---|---|---|
@@ -93,9 +93,9 @@ The `$where` operator evaluates a JavaScript expression for each document, with 
 | **String Termination + Injection** | Breaks out of string context in $where expression | `admin' && this.password[0]=='a' || 'x'=='y` | User input concatenated into $where string |
 | **Error-Based Exfiltration** | Throws error containing document data | `{"$where": "throw new Error(JSON.stringify(this))"}` | Error messages reflected to attacker |
 | **DoS via Infinite Loop** | Injects non-terminating loop | `{"$where": "while(true){}"}` | No execution timeout configured |
-| **Application-Side RCE (Node.js)** | When `$where` is evaluated by the application's Node.js runtime (not by MongoDB server), the Node.js `process` object is accessible | `{"$where": "global.process.mainModule.require('child_process').execSync('id')"}` | $where evaluated in Node.js context (e.g., via Mongoose sift/populate — see §7-1). Does NOT work against MongoDB server's MozJS engine |
+| **Application-Side Predicate Code Injection** | When an ODM or application layer evaluates user-controlled query predicates outside MongoDB, impact depends on that evaluator's capabilities | `{"$where": "sleep(5000)"}` | Applies only to application-side predicate evaluation paths. Does NOT work against MongoDB server's MozJS engine as OS-command RCE |
 
-**Critical nuance:** Even when MongoDB server-side JavaScript is disabled (`--noscripting`), the `$where` operator passed through ORM libraries like Mongoose may be evaluated by the application's JavaScript runtime (Node.js) rather than the database, still achieving RCE (§7-1).
+**Critical nuance:** Even when MongoDB server-side JavaScript is disabled (`--noscripting`), ORM libraries may still process user-controlled predicates in the application runtime. Treat Mongoose `populate().match()` `$where` issues as search/code injection by default; do not assume OS-command RCE without a separate host-capable evaluation path (§7-1).
 
 ### §2-2. mapReduce Injection
 
@@ -263,7 +263,7 @@ A flaw in MongoDB's zlib message decompression implementation allows unauthentic
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
-| **Heap Buffer Over-Read** | Attacker sends compressed message with header claiming inflated size far exceeding actual payload. Server allocates large buffer, decompresses small payload into it, then returns the full buffer — including uninitialized heap memory containing fragments of other connections' data (credentials, queries, session tokens). | zlib compression negotiated (zlib is in the default compressor advertisement list; active only when both client and server agree on zlib); MongoDB versions before 8.2.3/8.0.17/7.0.28/6.0.27/5.0.32/4.4.30 |
+| **Heap Buffer Over-Read** | Attacker sends compressed message with header claiming inflated size far exceeding actual payload. Server allocates large buffer, decompresses small payload into it, then returns the full buffer — including uninitialized heap memory containing fragments of other connections' data (credentials, queries, session tokens). | zlib compression negotiated (zlib is in the default compressor advertisement list; active only when both client and server agree on zlib); affected versions are prior to the fixed releases 8.2.3 / 8.0.17 / 7.0.28 / 6.0.27 / 5.0.32 / 4.4.30, with 4.2, 4.0, and 3.6 requiring upgrade to a supported fixed branch |
 
 This is architecturally similar to Heartbleed (CVE-2014-0160): a protocol-level memory disclosure caused by trusting attacker-controlled length fields. Unlike query-level injection, it requires no authentication and no application-layer vulnerability — only network access to the MongoDB port (default 27017).
 
@@ -284,12 +284,12 @@ Vulnerabilities specific to the Mongoose ODM for Node.js — the most widely-use
 
 ### §7-1. populate() $where Bypass
 
-Mongoose's `populate()` function with `match` option processes query conditions through the `sift` library in the Node.js runtime, not on the MongoDB server. This means `$where` operators execute as Node.js JavaScript even when MongoDB's `--noscripting` flag is set.
+Mongoose's `populate()` function with the `match` option can process application-supplied query predicates outside the normal MongoDB query path. The CVE-2024-53900 / CVE-2025-23061 chain is best described as search/code injection through `$where` handling in `populate().match()`, not as a generic MongoDB server OS-command RCE.
 
 | Subtype | Mechanism | Example Payload | Key Condition |
 |---|---|---|---|
-| **Direct $where in match** | $where in populate match executes in Node.js context | `{match: {"$where": "process.mainModule.require('child_process').execSync('id')"}}` | Mongoose < 8.8.3; user controls match options (CVE-2024-53900, CVSS 9.1) |
-| **$or-Nested $where Bypass** | Wrapping $where inside $or bypasses Mongoose's top-level property check | `{match: {"$or": [{"$where": "...RCE payload..."}]}}` | Mongoose 8.8.3–8.9.4; patch only inspected top-level keys (CVE-2025-23061, CVSS 9.0) |
+| **Direct $where in match** | User-controlled `$where` reaches `populate().match()` predicate handling, causing search/code injection depending on the evaluation path | `{match: {"$where": "sleep(5000)"}}` | Mongoose < 8.8.3 / < 7.8.3 / < 6.13.5; user controls match options (CVE-2024-53900, CVSS 9.1) |
+| **$or-Nested $where Bypass** | Wrapping $where inside $or bypasses Mongoose's top-level property check | `{match: {"$or": [{"$where": "...payload..."}]}}` | Mongoose < 8.9.5 / < 7.8.4 / < 6.13.6; patch only inspected top-level keys (CVE-2025-23061; GitHub scores 9.1, NVD analysis lists 9.8) |
 
 The patch bypass demonstrates a recurring pattern: sanitization that only inspects top-level properties is defeated by nesting malicious operators inside logical combinators ($or, $and, $nor).
 
@@ -347,7 +347,7 @@ An ObjectId's 24 hex characters encode:
 |---|---|---|
 | **Authentication Bypass** | §1-1 ($ne/$gt), §1-2 ($regex), §1-3 ($or), §2-1 ($where tautology) | Login endpoint passes credentials directly to `find()`/`findOne()` without type validation |
 | **Data Exfiltration** | §5-1 (Boolean blind), §5-2 (Time blind), §5-3 (Error-based), §3-1 ($lookup/$unionWith) | Any injectable query with observable response differential |
-| **Remote Code Execution** | §2-1 (Node.js $where RCE), §2-2 (mapReduce), §2-3 ($function), §7-1 (populate() bypass) | Server-side JavaScript enabled; or ORM evaluates $where in Node.js context |
+| **Remote Code Execution / Code Injection** | §2-1 (server-side JavaScript misuse), §7-1 (Mongoose populate() predicate injection) | MongoDB server-side JavaScript contexts such as `$where`, `mapReduce`, and `$function` execute in MongoDB's MozJS engine, so they should be treated as data access/manipulation or DoS primitives rather than direct OS-command RCE. Mongoose `populate().match()` bugs are better classified as search/code injection unless a separate application-side evaluation path reaches OS-capable APIs |
 | **Privilege Escalation** | §3-2 ($merge modification), §7-3 (mass assignment) | Aggregation pipeline injectable; or permissive schema configuration |
 | **Cross-Collection Access** | §3-1 ($lookup, $unionWith), §3-3 ($project) | Aggregation pipeline injectable; collection names known |
 | **Data Modification / Insertion** | §3-2 ($merge insert/merge), §7-3 (mass assignment) | Write-capable pipeline stages; or update endpoints without field restriction |
@@ -361,14 +361,14 @@ An ObjectId's 24 hex characters encode:
 
 | Mutation Combination | CVE / Case | Impact / Bounty |
 |---|---|---|
-| §6-1 (MongoBleed) | CVE-2025-14847 (MongoDB Server) | CVSS 8.7. Unauthenticated heap memory disclosure. Instance count (87,000+) and active exploitation claims are from third-party research (Wiz), not official MongoDB security alerts |
-| §7-1 ($or-nested $where bypass) | CVE-2025-23061 (Mongoose) | CVSS 9.0. RCE via populate() match; bypass of CVE-2024-53900 patch |
-| §7-1 (Direct $where in populate) | CVE-2024-53900 (Mongoose) | CVSS 9.1. RCE via $where in populate() match; evaluated in Node.js not MongoDB |
+| §6-1 (MongoBleed) | CVE-2025-14847 (MongoDB Server) | CVSS 7.5 (v3.1) / 8.7 (v4.0). Unauthenticated heap memory disclosure. Third-party exposed-instance counts vary by source; Akamai and Qualys report CISA KEV addition on 2025-12-29 and active exploitation |
+| §7-1 ($or-nested $where bypass) | CVE-2025-23061 (Mongoose) | Code/search injection via nested `$where` in `populate().match()`; bypass of CVE-2024-53900 patch. GitHub scores 9.1; NVD analysis lists 9.8 |
+| §7-1 (Direct $where in populate) | CVE-2024-53900 (Mongoose < 8.8.3 / < 7.8.3 / < 6.13.5) | CVSS 9.1. Search/code injection via `$where` in `populate().match()`; impact depends on the application-side evaluation path |
 | §7-2 (Update function pollution) | CVE-2023-3696 (Mongoose) | Prototype pollution → RCE (Express + EJS); findByIdAndUpdate() |
 | §7-2 (Schema.path pollution) | CVE-2022-2564 (Mongoose) | Prototype pollution → DoS; Schema.path() with attacker-controlled input |
 | §6-2 (BSON deserialization) | SB2020033135 (js-bson) | Data manipulation via incorrect BSON serialization |
 | §1-1 + §2-1 (Auth bypass + blind NoSQL injection) | Rocket.Chat CVE-2023-28359 | Blind NoSQL injection causing delay in `listEmojiCustom` (NVD description) — specific mechanism ($where sleep) is not detailed in official CVE description |
-| §1-1 ($ne auth bypass) | Multiple bug bounty reports | $500–$5,000 range; authentication bypass via operator injection |
+| §1-1 ($ne auth bypass) | Multiple bug bounty reports | Authentication bypass via operator injection |
 | §3-1 + §3-2 (Pipeline injection) | PortSwigger Academy research (2024) | Cross-collection data access and privilege escalation via $lookup + $merge |
 | §8-2 (ObjectId prediction) | Various IDOR reports | Authorization bypass via ObjectId enumeration; PentesterLab exercise |
 

@@ -120,7 +120,7 @@ Attacks that overcome authentication through exhaustive or intelligent credentia
 | **IPMI password hash extraction** | IPMI v2.0 RAKP protocol reveals password hashes to unauthenticated requestors by design, enabling offline cracking | IPMI v2.0 protocol design flaw (CVE-2013-4786) | D2, D4 |
 | **Password spraying against management APIs** | Low-and-slow attacks try a small number of common passwords across many management accounts, staying below lockout thresholds | Per-account lockout with no organization-wide anomaly detection | D2 |
 
-According to Verizon's 2024 report, 77% of web application attacks involve stolen credentials or brute-force attacks. Management interfaces are disproportionately targeted due to their high-value access.
+According to Verizon's 2024 report, stolen credentials and brute-force attacks account for a large share of web application attacks. Management interfaces are disproportionately targeted due to their high-value access.
 
 ### §2-4. Multi-Factor Authentication Failures
 
@@ -362,8 +362,8 @@ Tesla's AWS-hosted Kubernetes environment was compromised via a misconfigured Ku
 |---------------------|-----------|----------------|
 | §2-2 (auth bypass) + §3-1 (priv esc) | CVE-2024-0012 + CVE-2024-9474 (PAN-OS) | CVSS 9.3 + 6.9. Unauthenticated attacker gains root access on Palo Alto firewalls via management web interface. Actively exploited in the wild. |
 | §2-2 (path confusion auth bypass) | CVE-2025-0108 (PAN-OS) | Authentication bypass via double URL encoding + directory traversal. Chained with CVE-2024-9474 and CVE-2025-0111. CISA KEV listed. |
-| §2-2 (path traversal to unauthed handler) | CVE-2025-64446 (FortiWeb) | CVSS 9.8. Path traversal to internal CGI handler creates admin account in single request. Exploited in the wild. |
-| §8-1 (SSO signature bypass) | CVE-2025-59718 (FortiCloud SSO) | CVSS 9.8. Crafted SAML message bypasses SSO authentication. Exfiltration of config files with network topology and credentials. CISA KEV listed. |
+| §2-2 (path traversal to unauthed handler) | CVE-2025-64446 (FortiWeb) | CVSS 9.4. Relative path traversal reaches administrative functionality via crafted HTTP(S) requests. Exploited in the wild. |
+| §8-1 (SSO signature bypass) | CVE-2025-59718 (FortiCloud SSO) | CVSS 9.1. Crafted SAML message bypasses FortiCloud SSO authentication. CISA KEV listed. |
 | §5-1 (predictable session IDs) | DSA-2024-099, DSA-2024-295 (Dell iDRAC) | Predictable IPMI 2.0 session IDs in Dell iDRAC8 and iDRAC9 allow session hijacking. |
 | §8-1 (BMC buffer overflow) | CVE-2024-10238, CVE-2024-10239 (Supermicro BMC) | Stack-based buffer overflows in BMC firmware enable arbitrary code execution in BMC context. |
 | §8-1 (firmware signature bypass) | CVE-2025-7937 (Supermicro BMC) | Incomplete patch allows crafted firmware images to pass verification, enabling persistent BMC compromise. |
@@ -375,7 +375,7 @@ Tesla's AWS-hosted Kubernetes environment was compromised via a misconfigured Ku
 | §4-3 (SNMP RCE) | CVE-2025-20352 (Cisco IOS/IOS XE) | SNMP vulnerability exploited to deploy rootkits. Active exploitation by threat actors ("Operation Zero Disco"). |
 | §6-1 (Actuator exposure) | Various HackerOne reports | Spring Boot Actuator `/heapdump` leaking database credentials and API keys. Multiple bug bounty payouts. |
 | §5-2 (XSS on management pages) | CVE-2025-0376 (GitLab) | CVSS 8.7. Stored XSS on merge request / change pages — session token theft and repository modification. GitLab advisory and NVD classify as XSS. |
-| §2-1 (stolen/default credentials, no MFA) | Snowflake Breach (2024) | Stolen, never-rotated customer credentials with no MFA enforcement compromised 100+ tenants including AT&T, Ticketmaster, Santander Bank. Primarily a credential hygiene and MFA gap, not a management interface misconfiguration. |
+| §2-1 (stolen/default credentials, no MFA) | Snowflake Breach (2024) | Stolen, never-rotated customer credentials with no MFA enforcement compromised multiple tenants including AT&T, Ticketmaster, Santander Bank. Primarily a credential hygiene and MFA gap, not a management interface misconfiguration. |
 | §8-2 (firmware vulnerability) | CVE-2024-0762 (Phoenix SecureCore) | CVSS 7.5. TPM configuration buffer overflow in UEFI firmware affecting Intel Core processors. |
 | §1-1 (cloud security baseline) | CISA BOD 25-01 (Dec 2024) | US federal mandate requiring agencies to implement SCuBA secure configuration baselines for cloud tenants — broader cloud security directive, not limited to management interface exposure. |
 
@@ -444,7 +444,7 @@ A durable reduction in management interface risk requires architectural changes,
 
 ## References
 
-- CISA Known Exploited Vulnerabilities Catalog (https://www.cisa.gov/known-exploited-vulnerabilities-catalog)
+- [CISA Known Exploited Vulnerabilities Catalog (](https://www.cisa.gov/known-exploited-vulnerabilities-catalog))
 - CISA Binding Operational Directive 25-01: Securing Cloud Environments
 - Palo Alto Networks Security Advisories: CVE-2024-0012, CVE-2024-9474, CVE-2025-0108
 - Fortinet Security Advisories: CVE-2025-64446, CVE-2025-59718

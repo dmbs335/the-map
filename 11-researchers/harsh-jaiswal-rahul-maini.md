@@ -253,9 +253,9 @@ Pre-authentication OS command injection in BeyondTrust Remote Support, discovere
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **Pre-Auth OS Command Injection** | Unauthenticated endpoint allows OS command execution in site user context | CWE-78; CVSS 9.9 |
+| **Pre-Auth OS Command Injection** | Unauthenticated endpoint allows OS command execution in site user context | CWE-78; CVSS 9.9 vendor/CVSS v4, 9.8 NVD v3.1 |
 
-**CVE**: CVE-2026-1731 (CISA KEV; actively exploited in ransomware)
+**CVE**: CVE-2026-1731 (CISA KEV; Microsoft reports Storm-1175 used it in Medusa ransomware operations)
 
 ---
 
@@ -365,9 +365,9 @@ Presented at Ekoparty, Hackitivity, and NoNameCon 2020 with Rajanish Pathak. Cov
 | Mutation Combination | CVE / Case | Impact / Bounty |
 |---------------------|-----------|----------------|
 | §1-1 (WDDX Deser) | CVE-2023-29300 / CVE-2023-38203 / CVE-2023-38204 (Adobe ColdFusion) | Pre-auth RCE; patch bypass chain |
-| §1-2 (Lucee isDefined) | Apple Lucee/Mura RCE | $50,000 Apple Bug Bounty |
+| §1-2 (Lucee isDefined) | Apple Lucee/Mura RCE | Apple Bug Bounty |
 | §1-3 (Ruby deser) + §7-1 | Discord Desktop RCE | Bounty paid (undisclosed) |
-| §2-1 (OGNL injection) | CVE-2023-22527 (Confluence) | CVSS 10.0; 40,000+ exploitation attempts in 3 days |
+| §2-1 (OGNL injection) | CVE-2023-22527 (Confluence) | CVSS 10.0; widespread exploitation attempts shortly after disclosure |
 | §2-2 (EL injection) | CVE-2025-4427/4428 (Ivanti EPMM) | Pre-auth RCE; validation-before-auth pattern |
 | §3-1 (SAML bypass) | CVE-2024-4985/9487 (GitHub Enterprise) | Authentication bypass on GHE with encrypted assertions |
 | §3-1 (SAML XPath) | CVE-2024-45409 (Ruby-SAML/GitLab) | Critical auth bypass affecting GitLab |
@@ -378,10 +378,10 @@ Presented at Ekoparty, Hackitivity, and NoNameCon 2020 with Rajanish Pathak. Cov
 | §5-2 (Upload traversal) | CVE-2025-6204/6205 (DELMIA Apriso) | Unauth user creation + upload RCE |
 | §5-3 (send_file disclosure) | CVE-2024-53991 (Discourse) | Backup file disclosure; CVSS 7.5 |
 | §6-1 (popen injection) | CVE-2024-45519 (Zimbra) | Unauthenticated command execution |
-| §6-2 (OS command injection) | CVE-2026-1731 (BeyondTrust) | CVSS 9.9; CISA KEV; active ransomware exploitation |
-| §7-2 (Electron path traversal) | CVE-2021-43908 (VS Code) | $3,000 MSRC bounty |
+| §6-2 (OS command injection) | CVE-2026-1731 (BeyondTrust) | CVSS 9.9 vendor/CVSS v4, 9.8 NVD v3.1; CISA KEV; used by Storm-1175 in Medusa ransomware operations per Microsoft |
+| §7-2 (Electron path traversal) | CVE-2021-43908 (VS Code) | MSRC bounty |
 | §8-2 (Static SSH keys) | CVE-2023-34039 (VMware Aria) | CVSS 9.8; static keys across all versions |
-| PayPal RCE | PayPal (undisclosed) | $30,000 bounty |
+| PayPal RCE | PayPal (undisclosed) | Public bounty |
 | SSRF (Vimeo) | Vimeo API Playground | GCP metadata access; bounty paid |
 
 ---

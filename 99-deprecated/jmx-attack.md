@@ -343,7 +343,7 @@ Identifying JMX services is the first step in any attack. JMX uses dynamic port 
 | §4-4 + §2-1 (SSRF to JMX) | CVE-2024-28211, CVE-2024-28213 (nGrinder) | Unauthenticated RCE: SSRF forces nGrinder to connect to attacker-controlled RMI endpoint → deserialization |
 | §6-1 + §4-2 (Jolokia Proxy Deser) | CVE-2024-32030 (Kafka UI) | RCE via JMX/RMI deserialization through Kafka UI's JMX monitoring feature. CVSS 8.1 |
 | §2-1 + §5-1 (Localhost JMX escalation) | CVE-2024-32656 (Ant Media Server) | Local privilege escalation from unprivileged user to root via unauthenticated localhost JMX |
-| §6-1 + §4-2 (Jolokia Deser) | CVE-2025-49127 (Kafbat UI) | Critical RCE (CVSS 10.0): unauthenticated → attacker-controlled JMX endpoint → deserialization. No login required |
+| §6-1 + §4-2 (Jolokia Deser) | CVE-2025-49127 (Kafbat UI) | Critical RCE (CVSS 8.9): unauthenticated → attacker-controlled JMX endpoint → deserialization. No login required |
 | §6-1 (Jolokia JNDI) | CVE-2018-1000130 (Jolokia) | JNDI injection in Jolokia proxy mode pre-1.5.0 → arbitrary class loading → RCE |
 | §6-1 (Jolokia CSRF) | CVE-2018-1000129 (Jolokia) | System-wide CSRF → RCE via MBean invocation from victim's browser |
 

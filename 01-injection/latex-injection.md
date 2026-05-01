@@ -455,19 +455,19 @@ The lesson of LaTeX injection is a general one: **Turing-complete document forma
 
 - Checkoway, S., Shacham, H., & Rescorla, E. (2010). *Don't take LaTeX files from strangers.* ;login: USENIX Magazine.
 - Lacombe, G., Masalygina, K., Tahiri, A., Adam, C., & Lauradoux, C. (2021). *Can You Accept LaTeX Files from Strangers? Ten Years Later.* arXiv:2102.00856.
-- Chernoff, M. (2023). *LuaTeX Security Vulnerabilities.* https://www.maxchernoff.ca/p/luatex-vulnerabilities
+- [Chernoff, M. (2023). *LuaTeX Security Vulnerabilities.*](https://www.maxchernoff.ca/p/luatex-vulnerabilities)
 - CVE-2023-32700: LuaTeX arbitrary shell command execution via debug.getupvalue.
 - CVE-2023-32668: LuaTeX luasocket default-enabled network access.
 - CVE-2024-29073: Anki LaTeX incomplete blocklist (verbatiminput bypass).
 - CVE-2024-45312: Overleaf aspell dictionary path manipulation.
 - CVE-2025-59035: Indico XSS via LaTeX math rendering.
 - CVE-2018-1999024: MathJax XSS via \unicode macro.
-- PayloadsAllTheThings — LaTeX Injection. https://swisskyrepo.github.io/PayloadsAllTheThings/LaTeX%20Injection/
-- Practical CTF — LaTeX. https://book.jorianwoltjer.com/languages/latex
-- HackTricks — Formula/CSV/Doc/LaTeX/GhostScript Injection. https://book.hacktricks.wiki/en/pentesting-web/formula-csv-doc-latex-ghostscript-injection.html
-- scumjr (2016). *Pwning coworkers thanks to LaTeX.* https://scumjr.github.io/2016/11/28/pwning-coworkers-thanks-to-latex/
-- 0day.work. *Hacking with LaTeX.* https://0day.work/hacking-with-latex/
-- sk3rts.rocks. *Bypassing LaTeX Filters.* https://sk3rts.rocks/posts/bypassing-latex-filters/
+- [PayloadsAllTheThings — LaTeX Injection.](https://swisskyrepo.github.io/PayloadsAllTheThings/LaTeX%20Injection/)
+- [Practical CTF — LaTeX.](https://book.jorianwoltjer.com/languages/latex)
+- [HackTricks — Formula/CSV/Doc/LaTeX/GhostScript Injection.](https://book.hacktricks.wiki/en/pentesting-web/formula-csv-doc-latex-ghostscript-injection.html)
+- [scumjr (2016). *Pwning coworkers thanks to LaTeX.*](https://scumjr.github.io/2016/11/28/pwning-coworkers-thanks-to-latex/)
+- [0day.work. *Hacking with LaTeX.*](https://0day.work/hacking-with-latex/)
+- [sk3rts.rocks. *Bypassing LaTeX Filters.*](https://sk3rts.rocks/posts/bypassing-latex-filters/)
 - Talos Intelligence. TALOS-2024-1992 (Anki LaTeX vulnerability).
 - Exploit Database. EDB-48805 (Tea LaTeX 1.0 RCE).
 - OWASP ASVS Issue #1559: Add LaTeX injection to Formula Injection checks.

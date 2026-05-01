@@ -495,27 +495,27 @@ The **structural solution** requires defense-in-depth across three layers: (1) *
 
 ## References
 
-- CWE-97: Improper Neutralization of Server-Side Includes (SSI) Within a Web Page — https://cwe.mitre.org/data/definitions/97.html
-- OWASP SSI Injection — https://owasp.org/www-community/attacks/Server-Side_Includes_(SSI)_Injection
-- Apache mod_include documentation — https://httpd.apache.org/docs/current/mod/mod_include.html
+- [CWE-97: Improper Neutralization of Server-Side Includes (SSI) Within a Web Page](https://cwe.mitre.org/data/definitions/97.html)
+- [OWASP SSI Injection](https://owasp.org/www-community/attacks/Server-Side_Includes_(SSI)_Injection)
+- [Apache mod_include documentation](https://httpd.apache.org/docs/current/mod/mod_include.html)
 - ESI Language Specification 1.0 — W3C Note
 - GoSecure ESI Injection Research (Black Hat USA 2018 / DEF CON 26) — Edge Side Include Injection: Abusing Caching Servers into SSRF and Transparent Session Hijacking
-- h3xStream ESI Injection Part 2: Abusing Specific Implementations (2019) — http://blog.h3xstream.com/2019/05/esi-injection-part-2-abusing-specific.html
-- PayloadsAllTheThings XSLT Injection — https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/XSLT%20Injection/README.md
-- Li, Luo, Liu — "Detecting and Exploiting XSLT Vulnerabilities in Real-World Open Source Projects" (2025) — https://ssrn.com/abstract=5337829
-- Oracle JAXP Security Guide — https://docs.oracle.com/en/java/javase/11/security/java-api-xml-processing-jaxp-security-guide.html
-- Microsoft CA3076: Insecure XSLT Script Execution — https://learn.microsoft.com/en-us/dotnet/fundamentals/code-analysis/quality-rules/ca3076
-- Saxon Documentation: xsl:evaluate — https://www.saxonica.com/html/documentation12/xsl-elements/evaluate.html
-- Saxonica: Reflexive Extension Functions — https://www.saxonica.com/html/documentation10/extensibility/functions/index.html
-- HackTricks: Server Side Inclusion/Edge Side Inclusion Injection — https://book.hacktricks.wiki/pentesting-web/server-side-inclusion-edge-side-inclusion-injection.html
-- SideChannel: Understanding the Edge Side Include Injection Vulnerability — https://www.sidechannel.blog/en/understanding-the-edge-side-include-injection-vulnerability/
-- CVE-2025-61882: Oracle E-Business Suite Zero-Day RCE — https://www.centripetal.ai/threat-research/oracle-e-business-suite-zero-day-enables-remote-code-execution
-- CVE-2025-49763: Apache Traffic Server ESI Plugin DoS — https://www.imperva.com/blog/cve-2025-49763-remote-dos-via-memory-exhaustion-in-apache-traffic-server-via-esi-plugin/
-- CVE-2023-46214: Splunk Enterprise RCE via XSLT — https://advisory.splunk.com/advisories/SVD-2023-1104
-- CVE-2024-45802: Squid ESI Processing DoS — https://github.com/squid-cache/squid/security/advisories/GHSA-f975-v7qw-q7hj
-- CVE-2024-28109: veraPDF XSLT Injection — https://github.com/veraPDF/veraPDF-library/security/advisories/GHSA-qxqf-2mfx-x8jw
-- HtmlUnit XSLT RCE — https://github.com/HtmlUnit/htmlunit/security/advisories/GHSA-37vq-hr2f-g7h7
-- INE: XSLT Injection Attacks — https://ine.com/blog/xslt-injections-for-dummies
+- [h3xStream ESI Injection Part 2: Abusing Specific Implementations (2019)](http://blog.h3xstream.com/2019/05/esi-injection-part-2-abusing-specific.html)
+- [PayloadsAllTheThings XSLT Injection](https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/XSLT%20Injection/README.md)
+- [Li, Luo, Liu — "Detecting and Exploiting XSLT Vulnerabilities in Real-World Open Source Projects" (2025)](https://ssrn.com/abstract=5337829)
+- [Oracle JAXP Security Guide](https://docs.oracle.com/en/java/javase/11/security/java-api-xml-processing-jaxp-security-guide.html)
+- [Microsoft CA3076: Insecure XSLT Script Execution](https://learn.microsoft.com/en-us/dotnet/fundamentals/code-analysis/quality-rules/ca3076)
+- [Saxon Documentation: xsl:evaluate](https://www.saxonica.com/html/documentation12/xsl-elements/evaluate.html)
+- [Saxonica: Reflexive Extension Functions](https://www.saxonica.com/html/documentation10/extensibility/functions/index.html)
+- [HackTricks: Server Side Inclusion/Edge Side Inclusion Injection](https://book.hacktricks.wiki/pentesting-web/server-side-inclusion-edge-side-inclusion-injection.html)
+- [SideChannel: Understanding the Edge Side Include Injection Vulnerability](https://www.sidechannel.blog/en/understanding-the-edge-side-include-injection-vulnerability/)
+- [CVE-2025-61882: Oracle E-Business Suite Zero-Day RCE](https://www.centripetal.ai/threat-research/oracle-e-business-suite-zero-day-enables-remote-code-execution)
+- [CVE-2025-49763: Apache Traffic Server ESI Plugin DoS](https://www.imperva.com/blog/cve-2025-49763-remote-dos-via-memory-exhaustion-in-apache-traffic-server-via-esi-plugin/)
+- [CVE-2023-46214: Splunk Enterprise RCE via XSLT](https://advisory.splunk.com/advisories/SVD-2023-1104)
+- [CVE-2024-45802: Squid ESI Processing DoS](https://github.com/squid-cache/squid/security/advisories/GHSA-f975-v7qw-q7hj)
+- [CVE-2024-28109: veraPDF XSLT Injection](https://github.com/veraPDF/veraPDF-library/security/advisories/GHSA-qxqf-2mfx-x8jw)
+- [HtmlUnit XSLT RCE](https://github.com/HtmlUnit/htmlunit/security/advisories/GHSA-37vq-hr2f-g7h7)
+- [INE: XSLT Injection Attacks](https://ine.com/blog/xslt-injections-for-dummies)
 
 ---
 

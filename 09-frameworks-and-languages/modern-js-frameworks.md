@@ -40,7 +40,7 @@ The RSC Flight protocol uses directives like `$F` (function reference) and `$T` 
 | **Self-Reference Gadget (Source Leak)** | Crafted payload causes a server function to receive itself as an argument. When the function stringifies or processes this, the server returns the function's source code in the response | Server function that returns data including stringified arguments |
 | **Infinite Loop DoS** | Specially crafted deserialization payload creates circular references or recursive resolution that hangs the server process, preventing all future HTTP requests | Any App Router endpoint accepting Flight payloads |
 
-The arbitrary module invocation subtype — widely known as "React2Shell" — received a CVSS 10.0 score and was actively exploited within hours of disclosure. Standard `create-next-app` projects using the App Router are vulnerable by default because the Flight protocol endpoint is enabled without additional configuration. The attack requires no authentication, no user interaction, and has low complexity.
+The arbitrary module invocation subtype — widely known as "React2Shell" — received a CVSS 10.0 score and was actively exploited shortly after disclosure. Next.js applications on affected React/Next.js release lines with App Router / RSC server-function exposure are vulnerable without additional user interaction or authentication. The attack has low complexity once the vulnerable RSC endpoint is reachable.
 
 ### §1-2. Server Function Enumeration and Boundary Leakage
 
@@ -64,11 +64,11 @@ Frameworks use internal headers to coordinate between middleware invocations, lo
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **Middleware Recursion Guard Spoofing** | Next.js uses `x-middleware-subrequest` to prevent infinite middleware loops. By injecting this header with the correct middleware path, an attacker causes the framework to skip all middleware execution entirely | Next.js 11.1.4–15.2.2; single HTTP header injection |
+| **Middleware Recursion Guard Spoofing** | Next.js uses `x-middleware-subrequest` to prevent infinite middleware loops. By injecting this header with the correct middleware path, an attacker causes the framework to skip all middleware execution entirely | Next.js 11.1.4–12.3.4, 13.0.0–13.5.8, 14.0.0–14.2.24, 15.0.0–15.2.2; single HTTP header injection |
 | **Forwarded-Host Spoofing** | Astro's Node adapter constructs `Astro.url` from `x-forwarded-host`, `x-forwarded-proto`, and `x-forwarded-port` without validation. Spoofing these headers allows hostname override, protocol injection, and port manipulation | Astro with Node adapter, self-hosted; no upstream header stripping |
 | **Forwarded-Proto Non-Special Scheme** | Injecting non-standard protocol schemes (e.g., `x-forwarded-proto: x:admin?`) into Astro creates URLs without leading slashes. The `prependForwardSlash` function adds the slash during routing but *after* middleware checks, creating a path discrepancy | Astro with middleware-based access control |
 
-The Next.js middleware bypass (CVE-2025-29927, CVSS 9.1) is notable for its simplicity: a single header addition bypasses all middleware-based authorization. Any application relying on Next.js middleware for authentication — a pattern encouraged by the official documentation — was fully exposed.
+The Next.js middleware bypass (CVE-2025-29927, CVSS 9.1) is notable for its simplicity: a single header addition bypasses all middleware-based authorization. Applications that relied on Next.js middleware as the only authentication or authorization gate could be fully exposed.
 
 ### §2-2. Route Matching and Path Confusion
 
@@ -166,7 +166,7 @@ Modern build tools inline environment variables at build time, creating a persis
 | **NEXT_PUBLIC_ Prefix Misuse** | Variables prefixed with `NEXT_PUBLIC_` are inlined into the client bundle at build time. Developers accidentally prefix sensitive variables (API secrets, database URLs) with `NEXT_PUBLIC_` | Sensitive variables with NEXT_PUBLIC_ prefix |
 | **Client-Side Reference of Server Variables** | Even without the `NEXT_PUBLIC_` prefix, if server-only environment variables are referenced in client-side code, they are inlined during the build process | Server env vars accidentally imported in client code paths |
 | **Vite define/env Exposure** | Vite's `define` configuration or `.env` files with `VITE_` prefix expose variables to the client bundle. `import.meta.env.VITE_*` values are statically replaced at build time | Sensitive variables with VITE_ prefix |
-| **Source Code Exposure via RSC Bug** | A crafted HTTP request to a vulnerable server function endpoint can cause React to return the actual JavaScript source of the function in the response, potentially exposing hardcoded secrets | React 19.0.0-19.2.1; server functions with hardcoded secrets (CVE-2025-55183) |
+| **Source Code Exposure via RSC Bug** | A crafted HTTP request to a vulnerable server function endpoint can cause React to return the actual JavaScript source of the function in the response, potentially exposing hardcoded secrets | React RSC packages 19.0.0-19.2.3; current patched baselines are 19.0.4, 19.1.5, and 19.2.4; requires server functions with source-bearing/stringified arguments (CVE-2025-55183) |
 
 ### §4-3. State Serialization Injection
 
@@ -225,7 +225,7 @@ An attacker manipulates request parameters to cause a malicious or corrupted res
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
 | **Internal Header Cache Key Manipulation** | Injecting headers like `x-now-route-matches` or query parameters like `__nextDataReq` in Next.js causes SSR routes to produce JSON responses instead of HTML. When the CDN caches these, all subsequent visitors receive broken or manipulated content | Next.js 13.5.1–14.2.9 Pages Router with non-dynamic SSR routes (CVE-2024-46982) |
-| **204 Response Cache Poisoning** | Crafting requests that cause Next.js to return HTTP 204 responses, which are then cached by CDNs configured to cache 204s, creates DoS conditions where valid pages return empty responses | Next.js 15.0.4-canary.51-15.1.7 with ISR or CDN caching 204 responses (CVE-2025-49826) |
+| **204 Response Cache Poisoning** | Crafting requests that cause Next.js to return HTTP 204 responses, which are then cached by CDNs configured to cache 204s, creates DoS conditions where valid pages return empty responses | Next.js >=15.0.4-canary.51, <15.1.8 with ISR or CDN caching 204 responses (CVE-2025-49826) |
 | **RSC/HTML Format Confusion** | Page requests for HTML content receive RSC (Flight protocol) payloads instead, or vice versa. When cached, this serves incomprehensible data to browsers expecting HTML | Next.js App Router 15.3.0-15.3.2 (CVE-2025-49005) |
 | **Cache Deception via Data Headers** | Manipulating response data to include cache-control directives (`s-maxage`, `stale-while-revalidate`) through header injection causes CDNs to cache pages containing sensitive user data | Applications with cache-control headers derived from user-controllable values |
 | **Response Cache Batcher Race Condition** | Next.js response-cache batcher deduplicates concurrent requests to the same page by sharing a single Promise. Racing the batcher during the brief window between cache-miss detection and response storage causes transient `pageProps` from one user's SSR response to leak into another user's cached response — enabling cross-user data exposure and cache poisoning without any header injection | Next.js Pages Router with response-cache batcher enabled; concurrent requests during ISR revalidation window (zhero-web-sec "Eclipse on Next.js" research, 2025) |
@@ -261,7 +261,7 @@ Development servers provide file serving capabilities with deny lists to prevent
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **Vite Query Parameter Bypass** | Adding `?inline&import` or `?raw&import` query parameters to file URLs bypasses Vite's `server.fs.deny` configuration, exposing contents of blocked files (`.env`, `package.json`, private keys) | Vite < 6.0.12, 5.4.15, 4.5.10 (CVE-2025-31125); actively exploited in the wild |
+| **Vite Query Parameter Bypass** | Adding `?inline&import` or `?raw&import` query parameters to file URLs bypasses Vite's `server.fs.deny` configuration, exposing contents of blocked files (`.env`, `package.json`, private keys) | Vite < 4.5.11, >=5.0.0 <5.4.16, >=6.0.0 <6.0.13, >=6.1.0 <6.1.3, >=6.2.0 <6.2.4 (CVE-2025-31125); actively exploited in the wild |
 | **Vite Information Exposure** | Using `?import&raw` URL parameters on restricted files exposes their contents through the development server | Vite < 3.2.11, 4.5.5, 5.2.14, 5.3.6, 5.4.6 (CVE-2024-45811) |
 
 ### §7-3. Build-Time Code Injection
@@ -295,7 +295,7 @@ The JavaScript ecosystem's deep dependency trees create an enormous attack surfa
 |---------|-----------|---------------|
 | **Wormable Package Compromise** | The "Shai-Hulud" worm (Aug–Nov 2025) demonstrated self-propagating behavior: malicious code in one package automatically uses stolen npm tokens to inject itself into other packages maintained by the compromised developer. Distinct from the September 2025 npm maintainer compromise (chalk, debug, ansi-styles — 18 packages, 2.6B weekly downloads) | Compromised npm tokens with publish permissions; Shai-Hulud 1.0/2.0 affected 796 packages per desktop-hybrid-app-security.md / implicit-trust-boundary.md |
 | **Postinstall Script Exploitation** | Packages execute arbitrary code during `npm install` via `postinstall` scripts. A compromised dependency can exfiltrate environment variables, inject backdoors, or download remote payloads at install time | Any package with `scripts.postinstall` in `package.json` |
-| **CDN Compromise** | Third-party CDN-hosted libraries are modified at the CDN level. The Polyfill.io incident compromised 100,000+ websites by weaponizing a trusted CDN endpoint | Applications loading scripts from third-party CDNs without SRI hashes |
+| **CDN Compromise** | Third-party CDN-hosted libraries are modified at the CDN level. The Polyfill.io incident compromised many websites by weaponizing a trusted CDN endpoint | Applications loading scripts from third-party CDNs without SRI hashes |
 
 ### §8-3. Ecosystem-Targeted Campaigns
 
@@ -355,7 +355,7 @@ Framework development tools run with elevated privileges and may be inadvertentl
 |---------|-----------|---------------|
 | **Nuxt DevTools Token Extraction via XSS** | Under certain configurations, XSS in Nuxt DevTools can expose authentication tokens and sensitive developer context in development environments. Additional escalation to file write or RCE requires separate conditions and should not be assumed from this CVE alone | Nuxt DevTools < 2.6.4 under the affected configuration (CVE-2025-52662) |
 | **SvelteKit Prerender/Origin SSRF-DoS** | Crafted requests against affected SvelteKit deployments can trigger SSRF or crash behavior when prerendered routes are served by `adapter-node` without a safe `ORIGIN` configuration | SvelteKit with affected prerendered-route setup and `adapter-node` / unsafe `ORIGIN` handling (CVE-2025-67647) |
-| **Devalue Deserialization DoS** | The `devalue` library used by SvelteKit for serialization is vulnerable to memory/CPU exhaustion through crafted payloads, causing server crashes | SvelteKit with devalue (CVE-2026-22775, CVE-2026-22774) |
+| **Devalue Deserialization DoS** | The `devalue` library used by SvelteKit can exhaust memory/CPU when `devalue.parse()` processes crafted external input; fixed in devalue 5.6.2 | Applications that call `devalue.parse()` on untrusted data: CVE-2026-22775 affects devalue 5.1.0–5.6.1; CVE-2026-22774 affects 5.3.0–5.6.1 |
 
 ---
 
@@ -374,19 +374,19 @@ Framework development tools run with elevated privileges and may be inadvertentl
 
 ---
 
-## CVE / Bounty Mapping (2024–2025)
+## CVE / Bounty Mapping (2024–2026)
 
 | Mutation Combination | CVE / Case | Impact / Bounty |
 |---------------------|-----------|----------------|
-| §1-1 (RSC Deserialization RCE) | CVE-2025-55182 (React) | CVSS 10.0. Unauthenticated RCE in React Server Components / Server Functions deserialization. Official tracking is under CVE-2025-55182; CVE-2025-66478 is a duplicate rejected record. Affects React 19.0.0, 19.1.0, 19.1.1, 19.2.0 (patched in 19.0.1, 19.1.2, 19.2.1) and downstream frameworks exposing the vulnerable surface |
-| §1-1 (RSC DoS) | CVE-2025-55184 / CVE-2025-67779 | CVSS 7.5. Infinite loop hanging server process, blocking all HTTP requests |
-| §4-2 (Source Code Exposure) | CVE-2025-55183 | CVSS 5.3. Server function source code + hardcoded secrets leaked via crafted requests. Affects React 19.0.0-19.2.1 |
-| §2-1 (Middleware Bypass) | CVE-2025-29927 (Next.js) | CVSS 9.1. Single header bypasses all middleware-based auth. Affects Next.js 11.1.4–15.2.2 |
+| §1-1 (RSC Deserialization RCE) | CVE-2025-55182 (React) | CVSS 10.0. Unauthenticated RCE in React Server Components / Server Functions deserialization. Official tracking is under CVE-2025-55182; CVE-2025-66478 is a duplicate rejected record. Initial RCE fixes were 19.0.1, 19.1.2, and 19.2.1, but follow-up RSC vulnerabilities make the current safe baselines 19.0.4, 19.1.5, and 19.2.4+ for `react-server-dom-*` packages and downstream frameworks exposing the vulnerable surface |
+| §1-1 (RSC DoS) | CVE-2025-55184 / CVE-2025-67779 / CVE-2026-23864 | CVSS 7.5. Infinite-loop DoS in RSC deserialization. Affects React RSC packages through 19.2.3; current patched baselines are 19.0.4, 19.1.5, and 19.2.4 |
+| §4-2 (Source Code Exposure) | CVE-2025-55183 | CVSS 5.3. Server function source code + hardcoded secrets may leak via crafted requests in specific server-function configurations. Affects React RSC packages through 19.2.3; current patched baselines are 19.0.4, 19.1.5, and 19.2.4 |
+| §2-1 (Middleware Bypass) | CVE-2025-29927 (Next.js) | CVSS 9.1. Single header bypasses all middleware-based auth. Affects Next.js 11.1.4–12.3.4, 13.0.0–13.5.8, 14.0.0–14.2.24, 15.0.0–15.2.2 |
 | §2-2 (Pathname Auth Bypass) | CVE-2024-51479 (Next.js) | Middleware pathname matching flaw. Affects Next.js 9.5.5–14.2.14 |
 | §5-2 (Server Action SSRF) | CVE-2024-34351 (Next.js) | SSRF via Host header manipulation in server actions. Affects Next.js < 14.1.1 |
 | §5-3 (Middleware SSRF) | CVE-2025-57822 (Next.js) | SSRF via Location header in NextResponse.next(). Affects self-hosted < 14.2.32 / 15.4.7 |
 | §6-1 (Cache Poisoning) | CVE-2024-46982 (Next.js) | CVSS 7.5. SSR cache poisoning via internal headers. Affects 13.5.1–14.2.9 |
-| §6-1 (Cache Poisoning DoS) | CVE-2025-49826 (Next.js) | Cache poisoning via 204 responses. Affects 15.0.4-canary.51-15.1.7 with ISR |
+| §6-1 (Cache Poisoning DoS) | CVE-2025-49826 (Next.js) | Cache poisoning via 204 responses. Affects Next.js >=15.0.4-canary.51, <15.1.8 with ISR |
 | §6-1 (RSC Format Confusion) | CVE-2025-49005 (Next.js) | RSC/HTML format confusion cache poisoning. Affects App Router 15.3.0-15.3.2 |
 | §6-1 (Cache Batcher Race) | Eclipse on Next.js (zhero-web-sec, 2025) | Cross-user data exposure via response-cache batcher race condition during ISR revalidation |
 | §5-3 + §6-2 (Astro Header SSRF/XSS) | CVE-2025-61925 / CVE-2025-64525 (Astro) | CVSS 6.5. SSRF + cache poisoning XSS via x-forwarded-* headers. CVE-2025-64525 is a bypass of the CVE-2025-61925 fix |
@@ -398,17 +398,17 @@ Framework development tools run with elevated privileges and may be inadvertentl
 | §3-4 (SvelteKit Search Param XSS) | CVE-2025-32388 (SvelteKit) | XSS when unsafe server-side handling of `event.url.searchParams` causes attacker-controlled values to be reflected into rendered output |
 | §3-4 (SvelteKit Error Template XSS) | CVE-2024-53262 (SvelteKit) | XSS via unescaped error.html template. Affects SvelteKit < 2.8.3 |
 | §9-4 (SvelteKit DoS/SSRF) | CVE-2025-67647 (SvelteKit) | Server crash + SSRF in affected prerendered-route / `adapter-node` deployments with unsafe `ORIGIN` handling |
-| §9-4 (SvelteKit Devalue DoS) | CVE-2026-22775 / CVE-2026-22774 | Memory/CPU exhaustion in devalue deserialization |
+| §9-4 (SvelteKit Devalue DoS) | CVE-2026-22775 / CVE-2026-22774 | Memory/CPU exhaustion when `devalue.parse()` handles untrusted input; fixed in devalue 5.6.2 |
 | §9-1 (Vue Prototype Pollution) | CVE-2024-6783 (Vue.js) | Prototype pollution → XSS via template compiler in Vue 2 |
 | §9-1 (vue-i18n Pollution) | CVE-2025-27597 (vue-i18n) | Prototype pollution via handleFlatJson → potential RCE in Node.js contexts |
-| §7-2 (Vite File Access) | CVE-2025-31125 (Vite) | File access bypass via query parameters. Actively exploited. Affects Vite < 6.0.12 |
+| §7-2 (Vite File Access) | CVE-2025-31125 (Vite) | File access bypass via query parameters. Actively exploited. Affects Vite <4.5.11, 5.0.0–5.4.15, 6.0.0–6.0.12, 6.1.0–6.1.2, 6.2.0–6.2.3 |
 | §7-2 (Vite Info Exposure) | CVE-2024-45811 (Vite) | File content exposure via ?import&raw |
 | §7-3 (Webpack DOM Clobbering) | CVE-2024-43788 (Webpack) | XSS via DOM clobbering in AutoPublicPathRuntimeModule |
 | §7-1 (webpack-dev-server Source Theft) | CVE-2025-30359 | Cross-origin source code theft from development server due to insufficient origin/private-network request enforcement |
 | §8-1 (npm Supply Chain — maintainer compromise) | September 2025 npm incident | 18 packages (chalk, debug, ansi-styles etc.), 2.6B weekly downloads. Maintainer token theft |
 | §8-1 (npm Supply Chain — self-propagating worm) | Shai-Hulud 1.0/2.0 (Aug–Nov 2025) | 796 packages, self-propagating via stolen npm tokens + postinstall scripts. Separate event from Sept 2025 maintainer compromise |
-| §8-2 (CDN Compromise) | Polyfill.io (June 2024) | 100,000+ websites compromised via CDN-level script modification |
-| §3-3 (MDX Evaluation RCE) | CVE-2025-67843 (Mintlify) | Server-side MDX expression evaluation during SSG achieves RCE. $5,000 bounty. Affected Discord, Vercel, Cursor documentation sites |
+| §8-2 (CDN Compromise) | Polyfill.io (June 2024) | Many websites compromised via CDN-level script modification |
+| §3-3 (MDX Evaluation RCE) | CVE-2025-67843 (Mintlify) | Server-side MDX expression evaluation during SSG achieves RCE. Public bounty case. Affected Discord, Vercel, Cursor documentation sites |
 
 ---
 
@@ -451,6 +451,8 @@ Framework development tools run with elevated privileges and may be inadvertentl
 - zhero_web_security: Next.js and Cache Poisoning — A Quest for the Black Hole
 - DeepStrike: Next.js Security Testing Guide for Bug Hunters and Pentesters
 - Intigriti: Hacking Next.js Targets — Advanced SSRF Exploitation Guide
+- React Team: Critical Security Vulnerability in React Server Components (CVE-2025-55182)
+- React Team: Denial of Service and Source Code Exposure in React Server Components (CVE-2025-55184, CVE-2025-55183, CVE-2025-67779, CVE-2026-23864)
 - JFrog: React2Shell — All You Need to Know
 - AWS Security Blog: China-nexus Groups Exploit React2Shell (December 2025)
 - Microsoft Security Blog: Defending Against CVE-2025-55182 (December 2025)
@@ -470,8 +472,8 @@ Framework development tools run with elevated privileges and may be inadvertentl
 - Kodem: Security Issues in Popular Full-Stack Frameworks
 - Semgrep: A Technical Deep Dive into JavaScript Vulnerability Detection
 - Sam Curry: "Exploiting Web3's Hidden Attack Surface: Universal XSS on Netlify's Next.js Library" (2022) — UXSS affecting Web3 applications via Next.js library vulnerability on Netlify
-- kibty, "how to hack discord, vercel and more with one easy trick" (2025) — Server-side MDX evaluation RCE in Mintlify (CVE-2025-67843). Cross-tenant static asset XSS, path traversal, deployment downgrade. $5,000 bounty. https://kibty.town/blog/mintlify
-- Gareth Heyes (PortSwigger Research), "Ambushed by AngularJS: a hidden CSP bypass in Piwik PRO" (2023) — Transitive AngularJS 1.x inclusion via analytics scripts enables CSP bypass through template injection. https://portswigger.net/research/ambushed-by-angularjs-a-hidden-csp-bypass-in-piwik-pro
+- [kibty, "how to hack discord, vercel and more with one easy trick" (2025) — Server-side MDX evaluation RCE in Mintlify (CVE-2025-67843). Cross-tenant static asset XSS, path traversal, deployment downgrade.](https://kibty.town/blog/mintlify)
+- [Gareth Heyes (PortSwigger Research), "Ambushed by AngularJS: a hidden CSP bypass in Piwik PRO" (2023) — Transitive AngularJS 1.x inclusion via analytics scripts enables CSP bypass through template injection.](https://portswigger.net/research/ambushed-by-angularjs-a-hidden-csp-bypass-in-piwik-pro)
 
 ---
 

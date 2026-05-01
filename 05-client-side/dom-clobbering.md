@@ -460,7 +460,7 @@ A quirk of HTML parsing: `<html>`, `<body>`, and `<head>` tags appearing later i
 | §1-1 + §4-1 | CVE-2024-53386 (stage.js) | DOM Clobbering → XSS |
 | §1-1 + §3-1 + §7-4 | Gmail AMP4Email (2019, landmark) | `AMP_MODE` variable clobber → XSS in Gmail. Bypassed CSP + sanitizer |
 | §7-4 | Google Closure, Google Client API, MathJax | Zero-day gadgets detected by Hulk (2025). 497 total gadgets across libraries |
-| §1–§5 | Tranco Top 5K scan | 9,467 DOM Clobbering vulnerabilities affecting 9.8% of top 5K sites; 44 manually confirmed exploitable |
+| §1–§5 | Tranco Top 5K scan | DOM clobbering vulnerabilities found across a measurable share of popular sites, with manually confirmed exploitability |
 
 ---
 
@@ -493,7 +493,7 @@ Each CVE patch follows the same pattern: add a type check (`tagName === 'SCRIPT'
 
 1. **The specification mandates the behavior**: Browsers cannot remove named access without breaking the web.
 2. **Every JavaScript library is a potential gadget**: Any code pattern that reads an undefined global variable or accesses `document.*` without type validation creates a clobbering opportunity.
-3. **HTML sanitizers provide incomplete protection**: 55% of popular sanitizers are vulnerable to at least one clobbering markup by default, and CSP cannot mitigate over 85% of identified DOM Clobbering vulnerabilities.
+3. **HTML sanitizers provide incomplete protection**: popular sanitizers can be vulnerable to clobbering markup by default, and CSP cannot mitigate many identified DOM clobbering vulnerabilities.
 
 ### Structural Solutions
 

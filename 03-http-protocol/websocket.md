@@ -36,17 +36,17 @@ Cross-Site WebSocket Hijacking is the WebSocket analog of Cross-Site Request For
 | **Classic CSWSH** | Malicious page opens `new WebSocket('wss://target.com/ws')` which sends victim's cookies automatically; attacker receives all server messages on their controlled endpoint | `SameSite=None` on auth cookies + no Origin validation |
 | **GraphQL-over-WebSocket CSWSH** | Target exposes GraphQL API via WebSocket (e.g., `graphql-ws` protocol); CSWSH enables arbitrary query/mutation/subscription execution including destructive operations (account deletion, data exfiltration) | GraphQL endpoint accessible via WS + cookie auth without CSRF token enforcement on WS |
 | **Subdomain Trust CSWSH** | When SameSite=Lax is set, CSWSH is blocked cross-site — but subdomains of the same registrable domain are considered "same-site"; an XSS on any subdomain enables CSWSH against the main domain | Multi-tenant subdomain architecture (e.g., `*.example.com`) |
-| **Private Network CSWSH** | WebSocket connections from public web pages to private/localhost IPs (`127.0.0.1`, `192.168.x.x`); Chrome's Private Network Access preflight does NOT apply to WebSocket connections | Locally-bound WebSocket server without origin/auth checks |
+| **Private Network CSWSH** | WebSocket connections from public web pages to private/localhost IPs (`127.0.0.1`, `192.168.x.x`); Chrome's Local Network Access work is expanding toward WebSocket/WebTransport/WebRTC coverage, but official Chrome documentation did not list those transports as gated in the initial milestone | Locally-bound WebSocket server without origin/auth checks; legacy browsers or user/enterprise-granted LNA permission |
 
-**Browser Mitigation Landscape (2025):**
+**Browser Mitigation Landscape (2026):**
 
 | Browser | SameSite Default | Third-Party Cookie Policy | CSWSH Status |
 |---|---|---|---|
-| Chrome 130+ | Lax | Restricted (but exceptions exist) | Blocked for `SameSite=Lax/Strict`; exploitable if `SameSite=None` |
-| Firefox (ETP) | Lax (default since Firefox 103, 2022) + Total Cookie Protection | Partitioned per-site | Effectively blocked by SameSite=Lax default + Total Cookie Protection |
-| Safari | Lax | ITP blocks third-party cookies | Blocked for most scenarios |
+| Modern Chrome with LNA rollout | Lax | Restricted for LNA-covered request types; WebSocket coverage depends on rollout/version and enterprise/user permission state | Cross-site cookie CSWSH blocked for `SameSite=Lax/Strict`; exploitable if `SameSite=None`; private-network CSWSH remains relevant where LNA is absent, not yet covering WebSockets, or permission is granted |
+| Firefox (ETP) | Total Cookie Protection; `SameSite=Lax` by default remains pref-gated/not enabled by default in Release | Partitioned per-site | Risk reduced mainly by cookie partitioning/tracking protections, not by a Firefox Release Lax-by-default assumption |
+| Safari | No Lax-by-default assumption; explicit SameSite honored | ITP blocks most third-party cookies | Blocked for many third-party-cookie scenarios; do not rely on default-Lax behavior |
 
-Despite browser-level mitigations, CSWSH remains exploitable in 2025 when: (a) auth cookies explicitly set `SameSite=None` (common for cross-origin auth services), (b) targets are on private/localhost networks, or (c) XSS exists on a sibling subdomain.
+Despite browser-level mitigations, CSWSH remains exploitable in 2026 when: (a) auth cookies explicitly set `SameSite=None` (common for cross-origin auth services), (b) private/localhost targets are reached from browsers without LNA WebSocket enforcement or after a user/enterprise grants LNA permission, or (c) XSS exists on a sibling subdomain.
 
 ### §1-2. Origin Header Bypass
 
@@ -233,7 +233,7 @@ Many applications use WebSocket as a transport for higher-level protocols (STOMP
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
-| **STOMP Frame Smuggling (Pre-CONNECT Injection)** | Sending a WebSocket message containing multiple STOMP frames where a SEND or SUBSCRIBE frame precedes the CONNECT frame; server processes them before authentication completes | Spring Framework STOMP implementation (CVE-2025-41254) |
+| **STOMP Authorization Bypass** | Authenticated user can send STOMP messages to destinations or actions not authorized by the application when CSRF / authorization checks are incomplete; some third-party analyses discuss frame ordering variants, but that is not the official CVE root-cause statement | Spring Framework STOMP endpoints before 5.3.46, 6.1.24, 6.2.12 (CVE-2025-41254) |
 | **STOMP Destination Injection** | Subscribing to or sending messages to unauthorized STOMP destinations (e.g., `/topic/admin`) by manipulating the destination header in STOMP frames | Missing per-destination authorization in STOMP broker |
 | **STOMP Header Injection** | Injecting STOMP protocol headers (e.g., `receipt`, `transaction`) to manipulate server-side transaction handling or trigger unexpected behavior | Server processes all STOMP headers without validation |
 
@@ -260,7 +260,7 @@ Many applications use WebSocket as a transport for higher-level protocols (STOMP
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
 | **Method Enumeration** | Sending JSON-RPC `system.listMethods` or systematically calling methods to discover the API surface | No method-level access control |
-| **Unauthorized Method Invocation** | Calling administrative or privileged JSON-RPC methods over WebSocket without proper authorization | Authorization checked only at connection, not per-method (CVE-2025-52882: MCP server exposed `tools/list` and tool execution) |
+| **Unauthorized Method Invocation** | Calling administrative or privileged JSON-RPC methods over WebSocket without proper authorization | Authorization checked only at connection, not per-method (CVE-2025-52882: MCP / IDE integration exposed IDE metadata and file-open behavior; RCE only under specific VS Code/Jupyter + user-prompt conditions) |
 | **Notification Abuse** | JSON-RPC notifications (requests without `id`) do not receive responses; attackers flood with notifications to trigger server-side effects without receiving error feedback | No rate limiting on notification messages |
 
 ---
@@ -341,7 +341,7 @@ WebSocket's persistent, asynchronous nature creates timing-sensitive state manag
 
 | Mutation Combination | CVE / Case | Impact / Bounty |
 |---|---|---|
-| §2-1 + §1-1 (Unauthenticated local WS + port brute-force) | CVE-2025-52882 (Claude Code MCP Server) | CVSS 8.8 — Arbitrary file read, code execution via unauthenticated localhost WebSocket |
+| §2-1 + §1-1 (Unauthenticated local WS + port brute-force) | CVE-2025-52882 (Claude Code MCP Server) | CVSS 8.8 — IDE/file path exposure and arbitrary file read through unauthenticated localhost WebSocket; code execution is limited to specific VS Code/Jupyter + user-prompt conditions |
 | §7-1 (STOMP unauthorized messages) | CVE-2025-41254 (Spring Framework) | CVSS 4.3. Spring official advisory describes this as "unauthorized messages" bypassing CSRF protection — characterizing the root cause as STOMP frame smuggling or pre-CONNECT injection goes beyond the official description. Affects 5.3.0–5.3.45, 6.0.x–6.0.29, 6.1.0–6.1.23, 6.2.0–6.2.11. Fixed in 5.3.46, 6.1.24, 6.2.12 |
 | §3-2 (Predictable masking key) | CVE-2025-10148 (curl) | Static WebSocket masking key reused across entire connection. Per curl advisory, cache poisoning risk requires a flawed proxy that misinterprets WebSocket traffic as HTTP — not exploitable against spec-compliant intermediaries |
 | §2-1 + §1-2 (Auth bypass via Node.js WS module) | CVE-2024-55591 (FortiOS/FortiProxy) | CVSS 9.6 — Super-admin privilege gain via crafted WebSocket requests; actively exploited in the wild |
@@ -383,7 +383,7 @@ This creates a fundamental mismatch: developers and security tools assume HTTP-l
 
 ### Why Incremental Fixes Fail
 
-Patching individual WebSocket vulnerabilities produces a perpetual game of catch-up for three reasons. First, the attack surface multiplies with every higher-level protocol layered on top: STOMP, Socket.IO, GraphQL, and JSON-RPC each introduce their own framing, routing, and state management — and their own security gaps. Second, the intermediary ecosystem (proxies, load balancers, CDNs) was designed for HTTP and bolted on WebSocket support as an afterthought, creating parser differentials that smuggling attacks exploit. Third, browser-level mitigations (SameSite cookies, Total Cookie Protection, Private Network Access) each address a narrow slice of the problem while leaving other vectors open — SameSite doesn't protect `SameSite=None` cookies required by cross-origin auth; Private Network Access doesn't cover WebSocket connections; Firefox blocks CSWSH via cookie partitioning but Chrome doesn't.
+Patching individual WebSocket vulnerabilities produces a perpetual game of catch-up for three reasons. First, the attack surface multiplies with every higher-level protocol layered on top: STOMP, Socket.IO, GraphQL, and JSON-RPC each introduce their own framing, routing, and state management — and their own security gaps. Second, the intermediary ecosystem (proxies, load balancers, CDNs) was designed for HTTP and bolted on WebSocket support as an afterthought, creating parser differentials that smuggling attacks exploit. Third, browser-level mitigations (SameSite cookies, Total Cookie Protection, and Chrome's Local Network Access permission model) each address a narrow slice of the problem while leaving other vectors open — SameSite doesn't protect `SameSite=None` cookies required by cross-origin auth; LNA coverage varies by request type, browser version, and granted-permission state; Firefox reduces CSWSH mainly via cookie partitioning/tracking protections rather than a Release-channel Lax-by-default cookie assumption.
 
 ### The Structural Solution
 
@@ -393,25 +393,25 @@ A comprehensive defense requires treating WebSocket as a first-class security bo
 
 ## References
 
-- RFC 6455: The WebSocket Protocol — https://www.rfc-editor.org/rfc/rfc6455
-- RFC 8441: Bootstrapping WebSockets with HTTP/2 — https://www.rfc-editor.org/rfc/rfc8441
-- OWASP WebSocket Security Cheat Sheet — https://cheatsheetseries.owasp.org/cheatsheets/WebSocket_Security_Cheat_Sheet.html
-- Include Security: Cross-Site WebSocket Hijacking Exploitation in 2025 — https://blog.includesecurity.com/2025/04/cross-site-websocket-hijacking-exploitation-in-2025/
-- PortSwigger Research: WebSocket Turbo Intruder — https://portswigger.net/research/websocket-turbo-intruder-unearthing-the-websocket-goldmine
-- PortSwigger Web Security Academy: WebSockets — https://portswigger.net/web-security/websockets
-- Datadog Security Labs: CVE-2025-52882 — https://securitylabs.datadoghq.com/articles/claude-mcp-cve-2025-52882/
-- HeroDevs: CVE-2025-41254 Spring WebSocket CSRF — https://www.herodevs.com/blog-posts/cve-2025-41254-spring-websocket-csrf-bypass-vulnerability-explained
-- curl: CVE-2025-10148 Predictable WebSocket Mask — https://curl.se/docs/CVE-2025-10148.html
-- @0ang3el: WebSocket Smuggling — https://github.com/0ang3el/websocket-smuggle
-- PalindromeLabs: awesome-websocket-security — https://github.com/PalindromeLabs/awesome-websocket-security
-- PalindromeLabs: STEWS — https://github.com/PalindromeLabs/STEWS
-- Praetorian: MeshCentral CVE-2024-26135 — https://www.praetorian.com/blog/meshcentral-cross-site-websocket-hijacking-vulnerability/
-- Snyk Labs: Gitpod CVE-2023-0957 — https://labs.snyk.io/resources/gitpod-remote-code-execution-vulnerability-websockets/
-- Integrity360: CVE-2024-55591 FortiOS — https://insights.integrity360.com/cve-2024-55591-being-exploited-in-the-wild-critical-authentication-bypass-in-node.js-websocket-module
-- PayloadsAllTheThings: Web Sockets — https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Web%20Sockets/README.md
-- HackTricks: WebSocket Attacks — https://book.hacktricks.xyz/pentesting-web/websocket-attacks
-- Black Hills InfoSec: CSWSH Analysis — https://www.blackhillsinfosec.com/cant-stop-wont-stop-hijacking-websockets/
-- DeepStrike: Mastering WebSockets Vulnerabilities — https://deepstrike.io/blog/mastering-websockets-vulnerabilities
+- [RFC 6455: The WebSocket Protocol](https://www.rfc-editor.org/rfc/rfc6455)
+- [RFC 8441: Bootstrapping WebSockets with HTTP/2](https://www.rfc-editor.org/rfc/rfc8441)
+- [OWASP WebSocket Security Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/WebSocket_Security_Cheat_Sheet.html)
+- [Include Security: Cross-Site WebSocket Hijacking Exploitation in 2025](https://blog.includesecurity.com/2025/04/cross-site-websocket-hijacking-exploitation-in-2025/)
+- [PortSwigger Research: WebSocket Turbo Intruder](https://portswigger.net/research/websocket-turbo-intruder-unearthing-the-websocket-goldmine)
+- [PortSwigger Web Security Academy: WebSockets](https://portswigger.net/web-security/websockets)
+- [Datadog Security Labs: CVE-2025-52882](https://securitylabs.datadoghq.com/articles/claude-mcp-cve-2025-52882/)
+- [HeroDevs: CVE-2025-41254 Spring WebSocket CSRF](https://www.herodevs.com/blog-posts/cve-2025-41254-spring-websocket-csrf-bypass-vulnerability-explained)
+- [curl: CVE-2025-10148 Predictable WebSocket Mask](https://curl.se/docs/CVE-2025-10148.html)
+- [@0ang3el: WebSocket Smuggling](https://github.com/0ang3el/websocket-smuggle)
+- [PalindromeLabs: awesome-websocket-security](https://github.com/PalindromeLabs/awesome-websocket-security)
+- [PalindromeLabs: STEWS](https://github.com/PalindromeLabs/STEWS)
+- [Praetorian: MeshCentral CVE-2024-26135](https://www.praetorian.com/blog/meshcentral-cross-site-websocket-hijacking-vulnerability/)
+- [Snyk Labs: Gitpod CVE-2023-0957](https://labs.snyk.io/resources/gitpod-remote-code-execution-vulnerability-websockets/)
+- [Integrity360: CVE-2024-55591 FortiOS](https://insights.integrity360.com/cve-2024-55591-being-exploited-in-the-wild-critical-authentication-bypass-in-node.js-websocket-module)
+- [PayloadsAllTheThings: Web Sockets](https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Web%20Sockets/README.md)
+- [HackTricks: WebSocket Attacks](https://book.hacktricks.xyz/pentesting-web/websocket-attacks)
+- [Black Hills InfoSec: CSWSH Analysis](https://www.blackhillsinfosec.com/cant-stop-wont-stop-hijacking-websockets/)
+- [DeepStrike: Mastering WebSockets Vulnerabilities](https://deepstrike.io/blog/mastering-websockets-vulnerabilities)
 
 ---
 

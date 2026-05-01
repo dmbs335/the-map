@@ -318,13 +318,13 @@ Using HPP not as the primary attack, but as an evasion technique to deliver othe
 
 | Mutation Combination | CVE / Case | Impact / Bounty |
 |---------------------|-----------|----------------|
-| §1-1 + §8-3 (WAF bypass via concatenation) | Ethiack WAF Research (2025) — 17 WAF configurations tested | 70.6% bypass rate with complex HPP payloads. AWS WAF Managed Rules, Cyber Security Cloud, F5 rule sets fully bypassed. Only Google Cloud Armor (ModSecurity), Azure WAF (DRS 2.1), and open-appsec blocked all manual payloads. |
+| §1-1 + §8-3 (WAF bypass via concatenation) | Ethiack WAF Research (2025) | Complex HPP payloads bypassed multiple tested WAF configurations. |
 | §1-1 (Client-side reflected HPP) | CVE-2021-0269 (Juniper Junos OS J-Web) | Client-side HPP in J-Web management interface. |
 | §3-3 (Multipart boundary prediction) | CVE-2025-7783 (form-data library < 2.5.4, 3.0.0–3.0.3, 4.0.0–4.0.3) | Critical (CVSS 9.4). `Math.random()`-based multipart boundary generation is predictable, enabling attackers to inject additional multipart fields by guessing the boundary. Primarily a multipart form-data parameter injection issue rather than classical HPP encoding differential. |
 | §8-2 (OTP hijacking) | Multiple bug bounty reports (2023–2025) | Account takeover via duplicated email parameter in password reset flows. OTP generated for victim, sent to attacker. |
 | §8-2 (Transaction manipulation) | Multiple bug bounty reports | Financial parameter manipulation in payment flows via duplicate `from`/`amount` parameters. |
 | §8-2 (Mass assignment, tangentially related) | GitHub mass assignment incident (2012) — landmark case | Public key uploaded to any organization via Rails mass assignment (unfiltered model attribute binding), not duplicate parameter pollution. Included for historical context as the incident motivated `strong_parameters` adoption. Primarily a mass assignment vulnerability (see `business-logic-bug.md`). |
-| §8-3 (Split payload WAF bypass) | Multiple HackerOne / Bugcrowd reports (2024–2025) | XSS via split payloads across duplicate parameters on ASP.NET applications. Bounties ranging $500–$5,000. |
+| §8-3 (Split payload WAF bypass) | Multiple HackerOne / Bugcrowd reports (2024–2025) | XSS via split payloads across duplicate parameters on ASP.NET applications. |
 
 ---
 

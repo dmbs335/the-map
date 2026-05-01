@@ -383,7 +383,7 @@ MHTML (MIME HTML) is a web page archive format that bundles HTML, CSS, images, a
 | §8-1 (XSLT) | WebKit XSLT UXSS (EDB-47237) | UXSS via XSLT and nested document replacements |
 | §8-3 (MHTML) | CVE-2014-1747 (Chromium) | UXSS from local MHTML file |
 | §8-2 (PDF viewer) | CVE-2024-4367 (PDF.js) | XSS via crafted PDF, CSP bypass |
-| §7-2 (Safari/WebKit) | Safari/WebKit UXSS (2022) | $100,500 Apple bounty; full account takeover on every visited site |
+| §7-2 (Safari/WebKit) | Safari/WebKit UXSS (2022) | Full account takeover on every visited site |
 | §6-3 (Firefox about: page) | CVE-2019-11728 (Firefox) | Insufficient sanitization in about:reader allowed XSS in privileged context |
 | §6-3 (Firefox about: page) | CVE-2023-4057 (Firefox) | Memory safety bugs in Firefox privileged contexts allowing potential chrome-level code execution |
 | §8 + §4 (Payment manifest + SW registration) | CVE-2023-5480 (Chrome, Slonser 2024) | UXSS via manipulated payment manifest triggering JIT service worker registration in victim origin; Payment Handler API allows attacker to install malicious SW that executes JavaScript in any origin's context |

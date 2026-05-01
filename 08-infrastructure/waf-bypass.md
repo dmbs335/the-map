@@ -33,7 +33,7 @@ This taxonomy covers **payload-level WAF bypass techniques** — mutations that 
 
 ### Fundamental Insight
 
-Payload-level bypasses exploit the fact that WAF detection rules (whether regex signatures or ML models) must recognize malicious intent across the **full space of syntactically equivalent representations** — every encoding, every syntax variant, every dialect-specific function — that the backend interpreter accepts. This space is combinatorially explosive: a single SQL injection payload can be expressed in thousands of syntactically valid forms across different encodings, character sets, comment styles, function alternatives, and quoting mechanisms. The WAF's rule set covers a finite subset; the attacker need only find *one* representation outside that subset. Research confirms this: over 52% of exploit payloads bypass default WAF rules even under favorable conditions, and adversarial mutation tools achieve 80-97%+ bypass rates against production WAFs.
+Payload-level bypasses exploit the fact that WAF detection rules (whether regex signatures or ML models) must recognize malicious intent across the **full space of syntactically equivalent representations** — every encoding, every syntax variant, every dialect-specific function — that the backend interpreter accepts. This space is combinatorially explosive: a single SQL injection payload can be expressed in thousands of syntactically valid forms across different encodings, character sets, comment styles, function alternatives, and quoting mechanisms. The WAF's rule set covers a finite subset; the attacker need only find *one* representation outside that subset. Public research repeatedly shows default WAF rules and ML-based defenses can be bypassed at meaningful rates under adversarial mutation.
 
 ---
 
@@ -165,7 +165,7 @@ Mutations that target the WAF's detection engine itself — its regex patterns, 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
 | **Adversarial Feature Manipulation** | Guided mutation (e.g., WAF-A-MoLE) alters payload syntax — adding comments, changing case, inserting whitespace — to reduce the ML model's confidence score below the detection threshold while preserving malicious semantics. | WAF uses ML-based detection with a confidence threshold |
-| **Reinforcement Learning Payload Generation** | RL agents (PPO, A2C-based) learn to generate evasive payloads through trial-and-error against target WAFs, achieving 80%+ bypass rates on ModSecurity (SQLi) and 97%+ on SafeLine (RCE). | Attacker has query access to the WAF's decisions |
+| **Reinforcement Learning Payload Generation** | RL agents (PPO, A2C-based) learn to generate evasive payloads through trial-and-error against target WAFs, achieving high bypass rates in research settings. | Attacker has query access to the WAF's decisions |
 | **Feature Space Exploitation** | Craft payloads that fall outside the training data distribution — novel syntax, rare encodings, unusual combination of benign and malicious tokens — to exploit blind spots in the model's learned feature space. | ML model's training data is incomplete |
 | **Gradient-Based Evasion** | For WAFs using differentiable models, compute gradients to find minimal payload modifications that cross the decision boundary. Context-free grammar approaches can generate diverse payloads covering 18+ attack scenarios. | White-box or approximate gradient access |
 | **Confidence Score Manipulation** | Add benign tokens (common HTML, safe SQL keywords) to dilute the malicious signal and reduce the overall risk score below the detection threshold. | ML model aggregates features with a score threshold |
@@ -212,7 +212,7 @@ Each attack scenario has specific payload-level bypass techniques that are most 
 | §3-2 (Adversarial ML) | BWAFSQLi (ACM, 2025) | Adversarial SQLi framework achieving high bypass rates against ML-based WAFs |
 | §2-1 (SQL Grammar) + §1-4 (Case/Whitespace) | SQLMap Tamper Scripts (ongoing) | Continuously updated tamper scripts bypass production WAFs; community-maintained evasion database |
 | §2-2 (XSS Grammar) | Wafer (Sysdig, 2025) | Systematic testing of tag/attribute/event handler combinations with Unicode mutations against cloud WAFs |
-| §3-2 (RL Payload Generation) | WAF-A-MoLE (OWASP) | 80%+ bypass rate on ModSecurity SQLi rules using guided adversarial mutation |
+| §3-2 (RL Payload Generation) | WAF-A-MoLE (OWASP) | High bypass rate on ModSecurity SQLi rules using guided adversarial mutation |
 
 ---
 
@@ -258,12 +258,12 @@ Traditional signature/regex-based WAFs face two compounding challenges:
 
 1. **Completeness.** The number of syntactically valid representations of a malicious query grows combinatorially. Each new encoding scheme, SQL dialect feature, JavaScript API, or shell expansion mechanism adds a multiplicative factor. ModSecurity CRS Paranoia Level 4 approaches completeness but generates significant false positives.
 
-2. **Latency.** The average time between CVE publication and WAF rule deployment is 41 days; exploit code appears within hours. Every new SQL function, JavaScript event handler, or shell feature creates a coverage gap that persists until a rule is written.
+2. **Latency.** There is often a delay between CVE publication and WAF rule deployment, while exploit code may appear quickly. Every new SQL function, JavaScript event handler, or shell feature creates a coverage gap that persists until a rule is written.
 
 ### Why ML-Based Detection Also Fails
 
 ML-based WAFs shift the problem from rule completeness to training data completeness. They face:
-- **Adversarial vulnerability.** WAF-A-MoLE and RL-based generators achieve 80-97%+ bypass rates by systematically finding the ML model's decision boundary and crafting payloads just outside it.
+- **Adversarial vulnerability.** WAF-A-MoLE and RL-based generators can achieve high bypass rates by systematically finding the ML model's decision boundary and crafting payloads just outside it.
 - **Distribution shift.** Novel syntax, rare encodings, and new language features create inputs outside the training distribution.
 - **Explainability gap.** False positives from ML models are harder to diagnose and whitelist than regex false positives.
 
@@ -278,17 +278,17 @@ ML-based WAFs shift the problem from rule completeness to training data complete
 
 ## References
 
-- JS-ON: Security-OFF: Abusing JSON-Based SQL to Bypass WAF (Claroty Team82) — https://claroty.com/team82/research/js-on-security-off-abusing-json-based-sql-to-bypass-waf
-- WAF-A-MoLE: Evading Web Application Firewalls through Adversarial ML (OWASP) — https://owasp.org/www-project-waf-a-mole/
-- SQL Injection Bypassing WAF (OWASP) — https://owasp.org/www-community/attacks/SQL_Injection_Bypassing_WAF
-- WAF Bypassing with Unicode Compatibility (Jorge Lajara) — https://jlajara.gitlab.io/Bypass_WAF_Unicode
-- When WAFs Go Awry: Common Detection & Evasion Techniques (MDSec, 2024) — https://www.mdsec.co.uk/2024/10/when-wafs-go-awry-common-detection-evasion-techniques-for-web-application-firewalls/
-- Awesome-WAF (0xInfection, GitHub) — https://github.com/0xInfection/Awesome-WAF
-- BWAFSQLi: Adversarial SQLi-Based WAF Bypass Framework (ACM, 2025) — https://dl.acm.org/doi/pdf/10.1145/3788286
-- Cloudflare Global Outage Post-Mortem (2019) — https://blog.cloudflare.com/details-of-the-cloudflare-outage-on-july-2-2019/
-- 2026 WAF Security Test: Key Findings (Check Point) — https://blog.checkpoint.com/securing-the-cloud/waf-security-test-results-2026-why-prevention-first-matters-more-than-ever
-- Miggo Research: More than Half of Public Vulnerabilities Bypass Leading WAFs (2025) — https://www.helpnetsecurity.com/2025/12/18/miggo-research-waf-vulnerability-bypass/
-- WAFFLED: Exploiting Parsing Discrepancies to Bypass Web Application Firewalls (ACSAC 2025) — https://arxiv.org/html/2503.10846v1
+- [JS-ON: Security-OFF: Abusing JSON-Based SQL to Bypass WAF (Claroty Team82)](https://claroty.com/team82/research/js-on-security-off-abusing-json-based-sql-to-bypass-waf)
+- [WAF-A-MoLE: Evading Web Application Firewalls through Adversarial ML (OWASP)](https://owasp.org/www-project-waf-a-mole/)
+- [SQL Injection Bypassing WAF (OWASP)](https://owasp.org/www-community/attacks/SQL_Injection_Bypassing_WAF)
+- [WAF Bypassing with Unicode Compatibility (Jorge Lajara)](https://jlajara.gitlab.io/Bypass_WAF_Unicode)
+- [When WAFs Go Awry: Common Detection & Evasion Techniques (MDSec, 2024)](https://www.mdsec.co.uk/2024/10/when-wafs-go-awry-common-detection-evasion-techniques-for-web-application-firewalls/)
+- [Awesome-WAF (0xInfection, GitHub)](https://github.com/0xInfection/Awesome-WAF)
+- [BWAFSQLi: Adversarial SQLi-Based WAF Bypass Framework (ACM, 2025)](https://dl.acm.org/doi/pdf/10.1145/3788286)
+- [Cloudflare Global Outage Post-Mortem (2019)](https://blog.cloudflare.com/details-of-the-cloudflare-outage-on-july-2-2019/)
+- [2026 WAF Security Test: Key Findings (Check Point)](https://blog.checkpoint.com/securing-the-cloud/waf-security-test-results-2026-why-prevention-first-matters-more-than-ever)
+- [Miggo Research: More than Half of Public Vulnerabilities Bypass Leading WAFs (2025)](https://www.helpnetsecurity.com/2025/12/18/miggo-research-waf-vulnerability-bypass/)
+- [WAFFLED: Exploiting Parsing Discrepancies to Bypass Web Application Firewalls (ACSAC 2025)](https://arxiv.org/html/2503.10846v1)
 - terjanq: "WAF bypasses via 0days" (2022) — Novel browser behavior exploitation for WAF evasion using zero-day techniques
 
 ---

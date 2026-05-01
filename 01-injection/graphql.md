@@ -411,7 +411,7 @@ GraphQL federation and gateway patterns introduce additional attack surfaces at 
 | §3-3 (SSRF via upload) | GHSA-x27p-wfqw-hfcc (Craft CMS) | SSRF via GraphQL asset upload mutation; cloud metadata access |
 | §9-1 (batch cache poisoning) | SNYK-JS-APOLLOSERVERCORE-3098876 (Apollo Server) | Cache poisoning via batched POST request header merging |
 | §9-2 (client cache poisoning) | Apollo Client #10784 | Client-side cache poisoning via aliased `__typename` and `id` fields |
-| §5-2 + §1-1 (field exposure) | Multiple HackerOne reports | $1,000–$10,000+ bounties for sensitive field extraction via introspection-guided queries |
+| §5-2 + §1-1 (field exposure) | Multiple HackerOne reports | Bounty-confirmed sensitive field extraction via introspection-guided queries |
 | §6-1 (batch brute force) | Multiple bug bounty programs | 2FA/OTP bypass via batched authentication mutations |
 
 ---

@@ -131,7 +131,7 @@ npm's lifecycle scripts are the most extensively weaponized package manager hook
 | **install Script Execution** | `scripts.install` runs during the installation process between `preinstall` and `postinstall`. | Default npm configuration |
 | **prepare Script Execution** | `scripts.prepare` runs on `npm install` (without arguments) and before `npm publish`. Can execute arbitrary code in development contexts. | Developer runs `npm install` in a cloned repo |
 
-The Shai-Hulud campaign (September–November 2025) demonstrated self-propagating exploitation of npm lifecycle scripts: malicious `postinstall` hooks harvested npm tokens, GitHub PATs, and cloud credentials from 25,000+ repositories, then used stolen tokens to automatically inject the same hooks into other packages maintained by compromised developers.
+The Shai-Hulud campaign (September–November 2025) demonstrated self-propagating exploitation of npm lifecycle scripts: malicious `postinstall` hooks harvested npm tokens, GitHub PATs, and cloud credentials from many repositories, then used stolen tokens to automatically inject the same hooks into other packages maintained by compromised developers.
 
 ### §2-2. pip/Python Installation Hooks
 
@@ -229,10 +229,10 @@ IDEs execute third-party extension code with the same permissions as the IDE its
 |---------|-----------|---------------|
 | **Malicious Extension Publication** | Attacker publishes an intentionally malicious extension on the VSCode Marketplace. The GlassWorm attack (October 2025) used invisible Unicode to steal credentials and install a RAT. | Developer installs an unvetted extension |
 | **Extension Impersonation** | Attacker publishes an extension mimicking a popular one (e.g., "prettier-vscode-plus" impersonating Prettier, November 2025). Multi-stage payload delivers the Anivia loader and OctoRAT. | Developer installs look-alike extension by mistake |
-| **Compromised Extension Update** | Attacker compromises the maintainer account (via phishing, leaked PAT) and pushes a malicious update. The TigerJack campaign (September 2025) affected extensions with 17,000+ downloads. | Auto-update installs malicious version transparently |
+| **Compromised Extension Update** | Attacker compromises the maintainer account (via phishing, leaked PAT) and pushes a malicious update. Public campaigns have affected extensions with meaningful install bases. | Auto-update installs malicious version transparently |
 | **Leaked Publisher Access Token** | Over 100 VSCode extensions were found to leak their Marketplace access tokens, allowing attackers to push malicious updates directly. | Attacker discovers leaked PAT in extension source or logs |
 | **Extension Configuration File RCE** | CVE-2025-65715 (Code Runner): modifying the extension's configuration file to specify malicious executors causes the extension to execute arbitrary commands. | Attacker modifies workspace settings or tricks user into loading crafted settings |
-| **Open VSX Namespace Squatting** | VS Code forks (Cursor, Windsurf, Trae) recommend extensions that don't exist in the Open VSX registry. Attackers claim these namespaces and upload malicious extensions. A placeholder PostgreSQL extension attracted 500+ installs purely from IDE recommendations. | Developer uses a VS Code fork that recommends missing extensions |
+| **Open VSX Namespace Squatting** | VS Code forks (Cursor, Windsurf, Trae) recommend extensions that don't exist in the Open VSX registry. Attackers claim these namespaces and upload malicious extensions. A placeholder PostgreSQL extension attracted installs purely from IDE recommendations. | Developer uses a VS Code fork that recommends missing extensions |
 
 ### §5-2. JetBrains IDE Attacks
 
@@ -252,7 +252,7 @@ AI coding assistants (GitHub Copilot, Cursor, Windsurf, Codex CLI) and MCP (Mode
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **Indirect Prompt Injection via Repository Content** | Malicious instructions embedded in source files, comments, issue descriptions, or PR bodies are processed by the AI assistant, which then executes commands on the developer's machine. Attack success rates: 41–84%. | AI coding assistant processes untrusted repository content |
+| **Indirect Prompt Injection via Repository Content** | Malicious instructions embedded in source files, comments, issue descriptions, or PR bodies are processed by the AI assistant, which then executes commands on the developer's machine. Public evaluations report high attack success in vulnerable configurations. | AI coding assistant processes untrusted repository content |
 | **Rules File Backdoor** | AI coding assistants use "rules files" (`.cursorrules`, `.github/copilot-instructions.md`) to guide behavior. Attackers inject invisible Unicode-obfuscated instructions that direct the AI to insert vulnerabilities, exfiltrate data, or execute commands. | Developer opens project with poisoned rules file; AI assistant follows hidden instructions |
 | **Configuration File Manipulation (IDEsaster)** | 30+ CVEs across Cursor, GitHub Copilot, Windsurf, Zed, and Roo Code: prompt injection causes AI agents to edit workspace configuration files (`.vscode/settings.json`, multi-root workspace settings) to achieve code execution. CVE-2025-64660, CVE-2025-61590, CVE-2025-58372. | AI assistant processes input containing crafted prompts |
 | **Terminal Command Injection** | AI assistants with terminal access can be tricked into executing malicious shell commands. Attackers craft prompts that cause the assistant to run `curl | sh`, install malicious packages, or exfiltrate environment variables. | AI assistant has terminal/shell execution capability |
@@ -261,9 +261,9 @@ AI coding assistants (GitHub Copilot, Cursor, Windsurf, Codex CLI) and MCP (Mode
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **MCP Server Command Injection** | 43% of analyzed MCP server implementations contain command injection flaws. Attackers can inject OS commands through tool parameters that are passed to shell execution. (CVE-2026-0755, CVSS 9.8) | Developer uses MCP server that passes inputs to shell |
+| **MCP Server Command Injection** | MCP security surveys report high rates of critical flaws across sampled servers, but those aggregate figures should not be read as command-injection-only. Command injection is the concrete class represented by CVE-2026-0755, where `gemini-mcp-tool` passes user-controlled input to shell execution (CVSS 9.8) | Developer uses MCP server/tool bridge that passes untrusted tool parameters to shell execution |
 | **MCP Inspector DNS Rebinding RCE** | CVE-2025-49596 (CVSS 9.4): Anthropic's MCP Inspector was vulnerable to DNS rebinding, allowing browser-based attacks to execute code on the developer's machine. | Developer runs MCP Inspector with default network binding |
-| **NeighborJack (0.0.0.0 Binding)** | Hundreds of MCP servers bind to `0.0.0.0` by default, exposing command injection and SSRF surfaces to the local network and internet. mcp-remote had 437K+ cumulative npm downloads at disclosure (CVE-2025-6514) — this is download count, not confirmed compromised environments. | MCP server running with default configuration without firewall |
+| **NeighborJack (0.0.0.0 Binding)** | Some MCP servers bind to `0.0.0.0` by default, exposing command injection and SSRF surfaces to the local network and internet. mcp-remote had substantial npm usage at disclosure (CVE-2025-6514), but download count is not confirmed compromised environments. | MCP server running with default configuration without firewall |
 | **MCP Tool Poisoning** | Malicious MCP tool descriptions embed hidden instructions that override the AI assistant's behavior, causing it to execute attacker-controlled actions when the tool is invoked. | Developer adds untrusted MCP server to their environment |
 
 ### §6-3. AI Codex CLI & Agent Exploitation
@@ -285,7 +285,7 @@ Code quality tools execute plugins, configurations, and test code during analysi
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
 | **ESLint JavaScript Config Execution** | `.eslintrc.js` and `eslint.config.js` are Node.js modules that execute arbitrary code when ESLint runs. Custom rules and plugins execute in the linter's process. | Developer runs `eslint` or IDE auto-runs it on file save |
-| **ESLint Supply Chain Compromise (CVE-2025-54313)** | The eslint-config-prettier package (31M weekly downloads) was compromised via maintainer phishing. Malicious versions loaded `node-gyp.dll` on Windows. | Developer has compromised version in `node_modules` |
+| **ESLint Supply Chain Compromise (CVE-2025-54313)** | The widely used eslint-config-prettier package was compromised via maintainer phishing. Malicious versions loaded `node-gyp.dll` on Windows. | Developer has compromised version in `node_modules` |
 | **Pylint/Flake8 Plugin Execution** | Python linter plugins execute arbitrary Python code during analysis. | Developer runs linter with untrusted plugins |
 | **Custom Rule Execution** | Many linters support custom rules that execute during analysis. Rules can access the filesystem, network, and process environment. | Project includes custom linter rules that the developer loads |
 
@@ -353,16 +353,16 @@ Real-world exploitation chains mutations across multiple toolchain components.
 | §2-5 | **CVE-2023-29404, CVE-2023-29405** (Go cgo LDFLAGS) | Build-time RCE via unsanitized linker flags in cgo directives. | 2023 |
 | §2-5 | **CVE-2023-39320** (Go toolchain directive) | Arbitrary code execution via crafted `go.mod` toolchain directive. | 2023 |
 | §2-5 | **CVE-2025-68119, CVE-2025-4674** (Go VCS command injection) | Code execution during `go get` / `go mod download` via VCS command injection. | 2025 |
-| §7-1 | **CVE-2025-54313** (eslint-config-prettier compromise) | 31M weekly downloads. Maintainer phished → malicious versions deployed → Windows RCE via `node-gyp.dll`. | 2025 |
+| §7-1 | **CVE-2025-54313** (eslint-config-prettier compromise) | Widely used package. Maintainer phished → malicious versions deployed → Windows RCE via `node-gyp.dll`. | 2025 |
 | §6-3 | **CVE-2025-61260** (OpenAI Codex CLI RCE) | Configuration file RCE on developer machines via malicious MCP server entries. | 2025 |
 | §6-2 | **CVE-2025-49596** (MCP Inspector DNS rebinding RCE) | CVSS 9.4. Browser-based RCE against Anthropic's MCP Inspector. First critical MCP ecosystem RCE. | 2025 |
 | §6-2 | **CVE-2026-0755** (Gemini MCP Tool RCE) | CVSS 9.8. Command injection in gemini-mcp-tool. | 2026 |
-| §6-2 | **CVE-2025-6514** (mcp-remote) | RCE via crafted authorization_endpoint. 437K+ cumulative npm downloads at disclosure (not confirmed compromised environments). | 2025 |
+| §6-2 | **CVE-2025-6514** (mcp-remote) | RCE via crafted authorization_endpoint. Download count is not confirmed compromised environments. | 2025 |
 | §6-1 | **IDEsaster** (30+ CVEs) | CVE-2025-64660, CVE-2025-61590, CVE-2025-58372, etc. Prompt injection → RCE across Cursor, Copilot, Windsurf, Zed, Roo Code, Junie, Cline. | 2025 |
 | §5-1 | **GlassWorm** (VSCode Extension) | Invisible Unicode-based RAT deployed via compromised Open VSX and VSCode Marketplace extensions. | 2025 |
-| §5-1 | **TigerJack** (VSCode Extension) | C++ Playground + HTTP Format extensions: 17,000+ downloads. Keylogger + crypto miner. | 2025 |
+| §5-1 | **TigerJack** (VSCode Extension) | C++ Playground + HTTP Format extensions. Keylogger + crypto miner. | 2025 |
 | §5-1 | **prettier-vscode-plus** (VSCode Extension) | Anivia loader + OctoRAT multi-stage attack chain via fake Prettier extension. | 2025 |
-| §2-1 | **Shai-Hulud 1.0/2.0** (npm hooks) | Self-propagating worm via npm lifecycle scripts. 25,000+ repos, mass credential theft. | 2025 |
+| §2-1 | **Shai-Hulud 1.0/2.0** (npm hooks) | Self-propagating worm via npm lifecycle scripts. Mass repository credential theft. | 2025 |
 | §8-1 | **CVE-2024-6257** (go-getter RCE) | Terraform module fetching via go-getter leads to code execution through malicious Git config. | 2024 |
 | §8-1 | **CVE-2025-2180** (Checkov deserialization RCE) | Security scanner becomes attack vector: RCE when scanning malicious Terraform files. | 2025 |
 | §1-2 | **Gradle Enterprise Maven Extension deserialization** | Deserialization of untrusted data via socket connection enables RCE in Gradle builds. | 2024 |
@@ -476,7 +476,7 @@ The 2024-2025 attack wave demonstrates a clear trend: **the developer's local en
 - CVE-2025-54313: eslint-config-prettier Supply Chain Compromise
 - CVE-2025-49596: Anthropic MCP Inspector DNS Rebinding RCE (CVSS 9.4)
 - CVE-2025-61260: OpenAI Codex CLI Configuration RCE
-- CVE-2025-6514: mcp-remote RCE (437K+ cumulative npm downloads)
+- CVE-2025-6514: mcp-remote RCE
 - CVE-2026-0755: Gemini MCP Tool Command Injection (CVSS 9.8)
 - GHSA-6j2p-252f-7mw8: Gradle Environment Variable Code Execution
 - Go cgo CVE Series: CVE-2018-6574, CVE-2020-28366, CVE-2020-28367, CVE-2023-29404, CVE-2023-29405, CVE-2023-39323, CVE-2024-24787

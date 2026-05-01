@@ -132,7 +132,7 @@ This category covers attacks that exploit the lifecycle of existing packages —
 |---------|-----------|---------------|
 | **Post-Rename Name Reclamation** | When a package is renamed (e.g., `torchtriton` → `pytorch-triton`), the old name becomes available. The attacker claims the old name and publishes a malicious package. Build systems still referencing the old name pull the attacker's version. | Package renamed without reserving old name as placeholder |
 | **Repository Migration Gap** | An organization migrates between registry platforms (e.g., from self-hosted to cloud). During migration, the old namespace becomes claimable or the new configuration has gaps. | Registry platform migration without simultaneous namespace reservation |
-| **CocoaPods Orphaned Pod Takeover** | CocoaPods' 2014 migration to the Trunk system left ~1,800 pods without owner verification. Attackers could claim these orphaned pods via the "Claim Your Pods" process and inject malicious code. (CVE-2024-38368, CVSS 9.3) | Pods migrated without ownership verification; legacy Trunk claiming process |
+| **CocoaPods Orphaned Pod Takeover** | CocoaPods' 2014 migration to the Trunk system left many pods without owner verification. Attackers could claim these orphaned pods via the "Claim Your Pods" process and inject malicious code. (CVE-2024-38368, CVSS 9.3) | Pods migrated without ownership verification; legacy Trunk claiming process |
 
 ### §3-3. Source Repository Hijacking (RepoJacking)
 
@@ -229,8 +229,8 @@ Each package ecosystem has unique architectural properties that create ecosystem
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **LLM Package Hallucination Squatting** | Code-generating LLMs (ChatGPT, Copilot, etc.) hallucinate plausible but non-existent package names in generated code. Attackers register these hallucinated names on public registries. Research shows 19.7% of LLM-generated packages are hallucinations. | Developers installing AI-suggested packages without verification |
-| **Persistent Hallucination Exploitation** | Certain package names are hallucinated repeatedly across multiple models (>10% recurrence rate for 58% of hallucinated packages). Attackers target these high-recurrence names for maximum impact. | Consistent model behavior producing the same false package names |
+| **LLM Package Hallucination Squatting** | Code-generating LLMs (ChatGPT, Copilot, etc.) hallucinate plausible but non-existent package names in generated code. Attackers register these hallucinated names on public registries. Research shows package hallucination is common enough to be exploitable at scale. | Developers installing AI-suggested packages without verification |
+| **Persistent Hallucination Exploitation** | Certain package names are hallucinated repeatedly across multiple models. Attackers target these high-recurrence names for maximum impact. | Consistent model behavior producing the same false package names |
 | **Training Data Feedback Loop** | If hallucinated-then-registered malicious packages appear in code that enters LLM training data, future models may recommend the malicious packages with higher confidence. | LLM training on unvetted code repositories |
 
 ---
@@ -299,19 +299,19 @@ After successful substitution, the attacker needs their malicious code to execut
 
 | Mutation Combination | CVE / Case | Impact / Bounty |
 |---------------------|-----------|----------------|
-| §1-1 + §5-2 | **PyTorch `torchtriton`** (Dec 2022) | Malicious PyPI package exfiltrated hostnames, usernames, env vars, `/etc/passwd`. 3,000+ downloads before removal. |
-| §3-2 (CocoaPods/Apple ecosystem) | **CVE-2024-38368** (CocoaPods, CVSS 9.3) | 1,800+ orphaned pods claimable via legacy "Claim Your Pods" process. 10-year exposure window (2014–2024). |
+| §1-1 + §5-2 | **PyTorch `torchtriton`** (Dec 2022) | Malicious PyPI package exfiltrated hostnames, usernames, env vars, `/etc/passwd` before removal. |
+| §3-2 (CocoaPods/Apple ecosystem) | **CVE-2024-38368** (CocoaPods, CVSS 9.3) | Orphaned pods claimable via legacy "Claim Your Pods" process after the Trunk migration. |
 | §3-2 (CocoaPods/Apple ecosystem) | **CVE-2024-38366** (CocoaPods, CVSS 10.0) | Insecure email verification enabled arbitrary code execution on the CocoaPods Trunk server. |
 | §3-2 (CocoaPods/Apple ecosystem) | **CVE-2024-38367** (CocoaPods, CVSS 8.2) | Session token theft via email verification redirect. |
-| §2-1 + §5-3 | **MavenGate** (Jan 2024) | 18%+ of Maven dependencies interceptable via expired domain GroupId hijacking. 200+ affected companies notified. |
+| §2-1 + §5-3 | **MavenGate** (Jan 2024) | Maven dependencies interceptable via expired domain GroupId hijacking; affected companies notified. |
 | §1-1 + §5-1 | **CVE-2024-29151** (Rocket.Chat) | Dependency `filecachetools` unclaimed on PyPI; RCE via dependency confusion in `requirements.txt`. |
 | §3-1 | **CVE-2025-27607** (python-json-logger) | Deleted development dependency `msgspec-python313-pre` reclaimable on PyPI between Dec 2024–Mar 2025. |
 | §4-1 | **npm Manifest Confusion** (Jul 2023) | 800+ packages with registry/tarball metadata mismatches; 18 packages actively exploiting the discrepancy. |
-| §1-1 | **Alex Birsan Original Disclosure** (Feb 2021) | 35+ companies compromised (Apple, Microsoft, PayPal, Tesla, Uber, Shopify, Yelp). $130,000+ in bounties. PortSwigger Top 10 Web Hacking Techniques 2021 winner. |
+| §1-1 | **Alex Birsan Original Disclosure** (Feb 2021) | Multiple major companies affected. PortSwigger Top 10 Web Hacking Techniques 2021 winner. |
 | §2-1 + §5-1 | **Netflix Dependency Confusion** (Jun 2025) | RCE via unclaimed internal npm package discovered through headless browser JS analysis. |
-| §1-1 + §5-1 | **$5,000 RCE Bounty** (2024) | RCE via dependency confusion in production environment; DNS exfiltration confirmed execution. |
-| §1-1 + §5-1 | **$2,500 RCE Bounty** (2024) | Unclaimed npm package with `preinstall` script executing in production and non-production environments. |
-| §5-7 | **`huggingface-cli` Slopsquatting** (2024) | LLM-hallucinated package published to PyPI; 30,000+ downloads in 3 months. Proof-of-concept for slopsquatting. |
+| §1-1 + §5-1 | **RCE Bounty** (2024) | RCE via dependency confusion in production environment; DNS exfiltration confirmed execution. |
+| §1-1 + §5-1 | **RCE Bounty** (2024) | Unclaimed npm package with `preinstall` script executing in production and non-production environments. |
+| §5-7 | **`huggingface-cli` Slopsquatting** (2024) | LLM-hallucinated package published to PyPI and downloaded at scale. Proof-of-concept for slopsquatting. |
 
 ---
 

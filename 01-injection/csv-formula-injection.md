@@ -372,22 +372,22 @@ The file format used to deliver the injected payload affects which techniques ar
 
 ## References
 
-- OWASP Foundation, "CSV Injection," https://owasp.org/www-community/attacks/CSV_Injection
-- MITRE CWE-1236, "Improper Neutralization of Formula Elements in a CSV File," https://cwe.mitre.org/data/definitions/1236.html
+- [OWASP Foundation, "CSV Injection,"](https://owasp.org/www-community/attacks/CSV_Injection)
+- [MITRE CWE-1236, "Improper Neutralization of Formula Elements in a CSV File,"](https://cwe.mitre.org/data/definitions/1236.html)
 - Manuel Karl, Louis Bettels, Martin Johns, David Klein, "Comma Separated Vulnerabilities: Detecting Formula Injection in the Wild," USENIX WOOT 2025
-- ReversingLabs, "Three New DDE Obfuscation Methods," https://www.reversinglabs.com/blog/cvs-dde-exploits-and-obfuscation
-- Bishop Fox, "Server-Side Spreadsheet Injection — Formula Injection to RCE," https://bishopfox.com/blog/server-side-spreadsheet-injections
-- NotSoSecure, "Data Exfiltration via Formula Injection Part 1," https://notsosecure.com/data-exfiltration-formula-injection-part1
-- Breakpoint/Purrfect, "Weaponizing Excel Webservice," https://breakpoint.purrfect.fr/article/excel_webservice.html
-- Vectra AI / Dmitriy Beryoza, "CSV Injection in Azure Logs," https://www.vectra.ai/blog/csv-injection-in-azure-logs
-- Rhino Security Labs, "Cloud Security Risks Part 1: Azure CSV Injection Vulnerability," https://rhinosecuritylabs.com/azure/cloud-security-risks-part-1-azure-csv-injection-vulnerability/
+- [ReversingLabs, "Three New DDE Obfuscation Methods,"](https://www.reversinglabs.com/blog/cvs-dde-exploits-and-obfuscation)
+- [Bishop Fox, "Server-Side Spreadsheet Injection — Formula Injection to RCE,"](https://bishopfox.com/blog/server-side-spreadsheet-injections)
+- [NotSoSecure, "Data Exfiltration via Formula Injection Part 1,"](https://notsosecure.com/data-exfiltration-formula-injection-part1)
+- [Breakpoint/Purrfect, "Weaponizing Excel Webservice,"](https://breakpoint.purrfect.fr/article/excel_webservice.html)
+- [Vectra AI / Dmitriy Beryoza, "CSV Injection in Azure Logs,"](https://www.vectra.ai/blog/csv-injection-in-azure-logs)
+- [Rhino Security Labs, "Cloud Security Risks Part 1: Azure CSV Injection Vulnerability,"](https://rhinosecuritylabs.com/azure/cloud-security-risks-part-1-azure-csv-injection-vulnerability/)
 - Ray Dedhia, "Preventing CSV Injection Attacks With A Browser Extension," MIT MEng Thesis 2024
-- HackTricks, "Formula/CSV/Doc/LaTeX/GhostScript Injection," https://book.hacktricks.wiki/pentesting-web/formula-csv-doc-latex-ghostscript-injection.html
-- SwisskyRepo/PayloadsAllTheThings, "CSV Injection," https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/CSV%20Injection
-- payloadbox, "csv-injection-payloads," https://github.com/payloadbox/csv-injection-payloads
-- Efficiup, "Formula Injection Cheat Sheet," https://www.efficiup.com/wp-content/plugins/qd-sharing/share/formula-injection-cheat-sheet.pdf
-- SMC Tech Blog, "Beware of formulas: Comma Separated Victims," https://techblog.smc.it/en/2021-01-04/beware-of-formula/
-- Symfony CVE-2021-41270, "Prevent CSV Injection via formulas," https://symfony.com/blog/cve-2021-41270-prevent-csv-injection-via-formulas
+- [HackTricks, "Formula/CSV/Doc/LaTeX/GhostScript Injection,"](https://book.hacktricks.wiki/pentesting-web/formula-csv-doc-latex-ghostscript-injection.html)
+- [SwisskyRepo/PayloadsAllTheThings, "CSV Injection,"](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/CSV%20Injection)
+- [payloadbox, "csv-injection-payloads,"](https://github.com/payloadbox/csv-injection-payloads)
+- [Efficiup, "Formula Injection Cheat Sheet,"](https://www.efficiup.com/wp-content/plugins/qd-sharing/share/formula-injection-cheat-sheet.pdf)
+- [SMC Tech Blog, "Beware of formulas: Comma Separated Victims,"](https://techblog.smc.it/en/2021-01-04/beware-of-formula/)
+- [Symfony CVE-2021-41270, "Prevent CSV Injection via formulas,"](https://symfony.com/blog/cve-2021-41270-prevent-csv-injection-via-formulas)
 
 ---
 

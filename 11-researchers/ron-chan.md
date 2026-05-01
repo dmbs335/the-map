@@ -33,9 +33,9 @@ Ron Chan's methodology emphasizes:
 
 - Hong Kong-based security researcher, started bug bounty in April 2016 after OSCP
 - First vulnerability: Yahoo Pay price manipulation
-- Earned $1M+ on HackerOne
+- Significant public HackerOne earnings
 - Created the influential `bug-bounty-reference` GitHub repository
-- Security Consultant by profession; 70% time dedicated to bug bounty
+- Security Consultant by profession; major focus on bug bounty research
 - Breakthrough moment: zseano's tutorial on leveraging open redirects to Facebook account takeover
 
 ---
@@ -60,7 +60,7 @@ Forcing victim to authenticate as attacker's account, then exploiting the sessio
 
 | Subtype | Mechanism | Example/Condition |
 |---------|-----------|-------------------|
-| **Login CSRF → Open Redirect → Token Theft** | Force victim login to attacker account via CSRF, then trigger open redirect carrying victim's real token to attacker | Uber ($8,000): Login CSRF on `central.uber.com` forced auth with attacker's OAuth code; state parameter misused as redirect destination (`//attacker.com`) leaked victim's `access_token` in fragment |
+| **Login CSRF → Open Redirect → Token Theft** | Force victim login to attacker account via CSRF, then trigger open redirect carrying victim's real token to attacker | Uber: Login CSRF on `central.uber.com` forced auth with attacker's OAuth code; state parameter misused as redirect destination (`//attacker.com`) leaked victim's `access_token` in fragment |
 | **Login CSRF → SSO Session Mismatch → ATO** | Force victim to login with attacker's service account while victim's identity provider session remains active, exposing real credentials | Flickr: Login CSRF forced victim into attacker's Flickr session while Yahoo SSO session persisted; `.data` auth token exposed in URL and stolen via open redirect |
 | **Login CSRF → Referer Leakage** | Victim authenticated to attacker account; subsequent navigation to attacker-controlled resource leaks tokens via HTTP Referer header | Applied when `.data` or similar auth tokens appear in URL paths during SSO flows |
 
@@ -70,7 +70,7 @@ Abusing the OAuth `state` parameter when it serves dual purposes beyond CSRF pro
 
 | Subtype | Mechanism | Example/Condition |
 |---------|-----------|-------------------|
-| **State as Redirect Destination** | `state` parameter used for post-auth redirect instead of CSRF validation; attacker injects redirect URL | Uber ($8,000): `state=/somewhere` was used as redirect target after OAuth callback; changing to `state=//attacker.com` redirected victim with access token |
+| **State as Redirect Destination** | `state` parameter used for post-auth redirect instead of CSRF validation; attacker injects redirect URL | Uber: `state=/somewhere` was used as redirect target after OAuth callback; changing to `state=//attacker.com` redirected victim with access token |
 | **Missing State Validation** | OAuth flow accepts requests without state parameter or with arbitrary state values | Precondition for Login CSRF attacks; enables attacker to craft OAuth authorize URLs that skip CSRF checks |
 
 ### §1-4. SSO Trust Boundary Attacks
@@ -90,7 +90,7 @@ Re-exploiting vulnerabilities after incomplete patches.
 
 | Subtype | Mechanism | Example/Condition |
 |---------|-----------|-------------------|
-| **Fragment Identifier Injection (%23)** | Appending URL-encoded hash (`%23`) to redirect parameter causes auth token to appear after `#`, preventing server-side logging but enabling client-side extraction | Flickr ($2,500): Yahoo restricted `redirect_uri` to `/signin/yahoo` directory; appending `%23` (decoded to `#`) caused `.data` token to be appended after hash, bypassing directory restriction |
+| **Fragment Identifier Injection (%23)** | Appending URL-encoded hash (`%23`) to redirect parameter causes auth token to appear after `#`, preventing server-side logging but enabling client-side extraction | Flickr: Yahoo restricted `redirect_uri` to `/signin/yahoo` directory; appending `%23` (decoded to `#`) caused `.data` token to be appended after hash, bypassing directory restriction |
 | **Encoding Layer Mismatch** | Original fix validates one encoding layer; attacker applies additional encoding to bypass | Uber: First patch for `redirect_uri` bypass defeated by double URL encoding (`%252f` → `%2f` → `/`) |
 
 ---
@@ -129,7 +129,7 @@ Cross-origin data theft and code execution through browser-side vulnerabilities.
 
 | Subtype | Mechanism | Example/Condition |
 |---------|-----------|-------------------|
-| **JSONP Callback Hijacking for Token Theft** | API endpoint returns JSONP-wrapped response without authentication; attacker page includes `<script>` tag pointing to victim's JSONP endpoint, executing callback with victim's data | Flickr ($7,000): `flickr.site.getCsrf` endpoint returned CSRF token via JSONP callback without requiring authentication; attacker page loaded script to steal CSRF token, enabling full API access on behalf of victim |
+| **JSONP Callback Hijacking for Token Theft** | API endpoint returns JSONP-wrapped response without authentication; attacker page includes `<script>` tag pointing to victim's JSONP endpoint, executing callback with victim's data | Flickr: `flickr.site.getCsrf` endpoint returned CSRF token via JSONP callback without requiring authentication; attacker page loaded script to steal CSRF token, enabling full API access on behalf of victim |
 | **API Key + CSRF Token Chain** | Obtaining API key and CSRF token through separate XSSI calls to chain into authenticated API access | Flickr: `api_key` was universal; CSRF token obtainable via `getCsrf` endpoint without prior CSRF token ("user does not need any csrf token to get a csrf token"), granting full API access |
 
 ### §4-2. postMessage Exploitation
@@ -151,14 +151,14 @@ Exploiting flawed business logic, IDOR, and access control mechanisms in large-s
 |---------|-----------|-------------------|
 | **Identity Merge Flow Abuse** | Exploiting account merge/link operations to gain unauthorized cross-account access | Shopify ID: Multiple critical vulnerabilities in merge flow disclosed April 2021; community built on findings to discover further issues |
 | **Email Verification Bypass → Privilege Escalation** | Bypassing email confirmation requirement to claim and escalate on unverified accounts | Shopify: Bypass for subset of accounts → full privilege escalation to shop owner via `myshop.myshopify.com` |
-| **H1-2102 Live Hacking Event Findings** | 80+ unique valid submissions during 10-day event, half medium/high severity | Shopify (Jan-Feb 2021): 1st place, Best Bug (Exterminator), Most Valuable Hacker; findings across Shopify ID, GraphQL, and merchant platform |
+| **H1-2102 Live Hacking Event Findings** | Many valid submissions during live hacking event | Shopify (Jan-Feb 2021): 1st place, Best Bug (Exterminator), Most Valuable Hacker; findings across Shopify ID, GraphQL, and merchant platform |
 
 ### §5-2. Authentication Logic Flaws
 
 | Subtype | Mechanism | Example/Condition |
 |---------|-----------|-------------------|
 | **Price Manipulation** | Modifying price parameters in purchase flow requests | Yahoo Pay: First bug bounty finding — purchasing items at any price by manipulating request parameters |
-| **LINE Authentication Bypass** | Exploiting authentication logic flaws in messaging platform | LINE ($11,000): Two authentication problems identified during 30-day challenge |
+| **LINE Authentication Bypass** | Exploiting authentication logic flaws in messaging platform | LINE: Two authentication problems identified during 30-day challenge |
 
 ---
 
@@ -179,20 +179,20 @@ Exploiting flawed business logic, IDOR, and access control mechanisms in large-s
 
 | Mutation Combination | Case | Impact / Bounty |
 |---------------------|------|----------------|
-| §1-2 + §1-3 | Uber Login CSRF + Open Redirect ATO | $8,000. Full account takeover via state parameter abuse |
+| §1-2 + §1-3 | Uber Login CSRF + Open Redirect ATO | Full account takeover via state parameter abuse |
 | §1-1 + §1-5 | Uber redirect_uri Double Encoding Bypass | Undisclosed. Facebook OAuth token theft via encoding bypass |
 | §1-2 + §1-4 | Flickr SSO Login CSRF + Open Redirect ATO | Undisclosed. One-click account takeover via .data token theft |
-| §1-5 | Flickr ATO Fix Bypass (Fragment Injection) | $2,500. Bypassed Yahoo's directory restriction via %23 |
-| §4-1 | Flickr XSSI JSONP Token Theft | $7,000. Full API access via CSRF token exfiltration |
+| §1-5 | Flickr ATO Fix Bypass (Fragment Injection) | Bypassed Yahoo's directory restriction via %23 |
+| §4-1 | Flickr XSSI JSONP Token Theft | Full API access via CSRF token exfiltration |
 | §2-1 | Google VRP SSRF in GCP StackDriver | Undisclosed. OAuth token theft for GitHub/GitLab/Bitbucket |
 | §3-1 | Uber Microservice Path Traversal | Undisclosed. Internal API access via dot-dot-slash traversal |
 | §1-4 | Periscope TV OAuth Host Header ATO | Undisclosed. Account takeover via Host header manipulation |
 | §1-4 + §5-1 | Shopify ID Merge Flow + Email Bypass | Undisclosed. Multiple critical Shopify ID vulnerabilities |
-| §5-2 | LINE Authentication Bypass (x2) | $11,000. Two authentication logic flaws |
-| §5-1 | Shopify H1-2102 Event (80+ findings) | $19,476 countdown + $5,000 first-24h. 1st place, MVP |
+| §5-2 | LINE Authentication Bypass (x2) | Two authentication logic flaws |
+| §5-1 | Shopify H1-2102 Event | 1st place, MVP |
 | §5-2 | Yahoo Pay Price Manipulation | Undisclosed. First bug bounty finding |
 
-**30-Day Challenge (Oct 2017):** $31,000 total — HackerOne $28,900 + LINE $1,500 + Bugcrowd $600
+**30-Day Challenge (Oct 2017):** multi-program bug bounty challenge across HackerOne, LINE, and Bugcrowd
 
 ---
 

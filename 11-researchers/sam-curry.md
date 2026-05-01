@@ -44,7 +44,7 @@ Comprehensive asset discovery through systematic scanning and DNS resolution.
 | **CIDR Block Scanning** | Enumerate entire IP ranges owned by target organization | 17.0.0.0/8 scan revealed 25,000 Apple web servers across apple.com, icloud.com |
 | **CNAME Following** | Resolve CNAMEs to discover production infrastructure patterns | `my.subaru.com` → `mys.prod.subarucs.com` led to `portal.prod.subarucs.com` admin panel |
 | **HTTP Header Fingerprinting** | Catalog server technologies and framework versions via response headers | Index servers by status codes, frameworks, error signatures |
-| **Screenshot Automation** | Visual cataloging of accessible interfaces for manual review | Dashboard of 10,000+ endpoints with thumbnails for pattern recognition |
+| **Screenshot Automation** | Visual cataloging of accessible interfaces for manual review | Dashboard of many endpoints with thumbnails for pattern recognition |
 
 **Key Insight**: Employee-facing infrastructure (portals, admin panels) typically has broader permissions than customer applications, making subdomain enumeration critical for privilege escalation pathways.
 
@@ -464,23 +464,23 @@ This table links documented techniques to specific vulnerability disclosures and
 | Mutation Combination | Case / CVE | Impact | Bounty / Timeline |
 |---------------------|-----------|--------|-------------------|
 | §5-1 + §2-1 | **TSA FlyCASS SQL Injection** | Authentication bypass → Known Crewmember + Cockpit Access credentials | No bounty (government); Disclosed Apr 2024, Patched May 2024 |
-| §2-1 + §2-2 + §3-2 | **Subaru STARLINK** | Unauthenticated password reset + 2FA bypass → Remote vehicle control (US/Canada/Japan fleet) | Undisclosed; Nov 2024 discovery, patched within 24 hours |
+| §2-1 + §2-2 + §3-2 | **Subaru STARLINK** | Unauthenticated password reset + 2FA bypass → Remote vehicle control (US/Canada/Japan fleet) | Undisclosed; Nov 2024 discovery, patched quickly |
 | §3-1 + §3-2 + §4-3 | **Kia Vehicles** | Dealer API abuse + VIN-based IDOR → Remote lock/unlock/start/locate on 15M+ vehicles (license plate only) | Undisclosed; Disclosed Jun 2024, Patched Aug 2024 |
-| §4-1 + §4-2 | **Starbucks** | BFF proxy traversal (backslash encoding) → Microsoft Graph OData access to 99M customer records | $4,000; Reported May 16, 2020, Patched May 17, 2020 |
+| §4-1 + §4-2 | **Starbucks** | BFF proxy traversal (backslash encoding) → Microsoft Graph OData access to customer records | Public bounty; reported and patched in May 2020 |
 | §4-2 + §2-3 + §3-1 | **Points.com** | Directory traversal (lpId parameter) + weak Flask secret → 22.7M airline/hotel loyalty records + admin access | Undisclosed; Mar–May 2023, response within 10 min, full remediation <1 hour |
 | §1-2 + §2-1 + §2-3 | **ClubWPT Gold** | Source code exposure (GitHack) + hardcoded credentials + 2FA bypass → Full back office access | Undisclosed; Jun 2025, patched same day |
-| §8-1 + §8-3 + §6-3 | **Apple iCloud Pages SSRF** | URL whitelist bypass (@attacker.com) → Internal Maven repo source code retrieval + AWS metadata | Part of $288,500 total (55 vulnerabilities); Jul–Oct 2020 |
-| §6-2 | **Apple iCloud Wormable XSS** | Stored XSS in email → Self-replicating via victim contacts (iCloud.com, Mac.com) | Part of $288,500 total; Critical severity (11 critical, 29 high, 13 medium, 2 low) |
-| §2-3 + §3-3 | **Apple Heap Dump Credential Theft** | Spring Boot Actuator `/heapdump` → Valid employee `acack` tokens → Multi-application access | Part of $288,500 total |
-| §3-1 + §4-2 | **Apple IDOR (App Store Connect)** | `itemId` numeric enumeration → Modify any app's game center settings | Part of $288,500 total |
-| §3-1 + §4-2 | **Apple IDOR (Find My Friends)** | `dsIds` array parameter → Enumerate user IDs + retrieve associated emails (batch hundreds per request) | Part of $288,500 total |
-| §5-2 + §2-1 | **Apple ePublisher Command Injection** | Unsanitized `-itc_provider` parameter → Arbitrary shell execution via `\|\|test123` | Part of $288,500 total |
-| §5-1 | **Apple Vertica SQL Injection** | Unauthenticated `/gsf/` endpoints → Union-based injection (custom Vertica syntax) | Part of $288,500 total |
+| §8-1 + §8-3 + §6-3 | **Apple iCloud Pages SSRF** | URL whitelist bypass (@attacker.com) → Internal Maven repo source code retrieval + AWS metadata | Part of public Apple security research engagement; Jul-Oct 2020 |
+| §6-2 | **Apple iCloud Wormable XSS** | Stored XSS in email → Self-replicating via victim contacts (iCloud.com, Mac.com) | Part of public Apple security research engagement; critical severity |
+| §2-3 + §3-3 | **Apple Heap Dump Credential Theft** | Spring Boot Actuator `/heapdump` → Valid employee `acack` tokens → Multi-application access | Part of public Apple security research engagement |
+| §3-1 + §4-2 | **Apple IDOR (App Store Connect)** | `itemId` numeric enumeration → Modify any app's game center settings | Part of public Apple security research engagement |
+| §3-1 + §4-2 | **Apple IDOR (Find My Friends)** | `dsIds` array parameter → Enumerate user IDs + retrieve associated emails in batches | Part of public Apple security research engagement |
+| §5-2 + §2-1 | **Apple ePublisher Command Injection** | Unsanitized `-itc_provider` parameter → Arbitrary shell execution via `\|\|test123` | Part of public Apple security research engagement |
+| §5-1 | **Apple Vertica SQL Injection** | Unauthenticated `/gsf/` endpoints → Union-based injection (custom Vertica syntax) | Part of public Apple security research engagement |
 | §7-2 + §7-3 + §6-3 | **Rocket League Cache Poisoning** | X-Original-URL + path normalization (backslashes, double slashes) → OAuth JWT fragment theft | Undisclosed; Timing not specified |
 | §2-1 + §4-3 | **Auto Industry (16 manufacturers)** | SSO misconfigurations + VIN-based IDOR → Remote vehicle control (Toyota, Nissan, Infiniti, Genesis, Honda, Acura, Lexus); BMW/Mercedes internal network access | Undisclosed; Disclosed Jan 2023 |
 | §2-1 + §4-2 | **Cox Modems (TR-069)** | Inconsistent authentication (replay bypass) → Remote command execution on millions of modems + customer PII | Undisclosed; DEF CON 32 presentation Aug 2024 |
 
-**Total Documented Bounty**: $288,500+ (Apple engagement alone); many cases remain undisclosed or involve government/large enterprises without public bounties.
+**Total Documented Bounty**: significant public bounty impact; many cases remain undisclosed or involve government/large enterprises without public bounties.
 
 ---
 
@@ -621,7 +621,7 @@ As applications increasingly rely on microservices, BFF proxies, and third-party
 
 ### Primary Sources
 
-- Sam Curry's Blog: https://samcurry.net/
+- [Sam Curry's Blog](https://samcurry.net/)
 - [We Hacked Apple for 3 Months: Here's What We Found](https://samcurry.net/hacking-apple)
 - [Hacking Subaru: Tracking and Controlling Cars via the STARLINK Admin Panel](https://samcurry.net/hacking-subaru)
 - [Hacking Kia: Remotely Controlling Cars With Just a License Plate](https://samcurry.net/hacking-kia)

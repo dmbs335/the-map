@@ -61,7 +61,7 @@ The OCI runtime specification defines lifecycle hooks (prestart, createRuntime, 
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
-| **Environment variable inheritance in createContainer hook** | The `createContainer` OCI hook inherits environment variables from the container image without sanitization. Setting `LD_PRELOAD=/malicious/lib.so` in a Dockerfile causes the hook process to load an attacker-controlled shared library in the host context, achieving host-level code execution — exploitable with a three-line Dockerfile | NVIDIA Container Toolkit ≤ 1.17.7 (CVE-2025-23266, "NVIDIAScape", CVSS 9.0); affects 37% of cloud environments with GPU workloads |
+| **Environment variable inheritance in createContainer hook** | The `createContainer` OCI hook inherits environment variables from the container image without sanitization. Setting `LD_PRELOAD=/malicious/lib.so` in a Dockerfile causes the hook process to load an attacker-controlled shared library in the host context, achieving host-level code execution — exploitable with a minimal Dockerfile | NVIDIA Container Toolkit ≤ 1.17.7 (CVE-2025-23266, "NVIDIAScape", CVSS 9.0); affects GPU-enabled container environments |
 | **TOCTOU in runtime mount operations** | A TOCTOU race in how the NVIDIA Container Toolkit handles container filesystem mounts allows an attacker to escalate from container access to full host takeover. The attack exploits the time gap between when a path is validated and when it is actually used | NVIDIA Container Toolkit ≤ 1.16.1 (CVE-2024-0132, CVSS 9.0); demonstrated on Replicate, Hugging Face, and other AI platforms |
 | **Custom runtime shim exploitation** | Third-party runtime shims (GPU runtimes, WASM runtimes, gVisor, Kata) implement OCI hooks and lifecycle handlers. Vulnerabilities in these shims inherit the host-context privilege of the hook execution model | Any runtime with custom OCI hook implementations |
 
@@ -141,7 +141,7 @@ etcd stores all cluster state, including Secrets (base64-encoded, not encrypted 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
 | **Unauthenticated etcd access** | etcd exposed without TLS client certificate authentication allows any client to read/write all cluster data. A single `etcdctl get --prefix /` command dumps every secret in the cluster | etcd without `--client-cert-auth`; exposed to network (port 2379) |
-| **etcd data at rest unencrypted** | Kubernetes Secrets are stored as base64-encoded values in etcd by default — not encrypted. Anyone with etcd filesystem access (backup tapes, snapshot files, compromised node) can decode all secrets. Only ~20% of production clusters have encryption at rest enabled | etcd without `EncryptionConfiguration`; default Kubernetes installation |
+| **etcd data at rest unencrypted** | Kubernetes Secrets are stored as base64-encoded values in etcd by default — not encrypted. Anyone with etcd filesystem access (backup tapes, snapshot files, compromised node) can decode all secrets. Production adoption of encryption at rest varies widely | etcd without `EncryptionConfiguration`; default Kubernetes installation |
 | **etcd snapshot exfiltration** | etcd snapshot files (`etcdctl snapshot save`) contain the entire cluster state. If snapshot files are stored in accessible locations (shared storage, backup services, CI/CD artifacts), they can be retrieved and restored offline to extract all secrets | etcd snapshots in accessible storage; insufficient backup encryption |
 
 ### §3-4. Service Account Token Exploitation
@@ -167,7 +167,7 @@ Admission webhooks (validating and mutating) intercept API requests before they 
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
-| **Ingress annotation injection → NGINX config injection → RCE** | The Ingress NGINX admission controller constructs NGINX configuration from Ingress annotations (`auth-url`, `auth-tls-match-cn`, `mirror-target`) without adequate sanitization. Attackers inject arbitrary NGINX directives (including `ssl_engine`, `load_module`, or lua_code_cache) that cause the NGINX validator to execute code — achieving unauthenticated RCE in the ingress controller pod. Because the ingress controller has a highly-permissioned service account with cluster-wide Secret access, this escalates to full cluster takeover | Ingress NGINX Controller < 1.11.5/1.12.1 (CVE-2025-1097, CVE-2025-1098, CVE-2025-24514, CVE-2025-1974 "IngressNightmare"; CVSS 9.8); ~43% of cloud environments affected; 6,500+ admission webhooks publicly exposed |
+| **Ingress annotation injection → NGINX config injection → RCE** | The Ingress NGINX admission controller constructs NGINX configuration from Ingress annotations (`auth-url`, `auth-tls-match-cn`, `mirror-target`) without adequate sanitization. Attackers inject arbitrary NGINX directives (including `ssl_engine`, `load_module`, or lua_code_cache) that cause the NGINX validator to execute code — achieving RCE in the ingress controller pod. Because the ingress controller has a highly-permissioned service account with cluster-wide Secret access, this escalates to full cluster takeover | Ingress NGINX Controller < 1.11.5/1.12.1; annotation injection CVEs CVE-2025-1097, CVE-2025-1098, CVE-2025-24514 are CVSS 8.8, while admission-controller RCE CVE-2025-1974 "IngressNightmare" is CVSS 9.8; broad cloud exposure reported by third-party research |
 | **Admission webhook bypass via namespace** | Some admission webhooks exclude system namespaces (kube-system, kube-public) from validation. Attackers who can create resources in excluded namespaces bypass all admission policies | Webhook with `namespaceSelector` excluding system namespaces |
 | **Webhook denial of service → policy bypass** | If a validating webhook is configured with `failurePolicy: Ignore`, overwhelming or crashing the webhook allows all requests to pass without validation — effectively disabling security policies | `failurePolicy: Ignore` on security-critical webhooks |
 
@@ -227,7 +227,7 @@ Container registries (Docker Hub, Harbor, Quay, ACR, ECR, GCR) are trust anchors
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
-| **Image typosquatting** | Publishing malicious images with names resembling popular official images (e.g., `openjdk` vs `OpenJDK`, `golang` vs `Golang`, `alpline` vs `alpine`). 86.1% of detected typosquatted packages contain malware, with cryptocurrency theft as the predominant objective | Public registry (Docker Hub); no image signature verification; developer typing errors |
+| **Image typosquatting** | Publishing malicious images with names resembling popular official images (e.g., `openjdk` vs `OpenJDK`, `golang` vs `Golang`, `alpline` vs `alpine`). Public registry research repeatedly finds malware-heavy typosquatting campaigns, often with cryptocurrency theft as the objective | Public registry (Docker Hub); no image signature verification; developer typing errors |
 | **Base image backdoor persistence** | Compromised or intentionally backdoored base images embed persistent malware in layers. The XZ Utils supply chain backdoor (CVE-2024-3094, CVSS 10.0) was found propagating through Docker Hub images as late as September 2025, surviving in dozens of derivative images long after the upstream fix | Public base images without signature verification; transitive dependency propagation |
 
 ### §6-2. Image Content Attacks
@@ -328,14 +328,14 @@ In multi-tenant Kubernetes deployments, tenants share nodes and often share cont
 | §1-1 (runc mount race) | CVE-2025-52565 (runc) | Container escape via /dev/console bind-mount race |
 | §1-1 (runc LSM redirect) | CVE-2025-52881 (runc) | LSM label write redirect → arbitrary procfs write; bypass SELinux/AppArmor |
 | §1-2 (FD leak) | CVE-2024-21626 (runc, "Leaky Vessels") | Host filesystem access via leaked /proc/self/exe FD; CVSS 8.6; affects Docker, Kubernetes globally |
-| §1-3 (OCI hook env) | CVE-2025-23266 (NVIDIA CTK, "NVIDIAScape") | 3-line Dockerfile → host root; CVSS 9.0; 37% of GPU cloud environments |
+| §1-3 (OCI hook env) | CVE-2025-23266 (NVIDIA CTK, "NVIDIAScape") | Minimal Dockerfile → host root; CVSS 9.0; GPU-enabled cloud environments |
 | §1-3 (OCI hook TOCTOU) | CVE-2024-0132 (NVIDIA CTK) | Container → host takeover; CVSS 9.0; demonstrated on Replicate, Hugging Face |
 | §1-4 (eBPF) | CVE-2021-3490, CVE-2021-31440 | eBPF verifier bypass → kernel memory access → container escape |
 | §1-4 (cgroup) | CVE-2022-0492 | cgroup release_agent → host code execution; still exploitable on cgroups v1 |
 | §1-5 (BuildKit) | CVE-2024-23651, 23652, 23653 ("Leaky Vessels") | Build-time container escape; CVSS 8.7–9.8 |
 | §1-5 (Buildah) | CVE-2024-1753 | Mount source symlink → host filesystem access during build; CVSS 8.6 |
 | §3-1 (Windows log query) | CVE-2024-9042 | PowerShell command injection on Windows nodes via log query API |
-| §4-1 (IngressNightmare) | CVE-2025-1974, 1097, 1098, 24514 | Unauth RCE → cluster-wide secrets; CVSS 9.8; 43% of cloud environments |
+| §4-1 (IngressNightmare) | CVE-2025-1974, 1097, 1098, 24514 | RCE → cluster-wide secrets; CVSS 9.8 for admission-controller RCE; broad cloud exposure reported |
 | §4-3 (gitRepo) | CVE-2024-10220 | Node-level code execution via Git hooks; CVSS 8.1 |
 | §6-1 (supply chain) | CVE-2024-3094 (XZ Utils) | Backdoored base images propagating through Docker Hub; CVSS 10.0 |
 | §9-2 (cross-tenant) | Wiz/Palo Alto research (2024–2025) | AI platform multi-tenant escape; access to thousands of orgs' data |
@@ -401,30 +401,30 @@ The fundamental tension is that each structural solution imposes operational fri
 
 ## References
 
-- Sysdig: "New runc Vulnerabilities Allow Container Escape: CVE-2025-31133, CVE-2025-52565, CVE-2025-52881" — https://www.sysdig.com/blog/runc-container-escape-vulnerabilities
-- CNCF: "runc Container Breakout Vulnerabilities: A Technical Overview" — https://www.cncf.io/blog/2025/11/28/runc-container-breakout-vulnerabilities-a-technical-overview/
-- Wiz: "Leaky Vessels: Deep Dive on Container Escape Vulnerabilities" — https://www.wiz.io/blog/leaky-vessels-container-escape-vulnerabilities
-- Wiz: "IngressNightmare: CVE-2025-1974" — https://www.wiz.io/blog/ingress-nginx-kubernetes-vulnerabilities
-- Wiz: "NVIDIAScape: CVE-2025-23266" — https://www.wiz.io/blog/nvidia-ai-vulnerability-cve-2025-23266-nvidiascape
-- Datadog Security Labs: "Attacking and Securing Cloud Identities in Managed Kubernetes" — https://securitylabs.datadoghq.com/articles/amazon-eks-attacking-securing-cloud-identities/
-- Datadog Security Labs: "IngressNightmare Vulnerabilities Overview and Remediation" — https://securitylabs.datadoghq.com/articles/ingress-nightmare-vulnerabilities-overview-and-remediation/
-- Edera: "Kubernetes nodes/proxy RCE: When Monitoring Becomes an Attack Vector" — https://edera.dev/stories/your-monitoring-stack-just-became-a-rce-vector-a-deep-dive-into-the-kubernetes-nodes-proxy-rce
-- Akamai: "Command Injection in Kubernetes Log Query (CVE-2024-9042)" — https://www.akamai.com/blog/security-research/kubernetes-log-query-rce-windows
-- Bishop Fox: "Bad Pods: Kubernetes Pod Privilege Escalation" — https://bishopfox.com/blog/kubernetes-pod-privilege-escalation
-- SentinelOne: "Climbing The Ladder: Kubernetes Privilege Escalation" — https://www.sentinelone.com/blog/climbing-the-ladder-kubernetes-privilege-escalation-part-1/
-- Unit42: "Container Escape Techniques in Cloud Environments" — https://unit42.paloaltonetworks.com/container-escape-techniques/
-- Unit42: "Mitigating RBAC-Based Privilege Escalation in Popular Kubernetes Platforms" — https://unit42.paloaltonetworks.com/kubernetes-privilege-escalation/
-- Praetorian: "Exploiting Kubernetes through Operator Injection" — https://www.praetorian.com/blog/exploiting-kubernetes-through-operator-injection/
-- CrowdStrike: "Exploiting CVE-2021-3490 for Container Escapes" — https://www.crowdstrike.com/en-us/blog/exploiting-cve-2021-3490-for-container-escapes/
-- USENIX Security: "Cross Container Attacks: The Bewildered eBPF on Clouds" — https://www.usenix.org/system/files/usenixsecurity23-he.pdf
-- Aqua Security: "Linux Kernel Vulnerability: Escaping Containers by Abusing Cgroups" — https://www.aquasec.com/blog/new-linux-kernel-vulnerability-escaping-containers-by-abusing-cgroups/
-- Aqua Security: "Leveraging Kubernetes RBAC to Backdoor Clusters" — https://www.aquasec.com/blog/leveraging-kubernetes-rbac-to-backdoor-clusters/
-- Docker: "Security Advisory: Multiple Vulnerabilities in runc, BuildKit, and Moby" — https://www.docker.com/blog/docker-security-advisory-multiple-vulnerabilities-in-runc-buildkit-and-moby/
-- InstaTunnel: "The Sidecar Siphon: Exploiting Identity Leaks in Service Mesh Architectures" — https://instatunnel.my/blog/the-sidecar-siphon-exploiting-identity-leaks-in-service-mesh-architectures
-- Kubernetes: "Ingress-nginx CVE-2025-1974: What You Need to Know" — https://kubernetes.io/blog/2025/03/24/ingress-nginx-cve-2025-1974/
-- Kubernetes: "CVE-2024-10220: Arbitrary Command Execution through gitRepo Volume" — https://discuss.kubernetes.io/t/security-advisory-cve-2024-10220-arbitrary-command-execution-through-gitrepo-volume/30571
-- Microsoft: "Understanding the Threat Landscape for Kubernetes and Containerized Assets" — https://www.microsoft.com/en-us/security/blog/2025/04/23/understanding-the-threat-landscape-for-kubernetes-and-containerized-assets/
-- USENIX: "Exploring and Exploiting the Resource Isolation Attack Surface of WebAssembly Containers" — https://arxiv.org/html/2509.11242
+- [Sysdig: "New runc Vulnerabilities Allow Container Escape: CVE-2025-31133, CVE-2025-52565, CVE-2025-52881"](https://www.sysdig.com/blog/runc-container-escape-vulnerabilities)
+- [CNCF: "runc Container Breakout Vulnerabilities: A Technical Overview"](https://www.cncf.io/blog/2025/11/28/runc-container-breakout-vulnerabilities-a-technical-overview/)
+- [Wiz: "Leaky Vessels: Deep Dive on Container Escape Vulnerabilities"](https://www.wiz.io/blog/leaky-vessels-container-escape-vulnerabilities)
+- [Wiz: "IngressNightmare: CVE-2025-1974"](https://www.wiz.io/blog/ingress-nginx-kubernetes-vulnerabilities)
+- [Wiz: "NVIDIAScape: CVE-2025-23266"](https://www.wiz.io/blog/nvidia-ai-vulnerability-cve-2025-23266-nvidiascape)
+- [Datadog Security Labs: "Attacking and Securing Cloud Identities in Managed Kubernetes"](https://securitylabs.datadoghq.com/articles/amazon-eks-attacking-securing-cloud-identities/)
+- [Datadog Security Labs: "IngressNightmare Vulnerabilities Overview and Remediation"](https://securitylabs.datadoghq.com/articles/ingress-nightmare-vulnerabilities-overview-and-remediation/)
+- [Edera: "Kubernetes nodes/proxy RCE: When Monitoring Becomes an Attack Vector"](https://edera.dev/stories/your-monitoring-stack-just-became-a-rce-vector-a-deep-dive-into-the-kubernetes-nodes-proxy-rce)
+- [Akamai: "Command Injection in Kubernetes Log Query (CVE-2024-9042)"](https://www.akamai.com/blog/security-research/kubernetes-log-query-rce-windows)
+- [Bishop Fox: "Bad Pods: Kubernetes Pod Privilege Escalation"](https://bishopfox.com/blog/kubernetes-pod-privilege-escalation)
+- [SentinelOne: "Climbing The Ladder: Kubernetes Privilege Escalation"](https://www.sentinelone.com/blog/climbing-the-ladder-kubernetes-privilege-escalation-part-1/)
+- [Unit42: "Container Escape Techniques in Cloud Environments"](https://unit42.paloaltonetworks.com/container-escape-techniques/)
+- [Unit42: "Mitigating RBAC-Based Privilege Escalation in Popular Kubernetes Platforms"](https://unit42.paloaltonetworks.com/kubernetes-privilege-escalation/)
+- [Praetorian: "Exploiting Kubernetes through Operator Injection"](https://www.praetorian.com/blog/exploiting-kubernetes-through-operator-injection/)
+- [CrowdStrike: "Exploiting CVE-2021-3490 for Container Escapes"](https://www.crowdstrike.com/en-us/blog/exploiting-cve-2021-3490-for-container-escapes/)
+- [USENIX Security: "Cross Container Attacks: The Bewildered eBPF on Clouds"](https://www.usenix.org/system/files/usenixsecurity23-he.pdf)
+- [Aqua Security: "Linux Kernel Vulnerability: Escaping Containers by Abusing Cgroups"](https://www.aquasec.com/blog/new-linux-kernel-vulnerability-escaping-containers-by-abusing-cgroups/)
+- [Aqua Security: "Leveraging Kubernetes RBAC to Backdoor Clusters"](https://www.aquasec.com/blog/leveraging-kubernetes-rbac-to-backdoor-clusters/)
+- [Docker: "Security Advisory: Multiple Vulnerabilities in runc, BuildKit, and Moby"](https://www.docker.com/blog/docker-security-advisory-multiple-vulnerabilities-in-runc-buildkit-and-moby/)
+- [InstaTunnel: "The Sidecar Siphon: Exploiting Identity Leaks in Service Mesh Architectures"](https://instatunnel.my/blog/the-sidecar-siphon-exploiting-identity-leaks-in-service-mesh-architectures)
+- [Kubernetes: "Ingress-nginx CVE-2025-1974: What You Need to Know"](https://kubernetes.io/blog/2025/03/24/ingress-nginx-cve-2025-1974/)
+- [Kubernetes: "CVE-2024-10220: Arbitrary Command Execution through gitRepo Volume"](https://discuss.kubernetes.io/t/security-advisory-cve-2024-10220-arbitrary-command-execution-through-gitrepo-volume/30571)
+- [Microsoft: "Understanding the Threat Landscape for Kubernetes and Containerized Assets"](https://www.microsoft.com/en-us/security/blog/2025/04/23/understanding-the-threat-landscape-for-kubernetes-and-containerized-assets/)
+- [USENIX: "Exploring and Exploiting the Resource Isolation Attack Surface of WebAssembly Containers"](https://arxiv.org/html/2509.11242)
 
 ---
 

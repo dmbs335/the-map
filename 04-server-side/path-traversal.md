@@ -446,7 +446,7 @@ Path traversal mutations are weaponized in specific architectural deployment con
 
 ---
 
-## CVE / Bounty Mapping (2024-2025)
+## CVE / Bounty Mapping (2024-2026)
 
 Real-world path traversal instances from recent disclosures, mapped to mutation combinations.
 
@@ -456,7 +456,7 @@ Real-world path traversal instances from recent disclosures, mapped to mutation 
 | §1-2 | **CVE-2024-43093** (Android) | High — local privilege escalation | ExternalStorageProvider incorrect Unicode normalization; attackers used fullwidth characters to bypass path filters |
 | §1-2 | **CVE-2025-52488** (DNN/DotNetNuke) | High — arbitrary file access | Unicode U+FF0E (fullwidth full stop) and U+FF3C (fullwidth reverse solidus) bypassed initial validation |
 | §1-4 + §6-1 | **CVE-2024-28698** (CSLA.NET) | High — path traversal + RCE | `LoadFromAssemblyPath` truncated at null byte (`%00`); enabled arbitrary assembly loading |
-| §1-4 | **CVE-2025-68428** (jsPDF ≤ 3.0.4) | Critical — local file disclosure | `loadFile` method in Node.js build; user-controlled path read arbitrary files into PDF output |
+| §1-4 | **CVE-2025-68428** (jsPDF < 4.0.0) | Critical v4.0 / High v3.1 — local file disclosure | Node.js builds only (`dist/jspdf.node.js`, `dist/jspdf.node.min.js`); unsanitized paths passed to `loadFile`, `addImage`, `html`, or `addFont` can embed arbitrary local files into generated PDFs. Fixed in 4.0.0 |
 | §1-1 + §7 | **CVE-2024-13059** (AnythingLLM < 1.3.1) | Critical — RCE | Non-ASCII filename with traversal (`../../malicious.sh`) via multer library; manager/admin roles could write arbitrary files |
 | §5-1 | **CVE-2024-21518** (OpenCart Marketplace) | High — arbitrary file write | ZIP Slip via marketplace installer; admin panel upload led to path traversal in archive extraction |
 | §3-2 | **CVE-2024-1019** (ModSecurity v3 < 3.0.12) | Medium — WAF bypass | Path confusion via URL-encoded `?` (`%3F`); ModSecurity excluded post-`%3F` content from `REQUEST_FILENAME`, backend included it |
@@ -464,13 +464,13 @@ Real-world path traversal instances from recent disclosures, mapped to mutation 
 | §7-2 | **CSPT to CSRF Chain** (2024 PortSwigger Top 10 nomination) | Medium-High | Client-side path traversal chained with GET/POST CSRF; bypassed SameSite cookie protections |
 | §5-2 | **Symlink Zip Exploitation** (2024 research) | High — RCE potential | Crafted symlinks in ZIP pointing outside extraction directory; subsequent entries wrote through symlink to system paths |
 | §2-3 + §4-1 | **Windows Reserved Name DoS** (2024 bug bounty) | Low-Medium | Accessing `CON`, `AUX`, etc. in HTTP requests caused application hang; DoS on Windows servers |
-| §3-1 | **Fortinet FortiWeb CVE-2025-64446** | CVSS 9.8 (Critical) — authentication bypass | Path traversal in admin account creation; unauthenticated attackers created admin accounts via crafted path-traversal request |
+| §3-1 | **Fortinet FortiWeb CVE-2025-64446** | CVSS 9.4 (Critical) — administrative command execution / authentication bypass impact | Relative path traversal lets unauthenticated attackers reach administrative functionality via crafted HTTP(S) requests |
 | §1-1 | **CVE-2018-13379** (Fortinet FortiGate SSL VPN) | Critical — pre-auth credential theft | `snprintf(s, 0x40, "/migadmin/lang/%s.json", lang)` — fixed-size buffer overflow strips `.json` suffix, enabling arbitrary file read. Leaks session files with plaintext passwords. DEF CON 27, Orange Tsai |
 | §1-1 | **CVE-2019-11510** (Pulse Secure Connect) | Critical — pre-auth credential theft | Path traversal via HTML5 Access feature (`/dana-na/../dana/html5acc/guacamole/../../../../../../etc/passwd`). Leaks plaintext cached credentials and session tokens. Weaponized by APTs and ransomware groups. DEF CON 27, Orange Tsai |
 | §2-3 | **CVE-2024-49766** (Werkzeug/Flask) | Medium — path traversal on Windows | `safe_join()` used `os.path.isabs()` which returns `False` for UNC paths (`//server/share`) on Python < 3.11; Windows UNC path bypassed safety check, enabling remote file access via SMB |
 | §2-3 + §1-3 + §3 | **CVE-2024-1594, -1483, -1560, -1558, -1593, -3573** (MLflow) | Critical — arbitrary file read/delete | 6 CVEs from same root cause: `os.path.join(base, user_artifact_path)` without validation. Bypass vectors: `#` fragment injection, `;` semicolon smuggling, double URL decoding, empty URI scheme |
 | §2-3 | **CVE-2024-1561** (Gradio) | High — arbitrary file read | `launch(share=True)` exposed Gradio app to internet; absolute path in file parameter bypassed path restriction, enabling host filesystem read |
-| §5-1 + §5-2 | **CVE-2025-8869** (pip), **CVE-2025-47273** (setuptools), **CVE-2026-1703** (pip) | Critical — supply chain path traversal | Package manager archive extraction without symlink/path validation; `pip install malicious-pkg` writes files outside extraction directory (e.g., `~/.ssh/authorized_keys`). Trellix (2022) found ~350,000 GitHub repos using vulnerable `tarfile.extractall()` + `os.path.join()` patterns |
+| §5-1 + §5-2 | **CVE-2025-8869** (pip), **CVE-2025-47273** (setuptools), **CVE-2026-1703** (pip) | Mixed severity — archive extraction path traversal | Package archive extraction path traversal across Python packaging tools. setuptools CVE-2025-47273 is High and may write arbitrary files/RCE depending on context; pip CVE-2025-8869 is Medium in fallback tar extraction on Python versions without PEP 706; pip CVE-2026-1703 is Low and limited to prefixes of the installation directory, so typical executable overwrite is not expected. Trellix (2022) found ~350,000 GitHub repos using vulnerable `tarfile.extractall()` + `os.path.join()` patterns |
 
 ---
 
@@ -548,41 +548,41 @@ The 2025 landscape demonstrates that path traversal remains a critical vulnerabi
 ## References
 
 ### Academic & Conference Research
-- Kettle, James. "Gotta Cache 'Em All: Bending the Rules of Web Cache Exploitation." PortSwigger Research, 2024-2025. [https://portswigger.net/research/gotta-cache-em-all](https://portswigger.net/research/gotta-cache-em-all)
-- Backes, Michael, et al. "Large-Scale Analysis of Style Injection by Relative Path Overwrite." WWW 2018 Conference. [https://dl.acm.org/doi/10.1145/3178876.3186090](https://dl.acm.org/doi/10.1145/3178876.3186090)
-- Mirheidari, Seyed Ali, et al. "Cached and Confused: Web Cache Deception in the Wild." USENIX Security Symposium, 2020. [https://www.usenix.org/conference/usenixsecurity20/presentation/mirheidari](https://www.usenix.org/conference/usenixsecurity20/presentation/mirheidari)
+- [Kettle, James. "Gotta Cache 'Em All: Bending the Rules of Web Cache Exploitation." PortSwigger Research, 2024-2025. [](https://portswigger.net/research/gotta-cache-em-all](https://portswigger.net/research/gotta-cache-em-all))
+- [Backes, Michael, et al. "Large-Scale Analysis of Style Injection by Relative Path Overwrite." WWW 2018 Conference. [](https://dl.acm.org/doi/10.1145/3178876.3186090](https://dl.acm.org/doi/10.1145/3178876.3186090))
+- [Mirheidari, Seyed Ali, et al. "Cached and Confused: Web Cache Deception in the Wild." USENIX Security Symposium, 2020. [](https://www.usenix.org/conference/usenixsecurity20/presentation/mirheidari](https://www.usenix.org/conference/usenixsecurity20/presentation/mirheidari))
 
 ### CVE Disclosures & Security Advisories
-- CVE-2024-38819: Spring Framework Path Traversal. [https://github.com/advisories/GHSA-g5vr-rgqm-vf78](https://github.com/advisories/GHSA-g5vr-rgqm-vf78)
-- CVE-2024-13059: AnythingLLM Path Traversal RCE. [https://www.offsec.com/blog/cve-2024-13059/](https://www.offsec.com/blog/cve-2024-13059/)
-- CVE-2025-68428: jsPDF Critical Path Traversal. [https://www.endorlabs.com/learn/cve-2025-68428-critical-path-traversal-in-jspdf](https://www.endorlabs.com/learn/cve-2025-68428-critical-path-traversal-in-jspdf)
-- CVE-2024-43093: Android Unicode Normalization Path Traversal. [https://stack.watch/vuln/CVE-2024-43093/](https://stack.watch/vuln/CVE-2024-43093/)
-- CVE-2024-28698: CSLA.NET Null Byte Truncation. [https://www.intruder.io/research/path-traversal-and-code-execution-in-csla-net-cve-2024-28698](https://www.intruder.io/research/path-traversal-and-code-execution-in-csla-net-cve-2024-28698)
-- CVE-2024-1019: ModSecurity Path Confusion. [https://dayzerosec.com/vulns/2024/02/05/modsecurity-path-confusion-and-really-easy-bypass-on-v2-and-v3.html](https://dayzerosec.com/vulns/2024/02/05/modsecurity-path-confusion-and-really-easy-bypass-on-v2-and-v3.html)
-- CVE-2024-21518: OpenCart Zip Slip Vulnerability. [https://github.com/advisories/GHSA-m7r8-2r98-vppj](https://github.com/advisories/GHSA-m7r8-2r98-vppj)
-- CVE-2025-52488: DNN (DotNetNuke) Unicode Normalization Path Traversal. U+FF0E (fullwidth full stop) and U+FF3C (fullwidth reverse solidus) bypass validation → NTLM hash disclosure via UNC path injection. [https://slcyber.io/research-center/abusing-windows-net-quirks-and-unicode-normalization-to-exploit-dnn-dotnetnuke/](https://slcyber.io/research-center/abusing-windows-net-quirks-and-unicode-normalization-to-exploit-dnn-dotnetnuke/)
-- CVE-2025-64446: Fortinet FortiWeb Authentication Bypass. [https://socprime.com/active-threats/cve-2025-64446/](https://socprime.com/active-threats/cve-2025-64446/)
+- [CVE-2024-38819: Spring Framework Path Traversal. [](https://github.com/advisories/GHSA-g5vr-rgqm-vf78](https://github.com/advisories/GHSA-g5vr-rgqm-vf78))
+- [CVE-2024-13059: AnythingLLM Path Traversal RCE. [](https://www.offsec.com/blog/cve-2024-13059/](https://www.offsec.com/blog/cve-2024-13059/))
+- [CVE-2025-68428: jsPDF Critical Path Traversal. [](https://www.endorlabs.com/learn/cve-2025-68428-critical-path-traversal-in-jspdf](https://www.endorlabs.com/learn/cve-2025-68428-critical-path-traversal-in-jspdf))
+- [CVE-2024-43093: Android Unicode Normalization Path Traversal. [](https://stack.watch/vuln/CVE-2024-43093/](https://stack.watch/vuln/CVE-2024-43093/))
+- [CVE-2024-28698: CSLA.NET Null Byte Truncation. [](https://www.intruder.io/research/path-traversal-and-code-execution-in-csla-net-cve-2024-28698](https://www.intruder.io/research/path-traversal-and-code-execution-in-csla-net-cve-2024-28698))
+- [CVE-2024-1019: ModSecurity Path Confusion. [](https://dayzerosec.com/vulns/2024/02/05/modsecurity-path-confusion-and-really-easy-bypass-on-v2-and-v3.html](https://dayzerosec.com/vulns/2024/02/05/modsecurity-path-confusion-and-really-easy-bypass-on-v2-and-v3.html))
+- [CVE-2024-21518: OpenCart Zip Slip Vulnerability. [](https://github.com/advisories/GHSA-m7r8-2r98-vppj](https://github.com/advisories/GHSA-m7r8-2r98-vppj))
+- [CVE-2025-52488: DNN (DotNetNuke) Unicode Normalization Path Traversal. U+FF0E (fullwidth full stop) and U+FF3C (fullwidth reverse solidus) bypass validation → NTLM hash disclosure via UNC path injection. [](https://slcyber.io/research-center/abusing-windows-net-quirks-and-unicode-normalization-to-exploit-dnn-dotnetnuke/](https://slcyber.io/research-center/abusing-windows-net-quirks-and-unicode-normalization-to-exploit-dnn-dotnetnuke/))
+- [SOC Prime — CVE-2025-64446 Fortinet FortiWeb authentication bypass](https://socprime.com/active-threats/cve-2025-64446/)
 
 ### Practitioner Resources & Writeups
-- PortSwigger Web Security Academy: Path Traversal. [https://portswigger.net/web-security/file-path-traversal](https://portswigger.net/web-security/file-path-traversal)
-- PayloadsAllTheThings: Directory Traversal. [https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Directory%20Traversal/README.md](https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Directory%20Traversal/README.md)
-- PayloadsAllTheThings: Client-Side Path Traversal. [https://swisskyrepo.github.io/PayloadsAllTheThings/Client%20Side%20Path%20Traversal/](https://swisskyrepo.github.io/PayloadsAllTheThings/Client%20Side%20Path%20Traversal/)
-- OWASP: Path Traversal. [https://owasp.org/www-community/attacks/Path_Traversal](https://owasp.org/www-community/attacks/Path_Traversal)
-- YesWeHack: Beyond Dot Dot Slash — A Practical Guide to Path Traversal Attacks. [https://www.yeswehack.com/learn-bug-bounty/practical-guide-path-traversal-attacks](https://www.yeswehack.com/learn-bug-bounty/practical-guide-path-traversal-attacks)
-- InstaTunnel: "Path Traversal 2.0: Escaping Containers and Reading /etc/passwd in 2025." [https://medium.com/@instatunnel/path-traversal-2-0-escaping-containers-and-reading-etc-passwd-in-2025-809a45ccfe6a](https://medium.com/@instatunnel/path-traversal-2-0-escaping-containers-and-reading-etc-passwd-in-2025-809a45ccfe6a)
-- Doyensec: "Bypassing File Upload Restrictions To Exploit Client-Side Path Traversal." [https://blog.doyensec.com/2025/01/09/cspt-file-upload.html](https://blog.doyensec.com/2025/01/09/cspt-file-upload.html)
-- Renwa: "Client Side Path Traversal (CSPT) Bug Bounty Reports and Techniques." [https://medium.com/@renwa/client-side-path-traversal-cspt-bug-bounty-reports-and-techniques-8ee6cd2e7ca1](https://medium.com/@renwa/client-side-path-traversal-cspt-bug-bounty-reports-and-techniques-8ee6cd2e7ca1)
-- mr-medi: "Practical client-side path-traversal attacks" (2022) — Original CSPT research establishing client-side path traversal as a distinct vulnerability class. [https://mr-medi.github.io/research/2022/11/04/practical-client-side-path-traversal-attacks.html](https://mr-medi.github.io/research/2022/11/04/practical-client-side-path-traversal-attacks.html)
+- [PortSwigger Web Security Academy: Path Traversal. [](https://portswigger.net/web-security/file-path-traversal](https://portswigger.net/web-security/file-path-traversal))
+- [PayloadsAllTheThings: Directory Traversal. [](https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Directory%20Traversal/README.md](https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Directory%20Traversal/README.md))
+- [PayloadsAllTheThings: Client-Side Path Traversal. [](https://swisskyrepo.github.io/PayloadsAllTheThings/Client%20Side%20Path%20Traversal/](https://swisskyrepo.github.io/PayloadsAllTheThings/Client%20Side%20Path%20Traversal/))
+- [OWASP: Path Traversal. [](https://owasp.org/www-community/attacks/Path_Traversal](https://owasp.org/www-community/attacks/Path_Traversal))
+- [YesWeHack: Beyond Dot Dot Slash — A Practical Guide to Path Traversal Attacks. [](https://www.yeswehack.com/learn-bug-bounty/practical-guide-path-traversal-attacks](https://www.yeswehack.com/learn-bug-bounty/practical-guide-path-traversal-attacks))
+- [InstaTunnel: "Path Traversal 2.0: Escaping Containers and Reading /etc/passwd in 2025." [](https://medium.com/@instatunnel/path-traversal-2-0-escaping-containers-and-reading-etc-passwd-in-2025-809a45ccfe6a](https://medium.com/@instatunnel/path-traversal-2-0-escaping-containers-and-reading-etc-passwd-in-2025-809a45ccfe6a))
+- [Doyensec: "Bypassing File Upload Restrictions To Exploit Client-Side Path Traversal." [](https://blog.doyensec.com/2025/01/09/cspt-file-upload.html](https://blog.doyensec.com/2025/01/09/cspt-file-upload.html))
+- [Renwa: "Client Side Path Traversal (CSPT) Bug Bounty Reports and Techniques." [](https://medium.com/@renwa/client-side-path-traversal-cspt-bug-bounty-reports-and-techniques-8ee6cd2e7ca1](https://medium.com/@renwa/client-side-path-traversal-cspt-bug-bounty-reports-and-techniques-8ee6cd2e7ca1))
+- [mr-medi: "Practical client-side path-traversal attacks" (2022) — Original CSPT research establishing client-side path traversal as a distinct vulnerability class. [](https://mr-medi.github.io/research/2022/11/04/practical-client-side-path-traversal-attacks.html](https://mr-medi.github.io/research/2022/11/04/practical-client-side-path-traversal-attacks.html))
 
 ### Tools & Repositories
-- DotDotPwn: Directory Traversal Fuzzer. [https://github.com/wireghoul/dotdotpwn](https://github.com/wireghoul/dotdotpwn)
-- slip: Malicious Archive Generator. [https://github.com/0xless/slip](https://github.com/0xless/slip)
-- Advanced Directory Traversal Payloads. [https://github.com/DeepakGhengat/ADVANCED-DIRECTORY-TRAVERSAL-PAYLOADS](https://github.com/DeepakGhengat/ADVANCED-DIRECTORY-TRAVERSAL-PAYLOADS)
-- Doyensec CSPTBurpExtension. [https://github.com/doyensec/CSPTBurpExtension](https://github.com/doyensec/CSPTBurpExtension)
+- [DotDotPwn: Directory Traversal Fuzzer. [](https://github.com/wireghoul/dotdotpwn](https://github.com/wireghoul/dotdotpwn))
+- [slip: Malicious Archive Generator. [](https://github.com/0xless/slip](https://github.com/0xless/slip))
+- [Advanced Directory Traversal Payloads. [](https://github.com/DeepakGhengat/ADVANCED-DIRECTORY-TRAVERSAL-PAYLOADS](https://github.com/DeepakGhengat/ADVANCED-DIRECTORY-TRAVERSAL-PAYLOADS))
+- [Doyensec CSPTBurpExtension. [](https://github.com/doyensec/CSPTBurpExtension](https://github.com/doyensec/CSPTBurpExtension))
 
 ### Standards & Specifications
 - RFC 3629: UTF-8, a transformation format of ISO 10646 (strict UTF-8 validation).
-- CWE-22: Improper Limitation of a Pathname to a Restricted Directory ('Path Traversal'). [https://cwe.mitre.org/data/definitions/22.html](https://cwe.mitre.org/data/definitions/22.html)
+- [CWE-22: Improper Limitation of a Pathname to a Restricted Directory ('Path Traversal'). [](https://cwe.mitre.org/data/definitions/22.html](https://cwe.mitre.org/data/definitions/22.html))
 
 ---
 

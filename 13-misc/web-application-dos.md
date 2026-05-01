@@ -123,7 +123,7 @@ Hash tables are the foundational data structure of web applications — HTTP hea
 |---|---|---|
 | **HTTP parameter hash collision** | Web frameworks parse query strings and POST bodies into hash tables. Crafted parameter names that collide in the framework's hash function force O(n) lookup per parameter, turning a typical O(n) request parsing into O(n²). The original 2011 HashDoS research demonstrated PHP, Java, Python, Ruby, and ASP.NET were all vulnerable | Frameworks using non-randomized hash functions; mitigated by hash randomization (Python 3.3+, Ruby 2.0+, PHP 8.0+) but reimplementable against any deterministic hash |
 | **V8 rapidhash collision (Node.js)** | Node.js v24.0.0 adopted V8's `rapidhash` for string hashing, which is deterministic and does not sufficiently randomize input. Attackers can craft collision strings for HTTP headers, query parameters, or JSON keys, degrading JavaScript object/Map operations from O(1) to O(n) per operation | CVE-2025-27209; Node.js v24.0.0–v24.4.0; fixed in v24.4.1 with revised hashing |
-| **JSON key hash collision** | JSON payloads containing thousands of keys that collide in the server-side JSON parser's internal hash table. A ~1MB JSON body with 65,536 colliding keys can consume >60 seconds of CPU time | JSON-accepting API endpoints; server-side language with predictable string hashing |
+| **JSON key hash collision** | JSON payloads containing many keys that collide in the server-side JSON parser's internal hash table can consume disproportionate CPU time | JSON-accepting API endpoints; server-side language with predictable string hashing |
 | **Cookie/header hash collision** | HTTP cookies and headers are typically stored in hash maps. Crafted cookie names or header names that collide degrade server-side request parsing | Servers parsing many cookies/headers into hash structures |
 | **QUIC connection ID hash collision** | QUIC server hash tables mapping connection IDs to state become O(n) per lookup when connection IDs are crafted to collide | CVE-2025-29908 (Netty QUIC); §2-3 cross-reference |
 | **IIS output cache hash table collision** | IIS stores cached HTTP responses in a hash table keyed on the request URL. Crafted URLs that produce hash collisions in the output cache destabilize lookup, causing the server to return incorrect cached responses for unrelated URLs — converting a HashDoS primitive into a **cache poisoning** vector where attacker-controlled content is served to victims requesting legitimate pages | Microsoft IIS with output caching enabled (Black Hat USA 2022, Orange Tsai) |
@@ -158,7 +158,7 @@ JSON parsers using recursive descent encounter stack overflow or extreme CPU con
 | **Recursive descent stack overflow** | A JSON document with thousands of nested objects `{"a":{"a":{"a":...}}}` or arrays `[[[[...]]]` causes recursive descent parsers to overflow the call stack, crashing the process with a `StackOverflowError` | CVE-2024-21907 (Newtonsoft.Json); CVE-2025-52999 (jackson-core); CVE-2025-53864 (Nimbus JOSE+JWT); any parser without configurable depth limits |
 | **JWT claim set nesting** | JWTs containing deeply nested JSON claim sets trigger stack overflow during claim parsing/validation, causing authentication services to crash | CVE-2025-53864 (Nimbus JOSE+JWT < 10.0.2); JWT validation libraries without depth limits |
 | **JSON serialization recursion** | Serialization libraries crashing when serializing deeply nested Python/JavaScript objects back to JSON, triggered when an attacker controls the data structure being serialized | CVE-2025-67221 (orjson); libraries without recursion limits during serialization |
-| **JSON-JAVA uncapped recursion** | The JSON-Java (org.json) library allocates excessive memory when parsing crafted JSON strings with extremely deep nesting or very long strings, enabling DoS with a ~2MB payload consuming ~1GB of heap | CVE-2023-5072 (JSON-Java); any Java application using org.json for parsing untrusted input |
+| **JSON-JAVA uncapped recursion** | The JSON-Java (org.json) library allocates excessive memory when parsing crafted JSON strings with extremely deep nesting or very long strings, enabling small payloads to consume large heap memory | CVE-2023-5072 (JSON-Java); any Java application using org.json for parsing untrusted input |
 
 ### §4-2. YAML Anchor & Alias Bomb
 
@@ -264,7 +264,7 @@ Cache-Poisoned DoS exploits differences in how caching proxies (CDNs, reverse pr
 | **HTTP Header Oversize (HHO)** | The attacker adds oversized headers (e.g., `X-Padding: AAAA...` at 16KB+) to a request for a cacheable URL. The CDN forwards the request (its header limit is higher), but the origin server rejects it with `400 Bad Request`. The CDN caches this 400 response and serves it to all subsequent visitors | CDN with higher header size limit than origin (e.g., CloudFront 20KB vs. Apache 8KB); cacheable resource; CVE-2019-0941 (IIS) |
 | **HTTP Meta Character (HMC)** | The attacker injects control characters (e.g., `\n`, `\r`, `\x00`) into request headers. The CDN passes them through, but the origin rejects the malformed request. The error response is cached | CDN that doesn't sanitize control characters in headers; origin server that rejects them |
 | **HTTP Method Override (HMO)** | The attacker sends a GET request with `X-HTTP-Method-Override: POST` or `X-HTTP-Method: DELETE`. The CDN caches based on the actual GET method, but the origin processes it as POST/DELETE and returns an error response | Origin framework supporting method override headers; CDN caching GET responses regardless of override headers |
-| **Next.js ISR/SSR cache poisoning** | Next.js applications using Incremental Static Regeneration or Server-Side Rendering, when deployed behind a CDN that caches HTTP 204 responses, can have their routes poisoned with empty 204 responses that replace valid content | CVE-2025-49826 (Next.js 15.1.0–15.1.8); CDN configured to cache 204 responses |
+| **Next.js ISR/SSR cache poisoning** | Next.js applications using Incremental Static Regeneration or Server-Side Rendering, when deployed behind a CDN that caches HTTP 204 responses, can have their routes poisoned with empty 204 responses that replace valid content | CVE-2025-49826 (Next.js >=15.0.4-canary.51, <15.1.8); CDN configured to cache 204 responses |
 | **Host header cache poisoning for DoS** | Injecting a nonexistent `Host` header value causes the origin to generate an error. If the cache uses the URL path (without Host) as the cache key, the error response is served for the legitimate Host | Cache key not including Host header; origin returning different responses for different Host values |
 | **Response Filter DoS (RFDoS)** | The attacker crafts requests that cause the origin server to include WAF-triggering patterns in its legitimate response body (e.g., injecting SQL-like syntax into reflected search results, user-generated content, or error messages). The WAF's response body inspection rules match these patterns as false positives and block or strip the legitimate response, denying content delivery to the requesting user. Unlike CPDoS, the response is not cached — each individual request triggers fresh WAF-mediated content blocking | WAF performs response body inspection with pattern-matching rules; attacker can influence response content via reflected input, stored user content, or manipulated query results |
 
@@ -366,12 +366,12 @@ TLS handshakes and cryptographic operations are deliberately expensive. Attacker
 
 | Mutation Combination | CVE / Case | Impact / Bounty |
 |---|---|---|
-| §1-2 (cross-spawn ReDoS) | CVE-2024-21538 (cross-spawn < 7.0.5) | ReDoS via improper input sanitization; affects 100M+ weekly npm downloads |
+| §1-2 (cross-spawn ReDoS) | CVE-2024-21538 (cross-spawn < 7.0.5) | ReDoS via improper input sanitization; widely used npm package |
 | §1-2 (micromatch ReDoS) | CVE-2024-4067 (micromatch < 4.0.8) | ReDoS in glob matching library; widespread dependency |
 | §1-2 (ajv ReDoS) | CVE-2025-69873 (ajv) | ReDoS via pattern keyword with $data references in JSON Schema validator |
 | §1-2 (black ReDoS) | CVE-2024-21503 (black formatter) | ReDoS in Python code formatter |
 | §1-2 (SheetJS ReDoS) | CVE-2024-22363 (SheetJS < 0.20.2) | ReDoS in spreadsheet parsing library |
-| §2-2 (HTTP/2 Rapid Reset) | CVE-2023-44487 | **CVSS 7.5.** Record-breaking DDoS: 398M rps (Google), 201M rps (Cloudflare). CISA KEV. Affects every HTTP/2 implementation |
+| §2-2 (HTTP/2 Rapid Reset) | CVE-2023-44487 | **CVSS 7.5.** Record-breaking DDoS: 398M rps (Google), 201M rps (Cloudflare). CISA KEV. Affects many HTTP/2 implementations and deployments that did not rate-limit rapid stream resets |
 | §2-2 (HTTP/2 MadeYouReset) | CVE-2025-8671 | Bypasses Rapid Reset mitigations via server-initiated RST_STREAM. Affects Tomcat, Netty, Varnish, Fastly, F5 |
 | §2-2 (CONTINUATION flood, Apache) | CVE-2024-27316 (Apache httpd) | OOM crash via unbounded CONTINUATION frame buffering |
 | §2-2 (CONTINUATION flood, Tomcat) | CVE-2024-24549 (Apache Tomcat) | DoS via improper CONTINUATION frame validation |
@@ -385,14 +385,14 @@ TLS handshakes and cryptographic operations are deliberately expensive. Attacker
 | §4-1 (jackson-core nesting) | CVE-2025-52999 (jackson-core) | Stack exhaustion via deeply nested JSON |
 | §4-1 (Nimbus JWT nesting) | CVE-2025-53864 (Nimbus JOSE+JWT < 10.0.2) | DoS via deeply nested JSON in JWT claims |
 | §4-1 (orjson recursion) | CVE-2025-67221 (orjson) | Crash during serialization of deeply nested structures |
-| §4-1 (JSON-Java) | CVE-2023-5072 (org.json) | ~2MB payload → ~1GB heap via deep nesting and long strings |
+| §4-1 (JSON-Java) | CVE-2023-5072 (org.json) | Small payload → large heap usage via deep nesting and long strings |
 | §4-3 (Protobuf recursion) | CVE-2024-7254 (protobuf-java) | **CVSS 8.7.** Stack overflow via recursive unknown group nesting; affects all protobuf-java versions |
 | §4-3 (MessagePack) | CVE-2024-48924 (MessagePack) | Hash collision + stack overflow in deserialization |
 | §4-2 (K8s YAML bomb) | CVE-2019-11253 (Kubernetes) | kube-apiserver DoS via YAML anchor alias expansion |
 | §6-1 (ws header overflow) | CVE-2024-37890 (ws library) | DoS when headers exceed maxHeadersCount threshold |
-| §7-1 (Next.js cache poisoning DoS) | CVE-2025-49826 (Next.js 15.1.0–15.1.8) | Cache poisoning via ISR/SSR route returning cached 204 |
+| §7-1 (Next.js cache poisoning DoS) | CVE-2025-49826 (Next.js >=15.0.4-canary.51, <15.1.8) | Cache poisoning via ISR/SSR route returning cached 204 |
 | §7-1 (IIS CPDoS) | CVE-2019-0941 (Microsoft IIS) | IIS DoS via cache-poisoned error responses |
-| §3-1 (IIS hash flooding) | CVE-2022-22025 (Microsoft IIS) | 10× amplified HashDoS via key-splitting bug in IIS output cache; ~30 connections/second renders default IIS unresponsive |
+| §3-1 (IIS hash flooding) | CVE-2022-22025 (Microsoft IIS) | Amplified HashDoS via key-splitting bug in IIS output cache; low connection rates can render default IIS unresponsive |
 | §3-1 (IIS cache HPP poisoning) | CVE-2022-22040 (Microsoft IIS) | Cache poisoning via query string parsing differential between IIS Output Caching and ASP.NET backend |
 | §3-1 (IIS LKRHash auth bypass) | CVE-2022-30209 (Microsoft IIS) | Authentication bypass via hash collision — username compared twice, password never verified; passwordless account hijack on Exchange |
 | §8-1 (Tomcat upload DoS) | Multiple (Apache Tomcat) | OutOfMemoryError via examples app upload without limits |
@@ -461,29 +461,29 @@ The fundamental challenge is that cost estimation must be cheaper than the opera
 
 ## References
 
-- Cloudflare: "HTTP/2 Rapid Reset: Deconstructing the Record-Breaking Attack" — https://blog.cloudflare.com/technical-breakdown-http2-rapid-reset-ddos-attack/
-- CISA: "HTTP/2 Rapid Reset Vulnerability, CVE-2023-44487" — https://www.cisa.gov/news-events/alerts/2023/10/10/http2-rapid-reset-vulnerability-cve-2023-44487
-- MINE2: "MadeYouReset (CVE-2025-8671): HTTP/2 DoS Attack Bypasses Rapid Reset Mitigations" — https://www.mine2.io/blog/2025-08-18-http2-madeyoureset-dos-cve-2025-8671/
-- Cloudflare: "MadeYouReset: An HTTP/2 Vulnerability Thwarted by Rapid Reset Mitigations" — https://blog.cloudflare.com/madeyoureset-an-http-2-vulnerability-thwarted-by-rapid-reset-mitigations/
-- Snyk: "Exploiting HTTP/2 CONTINUATION Frames for DoS Attacks" — https://snyk.io/blog/exploiting-http-2-continuation-frames-dos-attacks/
-- Phoenix Security: "The Rising Threat of HTTP/2 Vulnerabilities: From Rapid Reset to Continuation Flood" — https://phoenix.security/http2cve-2024-27316/
-- ZeroPath: "Node.js v24 HashDoS (CVE-2025-27209): How a V8 Hashing Change Reopened a Classic DoS Attack" — https://zeropath.com/blog/cve-2025-27209-nodejs-v8-hashdos
-- NCC Group: "Technical Advisory – Hash Denial-of-Service Attack in Multiple QUIC Implementations" — https://www.nccgroup.com/research-blog/technical-advisory-hash-denial-of-service-attack-in-multiple-quic-implementations/
-- Snyk: "ReDoS and Catastrophic Backtracking" — https://snyk.io/blog/redos-and-catastrophic-backtracking/
-- OWASP: "Regular Expression Denial of Service - ReDoS" — https://owasp.org/www-community/attacks/Regular_expression_Denial_of_Service_-_ReDoS
-- Siddiq et al.: "Understanding Regular Expression Denial of Service (ReDoS)" (ICPC '24) — https://s2e-lab.github.io/preprints/icpc24-preprint.pdf
-- Hooimeijer & Weimer: "Analyzing Catastrophic Backtracking Behavior in Practical Regular Expression Matching" — https://www.semanticscholar.org/paper/Analyzing-Catastrophic-Backtracking-Behavior-in-Berglund-Drewes/2acb87fa3aed6f09773c53c9b34db221941e3627
-- Crosby & Wallach: "Denial of Service via Algorithmic Complexity Attacks" (USENIX Security '03) — https://www.usenix.org/conference/12th-usenix-security-symposium/denial-service-algorithmic-complexity-attacks
-- ACM CCS '24: "The Harder You Try, The Harder You Fail: The KeyTrap Denial-of-Service Algorithmic Complexity Attacks on DNSSEC" — https://dl.acm.org/doi/10.1145/3658644.3670389
-- CPDoS.org: "Cache-Poisoned Denial of Service" — https://cpdos.org/
-- Escape.tech: "Avoid GraphQL Denial of Service Attacks Through Batching and Aliasing" — https://escape.tech/blog/graphql-batch-attacks-cause-dos/
-- GraphQL Foundation: "Security" — https://graphql.org/learn/security/
-- PortSwigger: "GraphQL API Vulnerabilities" — https://portswigger.net/web-security/graphql
-- OWASP: "WebSocket Security Cheat Sheet" — https://cheatsheetseries.owasp.org/cheatsheets/WebSocket_Security_Cheat_Sheet.html
-- Qualys: "TLS Renegotiation and Denial of Service Attacks" — https://blog.qualys.com/product-tech/2011/10/31/tls-renegotiation-and-denial-of-service-attacks
-- Vaadata: "What is a Slow HTTP Attack? Types & Security Best Practices" — https://www.vaadata.com/blog/what-is-a-slow-http-attack-types-and-security-best-practices/
-- PortSwigger: "Top 10 Web Hacking Techniques of 2025" — https://portswigger.net/research/top-10-web-hacking-techniques-of-2025
-- Akamai: "DDoS Attack Trends in 2024 Signify That Sophistication Overshadows Size" — https://www.akamai.com/blog/security/ddos-attack-trends-2024-signify-sophistication-overshadows-size
+- [Cloudflare: "HTTP/2 Rapid Reset: Deconstructing the Record-Breaking Attack"](https://blog.cloudflare.com/technical-breakdown-http2-rapid-reset-ddos-attack/)
+- [CISA: "HTTP/2 Rapid Reset Vulnerability, CVE-2023-44487"](https://www.cisa.gov/news-events/alerts/2023/10/10/http2-rapid-reset-vulnerability-cve-2023-44487)
+- [MINE2: "MadeYouReset (CVE-2025-8671): HTTP/2 DoS Attack Bypasses Rapid Reset Mitigations"](https://www.mine2.io/blog/2025-08-18-http2-madeyoureset-dos-cve-2025-8671/)
+- [Cloudflare: "MadeYouReset: An HTTP/2 Vulnerability Thwarted by Rapid Reset Mitigations"](https://blog.cloudflare.com/madeyoureset-an-http-2-vulnerability-thwarted-by-rapid-reset-mitigations/)
+- [Snyk: "Exploiting HTTP/2 CONTINUATION Frames for DoS Attacks"](https://snyk.io/blog/exploiting-http-2-continuation-frames-dos-attacks/)
+- [Phoenix Security: "The Rising Threat of HTTP/2 Vulnerabilities: From Rapid Reset to Continuation Flood"](https://phoenix.security/http2cve-2024-27316/)
+- [ZeroPath: "Node.js v24 HashDoS (CVE-2025-27209): How a V8 Hashing Change Reopened a Classic DoS Attack"](https://zeropath.com/blog/cve-2025-27209-nodejs-v8-hashdos)
+- [NCC Group: "Technical Advisory – Hash Denial-of-Service Attack in Multiple QUIC Implementations"](https://www.nccgroup.com/research-blog/technical-advisory-hash-denial-of-service-attack-in-multiple-quic-implementations/)
+- [Snyk: "ReDoS and Catastrophic Backtracking"](https://snyk.io/blog/redos-and-catastrophic-backtracking/)
+- [OWASP: "Regular Expression Denial of Service - ReDoS"](https://owasp.org/www-community/attacks/Regular_expression_Denial_of_Service_-_ReDoS)
+- [Siddiq et al.: "Understanding Regular Expression Denial of Service (ReDoS)" (ICPC '24)](https://s2e-lab.github.io/preprints/icpc24-preprint.pdf)
+- [Hooimeijer & Weimer: "Analyzing Catastrophic Backtracking Behavior in Practical Regular Expression Matching"](https://www.semanticscholar.org/paper/Analyzing-Catastrophic-Backtracking-Behavior-in-Berglund-Drewes/2acb87fa3aed6f09773c53c9b34db221941e3627)
+- [Crosby & Wallach: "Denial of Service via Algorithmic Complexity Attacks" (USENIX Security '03)](https://www.usenix.org/conference/12th-usenix-security-symposium/denial-service-algorithmic-complexity-attacks)
+- [ACM CCS '24: "The Harder You Try, The Harder You Fail: The KeyTrap Denial-of-Service Algorithmic Complexity Attacks on DNSSEC"](https://dl.acm.org/doi/10.1145/3658644.3670389)
+- [CPDoS.org: "Cache-Poisoned Denial of Service"](https://cpdos.org/)
+- [Escape.tech: "Avoid GraphQL Denial of Service Attacks Through Batching and Aliasing"](https://escape.tech/blog/graphql-batch-attacks-cause-dos/)
+- [GraphQL Foundation: "Security"](https://graphql.org/learn/security/)
+- [PortSwigger: "GraphQL API Vulnerabilities"](https://portswigger.net/web-security/graphql)
+- [OWASP: "WebSocket Security Cheat Sheet"](https://cheatsheetseries.owasp.org/cheatsheets/WebSocket_Security_Cheat_Sheet.html)
+- [Qualys: "TLS Renegotiation and Denial of Service Attacks"](https://blog.qualys.com/product-tech/2011/10/31/tls-renegotiation-and-denial-of-service-attacks)
+- [Vaadata: "What is a Slow HTTP Attack? Types & Security Best Practices"](https://www.vaadata.com/blog/what-is-a-slow-http-attack-types-and-security-best-practices/)
+- [PortSwigger: "Top 10 Web Hacking Techniques of 2025"](https://portswigger.net/research/top-10-web-hacking-techniques-of-2025)
+- [Akamai: "DDoS Attack Trends in 2024 Signify That Sophistication Overshadows Size"](https://www.akamai.com/blog/security/ddos-attack-trends-2024-signify-sophistication-overshadows-size)
 - Orange Tsai: "Let's Dance in the Cache — Destabilizing Hash Table on Microsoft IIS" (Black Hat USA 2022) — Hash table collision attacks weaponized against IIS output cache for cache poisoning
 - Cyber Kunlun Lab: "Diving into Windows HTTP: Unveiling Hidden Preauth Vulnerabilities in Windows HTTP Services" (Black Hat USA) — Systematic analysis of httpapi.dll/HTTP.sys attack surface across IIS, KDC Proxy, BranchCache, UPnP Host revealing pre-auth DoS via receive/response stage logic flaws and ISAPI_CONTEXT lifecycle issues
 

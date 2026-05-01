@@ -341,7 +341,7 @@ A specialized concurrency violation in blockchain environments where external ca
 | **Cross-Function Reentrancy** | Malicious contract calls a different function that shares state with the vulnerable function, exploiting the shared stale state | Multiple functions share a state variable that is updated non-atomically |
 | **Cross-Contract Reentrancy** | Attack spans multiple contracts, where one contract's callback triggers a function in a third contract that reads stale state from the vulnerable contract | Inter-contract calls create implicit shared state without synchronization |
 
-**Example (The DAO Reentrancy — $60M theft):**
+**Example (The DAO Reentrancy — major ETH theft):**
 ```solidity
 function withdraw(uint amount) {
     require(balances[msg.sender] >= amount);  // Check
@@ -442,8 +442,8 @@ The attacker manipulates the cryptographic keys or parameters established during
 | §5-3 (Bluetooth KNOB) | CVE-2019-9506 | 1-byte entropy negotiation. Affects 38+ devices across all major BT versions |
 | §8-2 (Session Resumption) | CVE-2025-68121 (Go TLS) | Resumption state drift: `Config` mutation between initial and resumed handshake causes unexpected session resumption, potentially bypassing certificate validation changes |
 | §1-1 + §5-1 (DTLS Auth Bypass) | JSSE DTLS state machine issues | Complete client authentication bypass via out-of-order DTLS messages (note: CVE-2020-27216 is an Eclipse Jetty temporary directory vulnerability, unrelated to DTLS) |
-| §6-3 (Reentrancy) | The DAO Hack (2016) | $60M ETH stolen. Single-function reentrancy in withdraw() |
-| §6-3 (Reentrancy) | Curve Finance (2023) | ~$62M stolen (~73% subsequently recovered). Vyper compiler bug enabled reentrancy in DeFi pools |
+| §6-3 (Reentrancy) | The DAO Hack (2016) | Major ETH theft. Single-function reentrancy in withdraw() |
+| §6-3 (Reentrancy) | Curve Finance (2023) | Major theft with partial recovery. Vyper compiler bug enabled reentrancy in DeFi pools |
 | §8-1 (SAML Signature) | SAMLStorm (2025, xml-crypto) | Zero-day: forged SAML responses → admin account access across Node.js SAML stacks |
 | §8-1 (SAML Comment Injection) | CVE-2017-11427 through CVE-2017-11430 | Auth bypass across OneLogin, ruby-saml, saml2-js libraries |
 | §2-2 (Mass Assignment) | CVE-2025-57760 (Langflow) | Privilege escalation to superadmin via `is_superuser` field injection (note: CVE-2024-13275 is Drupal Security Kit HTTP DoS, unrelated) |
@@ -453,7 +453,7 @@ The attacker manipulates the cryptographic keys or parameters established during
 | §5-2 (FTP Bounce) | Historical (RFC 2577) | Port scanning, SMTP relay, firewall bypass via FTP PORT command abuse |
 | §3-4 (Distributed TOCTOU) | AWS DynamoDB DNS Outage (2025) | Major US-EAST-1 outage from latent race condition in internal DNS automation — operational incident, not a security vulnerability or CVE (included as state-machine anti-pattern example) |
 | §2-3 (Kernel TOCTOU) | CVE-2024-30088 (Windows Kernel) | Local privilege escalation via kernel-level TOCTOU race condition |
-| §2-3 (VMware TOCTOU) | CVE-2025-22224 (VMware ESXi) | TOCTOU → out-of-bounds write. Actively exploited in the wild |
+| §2-3 (VMware TOCTOU) | CVE-2025-22224 (VMware ESXi / Workstation) | CVSS 9.3. TOCTOU → out-of-bounds write; attacker needs local administrative privileges inside a VM to execute code as the host VMX process. CISA KEV / actively exploited |
 
 ---
 

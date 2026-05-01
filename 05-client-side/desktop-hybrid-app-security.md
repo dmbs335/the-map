@@ -345,7 +345,7 @@ Platform impact varies: macOS and Ubuntu are fully vulnerable because their file
 | §1-3 (Rust command injection) | CVE-2024-24576 (Rust std) | Command injection on Windows affecting Tauri apps using `Command::new()` |
 | §4-1 (ASAR integrity bypass) | CVE-2024-46992 (Electron) | ASAR integrity check bypassable by content modification |
 | §4-1 (ASAR integrity bypass) | CVE-2025-55305 (Electron) | ASAR integrity bypass via resource modification |
-| §7-2 (Chromium N-day patch gap) | CVE-2025-4609 (Chromium) | $250,000 bounty; sandbox escape → RCE; affected Cursor and Windsurf |
+| §7-2 (Chromium N-day patch gap) | CVE-2025-4609 (Chromium) | Sandbox escape → RCE; affected Cursor and Windsurf |
 | §7-1 (npm supply chain — worm) | npm Shai-Hulud 1.0/2.0 (Aug–Nov 2025) | 796 packages compromised; self-propagating via npm token theft with post-install scripts; Shai-Hulud 2.0 introduced refined package targeting and evasion. Distinct from Sept 2025 maintainer compromise (18 packages, 2.6B weekly downloads) |
 | §4-1 (ASAR persistence) | Slack ASAR injection (pentest case) | Persistence via PowerShell payload in `electron.asar` |
 | §1 + §2 + §7-2 (IPC → context isolation bypass → Chromium N-day chain) | Pwn2Own Vancouver 2023 — Microsoft Teams (Viettel Cyber Security) | Full RCE via 2-bug chain: improper MessagePorts configuration in Electron renderer compromise → Chromium sandbox escape |
@@ -419,31 +419,31 @@ The most dangerous misconception in desktop hybrid app security is that **deskto
 
 ## References
 
-- Electron Security Documentation: https://www.electronjs.org/docs/latest/tutorial/security
-- Tauri Security Documentation: https://v2.tauri.app/security/
-- Doyensec Electron Security Research: https://blog.doyensec.com/
-- Doyensec Awesome Electron.js Hacking: https://github.com/doyensec/awesome-electronjs-hacking
-- HackTricks — Electron Desktop Apps: https://book.hacktricks.wiki/en/network-services-pentesting/pentesting-web/electron-desktop-apps/
-- DARKNAVY — Exploiting Steam CEF Framework: https://www.darknavy.org/blog/exploiting_steam_usual_and_unusual_ways_in_the_cef_framework/
-- s1r1us — Electron Context Bridge Insecurity: https://s1r1us.ninja/posts/electron-contextbridge-is-insecure/
-- Flatt Security — Escaping Electron Isolation: https://flatt.tech/research/posts/escaping-electron-isolation-with-obsolete-feature/
-- mr.d0x — Attacking with WebView2: https://mrd0x.com/attacking-with-webview2-applications/
-- DeepStrike — Penetration Testing of Electron Applications: https://deepstrike.io/blog/penetration-testing-of-electron-based-applications
-- Carettoni (BlackHat Asia 2019) — Preloading Insecurity in Your Electron: https://doyensec.com/resources/Asia-19-Carettoni-Preloading-Insecurity-In-Your-Electron.pdf
-- Shabarkin — 0-click RCE in Electron Applications: https://shabarkin.medium.com/0-click-rce-in-electron-applications-1c4f81a2cd6b
-- Altpeter — The Dangers of shell.openExternal: https://benjamin-altpeter.de/shell-openexternal-dangers/
-- Hexiosec — DLL Hijacking in Electron Apps: https://hexiosec.com/blog/dll-hijacking-and-proxying/
-- Doyensec — Electron Updater Signature Bypass: https://blog.doyensec.com/2020/02/24/electron-updater-update-signature-bypass.html
-- Doyensec — Building a Secure Electron Auto-Updater: https://blog.doyensec.com/2026/02/16/electron-safe-updater.html
-- Theori — Chaining N-days Chrome Renderer RCE: https://theori.io/blog/chaining-n-days-to-compromise-all-part-1-chrome-renderer-rce
-- Taggart Tech — Quasar: Compromising Electron Apps: https://taggart-tech.com/quasar-electron/
-- YesWeHack — Pentesting Electron Applications: https://blog.yeswehack.com/yeswerhackers/exploitation/pentesting-electron-applications/
-- SecureLayer7 — Electron App Security Risks: https://blog.securelayer7.net/electron-app-security-risks/
-- Cobalt — Common Misconfigurations in Electron Apps: https://www.cobalt.io/blog/common-misconfigurations-electron-apps-part-1
-- Wojciech Regula — Abusing Electron Apps on macOS: https://wojciechregula.blog/post/abusing-electron-apps-to-bypass-macos-security-controls/
-- Microsoft — Develop Secure WebView2 Apps: https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/security
+- [Electron Security Documentation](https://www.electronjs.org/docs/latest/tutorial/security)
+- [Tauri Security Documentation](https://v2.tauri.app/security/)
+- [Doyensec Electron Security Research](https://blog.doyensec.com/)
+- [Doyensec Awesome Electron.js Hacking](https://github.com/doyensec/awesome-electronjs-hacking)
+- [HackTricks — Electron Desktop Apps](https://book.hacktricks.wiki/en/network-services-pentesting/pentesting-web/electron-desktop-apps/)
+- [DARKNAVY — Exploiting Steam CEF Framework](https://www.darknavy.org/blog/exploiting_steam_usual_and_unusual_ways_in_the_cef_framework/)
+- [s1r1us — Electron Context Bridge Insecurity](https://s1r1us.ninja/posts/electron-contextbridge-is-insecure/)
+- [Flatt Security — Escaping Electron Isolation](https://flatt.tech/research/posts/escaping-electron-isolation-with-obsolete-feature/)
+- [mr.d0x — Attacking with WebView2](https://mrd0x.com/attacking-with-webview2-applications/)
+- [DeepStrike — Penetration Testing of Electron Applications](https://deepstrike.io/blog/penetration-testing-of-electron-based-applications)
+- [Carettoni (BlackHat Asia 2019) — Preloading Insecurity in Your Electron](https://doyensec.com/resources/Asia-19-Carettoni-Preloading-Insecurity-In-Your-Electron.pdf)
+- [Shabarkin — 0-click RCE in Electron Applications](https://shabarkin.medium.com/0-click-rce-in-electron-applications-1c4f81a2cd6b)
+- [Altpeter — The Dangers of shell.openExternal](https://benjamin-altpeter.de/shell-openexternal-dangers/)
+- [Hexiosec — DLL Hijacking in Electron Apps](https://hexiosec.com/blog/dll-hijacking-and-proxying/)
+- [Doyensec — Electron Updater Signature Bypass](https://blog.doyensec.com/2020/02/24/electron-updater-update-signature-bypass.html)
+- [Doyensec — Building a Secure Electron Auto-Updater](https://blog.doyensec.com/2026/02/16/electron-safe-updater.html)
+- [Theori — Chaining N-days Chrome Renderer RCE](https://theori.io/blog/chaining-n-days-to-compromise-all-part-1-chrome-renderer-rce)
+- [Taggart Tech — Quasar: Compromising Electron Apps](https://taggart-tech.com/quasar-electron/)
+- [YesWeHack — Pentesting Electron Applications](https://blog.yeswehack.com/yeswerhackers/exploitation/pentesting-electron-applications/)
+- [SecureLayer7 — Electron App Security Risks](https://blog.securelayer7.net/electron-app-security-risks/)
+- [Cobalt — Common Misconfigurations in Electron Apps](https://www.cobalt.io/blog/common-misconfigurations-electron-apps-part-1)
+- [Wojciech Regula — Abusing Electron Apps on macOS](https://wojciechregula.blog/post/abusing-electron-apps-to-bypass-macos-security-controls/)
+- [Microsoft — Develop Secure WebView2 Apps](https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/security)
 - "ElectroVolt — Pwning Popular Desktop Apps" (2022) — Systematic Electron exploitation techniques demonstrated against popular desktop applications
-- Gareth Heyes (PortSwigger Research) — "Drag and Pwnd: Leverage ASCII characters to exploit VS Code" (2025): https://portswigger.net/research/drag-and-pwnd-leverage-ascii-characters-to-exploit-vs-code
+- [Gareth Heyes (PortSwigger Research) — "Drag and Pwnd: Leverage ASCII characters to exploit VS Code" (2025)](https://portswigger.net/research/drag-and-pwnd-leverage-ascii-characters-to-exploit-vs-code)
 
 ---
 

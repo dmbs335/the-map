@@ -55,7 +55,7 @@ When an unsigned integer goes below zero, it wraps to the maximum value of its t
 | **Decrement Past Zero** | Counter decremented below zero wraps to MAX | Loop or balance tracking without floor check |
 | **Length Subtraction** | `buffer_len - header_len` underflows when header exceeds buffer | Length fields from untrusted input |
 
-**Example**: In Ethereum smart contracts pre-Solidity 0.8, `balances[msg.sender] - value` where `value > balance` would wrap to ~2^256, granting the attacker an astronomical token balance. The BEC token exploit (CVE-2018-10299) is commonly cited for this pattern — though the official description classifies it as an integer overflow in `batchTransfer` multiplication (`value * cnt`), not a subtraction underflow — causing $900M+ in notional losses.
+**Example**: In Ethereum smart contracts pre-Solidity 0.8, `balances[msg.sender] - value` where `value > balance` would wrap to ~2^256, granting the attacker an astronomical token balance. The BEC token exploit (CVE-2018-10299) is commonly cited for this pattern — though the official description classifies it as an integer overflow in `batchTransfer` multiplication (`value * cnt`), not a subtraction underflow — causing large notional losses.
 
 ### §1-3. Signed Integer Overflow
 
@@ -133,7 +133,7 @@ IEEE 754 floating-point numbers inherently cannot represent all real numbers exa
 | **Catastrophic Cancellation** | Subtracting two nearly-equal large numbers amplifies relative error | Scientific calculations, geometric comparisons |
 | **Division Precision Loss** | Integer division in Solidity truncates toward zero; `1 / 3 * 3 = 0` instead of 1 | DeFi token exchange rate calculations, share pricing |
 
-**Example**: The Balancer V2 exploit (November 2025, $125M+ drained) was caused by inconsistent rounding between upscale and downscale operations in batch swaps. When token amounts were pushed to specific rounding boundaries (8-9 wei range), Solidity's integer division caused precision loss that distorted BPT pricing, enabling repeated profitable swaps that drained pools across multiple chains.
+**Example**: The Balancer V2 exploit (November 2025) was caused by inconsistent rounding between upscale and downscale operations in batch swaps. When token amounts were pushed to specific rounding boundaries, Solidity's integer division caused precision loss that distorted BPT pricing, enabling repeated profitable swaps that drained pools across multiple chains.
 
 ### §3-2. Special Floating-Point Values
 
@@ -297,7 +297,7 @@ These vulnerabilities exploit application-layer numeric assumptions — prices, 
 | **Minimum/Maximum Bypass** | Transaction just below reporting threshold, or amount just above minimum withdrawal to drain via many small transactions | Threshold-based logic without aggregate tracking |
 | **Integer Division in Share Calculation** | `shares = deposit / price_per_share` truncates in integer math; when `price_per_share > deposit`, shares = 0 but deposit is consumed | DeFi vault share minting, dividend distribution |
 
-**Example**: The OnyxProtocol exploit (November 2023, $2.1M) exploited precision loss in share-to-asset conversion: by donating assets to inflate the share price and then exploiting integer division truncation, the attacker extracted more value than deposited.
+**Example**: The OnyxProtocol exploit (November 2023) exploited precision loss in share-to-asset conversion: by donating assets to inflate the share price and then exploiting integer division truncation, the attacker extracted more value than deposited.
 
 ### §7-4. Rate and Limit Bypass
 
@@ -355,23 +355,23 @@ These vulnerabilities exploit the window between checking a numeric value and us
 
 | Mutation Combination | CVE / Case | Impact / Bounty |
 |---|---|---|
-| §1-1 (unsigned overflow — multiplication) | BEC Token (CVE-2018-10299) | $900M+ notional loss; Ethereum ERC-20 `batchTransfer` multiplication overflow (`value * cnt`) |
+| §1-1 (unsigned overflow — multiplication) | BEC Token (CVE-2018-10299) | Large notional loss; Ethereum ERC-20 `batchTransfer` multiplication overflow (`value * cnt`) |
 | §5-3 (heap overflow) | CVE-2024-37079 (VMware vCenter) | RCE via heap-overflow in DCERPC implementation (exact integer arithmetic root cause not detailed in public advisories) |
 | §1-1 (unsigned overflow/wraparound) | CVE-2024-32972 (Go-Ethereum) | Integer overflow/wraparound (`count-1` → `UINT64_MAX`) in `handleGetBlockHeaders` ETH protocol handler |
 | §1-2 (integer underflow) | CVE-2024-11477 (7-Zip Zstandard) | RCE via integer underflow before memory write in Zstandard decompression |
 | §1-2 (subtraction underflow) | CVE-2024-47606 (GStreamer) | Code execution via integer underflow in qtdemux parser |
 | §1-2 (integer underflow) | CVE-2024-0808 (Chrome WebUI) | Integer underflow in WebUI leading to heap corruption |
 | §2-2 (truncation) | CVE-2025-49679 (Windows Shell) | Local privilege escalation to SYSTEM (CVSS 7.8) |
-| §3-1 (rounding direction) | Balancer V2 (Nov 2025) | $125M+ drained across multiple chains via rounding inconsistency (primary source verification needed) |
-| §3-1 (precision loss) | OnyxProtocol (Nov 2023) | $2.1M lost via precision loss in share calculation |
-| §3-1 (precision loss) | Cetus DEX (May 2025) | $223M loss from missed overflow check in exchange calculation (primary source verification needed) |
-| §1-1 (unchecked overflow) | Truebit (Jan 2026) | $26.4M drained via uint256 overflow in Solidity 0.6.10 contract (primary source verification needed) |
+| §3-1 (rounding direction) | Balancer V2 (Nov 2025) | Large cross-chain loss via rounding inconsistency (primary source verification needed) |
+| §3-1 (precision loss) | OnyxProtocol (Nov 2023) | Precision loss in share calculation |
+| §3-1 (precision loss) | Cetus DEX (May 2025) | Large loss from missed overflow check in exchange calculation (primary source verification needed) |
+| §1-1 (unchecked overflow) | Truebit (Jan 2026) | Value drained via uint256 overflow in Solidity 0.6.10 contract (primary source verification needed) |
 | §2-3 (PHP type juggling) | CVE-2023-53894 (phpfm 1.7.9) | Authentication bypass via 0e magic hash type juggling (CVE-2023-43154 is Macs Framework CMS 1.1.4f) |
 | §2-1 (signedness) | CVE-2020-4032 (FreeRDP) | OOB read via signed-to-unsigned conversion of negative diff |
 | §3-3 (FP architectural) | CVE-2021-0086 (FPVI) | Transient execution attack via NaN-boxed values (CVSS 6.5) |
 | §3-3 (FP state leak) | CVE-2018-3665 (LazyFP) | Cryptographic key leakage via FPU register state disclosure |
 | §7-2 (coupon race) | Stripe coupon bug (HackerOne) | Unlimited discount redemption via parallel coupon reuse |
-| §7-3 (precision) | DeFi overflow/underflow bugs | 10% of Immunefi submissions; $5K–$50K bounty range |
+| §7-3 (precision) | DeFi overflow/underflow bugs | Common Immunefi submission class; bounty ranges vary by program and impact |
 
 ---
 
@@ -413,18 +413,18 @@ A comprehensive defense requires defense-in-depth across all taxonomy categories
 
 ## References
 
-- CWE-189: Numeric Errors — https://cwe.mitre.org/data/definitions/189.html
-- CWE-190: Integer Overflow or Wraparound — https://cwe.mitre.org/data/definitions/190.html
-- CWE-191: Integer Underflow — https://cwe.mitre.org/data/definitions/191.html
-- CWE-192: Integer Coercion Error — https://cwe.mitre.org/data/definitions/192.html
-- CWE-193: Off-by-one Error — https://cwe.mitre.org/data/definitions/193.html
-- CWE-195: Signed to Unsigned Conversion Error — https://cwe.mitre.org/data/definitions/195.html
-- CWE-197: Numeric Truncation Error — https://cwe.mitre.org/data/definitions/197.html
-- CWE-681: Incorrect Conversion between Numeric Types — https://cwe.mitre.org/data/definitions/681.html
-- CWE-367: TOCTOU Race Condition — https://cwe.mitre.org/data/definitions/367.html
-- OWASP Smart Contract Top 10 (2025): SC08 Integer Overflow/Underflow — https://github.com/OWASP/www-project-smart-contract-top-10/blob/main/2025/en/src/SC08-integer-overflow-underflow.md
+- [CWE-189: Numeric Errors](https://cwe.mitre.org/data/definitions/189.html)
+- [CWE-190: Integer Overflow or Wraparound](https://cwe.mitre.org/data/definitions/190.html)
+- [CWE-191: Integer Underflow](https://cwe.mitre.org/data/definitions/191.html)
+- [CWE-192: Integer Coercion Error](https://cwe.mitre.org/data/definitions/192.html)
+- [CWE-193: Off-by-one Error](https://cwe.mitre.org/data/definitions/193.html)
+- [CWE-195: Signed to Unsigned Conversion Error](https://cwe.mitre.org/data/definitions/195.html)
+- [CWE-197: Numeric Truncation Error](https://cwe.mitre.org/data/definitions/197.html)
+- [CWE-681: Incorrect Conversion between Numeric Types](https://cwe.mitre.org/data/definitions/681.html)
+- [CWE-367: TOCTOU Race Condition](https://cwe.mitre.org/data/definitions/367.html)
+- [OWASP Smart Contract Top 10 (2025): SC08 Integer Overflow/Underflow](https://github.com/OWASP/www-project-smart-contract-top-10/blob/main/2025/en/src/SC08-integer-overflow-underflow.md)
 - IEEE 754-2019: Standard for Floating-Point Arithmetic
-- 2024 CWE Top 25 Most Dangerous Software Weaknesses — https://cwe.mitre.org/top25/archive/2024/2024_cwe_top25.html
+- [2024 CWE Top 25 Most Dangerous Software Weaknesses](https://cwe.mitre.org/top25/archive/2024/2024_cwe_top25.html)
 
 ---
 

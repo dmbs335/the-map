@@ -452,19 +452,19 @@ Incremental defenses fail because timing leakage emerges at every layer of the s
 
 ## References
 
-- PortSwigger Research, "Listen to the whispers: web timing attacks that actually work" (Black Hat USA 2024) — https://portswigger.net/research/listen-to-the-whispers-web-timing-attacks-that-actually-work
-- Van Goethem et al., "Timeless Timing Attacks: Exploiting Concurrency to Leak Secrets over Remote Connections" (USENIX Security 2020) — https://www.usenix.org/conference/usenixsecurity20/presentation/van-goethem
-- XS-Leaks Wiki — https://xsleaks.dev/
-- PortSwigger, "Top 10 Web Hacking Techniques of 2025" — https://portswigger.net/research/top-10-web-hacking-techniques-of-2025
-- Ferguson & Wilson, "WebGPU-SPY: Finding Fingerprints in the Sandbox through GPU Cache Attacks" (ACM AsiaCCS 2024) — https://arxiv.org/abs/2401.04349
-- Ark, "Cross-Site ETag Length Leak" (2025) — https://blog.arkark.dev/2025/12/26/etag-length-leak
-- Morgan & Morgan, "Web Timing Attacks Made Practical" (Black Hat USA 2015) — https://blackhat.com/docs/us-15/materials/us-15-Morgan-Web-Timing-Attacks-Made-Practical.pdf
-- Gelernter & Herzberg, "Timing Attacks Have Never Been So Practical: Advanced Cross-Site Search Attacks" (Black Hat USA 2016) — https://blackhat.com/docs/us-16/materials/us-16-Gelernter-Timing-Attacks-Have-Never-Been-So-Practical-Advanced-Cross-Site-Search-Attacks.pdf
-- Vila & Köpf, "Loophole: Timing Attacks on Shared Event Loops in Chrome" (USENIX Security 2017) — https://www.usenix.org/system/files/conference/usenixsecurity17/sec17-vila.pdf
-- Van Goethem et al., "Request and Conquer: Exposing Cross-Origin Resource Size" (USENIX Security 2020) — https://www.usenix.org/system/files/sec20-van_goethem.pdf
-- Bortz et al., "Exposing Private Information by Timing Web Applications" (WWW 2007) — https://crypto.stanford.edu/~dabo/papers/webtiming.pdf
-- Flatt Security, "Beyond the Limit: Expanding Single-Packet Race Condition" (2024) — https://flatt.tech/research/posts/beyond-the-limit-expanding-single-packet-race-condition-with-first-sequence-sync/
-- CVE-2024-13176 (OpenSSL ECDSA timing) — https://www.sentinelone.com/vulnerability-database/cve-2024-13176/
-- CVE-2024-25191 (php-jwt timing) — https://www.cvedetails.com/cve/CVE-2024-25191/
+- [PortSwigger Research, "Listen to the whispers: web timing attacks that actually work" (Black Hat USA 2024)](https://portswigger.net/research/listen-to-the-whispers-web-timing-attacks-that-actually-work)
+- [Van Goethem et al., "Timeless Timing Attacks: Exploiting Concurrency to Leak Secrets over Remote Connections" (USENIX Security 2020)](https://www.usenix.org/conference/usenixsecurity20/presentation/van-goethem)
+- [XS-Leaks Wiki](https://xsleaks.dev/)
+- [PortSwigger, "Top 10 Web Hacking Techniques of 2025"](https://portswigger.net/research/top-10-web-hacking-techniques-of-2025)
+- [Ferguson & Wilson, "WebGPU-SPY: Finding Fingerprints in the Sandbox through GPU Cache Attacks" (ACM AsiaCCS 2024)](https://arxiv.org/abs/2401.04349)
+- [Ark, "Cross-Site ETag Length Leak" (2025)](https://blog.arkark.dev/2025/12/26/etag-length-leak)
+- [Morgan & Morgan, "Web Timing Attacks Made Practical" (Black Hat USA 2015)](https://blackhat.com/docs/us-15/materials/us-15-Morgan-Web-Timing-Attacks-Made-Practical.pdf)
+- [Gelernter & Herzberg, "Timing Attacks Have Never Been So Practical: Advanced Cross-Site Search Attacks" (Black Hat USA 2016)](https://blackhat.com/docs/us-16/materials/us-16-Gelernter-Timing-Attacks-Have-Never-Been-So-Practical-Advanced-Cross-Site-Search-Attacks.pdf)
+- [Vila & Köpf, "Loophole: Timing Attacks on Shared Event Loops in Chrome" (USENIX Security 2017)](https://www.usenix.org/system/files/conference/usenixsecurity17/sec17-vila.pdf)
+- [Van Goethem et al., "Request and Conquer: Exposing Cross-Origin Resource Size" (USENIX Security 2020)](https://www.usenix.org/system/files/sec20-van_goethem.pdf)
+- [Bortz et al., "Exposing Private Information by Timing Web Applications" (WWW 2007)](https://crypto.stanford.edu/~dabo/papers/webtiming.pdf)
+- [Flatt Security, "Beyond the Limit: Expanding Single-Packet Race Condition" (2024)](https://flatt.tech/research/posts/beyond-the-limit-expanding-single-packet-race-condition-with-first-sequence-sync/)
+- [CVE-2024-13176 (OpenSSL ECDSA timing)](https://www.sentinelone.com/vulnerability-database/cve-2024-13176/)
+- [CVE-2024-25191 (php-jwt timing)](https://www.cvedetails.com/cve/CVE-2024-25191/)
 - SonarSource: "Disclosing information with a side-channel in Django" (2022) — Timing side-channel vulnerabilities in Django framework leaking sensitive data
-- ANOTA: Identifying Business Logic Vulnerabilities via Annotation-Based Sanitization (NDSS 2026) — https://dx.doi.org/10.14722/ndss.2026.240938
+- [ANOTA: Identifying Business Logic Vulnerabilities via Annotation-Based Sanitization (NDSS 2026)](https://dx.doi.org/10.14722/ndss.2026.240938)

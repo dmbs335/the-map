@@ -130,7 +130,7 @@ Application-level serialization schemes that embed type information in the seria
 |---------|---------|---------|
 | **AI/ML framework serialization** | Framework-specific `dumps()`/`loads()` with type markers | LangChain `lc` key injection — user-controlled dictionaries containing the reserved `lc` serialization marker are treated as legitimate LangChain objects during `load()` (CVE-2025-68664, CVSS 9.3) |
 | **Custom JSON with class hints** | Application embeds `className` or `_type` fields in JSON payloads | Any REST API that stores/transmits class names in JSON and reconstructs objects on receipt |
-| **Message queue payloads** | Serialized objects passed through Redis/RabbitMQ/Kafka | Laravel Reverb passing Redis Pub/Sub data directly to `unserialize()` without `allowed_classes` restriction (CVE-2026-23524) |
+| **Message queue payloads** | Serialized objects passed through Redis/RabbitMQ/Kafka | Laravel Reverb <= 1.6.3 with horizontal scaling enabled (`REVERB_SCALING_ENABLED=true`) passes Redis Pub/Sub data directly to `unserialize()` without `allowed_classes` restriction (CVE-2026-23524; fixed in 1.7.0) |
 
 The LangChain case is notable as an emerging pattern: AI agent frameworks that serialize/deserialize complex object graphs (chains, tools, prompts) across system boundaries create new AOI surfaces, especially when LLM outputs can influence the serialized representation.
 
@@ -313,7 +313,7 @@ Defenses against AOI typically involve restricting which classes can be instanti
 | **Filter-before-construction gap** | Exploit objects that trigger side-effects during `readResolve()` or field assignment, before the filter can reject them | Deep nesting attacks where filter depth limits are exceeded |
 | **Allowed class as gadget entry** | An allowed class's `readObject()` internally triggers instantiation of disallowed classes | `HashMap` → `hashCode()` → gadget chain starting from an allowed class |
 | **Serialization format switching** | Bypass `ObjectInputFilter` by using a different serialization format (JSON, XML, YAML) that doesn't have filters | Application accepts both binary and JSON input; filter only applies to binary |
-| **Missing allowed_classes** | PHP `unserialize()` called without the `allowed_classes` option | Laravel Reverb CVE-2026-23524: `unserialize()` without `allowed_classes` restriction |
+| **Missing allowed_classes** | PHP `unserialize()` called without the `allowed_classes` option | Laravel Reverb CVE-2026-23524: `unserialize()` without `allowed_classes` restriction in the Redis scaling path when `REVERB_SCALING_ENABLED=true` |
 
 ---
 
@@ -361,10 +361,10 @@ AI frameworks serialize complex object graphs (model pipelines, agent chains, to
 | §4-1 (JNDI) + §5-3 | CVE-2021-44228 | Apache Log4j (Log4Shell) | JNDI lookup from log message → remote class loading → RCE. CVSS 10.0 |
 | §2-2 (Fastjson AutoType) + §6-1 | CVE-2022-25845 | Alibaba Fastjson | AutoType blocklist bypass → arbitrary class instantiation → RCE. CVSS 8.1 |
 | §2-3 (custom serialization) + §6-2 | CVE-2025-68664 | LangChain Core | `lc` key injection → class instantiation within trusted namespaces → secret exfiltration / RCE. CVSS 9.3 |
-| §2-3 (message queue) + §6-3 | CVE-2026-23524 | Laravel Reverb | `unserialize()` without `allowed_classes` on Redis Pub/Sub data → RCE |
+| §2-3 (message queue) + §6-3 | CVE-2026-23524 | Laravel Reverb | `unserialize()` without `allowed_classes` on Redis Pub/Sub data → RCE; affects Reverb <= 1.6.3 only when horizontal scaling is enabled (`REVERB_SCALING_ENABLED=true`); fixed in 1.7.0 |
 | §2-1 (PHP unserialize) + §5-3 | CVE-2025-7384 | Contact Form Entries (WordPress) | PHP Object Injection via stored form submissions → RCE. CVSS 9.8 |
 | §2-1 (PHP unserialize) + §5-3 | CVE-2024-10957 | UpdraftPlus (WordPress) | Deserialization in `recursive_unserialized_replace` → RCE |
-| §2-1 (YAML) + §5-3 | CVE-2026-24009 | Docling | Unsafe PyYAML loader → arbitrary Python object instantiation → RCE |
+| §2-1 (YAML) + §5-3 | CVE-2026-24009 | Docling | PyYAML RCE exposure in docling-core >= 2.21.0, < 2.48.4 only when `pyyaml < 5.4` is installed and `DoclingDocument.load_from_yaml()` parses untrusted YAML |
 | §2-2 (Jackson DefaultTyping) | Multiple CVEs (2017–2023) | Jackson Databind | Polymorphic type handling with `enableDefaultTyping()` → gadget chain RCE |
 
 ---
@@ -415,18 +415,18 @@ The meta-lesson is that **type selection is a security-critical operation**. Any
 
 ## References
 
-- CWE-470: Use of Externally-Controlled Input to Select Classes or Code ('Unsafe Reflection') — https://cwe.mitre.org/data/definitions/470.html
-- CWE-502: Deserialization of Untrusted Data — https://cwe.mitre.org/data/definitions/502.html
-- OWASP Deserialization Cheat Sheet — https://cheatsheetseries.owasp.org/cheatsheets/Deserialization_Cheat_Sheet.html
-- OWASP PHP Object Injection — https://owasp.org/www-community/vulnerabilities/PHP_Object_Injection
-- PT SWARM, "Exploiting Arbitrary Object Instantiations in PHP without Custom Classes" — https://swarm.ptsecurity.com/exploiting-arbitrary-object-instantiations/
-- USENIX Security 2022, "FUGIO: Automatic Exploit Generation for PHP Object Injection Vulnerabilities" — https://www.usenix.org/conference/usenixsecurity22/presentation/park-sunnyeo
-- ysoserial (Java) — https://github.com/frohoff/ysoserial
-- ysoserial.net (.NET) — https://github.com/pwntester/ysoserial.net
-- Jackson Polymorphic Deserialization CVE Criteria — https://github.com/FasterXML/jackson/wiki/Jackson-Polymorphic-Deserialization-CVE-Criteria
-- Praetorian, "Ruby Unsafe Reflection Vulnerabilities" — https://www.praetorian.com/blog/ruby-unsafe-reflection-vulnerabilities/
-- Sprocket Security, "A Primer on Insecure Reflection Practices in Java and C# Applications" — https://www.sprocketsecurity.com/blog/a-primer-on-insecure-reflection-practices-in-java-and-c-applications
-- Patchstack, "PHP Object Injection via Insecure Instantiation" — https://patchstack.com/articles/php-object-injection-via-insecure-instantiation/
+- [CWE-470: Use of Externally-Controlled Input to Select Classes or Code ('Unsafe Reflection')](https://cwe.mitre.org/data/definitions/470.html)
+- [CWE-502: Deserialization of Untrusted Data](https://cwe.mitre.org/data/definitions/502.html)
+- [OWASP Deserialization Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Deserialization_Cheat_Sheet.html)
+- [OWASP PHP Object Injection](https://owasp.org/www-community/vulnerabilities/PHP_Object_Injection)
+- [PT SWARM, "Exploiting Arbitrary Object Instantiations in PHP without Custom Classes"](https://swarm.ptsecurity.com/exploiting-arbitrary-object-instantiations/)
+- [USENIX Security 2022, "FUGIO: Automatic Exploit Generation for PHP Object Injection Vulnerabilities"](https://www.usenix.org/conference/usenixsecurity22/presentation/park-sunnyeo)
+- [ysoserial (Java)](https://github.com/frohoff/ysoserial)
+- [ysoserial.net (.NET)](https://github.com/pwntester/ysoserial.net)
+- [Jackson Polymorphic Deserialization CVE Criteria](https://github.com/FasterXML/jackson/wiki/Jackson-Polymorphic-Deserialization-CVE-Criteria)
+- [Praetorian, "Ruby Unsafe Reflection Vulnerabilities"](https://www.praetorian.com/blog/ruby-unsafe-reflection-vulnerabilities/)
+- [Sprocket Security, "A Primer on Insecure Reflection Practices in Java and C# Applications"](https://www.sprocketsecurity.com/blog/a-primer-on-insecure-reflection-practices-in-java-and-c-applications)
+- [Patchstack, "PHP Object Injection via Insecure Instantiation"](https://patchstack.com/articles/php-object-injection-via-insecure-instantiation/)
 
 ---
 

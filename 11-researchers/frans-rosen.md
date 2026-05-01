@@ -2,7 +2,7 @@
 
 **Researcher Profile**: Co-founder of Detectify, HackerOne MVH (Most Valuable Hacker), #2 on HackRead's "10 Famous Bug Bounty Hunters of All Time"
 **Research Period**: 2014-Present
-**Total Known Bug Bounties**: $500,000+ lifetime earnings
+**Total Known Bug Bounties**: significant publicly disclosed lifetime earnings
 **Signature Contribution**: Pioneering subdomain takeover research and DNS infrastructure attacks
 
 ---
@@ -68,9 +68,9 @@ Frans Rosén's foundational contribution to web security, establishing DNS misco
 **Key Innovation**: Demonstrated that **wildcard DNS + PaaS platforms** = unlimited subdomain claim potential with inherited SSL certificates.
 
 **Impact Metrics**:
-- 85% of disclosed subdomains remained vulnerable years later (USENIX 2021)
-- 424,000+ misconfigured CNAME records discovered (RedHunt Labs)
-- Average bug bounty: $1,000-$3,000
+- Many disclosed subdomains remained vulnerable years later (USENIX 2021)
+- Large numbers of misconfigured CNAME records discovered (RedHunt Labs)
+- Bug bounty programs commonly pay for confirmed impact
 
 **Evolution**: Research spawned 100+ vulnerable service database (can-i-take-over-xyz), detection tools (Nuclei, Subjack), and EASM industry focus.
 
@@ -148,12 +148,12 @@ Exploitation of cloud-native access control models and multi-tenant isolation fa
 3. Customer A uploads XSS to `/customerB/malicious.html`
 4. Customer B's CSP whitelists `cdn.example.com` → XSS triggers
 
-**Bounty Impact**: Multiple $5,000+ payouts for upload policy bypasses.
+**Bounty Impact**: Multiple payouts for upload policy bypasses.
 
 ### §2-3. Apple CloudKit Vulnerabilities (2021)
 
 **Publication**: "Hacking CloudKit – How I Accidentally Deleted Your Apple Shortcuts"
-**Total Bounty**: **$64,000** ($12,000 + $24,000 + $28,000)
+**Total Bounty**: Public Apple CloudKit payouts
 
 **Research Methodology**:
 1. **Reconnaissance**: Jailbroken iPad traffic interception
@@ -165,9 +165,9 @@ Exploitation of cloud-native access control models and multi-tenant isolation fa
 
 | Application | Vulnerability | Exploitation | Bounty |
 |------------|--------------|-------------|--------|
-| **iCrowd+** | Exposed API tokens in JavaScript | Unauthorized record creation in public scope | $12,000 |
-| **Apple News** | `forceDelete` permission on public scope | Deletion of news articles and stock data | $24,000 |
-| **Apple Shortcuts** | Zone deletion in public scope | **Deleted `_defaultZone`** → all shortcuts lost | $28,000 |
+| **iCrowd+** | Exposed API tokens in JavaScript | Unauthorized record creation in public scope | Public Apple bounty |
+| **Apple News** | `forceDelete` permission on public scope | Deletion of news articles and stock data | Public Apple bounty |
+| **Apple Shortcuts** | Zone deletion in public scope | **Deleted `_defaultZone`** → all shortcuts lost | Public Apple bounty |
 
 **Critical Insight**: **API Endpoint Switching**
 - `gateway.icloud.com` → Blocked modifications
@@ -250,7 +250,7 @@ Dirty Dancing: Error page displays without consuming code → `https://example.c
 - Disclosed to Reddit, GitLab, Apple, Google
 - Inspired PortSwigger Academy OAuth lab exercises
 - Influenced IETF OAuth Security BCP revisions
-- Bounties: $5,000-$15,000 per instance
+- Bounties: public program payouts per confirmed instance
 
 ---
 
@@ -467,11 +467,11 @@ Critical: Account takeover via subdomain → OAuth flow hijacking
 
 ### §7-4. Bug Bounty Statistics
 
-**Career Earnings**: $500,000+ (publicly disclosed)
+**Career Earnings**: significant publicly disclosed bug bounty earnings
 **Notable Bounties**:
-- Apple CloudKit: $64,000 total
-- OAuth Dirty Dance disclosures: $5,000-$15,000 each
-- Subdomain takeovers: $1,000-$5,000 average
+- Apple CloudKit: public Apple payouts
+- OAuth Dirty Dance disclosures: public bounty payouts
+- Subdomain takeovers: recurring bounty payouts
 
 **HackerOne Profile**:
 - Reputation: Top 100 all-time
@@ -633,29 +633,29 @@ Influence: Subdomain takeover methodology adopted in **OWASP Testing Guide v4.2*
 7. **OAuth Dirty Dancing** (2022): https://labs.detectify.com/writeups/account-hijacking-using-dirty-dancing-in-sign-in-oauth-flows/
 
 ### Conference Presentations
-- **DNS Hijacking Using Cloud Providers** (OWASP AppSec EU 2017): https://www.slideshare.net/fransrosen/dns-hijacking-using-cloud-providers-no-verification-needed-76812183
-- **Attacking Modern Web Technologies** (OWASP AppSec EU 2018): https://www.youtube.com/watch?v=vMGiplQT9Qo
+- [**DNS Hijacking Using Cloud Providers** (OWASP AppSec EU 2017)](https://www.slideshare.net/fransrosen/dns-hijacking-using-cloud-providers-no-verification-needed-76812183)
+- [**Attacking Modern Web Technologies** (OWASP AppSec EU 2018)](https://www.youtube.com/watch?v=vMGiplQT9Qo)
 - **RCE on Apple Through Hot Jar Swapping** (NahamCon 2022)
 
 ### Interviews & Podcasts
-- **Critical Thinking Podcast Ep. 45**: "The OG Bug Bounty King" - https://www.criticalthinkingpodcast.io/episode-45-the-og-bug-bounty-king-frans-rosen/
-- **Bugcrowd AMA with @fransrosen**: https://bugbountyforum.com/blog/ama/fransrosen/
-- **HackerOne Vulnerability Deep Dive**: https://www.hackerone.com/blog/vulnerability-deep-dive-gaining-rce-through-imagemagick-frans-rosen
+- [**Critical Thinking Podcast Ep. 45**: "The OG Bug Bounty King"](https://www.criticalthinkingpodcast.io/episode-45-the-og-bug-bounty-king-frans-rosen/)
+- [**Bugcrowd AMA with @fransrosen**](https://bugbountyforum.com/blog/ama/fransrosen/)
+- [**HackerOne Vulnerability Deep Dive**](https://www.hackerone.com/blog/vulnerability-deep-dive-gaining-rce-through-imagemagick-frans-rosen)
 
 ### Industry Recognition
-- **HackRead's 10 Famous Bug Bounty Hunters** (#2): https://blog.detectify.com/life-at-detectify/detectifys-frans-rosen-2-on-hackreads-10-famous-bug-bounty-hunters-of-all-time/
-- **HackerOne Profile**: https://hackerone.com/fransrosen
-- **Bugcrowd Profile**: https://bugcrowd.com/h/fransrosen
+- [**HackRead's 10 Famous Bug Bounty Hunters** (#2)](https://blog.detectify.com/life-at-detectify/detectifys-frans-rosen-2-on-hackreads-10-famous-bug-bounty-hunters-of-all-time/)
+- [**HackerOne Profile**](https://hackerone.com/fransrosen)
+- [**Bugcrowd Profile**](https://bugcrowd.com/h/fransrosen)
 
 ### Related Research (Inspirations & Derivatives)
 - **Egor Homakov (2013)**: OAuth token leakage fundamentals
 - **Nir Goldshlager (2013)**: OAuth authorization code hijacking
 - **Orange Tsai (2017)**: URL parser differentials for SSRF
 - **James Kettle (2019-2024)**: HTTP request smuggling evolution
-- **can-i-take-over-xyz**: https://github.com/EdOverflow/can-i-take-over-xyz
+- [**can-i-take-over-xyz**](https://github.com/EdOverflow/can-i-take-over-xyz)
 
 ### Academic Citations
-- **USENIX Security 2021**: Subdomain takeover persistence study (85% remain vulnerable)
+- **USENIX Security 2021**: Subdomain takeover persistence study
 - **IETF OAuth Security BCP**: Dirty Dancing influence on third-party script guidance
 - **OWASP Testing Guide v4.2**: Subdomain takeover testing methodology
 
@@ -666,4 +666,4 @@ Influence: Subdomain takeover methodology adopted in **OWASP Testing Guide v4.2*
 **Document Version**: 1.0 (2025)
 **Researcher Coverage**: 2014-2025
 **Analysis Depth**: §1-§11 (Infrastructure to Conclusion)
-**Total Research Items Analyzed**: 25+ publications, talks, and bug bounties
+**Total Research Items Analyzed**: public publications, talks, and bug bounties

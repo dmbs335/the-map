@@ -103,7 +103,7 @@ The HTML5 Canvas API renders 2D graphics whose pixel-level output varies based o
 | **Emoji Rendering Fingerprint** | Rendering emoji characters whose appearance varies dramatically across OS and browser versions (color emoji vs. monochrome, vendor-specific designs). | Canvas API available; emoji rendering support varies widely |
 | **Canvas Noise Injection Detection** | Anti-fingerprinting tools add random noise to canvas output. Fingerprinters detect this by rendering the same image twice and checking for inconsistency — legitimate systems produce identical outputs. | Target uses canvas noise protection |
 
-Canvas fingerprinting is one of the most widely deployed techniques. Studies show it is used on major websites and in advertising networks. The combination of text + geometry rendering typically produces enough entropy to distinguish 90%+ of browser configurations.
+Canvas fingerprinting is one of the most widely deployed techniques. Studies show it is used on major websites and in advertising networks. The combination of text + geometry rendering typically produces enough entropy to distinguish many browser configurations.
 
 ### §2-2. WebGL Fingerprinting
 
@@ -124,8 +124,8 @@ WebGPU, the successor to WebGL, introduces compute shaders that dramatically exp
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
 | **GPU Adapter Feature Set** | `requestAdapter()` returns supported features and limits that differ per GPU family and driver. | WebGPU available (Chrome 113+; Firefox enabled by default on Windows and select macOS Apple Silicon builds as of 2025, with broader rollout ongoing) |
-| **Compute Shader Timing** | Micro-benchmarking compute shaders to measure execution unit count, cache hierarchy, and memory bandwidth reveals hardware-specific performance characteristics. Identification accuracy reaches 98% with compute shaders, and identification time is reduced to ~150ms. | WebGPU compute shader support |
-| **GPU Cache Side-Channel** | Using compute shaders to probe GPU cache behavior (eviction patterns, line sizes) to spy on concurrent rendering activity, achieving ~90% accuracy for website fingerprinting of top 100 sites. | WebGPU compute shader support; concurrent GPU activity |
+| **Compute Shader Timing** | Micro-benchmarking compute shaders to measure execution unit count, cache hierarchy, and memory bandwidth reveals hardware-specific performance characteristics. Research reports high identification accuracy with reduced identification time. | WebGPU compute shader support |
+| **GPU Cache Side-Channel** | Using compute shaders to probe GPU cache behavior (eviction patterns, line sizes) to spy on concurrent rendering activity, enabling website fingerprinting in research settings. | WebGPU compute shader support; concurrent GPU activity |
 | **Rendering Pipeline Differential** | Similar to WebGL but with more control over pipeline stages, enabling finer-grained rendering differences. | WebGPU rendering pipeline support |
 
 The WebGPU API significantly advances GPU fingerprinting capabilities because compute shaders provide direct access to GPU execution units, enabling timing-based measurements that are far more precise than WebGL's rendering-only approach.
@@ -180,7 +180,7 @@ CSS container queries (`@container`) enable script-free measurement of element d
 | **Font-Metric Container Probing** | Placing text in a container and using `@container` rules at 1px intervals to detect the exact rendered width, inferring font presence and rendering behavior. | CSS Container Query support (Chrome 105+, Firefox 110+, Safari 16+) |
 | **OS/Browser Default Style Detection** | Default padding, margins, and form element sizes differ across browsers and OSes. Container queries detect these pixel-level differences without JavaScript. | Container query support |
 
-Research presented at NDSS 2025 ("Cascading Spy Sheets") demonstrated that container query-based techniques can distinguish 97.95% of 1,176 tested browser-OS combinations — entirely without JavaScript.
+Research presented at NDSS 2025 ("Cascading Spy Sheets") demonstrated that container query-based techniques can distinguish a large share of tested browser-OS combinations — entirely without JavaScript.
 
 ### §3-3. CSS Arithmetic and Trigonometric Fingerprinting
 
@@ -306,7 +306,7 @@ Modern web applications sit behind multiple HTTP processors (CDN → reverse pro
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
 | **HTTP Processing Discrepancy Exploitation** | Different layers parse the same request differently (header capitalization, chunked encoding, content-length handling). By sending crafted requests that elicit layer-specific responses, each layer can be identified independently. | Multi-layer architecture present |
-| **Layer Ordering Detection** | Identifying which server technology is in position 1 (edge), position 2 (proxy), and position 3 (origin) through differential response analysis. Research demonstrates correct identification of 100% of first-layer, 90.3% of second-layer, and 50.7% of third-layer servers. | Three-layer architecture |
+| **Layer Ordering Detection** | Identifying which server technology is in position 1 (edge), position 2 (proxy), and position 3 (origin) through differential response analysis. Research demonstrates that earlier layers are easier to identify than deeper origin layers. | Three-layer architecture |
 | **CDN Identification** | CDN-specific headers (`CF-Ray`, `X-Amz-Cf-Id`, `X-Cache`, `Via`), POP identifiers, and edge behavior patterns reveal the CDN provider and configuration. | CDN in use |
 
 ---
@@ -330,7 +330,7 @@ Beyond the server software itself, the specific application framework, CMS, and 
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
-| **Static Asset Hash Comparison** | CMS and framework static files (CSS, JS, images) have version-specific content. Comparing hashes against known-version databases identifies the exact version. Research shows this can be improved by up to 22.9% through traffic transformation middleware. | Static assets accessible |
+| **Static Asset Hash Comparison** | CMS and framework static files (CSS, JS, images) have version-specific content. Comparing hashes against known-version databases identifies the exact version. Research shows this can be improved through traffic transformation middleware. | Static assets accessible |
 | **Behavioral Version Detection** | Sending version-specific inputs (e.g., API calls that behave differently across versions) and observing the response. | API or functional endpoints accessible |
 | **Comment and Metadata Mining** | HTML comments, CSS source maps, JavaScript source maps, and embedded version strings in bundled code. | Source not stripped of comments/maps |
 | **RSS/Sitemap Version Exposure** | RSS feeds and sitemaps often include generator version information. | RSS/Sitemap endpoints accessible |
@@ -362,7 +362,7 @@ Website fingerprinting (WF) identifies which website or page a user visits by an
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
-| **Deep Learning Classification (DF)** | Convolutional neural networks trained on raw packet direction/timing sequences; achieves >95% accuracy in closed-world scenarios. | Sufficient training data for target websites |
+| **Deep Learning Classification (DF)** | Convolutional neural networks trained on raw packet direction/timing sequences can achieve high accuracy in closed-world scenarios. | Sufficient training data for target websites |
 | **Transformer-Based Models** | BERT-style transformers extract semantic features from traffic traces, combined with LSTM for temporal dependencies, improving accuracy for Tor hidden services. | Large training corpus available |
 | **Multi-Tab Fingerprinting** | Advanced models that can identify individual websites even when the user has multiple tabs loading simultaneously, using feature fusion techniques. | Multi-tab traffic separation capability |
 | **LLM-Augmented WF** | Recent research explores using multi-agent LLMs for website fingerprinting, leveraging language models' pattern recognition on traffic representations. | Significant compute resources for LLM inference |
@@ -397,7 +397,7 @@ Human interaction patterns create a unique behavioral signature that persists ev
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
-| **Movement Trajectory Analysis** | The path, velocity, acceleration, and curvature of mouse movements between targets create a unique kinematic signature. Research shows up to 36% of top 80,000 websites use mouse fingerprinting. | Mouse event listeners active |
+| **Movement Trajectory Analysis** | The path, velocity, acceleration, and curvature of mouse movements between targets create a unique kinematic signature. Research shows mouse fingerprinting is deployed across a measurable share of popular websites. | Mouse event listeners active |
 | **Click Pattern Profiling** | Click pressure (where available), double-click timing, and click-hold duration differ between individuals. | Pointer events with timing available |
 | **Scroll Behavior Analysis** | Scroll speed, acceleration, direction change frequency, and scroll distance patterns per interaction. | Scroll events observable |
 | **Hover and Dwell Patterns** | Time spent hovering over interactive elements and the movement pattern during hover reveals decision-making behavior. | Mouseover/mouseenter events tracked |
@@ -507,9 +507,9 @@ These are not fingerprinting vulnerabilities per se, but exploitation campaigns 
 | Category | Case | Significance |
 |---|---|---|
 | §1-2 (TLS anti-fingerprinting) | Chrome TLS Extension Randomization (2023) | Browser privacy hardening change (not a vulnerability or bounty). Deliberately weakened JA3 effectiveness; drove adoption of JA4 |
-| §2-3 (WebGPU) | WebGPU-SPY (ACM ASIACCS 2024) | Research paper: GPU cache side-channel achieves 90% website fingerprinting accuracy via WebGPU compute shaders |
-| §3 (CSS) | Cascading Spy Sheets (NDSS 2025) | Research paper: 97.95% browser-OS identification using pure CSS; affects email clients |
-| §5-4 (Multi-layer) | Untangle (NDSS 2024) | Research paper: first multi-layer server fingerprinting methodology; 90.3% second-layer accuracy |
+| §2-3 (WebGPU) | WebGPU-SPY (ACM ASIACCS 2024) | Research paper: GPU cache side-channel achieves high website fingerprinting accuracy via WebGPU compute shaders |
+| §3 (CSS) | Cascading Spy Sheets (NDSS 2025) | Research paper: high browser-OS identification using pure CSS; affects email clients |
+| §5-4 (Multi-layer) | Untangle (NDSS 2024) | Research paper: first multi-layer server fingerprinting methodology; meaningful second-layer accuracy |
 
 ---
 
@@ -519,8 +519,8 @@ These are not fingerprinting vulnerabilities per se, but exploitation campaigns 
 
 | Tool | Target Scope | Core Technique |
 |---|---|---|
-| **FingerprintJS (Open Source)** | Browser client | Queries 50+ browser attributes (Canvas, WebGL, Audio, fonts, navigator); ~40-60% accuracy |
-| **Fingerprint Pro (Commercial)** | Browser + server-side | Server-side signal processing + ML; 99.5% claimed accuracy |
+| **FingerprintJS (Open Source)** | Browser client | Queries many browser attributes (Canvas, WebGL, Audio, fonts, navigator); accuracy varies by environment |
+| **Fingerprint Pro (Commercial)** | Browser + server-side | Server-side signal processing + ML; vendor-claimed high accuracy |
 | **CreepJS** | Browser client | Advanced fingerprinting with lie detection (detects spoofed values); designed to bypass anti-detect browsers |
 | **Nmap** | Network/OS | Sends 16 crafted TCP/UDP/ICMP probes; matches against 2,600+ OS signature database |
 | **p0f** | Network/OS (Passive) | Analyzes SYN packets passively; TTL, window size, TCP options matching |
@@ -555,7 +555,7 @@ These are not fingerprinting vulnerabilities per se, but exploitation campaigns 
 
 **1. Fingerprinting is an emergent property of implementation diversity.** Every layer of the web stack — from TCP window sizes to CSS trigonometric function precision — exists because RFCs and specifications leave room for implementation-defined behavior. This implementation diversity is not a bug; it is intrinsic to how standards evolve and how vendors optimize for their platforms. Eliminating fingerprinting would require eliminating this diversity, which conflicts with innovation and performance optimization.
 
-**2. Incremental defenses fail because the attack surface is combinatorial.** Blocking canvas fingerprinting shifts trackers to WebGL; blocking WebGL shifts to audio; blocking audio shifts to CSS-only techniques that work even without JavaScript. The total entropy budget across all accessible surfaces is enormous (studies consistently show 80-90% of browsers produce unique fingerprints). Each individual surface reduction helps, but the combination of remaining surfaces typically provides sufficient entropy. Chrome's Privacy Budget proposal — enforcing a total entropy limit across all surfaces per site — represents the most structurally sound defense, but faces adoption and compatibility challenges.
+**2. Incremental defenses fail because the attack surface is combinatorial.** Blocking canvas fingerprinting shifts trackers to WebGL; blocking WebGL shifts to audio; blocking audio shifts to CSS-only techniques that work even without JavaScript. The total entropy budget across all accessible surfaces is enormous, and studies consistently show high uniqueness across browser fingerprints. Each individual surface reduction helps, but the combination of remaining surfaces typically provides sufficient entropy. Chrome's Privacy Budget proposal — enforcing a total entropy limit across all surfaces per site — represents the most structurally sound defense, but faces adoption and compatibility challenges.
 
 **3. The structural solution requires standardization, not just restriction.** Tor Browser's approach — making all users present an identical fingerprint — is the only defense that fundamentally defeats fingerprinting. But this comes at the cost of functionality, performance, and usability. The tension between a rich, capable web platform and a privacy-preserving one is irreducible. Future defenses will likely involve a spectrum: from Tor-style full standardization for high-privacy contexts, through Privacy Budget-style entropy caps for mainstream browsing, to behavioral biometric challenges that no technical defense can address because they fingerprint the human, not the machine.
 

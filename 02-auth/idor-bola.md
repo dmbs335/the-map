@@ -356,8 +356,8 @@ The deployment architecture of modern applications creates authorization gaps at
 | §1-1 + §2-1 (Project ID + path param IDOR) | CVE-2024-1626 (Lunary AI) | Missing object-level authorization on `PATCH /v1/projects/:projectId` — any authenticated user can modify other projects. Classic BOLA, not mass assignment |
 | §1-1 + §5-1 (Numeric ID + horizontal) | CVE-2024-55471 (Oqtane Framework) | IDOR allowing cross-user data access in .NET CMS framework |
 | §1-1 + §2-1 (Numeric param + path param) | CVE-2025-40658 (DM Corporative CMS < 2025.01) | CVSS 6.9 (Medium, per CNA/INCIBE). IDOR via `option=0,1,2` parameter to access private area in `/administer/selectionnode/framesSelection.asp` |
-| §1-1 + §6-1 (Enumerable ID + direct feedback) | HackerOne #PayPal (public report ID/URL not available for verification) | $10,500. IDOR to add secondary users in PayPal business account management |
-| §6-2 + §3-1 (Blind IDOR + method bypass) | HackerOne #various (public report ID/URL not available for verification) | $12,500. IDOR allowing deletion of licenses/certifications from other users' profiles |
+| §1-1 + §6-1 (Enumerable ID + direct feedback) | HackerOne #PayPal (public report ID/URL not available for verification) | IDOR to add secondary users in PayPal business account management |
+| §6-2 + §3-1 (Blind IDOR + method bypass) | HackerOne #various (public report ID/URL not available for verification) | IDOR allowing deletion of licenses/certifications from other users' profiles |
 | §5-3 + §8-3 (Cross-tenant + cloud) | Growatt Solar IoT (2025, Forescout SUN:DOWN research) | Multiple IDOR/BOLA vulnerabilities among several findings across multiple solar inverter vendors — Growatt API issues included cross-org device access, but this is one subset of a broader multi-vendor vulnerability disclosure |
 
 ---
@@ -392,18 +392,18 @@ The deployment architecture of modern applications creates authorization gaps at
 
 ## References
 
-- OWASP API Security Top 10 — API1:2023 Broken Object Level Authorization: https://owasp.org/API-Security/editions/2023/en/0xa1-broken-object-level-authorization/
-- OWASP Insecure Direct Object Reference Prevention Cheat Sheet: https://cheatsheetseries.owasp.org/cheatsheets/Insecure_Direct_Object_Reference_Prevention_Cheat_Sheet.html
-- CWE-639: Authorization Bypass Through User-Controlled Key: https://cwe.mitre.org/data/definitions/639.html
-- Unit 42 — Harnessing LLMs for Automating BOLA Detection (BOLABuster): https://unit42.paloaltonetworks.com/automated-bola-detection-and-ai/
-- Unit 42 — BOLA Vulnerabilities in Easy!Appointments: https://unit42.paloaltonetworks.com/bola-vulnerabilities-easyappointments/
-- Unit 42 — BOLA Vulnerability in Harbor: https://unit42.paloaltonetworks.com/bola-vulnerability-impacts-container-registry-harbor/
-- PortSwigger Web Security Academy — Insecure Direct Object References: https://portswigger.net/web-security/access-control/idor
-- Cloudflare API Shield — BOLA Detection: https://developers.cloudflare.com/api-shield/security/bola-vulnerability-detection/
-- HackerOne Top IDOR Reports: https://github.com/reddelexc/hackerone-reports/blob/master/tops_by_bug_type/TOPIDOR.md
-- Intigriti — Complete Guide to Exploiting Advanced IDOR Vulnerabilities: https://www.intigriti.com/blog/news/idor-a-complete-guide-to-exploiting-advanced-idor-vulnerabilities
-- Fortbridge — IDOR Exploitation via HPP Case Study: https://fortbridge.co.uk/research/idor-exploitation-via-hpp-api-hacking-case-study/
-- Escape.tech — IDOR in GraphQL: https://escape.tech/blog/idor-in-graphql/
+- [OWASP API Security Top 10 — API1:2023 Broken Object Level Authorization](https://owasp.org/API-Security/editions/2023/en/0xa1-broken-object-level-authorization/)
+- [OWASP Insecure Direct Object Reference Prevention Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Insecure_Direct_Object_Reference_Prevention_Cheat_Sheet.html)
+- [CWE-639: Authorization Bypass Through User-Controlled Key](https://cwe.mitre.org/data/definitions/639.html)
+- [Unit 42 — Harnessing LLMs for Automating BOLA Detection (BOLABuster)](https://unit42.paloaltonetworks.com/automated-bola-detection-and-ai/)
+- [Unit 42 — BOLA Vulnerabilities in Easy!Appointments](https://unit42.paloaltonetworks.com/bola-vulnerabilities-easyappointments/)
+- [Unit 42 — BOLA Vulnerability in Harbor](https://unit42.paloaltonetworks.com/bola-vulnerability-impacts-container-registry-harbor/)
+- [PortSwigger Web Security Academy — Insecure Direct Object References](https://portswigger.net/web-security/access-control/idor)
+- [Cloudflare API Shield — BOLA Detection](https://developers.cloudflare.com/api-shield/security/bola-vulnerability-detection/)
+- [HackerOne Top IDOR Reports](https://github.com/reddelexc/hackerone-reports/blob/master/tops_by_bug_type/TOPIDOR.md)
+- [Intigriti — Complete Guide to Exploiting Advanced IDOR Vulnerabilities](https://www.intigriti.com/blog/news/idor-a-complete-guide-to-exploiting-advanced-idor-vulnerabilities)
+- [Fortbridge — IDOR Exploitation via HPP Case Study](https://fortbridge.co.uk/research/idor-exploitation-via-hpp-api-hacking-case-study/)
+- [Escape.tech — IDOR in GraphQL](https://escape.tech/blog/idor-in-graphql/)
 - Intruder: "In GUID We Trust" (2022) — Systematic analysis of UUID version predictability; UUIDv1 timestamp/MAC extraction, UUID cracking methodology
 
 ---

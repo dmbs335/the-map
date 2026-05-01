@@ -46,7 +46,7 @@ Exploits a quirk in `document.getElementById()` to inject attacker-controlled UR
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **Query Parameter Injection via DOM** | HTML elements with controlled IDs (e.g., `<a id="config" href="/evil/sw.js">`) override script variables used in `navigator.serviceWorker.register()` calls, redirecting registration to an attacker-controlled path **within the same origin**. Cross-origin SW registration is blocked by browsers — DOM clobbering can change the script path or filename but cannot register a SW from a different origin | Site uses DOM element IDs that collide with variable names in registration logic ($25,000 bug bounty, PortSwigger 2024) |
+| **Query Parameter Injection via DOM** | HTML elements with controlled IDs (e.g., `<a id="config" href="/evil/sw.js">`) override script variables used in `navigator.serviceWorker.register()` calls, redirecting registration to an attacker-controlled path **within the same origin**. Cross-origin SW registration is blocked by browsers — DOM clobbering can change the script path or filename but cannot register a SW from a different origin | Site uses DOM element IDs that collide with variable names in registration logic; PortSwigger 2024 bounty case |
 | **importScripts Path Clobbering** | Similar technique targeting `importScripts()` calls within existing SW, causing it to load external malicious scripts | SW code uses DOM-accessible variables for script paths |
 
 **Attack Flow**: Attacker injects HTML element → DOM clobbering overrides variable → Registration points to attacker-controlled path within the same origin (e.g., a user-uploadable JS file) → Persistent SW installation
@@ -98,7 +98,7 @@ The `importScripts()` API allows loading scripts from different origins, making 
 | **JSONP-to-SW Chaining** | Vulnerable JSONP endpoint that reflects arbitrary JS combined with XSS to register SW calling `importScripts(jsonp_url)` | JSONP endpoint + XSS to install initial SW |
 | **Relative Path Manipulation** | Injecting `../` or absolute URLs into relative import paths to load attacker-hosted scripts | Insufficient URL validation before `importScripts()` |
 
-**Impact**: Full XSS despite CSP, persistent across sessions. SW-Scanner study found this vulnerability in **40 websites** with 100+ million combined monthly visitors.
+**Impact**: Full XSS despite CSP, persistent across sessions. SW-Scanner found this vulnerability on multiple high-traffic websites.
 
 ### §2-2. CSP Bypass via Script Import
 
@@ -278,7 +278,7 @@ Compromises push subscriptions for tracking, phishing, and malvertising.
 | **Notification-Based Phishing** | SW displays fake push notifications mimicking legitimate alerts (e.g., "Security Alert: Verify Your Account") that link to phishing sites | User grants notification permission; SW controls push event |
 | **Malvertising via Notifications** | Sends spam/malicious ads via push notifications, monetizing compromised SW installation | SW has push subscription; user cannot easily identify SW source |
 
-**Scale**: Research identified **200 websites** vulnerable to push hijacking, exposing **~1.75 million users per month** to potential location tracking.
+**Scale**: Research identified multiple websites vulnerable to push hijacking, exposing users to potential location tracking.
 
 ### §7-2. Background Sync/Fetch Abuse
 
@@ -324,11 +324,11 @@ Service Workers cannot bypass SOP but can manipulate cross-origin requests.
 
 | Scenario | Architecture | Primary Mutation Categories | Real-World Impact |
 |----------|-------------|----------------------------|-------------------|
-| **Persistent XSS** | XSS allows SW installation; SW serves malicious scripts indefinitely | §1 (Registration) + §2 (importScripts) + §3 (Fetch) | 40 websites, 100M+ monthly visitors (SW-Scanner study) |
+| **Persistent XSS** | XSS allows SW installation; SW serves malicious scripts indefinitely | §1 (Registration) + §2 (importScripts) + §3 (Fetch) | Multiple high-traffic websites (SW-Scanner study) |
 | **Privacy Leakage** | Compromised SW infers browsing history, location, or behavior | §4-1 (Cache history sniffing) + §7-1 (Push tracking) | Fine-grained history for sensitive domains (adult content, people search) |
 | **MITM/Request Interception** | SW acts as in-browser proxy intercepting credentials, sessions, API calls | §3-1 (Request manipulation) + §3-2 (Response injection) | Shadow Workers C2 framework; session hijacking |
 | **Malicious Resource Use** | SW runs cryptominers, joins botnet, performs DDoS | §7-2 (Background compute) + §4-3 (Quota abuse) | Stealthy mining via SW thread/WebAssembly; botnet recruitment |
-| **Phishing/Social Engineering** | Fake notifications or injected phishing pages | §7-1 (Push notifications) + §3-2 (Response injection) | 200 sites vulnerable to push hijacking, 1.75M users/month exposed |
+| **Phishing/Social Engineering** | Fake notifications or injected phishing pages | §7-1 (Push notifications) + §3-2 (Response injection) | Multiple sites vulnerable to push hijacking |
 | **Cache Poisoning** | SW corrupts Cache API with malicious content served to all users | §3-3 (Fetch + Cache) + §4-1 (Cache manipulation) | Self-XSS → cache poisoning → weaponized stored XSS |
 | **Session Hijacking** | SW steals authentication tokens and cookies | §3-1 (Credential harvesting) + §5 (Message interception) | Post-MFA cookie theft bypassing 2FA |
 | **DoS/Resource Exhaustion** | SW fills storage quota or serves corrupted resources | §4-3 (Storage quota) + §6 (Update suppression) | QuotaExceededError causing app failure |
@@ -339,9 +339,9 @@ Service Workers cannot bypass SOP but can manipulate cross-origin requests.
 
 | Mutation Combination | Case ID / Bounty | Impact / Bounty Amount |
 |---------------------|-----------------|------------------------|
-| §1-1 (DOM Clobbering) | PortSwigger Research 2024 | $25,000 Google VRP. SW hijacking via DOM clobbering of registration path |
-| §2-1 (importScripts XSS) | SW-Scanner Academic Study | 40 websites (100M+ monthly visitors) vulnerable to SW-XSS via importScripts injection |
-| §7-1 (Push Hijacking) | NDSS 2021 Research | 200 websites vulnerable; ~1.75M users/month exposed to location tracking via push subscriptions |
+| §1-1 (DOM Clobbering) | PortSwigger Research 2024 | Google VRP case. SW hijacking via DOM clobbering of registration path |
+| §2-1 (importScripts XSS) | SW-Scanner Academic Study | Multiple high-traffic websites vulnerable to SW-XSS via importScripts injection |
+| §7-1 (Push Hijacking) | NDSS 2021 Research | Multiple websites vulnerable to location tracking via push subscriptions |
 | §4-1 (Cache History Sniffing) | NDSS 2021 (Karami et al.) | Privacy leakage for sensitive domains (adult content, people search) via cache probing |
 | §3-3 (Cache Poisoning) | HackBox CTF 2022 | Chaining self-XSS with cache poisoning for stored XSS impact |
 | §2-3 (Stale Imports) | ACM RAID 2021 | 40-day average SW staleness enables persistent exploitation of outdated imported scripts |
@@ -392,38 +392,38 @@ The Service Worker security model assumes benign installation and trusts the SW 
 ## References
 
 ### Academic Papers
-- Soroush Karami, Panagiotis Ilia, Jason Polakis. "Awakening the Web's Sleeper Agents: Misusing Service Workers for Privacy Leakage." NDSS Symposium, 2021. [https://www.ndss-symposium.org/ndss-paper/awakening-the-webs-sleeper-agents-misusing-service-workers-for-privacy-leakage/](https://www.ndss-symposium.org/ndss-paper/awakening-the-webs-sleeper-agents-misusing-service-workers-for-privacy-leakage/)
+- [Soroush Karami, Panagiotis Ilia, Jason Polakis. "Awakening the Web's Sleeper Agents: Misusing Service Workers for Privacy Leakage." NDSS Symposium, 2021. [](https://www.ndss-symposium.org/ndss-paper/awakening-the-webs-sleeper-agents-misusing-service-workers-for-privacy-leakage/](https://www.ndss-symposium.org/ndss-paper/awakening-the-webs-sleeper-agents-misusing-service-workers-for-privacy-leakage/))
 
-- Karthika Subramani, Jordan Jueckstock, Alexandros Kapravelos, Roberto Perdisci. "SoK: Workerounds - Categorizing Service Worker Attacks and Mitigations." IEEE European Symposium on Security and Privacy (EuroS&P), 2022. [https://oaklandsok.github.io/papers/subramani2022.pdf](https://oaklandsok.github.io/papers/subramani2022.pdf)
+- [Karthika Subramani, Jordan Jueckstock, Alexandros Kapravelos, Roberto Perdisci. "SoK: Workerounds - Categorizing Service Worker Attacks and Mitigations." IEEE European Symposium on Security and Privacy (EuroS&P), 2022. [](https://oaklandsok.github.io/papers/subramani2022.pdf](https://oaklandsok.github.io/papers/subramani2022.pdf))
 
-- "The Service Worker Hiding in Your Browser: The Next Web Attack Target?" ACM RAID 2021. [https://dl.acm.org/doi/fullHtml/10.1145/3471621.3471845](https://dl.acm.org/doi/fullHtml/10.1145/3471621.3471845)
+- ["The Service Worker Hiding in Your Browser: The Next Web Attack Target?" ACM RAID 2021. [](https://dl.acm.org/doi/fullHtml/10.1145/3471621.3471845](https://dl.acm.org/doi/fullHtml/10.1145/3471621.3471845))
 
-- "Security Study of Service Worker Cross-Site Scripting." ACM. [https://dl.acm.org/doi/fullHtml/10.1145/3427228.3427290](https://dl.acm.org/doi/fullHtml/10.1145/3427228.3427290)
+- ["Security Study of Service Worker Cross-Site Scripting." ACM. [](https://dl.acm.org/doi/fullHtml/10.1145/3427228.3427290](https://dl.acm.org/doi/fullHtml/10.1145/3427228.3427290))
 
 ### Industry Research & Practitioner Resources
-- PortSwigger Research. "Hijacking service workers via DOM Clobbering." 2024. [https://portswigger.net/research/hijacking-service-workers-via-dom-clobbering](https://portswigger.net/research/hijacking-service-workers-via-dom-clobbering)
+- [PortSwigger Research. "Hijacking service workers via DOM Clobbering." 2024. [](https://portswigger.net/research/hijacking-service-workers-via-dom-clobbering](https://portswigger.net/research/hijacking-service-workers-via-dom-clobbering))
 
-- HackTricks. "Abusing Service Workers." [https://book.hacktricks.xyz/pentesting-web/xss-cross-site-scripting/abusing-service-workers](https://book.hacktricks.xyz/pentesting-web/xss-cross-site-scripting/abusing-service-workers)
+- [HackTricks. "Abusing Service Workers." [](https://book.hacktricks.xyz/pentesting-web/xss-cross-site-scripting/abusing-service-workers](https://book.hacktricks.xyz/pentesting-web/xss-cross-site-scripting/abusing-service-workers))
 
-- TrustedSec. "Persistence Through Service Workers—Part 1." [https://trustedsec.com/blog/persistence-through-service-workers-part-1-introduction-and-target-application-setup](https://trustedsec.com/blog/persistence-through-service-workers-part-1-introduction-and-target-application-setup)
+- [TrustedSec. "Persistence Through Service Workers—Part 1." [](https://trustedsec.com/blog/persistence-through-service-workers-part-1-introduction-and-target-application-setup](https://trustedsec.com/blog/persistence-through-service-workers-part-1-introduction-and-target-application-setup))
 
-- Akamai. "Abusing the Service Workers API." [https://www.akamai.com/blog/security/abusing-the-service-workers-api](https://www.akamai.com/blog/security/abusing-the-service-workers-api)
+- [Akamai. "Abusing the Service Workers API." [](https://www.akamai.com/blog/security/abusing-the-service-workers-api](https://www.akamai.com/blog/security/abusing-the-service-workers-api))
 
-- NVISO Labs. "Deep dive into the security of Progressive Web Apps." 2020. [https://blog.nviso.eu/2020/01/16/deep-dive-into-the-security-of-progressive-web-apps/](https://blog.nviso.eu/2020/01/16/deep-dive-into-the-security-of-progressive-web-apps/)
+- [NVISO Labs. "Deep dive into the security of Progressive Web Apps." 2020. [](https://blog.nviso.eu/2020/01/16/deep-dive-into-the-security-of-progressive-web-apps/](https://blog.nviso.eu/2020/01/16/deep-dive-into-the-security-of-progressive-web-apps/))
 
 ### Tools & Frameworks
-- Shadow Workers (GitHub). Open-source C2 and proxy for SW exploitation. [https://github.com/shadow-workers/shadow-workers](https://github.com/shadow-workers/shadow-workers)
+- [Shadow Workers (GitHub). Open-source C2 and proxy for SW exploitation. [](https://github.com/shadow-workers/shadow-workers](https://github.com/shadow-workers/shadow-workers))
 
-- Google Service Worker Detector (GitHub). [https://github.com/google/service-worker-detector](https://github.com/google/service-worker-detector)
+- [Google Service Worker Detector (GitHub). [](https://github.com/google/service-worker-detector](https://github.com/google/service-worker-detector))
 
 ### Standards & Specifications
-- W3C Service Worker Specification. [https://github.com/w3c/ServiceWorker](https://github.com/w3c/ServiceWorker)
+- [W3C Service Worker Specification. [](https://github.com/w3c/ServiceWorker](https://github.com/w3c/ServiceWorker))
 
 
 ### Security Best Practices
-- "Service Worker Security Best Practices - 2024 Guide." [https://www.zeepalm.com/blog/service-worker-security-best-practices-2024-guide](https://www.zeepalm.com/blog/service-worker-security-best-practices-2024-guide)
+- ["Service Worker Security Best Practices - 2024 Guide." [](https://www.zeepalm.com/blog/service-worker-security-best-practices-2024-guide](https://www.zeepalm.com/blog/service-worker-security-best-practices-2024-guide))
 
-- MDN Web Docs. "Using Service Workers." [https://developer.mozilla.org/en-US/docs/Web/API/Service_Worker_API/Using_Service_Workers](https://developer.mozilla.org/en-US/docs/Web/API/Service_Worker_API/Using_Service_Workers)
+- [MDN Web Docs. "Using Service Workers." [](https://developer.mozilla.org/en-US/docs/Web/API/Service_Worker_API/Using_Service_Workers](https://developer.mozilla.org/en-US/docs/Web/API/Service_Worker_API/Using_Service_Workers))
 
 ---
 

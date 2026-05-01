@@ -390,7 +390,7 @@ When specific characters are filtered (underscores, dots, brackets, quotes, etc.
 |---|---|---|---|
 | §4-2 (Twig sandbox bypass) + §3-2 (built-in abuse) | CVE-2024-28116 | Grav CMS < 1.7.45 | Authenticated RCE. Runtime config modification to whitelist `system()` |
 | §4-2 (Twig sandbox regex bypass) | CVE-2025-66294 | Grav CMS < 1.8.0-beta.27 | Authenticated RCE via nested `evaluate_twig()` bypassing regex sanitization |
-| §3-2 (Twig built-in) + §6-2 (CMS double render) | CVE-2025-32432 | Craft CMS 3.x–5.x | **Unauthenticated RCE (CVSS 10.0)**. ~13,000 vulnerable instances, ~300 compromised. Metasploit module available |
+| §3-2 (Twig built-in) + §6-2 (CMS double render) | CVE-2025-32432 | Craft CMS 3.x–5.x | **Unauthenticated RCE (CVSS 10.0)**. Broad internet exposure and compromise reported by third-party sources. Metasploit module available |
 | §4-1 (FreeMarker sandbox bypass) + §3-1 (`?api`) | CVE-2023-49964 | Alfresco | Authenticated RCE via ClassLoader chain through `?api` built-in |
 | §4-1 (FreeMarker application utility abuse) | CVE-2024-48962 | Apache OFBiz < 18.12.17 | CSRF + SSTI leading to RCE via `GroovyUtil.eval()` through FreeMarker `Static` hash (requires authenticated user interaction) |
 | §3-1 (FreeMarker `?new`) | CVE-2016-4462 | Apache OFBiz 13.07.03 | RCE via `Execute` class instantiation |
@@ -401,7 +401,7 @@ When specific characters are filtered (underscores, dots, brackets, quotes, etc.
 | §1-1 (Direct PHP execution) | CVE-2024-22722 | Form Tools 3.1.1 | RCE via template injection in Group Name field |
 | §3-1 (FreeMarker) | CVE-2024-41667 | OpenAM <= 15.0.3 | RCE via FreeMarker template injection |
 | §4-2 (Twig sandbox bypass) | CVE-2024-28118 | Grav CMS (Twig) | RCE via unrestricted Twig extension class access |
-| §7-1 + §2-1 | Bug Bounty | Undisclosed | $1,200 bounty for `{{6*200}}` SSTI leading to RCE |
+| §7-1 + §2-1 | Bug Bounty | Undisclosed | Bounty report for `{{6*200}}` SSTI leading to RCE |
 | §2-1 (Config globals) | HackerOne #423541 | Shopify (Return Magic) | SSTI via Jinja2 in third-party integration |
 | §6-2 (SaaS Placeholder Injection) | Zendesk Placeholder Injection (Rikesh Baniya, 2024) | Zendesk | User info extraction via injecting platform template placeholders (e.g., `{{ticket.requester.email}}`) through subject-to-description sanitization differential; system renders injected placeholder with victim's PII in automated response context |
 | Cross-ref: Expression Injection | Unrestricted SOQL Endpoint Exfiltration (Securitum, 2024) | Salesforce | Data exfiltration via unrestricted SOQL query endpoints without parameterized binding; expression-based injection analogous to SSTI in Salesforce's query language (see `salesforce-lightning-platform-security.md` §2) |
@@ -475,24 +475,24 @@ The most important insight from this taxonomy is that **the mutation space is un
 
 ## References
 
-- Kettle, J. (2015). "Server-Side Template Injection: RCE for the Modern Web App." Black Hat USA 2015. https://portswigger.net/research/server-side-template-injection
-- Hackmanit. "Template Injection Table." https://cheatsheet.hackmanit.de/template-injection-table/index.html
-- Hackmanit. "TInjA: Template Injection Analyzer." https://github.com/Hackmanit/TInjA
-- SwisskyRepo. "PayloadsAllTheThings: Server Side Template Injection." https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/Server%20Side%20Template%20Injection
-- Vladko312. "SSTImap: Automatic SSTI Detection Tool." https://github.com/vladko312/SSTImap
-- Epinna. "Tplmap: Server-Side Template Injection Detection and Exploitation." https://github.com/epinna/tplmap
-- Check Point Research. (2024). "Server-Side Template Injection: Transforming Web Applications from Assets to Liabilities." https://research.checkpoint.com/2024/server-side-template-injection-transforming-web-applications-from-assets-to-liabilities/
+- [Kettle, J. (2015). "Server-Side Template Injection: RCE for the Modern Web App." Black Hat USA 2015.](https://portswigger.net/research/server-side-template-injection)
+- [Hackmanit. "Template Injection Table."](https://cheatsheet.hackmanit.de/template-injection-table/index.html)
+- [Hackmanit. "TInjA: Template Injection Analyzer."](https://github.com/Hackmanit/TInjA)
+- [SwisskyRepo. "PayloadsAllTheThings: Server Side Template Injection."](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/Server%20Side%20Template%20Injection)
+- [Vladko312. "SSTImap: Automatic SSTI Detection Tool."](https://github.com/vladko312/SSTImap)
+- [Epinna. "Tplmap: Server-Side Template Injection Detection and Exploitation."](https://github.com/epinna/tplmap)
+- [Check Point Research. (2024). "Server-Side Template Injection: Transforming Web Applications from Assets to Liabilities."](https://research.checkpoint.com/2024/server-side-template-injection-transforming-web-applications-from-assets-to-liabilities/)
 - Hildebrand, M. "Improving the Detection and Identification of Template Engines for Large-Scale Template Injection Scanning." Master Thesis, Hackmanit.
-- Ackcent. "In-depth Freemarker Template Injection." https://ackcent.com/in-depth-freemarker-template-injection/
-- Sartor, S. (2024). "CVE-2024-48962: SSTI with Freemarker Sandbox Bypass Leading to RCE." https://www.sebsrt.xyz/blog/cve-2024-48962-ofbiz-ssti/
-- modzero. (2024). "Exploiting SSTI in a Modern Spring Boot Application (3.3.4)." https://modzero.com/en/blog/spring_boot_ssti/
+- [Ackcent. "In-depth Freemarker Template Injection."](https://ackcent.com/in-depth-freemarker-template-injection/)
+- [Sartor, S. (2024). "CVE-2024-48962: SSTI with Freemarker Sandbox Bypass Leading to RCE."](https://www.sebsrt.xyz/blog/cve-2024-48962-ofbiz-ssti/)
+- [modzero. (2024). "Exploiting SSTI in a Modern Spring Boot Application (3.3.4)."](https://modzero.com/en/blog/spring_boot_ssti/)
 - Munoz, A. & Mirosh, O. (2020). "Room for Escape: Scribbling Outside the Lines of Template Security." Black Hat USA 2020.
-- Ethical Hacking UK. (2024). "CVE-2024-28116: Server-Side Template Injection in Grav CMS." https://ethicalhacking.uk/authenticated-server-side-template-injection-with-sandbox-bypass-in-grav-cms/
-- YesWeHack. "Server-Side Template Injection Exploitation with RCE Everywhere." https://www.yeswehack.com/learn-bug-bounty/server-side-template-injection-exploitation
-- HackTricks. "SSTI (Server Side Template Injection)." https://book.hacktricks.wiki/pentesting-web/ssti-server-side-template-injection/
-- Intigriti. "Server-Side Template Injection (SSTI): Advanced Exploitation Guide." https://www.intigriti.com/researchers/blog/hacking-tools/exploiting-server-side-template-injection-ssti
-- ArXiv:2405.01118. (2024). "A Survey of the Overlooked Dangers of Template Engines." https://arxiv.org/html/2405.01118v1
-- OnSecurity. "Method Confusion In Go SSTIs Lead To File Read And RCE." https://onsecurity.io/article/go-ssti-method-research/
-- Securitum. "Server Side Template Injection on the Example of Pebble." https://research.securitum.com/server-side-template-injection-on-the-example-of-pebble/
-- Mizu. "EJS - Server Side Prototype Pollution Gadgets to RCE." https://mizu.re/post/ejs-server-side-prototype-pollution-gadgets-to-rce
-- GitHub Security Lab. "GHSL-2020-050: Arbitrary Code Execution in Pebble Templates." https://securitylab.github.com/advisories/GHSL-2020-050-pebble/
+- [Ethical Hacking UK. (2024). "CVE-2024-28116: Server-Side Template Injection in Grav CMS."](https://ethicalhacking.uk/authenticated-server-side-template-injection-with-sandbox-bypass-in-grav-cms/)
+- [YesWeHack. "Server-Side Template Injection Exploitation with RCE Everywhere."](https://www.yeswehack.com/learn-bug-bounty/server-side-template-injection-exploitation)
+- [HackTricks. "SSTI (Server Side Template Injection)."](https://book.hacktricks.wiki/pentesting-web/ssti-server-side-template-injection/)
+- [Intigriti. "Server-Side Template Injection (SSTI): Advanced Exploitation Guide."](https://www.intigriti.com/researchers/blog/hacking-tools/exploiting-server-side-template-injection-ssti)
+- [ArXiv:2405.01118. (2024). "A Survey of the Overlooked Dangers of Template Engines."](https://arxiv.org/html/2405.01118v1)
+- [OnSecurity. "Method Confusion In Go SSTIs Lead To File Read And RCE."](https://onsecurity.io/article/go-ssti-method-research/)
+- [Securitum. "Server Side Template Injection on the Example of Pebble."](https://research.securitum.com/server-side-template-injection-on-the-example-of-pebble/)
+- [Mizu. "EJS - Server Side Prototype Pollution Gadgets to RCE."](https://mizu.re/post/ejs-server-side-prototype-pollution-gadgets-to-rce)
+- [GitHub Security Lab. "GHSL-2020-050: Arbitrary Code Execution in Pebble Templates."](https://securitylab.github.com/advisories/GHSL-2020-050-pebble/)

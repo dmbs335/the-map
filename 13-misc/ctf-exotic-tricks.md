@@ -957,24 +957,24 @@ The following topics are frequently seen in CTFs but are comprehensively covered
 ## References
 
 ### CTF Challenge Archives & Writeups
-- Orange Tsai — [My-CTF-Web-Challenges](https://github.com/orangetw/My-CTF-Web-Challenges) — 38+ HITCON CTF web challenges with source code and intended solutions
-- jailCTF — [Pyjail Collection](https://github.com/jailctf/pyjail-collection) — Comprehensive pyjail challenge archive
-- Huli — [DiceCTF 2022 Writeups](https://blog.huli.tw/2022/02/08/en/what-i-learned-from-dicectf-2022/) — Shadow DOM breach, blazingfast WASM bypass
-- Huli — [DiceCTF 2023 Writeups](https://blog.huli.tw/2023/02/08/en/dicectf-2023-writeup/) — jwtjail Proxy escape, impossible-xss XSLT, jnotes cookie smuggling
-- Huli — [DiceCTF 2024 Writeups](https://blog.huli.tw/2024/02/07/en/dicectf-2024-writeup/) — another-csp browser crash oracle
-- Huli — [corCTF 2023 Writeups](https://blog.huli.tw/2023/08/07/en/corctf-2023-writeup/) — crabspace WebRTC exfil, leakynote Nginx CSP omission
-- Huli — [GoogleCTF 2024 Writeups](https://blog.huli.tw/2024/06/28/en/google-ctf-2024-writeup/) — Grand Prix Heaven regex bypass
-- Huli — [HITCON CTF & corCTF & SekaiCTF 2024](https://blog.huli.tw/2024/09/23/en/hitconctf-corctf-sekaictf-2024-writeup/) — Encoding differentials
+- [Orange Tsai — [My-CTF-Web-Challenges](](https://github.com/orangetw/My-CTF-Web-Challenges)) — 38+ HITCON CTF web challenges with source code and intended solutions
+- [jailCTF — [Pyjail Collection](](https://github.com/jailctf/pyjail-collection)) — Comprehensive pyjail challenge archive
+- [Huli — [DiceCTF 2022 Writeups](](https://blog.huli.tw/2022/02/08/en/what-i-learned-from-dicectf-2022/)) — Shadow DOM breach, blazingfast WASM bypass
+- [Huli — [DiceCTF 2023 Writeups](](https://blog.huli.tw/2023/02/08/en/dicectf-2023-writeup/)) — jwtjail Proxy escape, impossible-xss XSLT, jnotes cookie smuggling
+- [Huli — [DiceCTF 2024 Writeups](](https://blog.huli.tw/2024/02/07/en/dicectf-2024-writeup/)) — another-csp browser crash oracle
+- [Huli — [corCTF 2023 Writeups](](https://blog.huli.tw/2023/08/07/en/corctf-2023-writeup/)) — crabspace WebRTC exfil, leakynote Nginx CSP omission
+- [Huli — [GoogleCTF 2024 Writeups](](https://blog.huli.tw/2024/06/28/en/google-ctf-2024-writeup/)) — Grand Prix Heaven regex bypass
+- [Huli — [HITCON CTF & corCTF & SekaiCTF 2024](](https://blog.huli.tw/2024/09/23/en/hitconctf-corctf-sekaictf-2024-writeup/)) — Encoding differentials
 
 ### Specific Technique References
-- terjanq — [Postviewer v5 (Google CTF 2025)](https://gist.github.com/terjanq/e66c2843b5b73aa48405b72f4751d5f8) — PRNG state recovery writeup
-- jsur.in — [PlaidCTF 2025 Tales from the Crypt](https://jsur.in/posts/2025-04-07-plaid-ctf-2025-tales-from-the-crypt/) — RSA partial key exposure
-- Chovid99 — [Google CTF 2025](https://chovid99.github.io/posts/google-ctf-2025/) — Multiple challenge writeups
-- Ankur Sundara — [corCTF 2024 iframe-note](https://ankursundara.com/blog/) — bfcache weaponization with prototype pollution
-- str.lc — [DiceCTF 2023 codebox](https://str.lc/) — CSP report-uri exfiltration via Trusted Types
-- Bishop Fox — [Untwisting the Mersenne Twister](https://bishopfox.com/blog/untwisting-mersenne-twister-killed-prng) — PRNG state recovery
-- XPN — [VM2 Sandbox Escape](https://www.xpnsec.com/) — Node.js vm2 escape techniques
-- LiveOverflow — [Python Jail Escape Techniques](https://www.youtube.com/c/LiveOverflow) — Video walkthroughs
+- [terjanq — [Postviewer v5 (Google CTF 2025)](](https://gist.github.com/terjanq/e66c2843b5b73aa48405b72f4751d5f8)) — PRNG state recovery writeup
+- [jsur.in — [PlaidCTF 2025 Tales from the Crypt](](https://jsur.in/posts/2025-04-07-plaid-ctf-2025-tales-from-the-crypt/)) — RSA partial key exposure
+- [Chovid99 — [Google CTF 2025](](https://chovid99.github.io/posts/google-ctf-2025/)) — Multiple challenge writeups
+- [Ankur Sundara — [corCTF 2024 iframe-note](](https://ankursundara.com/blog/)) — bfcache weaponization with prototype pollution
+- [str.lc — [DiceCTF 2023 codebox](](https://str.lc/)) — CSP report-uri exfiltration via Trusted Types
+- [Bishop Fox — [Untwisting the Mersenne Twister](](https://bishopfox.com/blog/untwisting-mersenne-twister-killed-prng)) — PRNG state recovery
+- [XPN — [VM2 Sandbox Escape](](https://www.xpnsec.com/)) — Node.js vm2 escape techniques
+- [LiveOverflow — [Python Jail Escape Techniques](](https://www.youtube.com/c/LiveOverflow)) — Video walkthroughs
 
 ---
 

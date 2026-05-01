@@ -520,22 +520,22 @@ CISA and FBI's 2024 joint advisory explicitly called on technology manufacturers
 
 ## References
 
-- CISA. "Secure by Design Alert: Eliminating OS Command Injection Vulnerabilities." July 2024. https://www.cisa.gov/resources-tools/resources/secure-design-alert-eliminating-os-command-injection-vulnerabilities
-- MITRE. "CWE-78: Improper Neutralization of Special Elements used in an OS Command." https://cwe.mitre.org/data/definitions/78.html
-- MITRE. "CWE-77: Improper Neutralization of Special Elements used in a Command." https://cwe.mitre.org/data/definitions/77.html
-- SwissKyRepo. "PayloadsAllTheThings: Command Injection." https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/Command%20Injection
-- SonarSource. "Argument Injection Vectors." https://sonarsource.github.io/argument-injection-vectors/
-- HackTricks. "Command Injection." https://book.hacktricks.wiki/pentesting-web/command-injection.html
-- Akhavani et al. "WAFFLED: Exploiting Parsing Discrepancies to Bypass Web Application Firewalls." ACSAC 2025. https://arxiv.org/abs/2503.10846
+- [CISA. "Secure by Design Alert: Eliminating OS Command Injection Vulnerabilities." July 2024.](https://www.cisa.gov/resources-tools/resources/secure-design-alert-eliminating-os-command-injection-vulnerabilities)
+- [MITRE. "CWE-78: Improper Neutralization of Special Elements used in an OS Command."](https://cwe.mitre.org/data/definitions/78.html)
+- [MITRE. "CWE-77: Improper Neutralization of Special Elements used in a Command."](https://cwe.mitre.org/data/definitions/77.html)
+- [SwissKyRepo. "PayloadsAllTheThings: Command Injection."](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/Command%20Injection)
+- [SonarSource. "Argument Injection Vectors."](https://sonarsource.github.io/argument-injection-vectors/)
+- [HackTricks. "Command Injection."](https://book.hacktricks.wiki/pentesting-web/command-injection.html)
+- [Akhavani et al. "WAFFLED: Exploiting Parsing Discrepancies to Bypass Web Application Firewalls." ACSAC 2025.](https://arxiv.org/abs/2503.10846)
 - Stasinopoulos et al. "Commix: automating evaluation and exploitation of command injection vulnerabilities." International Journal of Information Security, 2018.
-- NCC Group. "Argument Injection Hammer." https://github.com/nccgroup/argumentinjectionhammer
-- PortSwigger. "SHELLING - OS Command Injection Payload Generator." https://github.com/PortSwigger/command-injection-attacker
-- Snyk. "Rediscovering argument injection when using VCS tools." https://snyk.io/blog/argument-injection-when-using-git-and-mercurial/
-- F5 DevCentral. "WAF Evasion Techniques for Command Injection." https://community.f5.com/kb/technicalarticles/waf-evasion-techniques-for-command-injection/331312
-- Aikido Security. "Command Injection in 2024 Report." https://www.aikido.dev/blog/command-injection-in-2024-unpacked
-- OWASP. "OS Command Injection Defense Cheat Sheet." https://cheatsheetseries.owasp.org/cheatsheets/OS_Command_Injection_Defense_Cheat_Sheet.html
-- Flatt Security. "BatBadBut: You can't securely execute commands on Windows." April 2024. https://flatt.tech/research/posts/batbadbut-you-cant-securely-execute-commands-on-windows/
-- CERT/CC. "VU#123335: Multiple programming languages fail to escape arguments properly when invoking programs on Windows." April 2024. https://kb.cert.org/vuls/id/123335
+- [NCC Group. "Argument Injection Hammer."](https://github.com/nccgroup/argumentinjectionhammer)
+- [PortSwigger. "SHELLING - OS Command Injection Payload Generator."](https://github.com/PortSwigger/command-injection-attacker)
+- [Snyk. "Rediscovering argument injection when using VCS tools."](https://snyk.io/blog/argument-injection-when-using-git-and-mercurial/)
+- [F5 DevCentral. "WAF Evasion Techniques for Command Injection."](https://community.f5.com/kb/technicalarticles/waf-evasion-techniques-for-command-injection/331312)
+- [Aikido Security. "Command Injection in 2024 Report."](https://www.aikido.dev/blog/command-injection-in-2024-unpacked)
+- [OWASP. "OS Command Injection Defense Cheat Sheet."](https://cheatsheetseries.owasp.org/cheatsheets/OS_Command_Injection_Defense_Cheat_Sheet.html)
+- [Flatt Security. "BatBadBut: You can't securely execute commands on Windows." April 2024.](https://flatt.tech/research/posts/batbadbut-you-cant-securely-execute-commands-on-windows/)
+- [CERT/CC. "VU#123335: Multiple programming languages fail to escape arguments properly when invoking programs on Windows." April 2024.](https://kb.cert.org/vuls/id/123335)
 
 ---
 

@@ -56,7 +56,7 @@ The Backend-for-Frontend pattern aggregates multiple internal APIs behind a sing
 | **Double-encoding traversal** | Sending `%252e%252e%252f` so the proxy decodes once (to `%2e%2e%2f`) and the backend decodes again (to `../`) | Proxy and backend perform URL decoding at different pipeline stages |
 | **Null-byte truncation** | Appending `%00` after a traversal path to truncate extension checks or suffix matching | Legacy backends (PHP, older Java) that pass paths through C-string APIs |
 
-The Starbucks `/bff/proxy/` vulnerability is the canonical example: traversal from a parameterized endpoint reached an internal Microsoft Graph instance exposing ~100 million customer records ($4,000 bounty).
+The Starbucks `/bff/proxy/` vulnerability is the canonical example: traversal from a parameterized endpoint reached an internal Microsoft Graph instance exposing a large customer-record dataset.
 
 ### §1-2. API Gateway Route Escape
 
@@ -114,7 +114,7 @@ Applications that accept user-supplied URLs for callbacks, webhooks, or integrat
 | **Redirect chain SSRF** | URL points to an attacker server that 302-redirects to an internal address | Application follows redirects without re-validating each hop against the allowlist |
 | **Protocol smuggling** | URL uses `gopher://`, `dict://`, or `file://` scheme to interact with non-HTTP internal services | HTTP client library supports multiple protocols; scheme validation only checks for `http(s)` |
 
-Webhook SSRF has seen a 452% surge between 2023-2024, driven by the explosion of AI/ML pipelines and integration platforms that accept model endpoint URLs.
+Webhook SSRF has seen reported growth between 2023-2024, driven by the explosion of AI/ML pipelines and integration platforms that accept model endpoint URLs.
 
 ---
 
@@ -207,7 +207,7 @@ Cloud platforms manage services that assume IAM roles on behalf of tenants. When
 | **Overly permissive trust policy** | Role trusts an entire AWS service principal (`service.amazonaws.com`) without account-scoping conditions (`aws:SourceAccount`, `aws:SourceArn`) | No condition keys in the trust policy; service operates across all accounts |
 | **CloudTrail log injection** | Attacker triggers a service to write CloudTrail logs into a victim's S3 bucket (lacking condition keys), poisoning the audit trail | S3 bucket policy trusts `cloudtrail.amazonaws.com` without account restriction |
 
-The AWS AppSync confused deputy vulnerability (AWS-2022-009) allowed cross-tenant role assumption via a case-sensitivity bypass in the `serviceRoleArn` parameter. A 2024 survey found 37% of vendors implementing AWS integrations had not implemented `ExternalId` correctly.
+The AWS AppSync confused deputy vulnerability (AWS-2022-009) allowed cross-tenant role assumption via a case-sensitivity bypass in the `serviceRoleArn` parameter. Later surveys found `ExternalId` handling mistakes remained common in third-party AWS integrations.
 
 ### §5-2. Service-Chaining Escalation
 
@@ -285,7 +285,7 @@ Unlike the real-time proxy-based attacks above, these mutations involve **storin
 
 | Mutation Combination | CVE / Case | Impact / Bounty |
 |---|---|---|
-| §1-1 + §4-1 (BFF traversal + trust collapse) | Starbucks BFF proxy (2020) | ~100M customer records exposed. $4,000 bounty |
+| §1-1 + §4-1 (BFF traversal + trust collapse) | Starbucks BFF proxy (2020) | Large customer-record exposure; public bounty writeup |
 | §3-2 (Apache filename confusion) | CVE-2024-38472 (Apache httpd 2.4.59) | Windows UNC SSRF via `r->filename` confusion |
 | §3-2 (Apache handler confusion) | CVE-2024-39573 (Apache httpd) | `mod_rewrite` proxy handler substitution → SSRF |
 | §3-2 (Apache handler confusion) | CVE-2024-38476 (Apache httpd) | Malicious backend output → code execution |
@@ -347,22 +347,22 @@ Each fix addresses a specific encoding bypass, a specific normalization inconsis
 
 ## References
 
-- Sam Curry, "Attacking Secondary Contexts in Web Applications," Kernelcon 2020 — [InfoconDB](https://infocondb.org/con/kernelcon/kernelcon-2020/attacking-secondary-contexts-in-web-applications)
-- Sam Curry, "Hacking Starbucks and Accessing Nearly 100 Million Customer Records" — [samcurry.net](https://samcurry.net/hacking-starbucks)
-- Orange Tsai, "Confusion Attacks: Exploiting Hidden Semantic Ambiguity in Apache HTTP Server!" Black Hat USA 2024 — [blog.orange.tw](https://blog.orange.tw/posts/2024-08-confusion-attacks-en/)
-- SilentRobots, "Exploiting GraphQL Secondary Context Attacks" — [silentrobots.com](https://www.silentrobots.com/exploiting-graphql-secondary-context-attacks/)
-- SL Cyber, "Secondary Context Path Traversal in Omnissa Workspace ONE" — [slcyber.io](https://slcyber.io/research-center/secondary-context-path-traversal-in-omnissa-workspace-one-uem/)
-- Datadog Security Labs, "A Confused Deputy Vulnerability in AWS AppSync" — [securitylabs.datadoghq.com](https://securitylabs.datadoghq.com/articles/appsync-vulnerability-disclosure/)
-- Sonarsource, "Security Implications of URL Parsing Differentials" — [sonarsource.com](https://www.sonarsource.com/blog/security-implications-of-url-parsing-differentials/)
-- Claroty Team82, "Exploiting URL Parsing Confusion" — [claroty.com](https://claroty.com/team82/research/exploiting-url-parsing-confusion)
-- PortSwigger Research, "Gotta Cache 'em All: Bending the Rules of Web Cache Exploitation" — [portswigger.net](https://portswigger.net/research/gotta-cache-em-all)
-- Nokline, "ChatGPT Account Takeover — Wildcard Web Cache Deception" — [nokline.github.io](https://nokline.github.io/bugbounty/2024/02/04/ChatGPT-ATO.html)
-- Joshua Rogers, "proxy_pass: nginx's Dangerous URL Normalization of Paths" — [joshua.hu](https://joshua.hu/proxy-pass-nginx-decoding-normalizing-url-path-dangerous)
-- Acunetix, "A Fresh Look on Reverse Proxy Related Attacks" — [acunetix.com](https://www.acunetix.com/blog/articles/a-fresh-look-on-reverse-proxy-related-attacks/)
-- Qualys, "Fortifying Your Cloud Against Cross-Service Confused Deputy Attacks" — [blog.qualys.com](https://blog.qualys.com/vulnerabilities-threat-research/2025/07/24/fortifying-your-cloud-against-cross-service-confused-deputy-attacks)
-- Praetorian, "AWS IAM Assume Role Vulnerabilities Found in Many Top Vendors" — [praetorian.com](https://www.praetorian.com/blog/aws-iam-assume-role-vulnerabilities/)
-- InstaTunnel, "The Sidecar Siphon: Exploiting Identity Leaks in Service Mesh Architectures" — [instatunnel.my](https://instatunnel.my/blog/the-sidecar-siphon-exploiting-identity-leaks-in-service-mesh-architectures)
-- Zayl Security, "Confused Deputy Problem — How to Hack Cloud Integrations" — [zayl.dk](https://zayl.dk/posts/01-confused-deputy/)
+- [Sam Curry, "Attacking Secondary Contexts in Web Applications," Kernelcon 2020 — [InfoconDB](](https://infocondb.org/con/kernelcon/kernelcon-2020/attacking-secondary-contexts-in-web-applications))
+- [Sam Curry, "Hacking Starbucks and Accessing Nearly 100 Million Customer Records" — [samcurry.net](](https://samcurry.net/hacking-starbucks))
+- [Orange Tsai, "Confusion Attacks: Exploiting Hidden Semantic Ambiguity in Apache HTTP Server!" Black Hat USA 2024 — [blog.orange.tw](](https://blog.orange.tw/posts/2024-08-confusion-attacks-en/))
+- [SilentRobots, "Exploiting GraphQL Secondary Context Attacks" — [silentrobots.com](](https://www.silentrobots.com/exploiting-graphql-secondary-context-attacks/))
+- [SL Cyber, "Secondary Context Path Traversal in Omnissa Workspace ONE" — [slcyber.io](](https://slcyber.io/research-center/secondary-context-path-traversal-in-omnissa-workspace-one-uem/))
+- [Datadog Security Labs, "A Confused Deputy Vulnerability in AWS AppSync" — [securitylabs.datadoghq.com](](https://securitylabs.datadoghq.com/articles/appsync-vulnerability-disclosure/))
+- [Sonarsource, "Security Implications of URL Parsing Differentials" — [sonarsource.com](](https://www.sonarsource.com/blog/security-implications-of-url-parsing-differentials/))
+- [Claroty Team82, "Exploiting URL Parsing Confusion" — [claroty.com](](https://claroty.com/team82/research/exploiting-url-parsing-confusion))
+- [PortSwigger Research, "Gotta Cache 'em All: Bending the Rules of Web Cache Exploitation" — [portswigger.net](](https://portswigger.net/research/gotta-cache-em-all))
+- [Nokline, "ChatGPT Account Takeover — Wildcard Web Cache Deception" — [nokline.github.io](](https://nokline.github.io/bugbounty/2024/02/04/ChatGPT-ATO.html))
+- [Joshua Rogers, "proxy_pass: nginx's Dangerous URL Normalization of Paths" — [joshua.hu](](https://joshua.hu/proxy-pass-nginx-decoding-normalizing-url-path-dangerous))
+- [Acunetix, "A Fresh Look on Reverse Proxy Related Attacks" — [acunetix.com](](https://www.acunetix.com/blog/articles/a-fresh-look-on-reverse-proxy-related-attacks/))
+- [Qualys, "Fortifying Your Cloud Against Cross-Service Confused Deputy Attacks" — [blog.qualys.com](](https://blog.qualys.com/vulnerabilities-threat-research/2025/07/24/fortifying-your-cloud-against-cross-service-confused-deputy-attacks))
+- [Praetorian, "AWS IAM Assume Role Vulnerabilities Found in Many Top Vendors" — [praetorian.com](](https://www.praetorian.com/blog/aws-iam-assume-role-vulnerabilities/))
+- [InstaTunnel, "The Sidecar Siphon: Exploiting Identity Leaks in Service Mesh Architectures" — [instatunnel.my](](https://instatunnel.my/blog/the-sidecar-siphon-exploiting-identity-leaks-in-service-mesh-architectures))
+- [Zayl Security, "Confused Deputy Problem — How to Hack Cloud Integrations" — [zayl.dk](](https://zayl.dk/posts/01-confused-deputy/))
 
 ---
 

@@ -401,20 +401,20 @@ The fundamental challenge is that WAFs must **parse HTTP messages identically** 
 
 ## References
 
-- WAFFLED: Exploiting Parsing Discrepancies to Bypass Web Application Firewalls (ACSAC 2025) — https://arxiv.org/html/2503.10846v1
-- BreakingWAF: Widespread WAF Bypass via Origin IP Exposure (Zafran, 2025) — https://www.zafran.io/resources/breaking-waf
-- CVE-2024-1019: ModSecurity Path Normalization Bypass — https://nvd.nist.gov/vuln/detail/CVE-2024-1019
-- ModSecurity Path Confusion Bugs (SicuraNext, 2024) — https://blog.sicuranext.com/modsecurity-path-confusion-bugs-bypass/
-- H2C Smuggling in the Wild (Assetnote / Bishop Fox) — https://www.assetnote.io/resources/research/h2c-smuggling-in-the-wild
+- [WAFFLED: Exploiting Parsing Discrepancies to Bypass Web Application Firewalls (ACSAC 2025)](https://arxiv.org/html/2503.10846v1)
+- [BreakingWAF: Widespread WAF Bypass via Origin IP Exposure (Zafran, 2025)](https://www.zafran.io/resources/breaking-waf)
+- [CVE-2024-1019: ModSecurity Path Normalization Bypass](https://nvd.nist.gov/vuln/detail/CVE-2024-1019)
+- [ModSecurity Path Confusion Bugs (SicuraNext, 2024)](https://blog.sicuranext.com/modsecurity-path-confusion-bugs-bypass/)
+- [H2C Smuggling in the Wild (Assetnote / Bishop Fox)](https://www.assetnote.io/resources/research/h2c-smuggling-in-the-wild)
 - Qi Wang, Jianjun Chen et al. — *Break the Wall from Bottom: Automated Discovery of Protocol-Level Evasion Vulnerabilities in Web Application Firewalls* (IEEE S&P 2024). 14 WAFs × 20 frameworks, 311 evasion cases in 3 categories (PTC, MPS, RSG). CVE-2023-38199
-- HTTP Request Smuggling Using Chunk Extensions — CVE-2025-55315 (F5 DevCentral) — https://community.f5.com/kb/security-insights/http-request-smuggling-using-chunk-extensions-cve-2025-55315/344118
-- Breaking Down Multipart Parsers: File Upload Validation Bypass (SicuraNext) — https://blog.sicuranext.com/breaking-down-multipart-parsers-validation-bypass/
-- When WAFs Go Awry: Common Detection & Evasion Techniques (MDSec, 2024) — https://www.mdsec.co.uk/2024/10/when-wafs-go-awry-common-detection-evasion-techniques-for-web-application-firewalls/
-- 0x09AL: Bypassing Web-Application Firewalls by Abusing SSL/TLS (2018) — https://0x09al.github.io/waf/bypass/ssl/2018/07/02/web-application-firewall-bypass.html
-- Awesome-WAF (0xInfection, GitHub) — https://github.com/0xInfection/Awesome-WAF
-- Cloudflare ACME WAF Bypass (fearsoff, 2025) — https://fearsoff.org/research/cloudflare-acme
-- 2026 WAF Security Test: Key Findings (Check Point) — https://blog.checkpoint.com/securing-the-cloud/waf-security-test-results-2026-why-prevention-first-matters-more-than-ever
-- Miggo Research: More than Half of Public Vulnerabilities Bypass Leading WAFs (2025) — https://www.helpnetsecurity.com/2025/12/18/miggo-research-waf-vulnerability-bypass/
+- [HTTP Request Smuggling Using Chunk Extensions — CVE-2025-55315 (F5 DevCentral)](https://community.f5.com/kb/security-insights/http-request-smuggling-using-chunk-extensions-cve-2025-55315/344118)
+- [Breaking Down Multipart Parsers: File Upload Validation Bypass (SicuraNext)](https://blog.sicuranext.com/breaking-down-multipart-parsers-validation-bypass/)
+- [When WAFs Go Awry: Common Detection & Evasion Techniques (MDSec, 2024)](https://www.mdsec.co.uk/2024/10/when-wafs-go-awry-common-detection-evasion-techniques-for-web-application-firewalls/)
+- [0x09AL: Bypassing Web-Application Firewalls by Abusing SSL/TLS (2018)](https://0x09al.github.io/waf/bypass/ssl/2018/07/02/web-application-firewall-bypass.html)
+- [Awesome-WAF (0xInfection, GitHub)](https://github.com/0xInfection/Awesome-WAF)
+- [Cloudflare ACME WAF Bypass (fearsoff, 2025)](https://fearsoff.org/research/cloudflare-acme)
+- [2026 WAF Security Test: Key Findings (Check Point)](https://blog.checkpoint.com/securing-the-cloud/waf-security-test-results-2026-why-prevention-first-matters-more-than-ever)
+- [Miggo Research: More than Half of Public Vulnerabilities Bypass Leading WAFs (2025)](https://www.helpnetsecurity.com/2025/12/18/miggo-research-waf-vulnerability-bypass/)
 
 ---
 

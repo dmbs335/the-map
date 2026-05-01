@@ -154,7 +154,7 @@ Attacks targeting access control mechanisms in gRPC/tRPC applications.
 | **URI Fragment Bypass (Istio)** | HTTP request with fragment in URI path (e.g., `/admin#.user/data`). Istio's URI path-based authorization compares paths but may ignore or process fragments incorrectly. | Istio authorization rules based on paths; fragment handling inconsistent. | Istio security advisory |
 | **Host Header Case Sensitivity Bypass (Istio)** | Istio authorization policy compares `Host` or `:authority` headers case-sensitively. Send `Host: API.example.com` when policy expects `api.example.com`. | Authorization rules use `hosts` or `notHosts` with case-sensitive matching. | Istio security advisory |
 | **tRPC Middleware Chain Bypass** | tRPC uses middleware for authentication/authorization. If middleware chain has gaps or middleware doesn't throw errors on failure, attacker can bypass by triggering edge cases. | Incomplete middleware coverage, missing error handling in middleware. | — |
-| **Prototype Pollution in tRPC Context** | Prototype pollution in `experimental_nextAppDirCaller`'s `formDataToObject()` function (CVE-2025-68130) can inject properties into context object, potentially bypassing authorization checks. Note: this is specific to `formDataToObject()` in `experimental_nextAppDirCaller`, not `experimental_caller` broadly | Use of `experimental_nextAppDirCaller` with form data processing. | GHSA-43p4-m455-4f4j / CVE-2025-68130 |
+| **Prototype Pollution in tRPC Context** | Prototype pollution in `@trpc/server`'s `formDataToObject()` function (CVE-2025-68130) can inject properties into `Object.prototype`, potentially causing authorization bypass, DoS, or other context-dependent impacts. The official advisory scopes this to `experimental_caller` / `experimental_nextAppDirCaller` | `@trpc/server` >= 10.27.0 < 10.45.3 or >= 11.0.0 < 11.8.0 using the affected experimental caller path with FormData processing | GHSA-43p4-m455-4f4j / CVE-2025-68130 |
 
 ---
 
@@ -260,7 +260,7 @@ This table maps attack scenarios to the primary mutation categories that enable 
 | §8-2 (HTTP/2 library) | CVE-2020-11080 (nghttp2) | DoS via excessive CPU processing large HTTP/2 SETTINGS frame payload (nghttp2, not Envoy-specific) | HIGH |
 | §2-1 (protobuf) | CVE-2025-4565 (Protobuf Pure-Python) | DoS via recursive protobuf elements causing stack exhaustion | - |
 | §5-2 (authz) + §8-2 (service mesh) | Istio Fragment/Host Bypass | Authorization policy bypass via URI fragment or case-insensitive host matching | - |
-| §5-2 (authz) + §7-2 (type) | GHSA-43p4-m455-4f4j / CVE-2025-68130 (tRPC) | Prototype pollution in `experimental_nextAppDirCaller`'s `formDataToObject()` specifically | - |
+| §5-2 (authz) + §7-2 (type) | GHSA-43p4-m455-4f4j / CVE-2025-68130 (tRPC) | Prototype pollution in `@trpc/server` `formDataToObject()` when using `experimental_caller` / `experimental_nextAppDirCaller`; fixed in 10.45.3 and 11.8.0 | 8.5 (CVSS v4.0, NVD) |
 
 ---
 

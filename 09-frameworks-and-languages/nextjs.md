@@ -3,7 +3,7 @@
 > **Target**: Next.js 13.x – 16.x (App Router + Pages Router)
 > **Sources**: github.com/vercel/next.js, nextjs.org/docs, nextjs.org/blog
 > **Date**: 2026-02
-> **CVEs Covered**: CVE-2025-55182 (CVSS 10.0; CVE-2025-66478 was the Next.js-specific identifier but later rejected as duplicate), CVE-2025-29927 (CVSS 9.1), CVE-2024-34351, CVE-2024-46982, CVE-2025-57822, and 27+ total GHSA advisories
+> **CVEs Covered**: CVE-2025-55182 (CVSS 10.0; CVE-2025-66478 was the Next.js-specific identifier but later rejected as duplicate), CVE-2025-55183, CVE-2025-55184, CVE-2025-67779, CVE-2026-23864, CVE-2025-29927 (CVSS 9.1), CVE-2024-34351, CVE-2024-46982, CVE-2025-57822, and 27+ total GHSA advisories
 
 ---
 
@@ -60,7 +60,7 @@ The React Server Components "Flight" protocol represents a fundamentally new tru
 | **Self-Reference Gadget (Source Leak)** | Crafted payload causes a server function to receive itself as an argument. When the function stringifies or processes this, the server returns the function's source code in the response | Server function that returns data including stringified arguments | **INFO** |
 | **Infinite Loop DoS** | Specially crafted deserialization payload creates circular references or recursive resolution that hangs the server process, preventing all future HTTP requests | Any App Router endpoint accepting Flight payloads | **DoS** |
 
-**Real-World Case**: CVE-2025-55182 (React, CVSS 10.0) / CVE-2025-66478 (Next.js). Actively exploited within hours of disclosure by China-nexus threat groups (confirmed by AWS Security Blog). Disclosed December 3, 2025; secret rotation advisory issued.
+**Real-World Case**: CVE-2025-55182 (React, CVSS 10.0) / CVE-2025-66478 (Next.js). Actively exploited shortly after disclosure by China-nexus threat groups (confirmed by AWS Security Blog). Disclosed December 3, 2025; secret rotation advisory issued.
 
 **Root Cause Analysis**: The RSC protocol's value proposition is transparent server-client function invocation. To achieve this transparency, the serialization format must express arbitrary module references, and the deserializer resolved these references without validating against an export allowlist. A classic case of convenience-driven design leading to remote code execution.
 
@@ -101,10 +101,10 @@ export async function adapter(params) {
 
 | Subtype | Mechanism | Key Condition | Impact |
 |---------|-----------|---------------|--------|
-| **Middleware Recursion Guard Spoofing** | Injecting `x-middleware-subrequest` header with the middleware path causes the framework to skip all middleware execution entirely | Next.js 11.1.4–15.2.2; single HTTP header injection | **AUTHZ** |
+| **Middleware Recursion Guard Spoofing** | Injecting `x-middleware-subrequest` header with the middleware path causes the framework to skip all middleware execution entirely | Next.js 11.1.4–12.3.4, 13.0.0–13.5.8, 14.0.0–14.2.24, 15.0.0–15.2.2; single HTTP header injection | **AUTHZ** |
 | **Recursion Depth Bypass** | `x-middleware-subrequest: middleware:middleware:middleware:middleware:middleware` — exceeds MAX_RECURSION_DEPTH (5) to trigger middleware skip | Next.js 15.x (after recursion guard addition) | **AUTHZ** |
 
-**Real-World Case**: CVE-2025-29927 (CVSS 9.1). Disclosed March 2025 by zhero_web_security. A single header addition bypasses all middleware-based authorization. Since official documentation, tutorials, and starter templates explicitly encourage middleware as the primary authentication layer, applications relying solely on middleware for authorization were fully exposed. ProjectDiscovery released Nuclei detection templates within days.
+**Real-World Case**: CVE-2025-29927 (CVSS 9.1). Disclosed March 2025 by zhero_web_security. A single header addition bypasses all middleware-based authorization. Applications relying solely on middleware for authorization could be fully exposed, especially when no independent authorization checks existed in route handlers, Server Components, or Server Actions. ProjectDiscovery released Nuclei detection templates within days.
 
 **Patch**: Cryptographic validation using a randomized key generated at build time. External requests have `x-middleware-subrequest` stripped at the server entry point.
 
@@ -346,23 +346,23 @@ Next.js offers experimental React Taint APIs (`taintObjectReference`, `taintUniq
 
 | CVE | Year | CVSS | Root Cause | Affected Versions | Meta-Pattern |
 |-----|------|------|-----------|-------------------|-------------|
-| CVE-2025-55182 (CVE-2025-66478 rejected as dup) | 2025.12 | 10.0 | RSC Flight deserialization RCE | Next.js 15.x/16.x + 14.3.0-canary.77+ experimental canary only (not stable 14.x); requires React 19.x | MP7 |
-| CVE-2025-67779 / CVE-2025-55184 | 2025.12 | 7.5 | RSC Flight circular reference DoS | Same as above | MP7 |
-| CVE-2025-55183 | 2025.12 | 5.3 | RSC self-reference gadget source leak | React 19.0.0–19.2.2 (react-server-dom-webpack/turbopack/parcel) | MP7 |
-| CVE-2025-29927 | 2025.03 | 9.1 | `x-middleware-subrequest` bypass | Next.js 11.1.4–15.2.2 | MP2, MP6 |
+| CVE-2025-55182 (CVE-2025-66478 rejected as dup) | 2025.12 | 10.0 | RSC Flight deserialization RCE | React RSC packages 19.0.0, 19.1.0, 19.1.1, 19.2.0; affected frameworks include Next.js App Router. Official Jan 2026 Next.js guidance patches 13.3.x/13.4.x/13.5.x/14.x via 14.2.35, plus 15.0.8 / 15.1.12 / 15.2.9 / 15.3.9 / 15.4.11 / 15.5.10 / 16.0.11 / 16.1.5 | MP7 |
+| CVE-2025-55184 / CVE-2025-67779 / CVE-2026-23864 | 2025.12–2026.01 | 7.5 | RSC Flight deserialization DoS; incomplete follow-up fixes | React RSC packages 19.0.0–19.2.3 in the January 26 React advisory; fixed in 19.0.4 / 19.1.5 / 19.2.4 | MP7 |
+| CVE-2025-55183 | 2025.12 | 5.3 | RSC self-reference gadget source leak | React RSC packages 19.0.0, 19.0.1, 19.1.0, 19.1.1, 19.1.2, 19.2.0, 19.2.1; fixed in the follow-up RSC patch line | MP7 |
+| CVE-2025-29927 | 2025.03 | 9.1 | `x-middleware-subrequest` bypass | Next.js 11.1.4–12.3.4, 13.0.0–13.5.8, 14.0.0–14.2.24, 15.0.0–15.2.2 | MP2, MP6 |
 | CVE-2024-51479 | 2024.11 | 7.5 | Middleware pathname matching flaw | Next.js 9.5.5–14.2.14 (patched in 14.2.15) | MP2, MP6 |
 | CVE-2024-34351 | 2024.02 | 7.5 | Host header SSRF (Server Actions) | Next.js < 14.1.1 (self-hosted) | MP2, MP5 |
-| CVE-2024-34350 | 2024 | 7.5 | HTTP Request Smuggling (rewrite) | — | MP2 |
+| CVE-2024-34350 | 2024 | 7.5 | HTTP Request Smuggling / response queue poisoning with `rewrites` | Next.js < 13.5.1 | MP2 |
 | CVE-2024-46982 | 2024.09 | 7.5 | Internal header cache poisoning | Next.js 13.5.1–14.2.9 | MP4 |
-| CVE-2025-49826 | 2025 | 7.5 | 204 response cache poisoning DoS | Next.js 15.1.0-canary.0–15.1.7 (stable + canary) | MP4 |
+| CVE-2025-49826 | 2025 | 7.5 | 204 response cache poisoning DoS | Next.js >=15.0.4-canary.51, <15.1.8 | MP4 |
 | CVE-2025-57822 | 2025 | 6.5 | Middleware request header reflection SSRF | Next.js < 14.2.32 / 15.4.7 | MP2, MP5 |
-| CVE-2025-57752 | 2025 | 6.2 | Image cache key confusion — API routes returning images vary on Cookie/Authorization headers but cache key does not include these, causing responses intended for authenticated users to be served to unauthorized users | Next.js API routes serving images with auth-dependent content | MP4 |
+| CVE-2025-57752 | 2025 | 6.2 | Image cache key confusion — API routes returning images vary on Cookie/Authorization headers but cache key does not include these, causing responses intended for authenticated users to be served to unauthorized users | Next.js < 14.2.31 and 15.0.0–15.4.4 when image API routes vary on request headers; fixed in 14.2.31 / 15.4.5 | MP4 |
 | CVE-2025-32421 | 2025 | Low (3.7) | Pages Router race condition — pageProps exposed in HTML instead of proper response (Eclipse bypass of CVE-2024-46982 patch) | Next.js (Pages Router) | MP4 |
-| CVE-2025-49005 | 2025 | Medium | RSC/HTML format confusion cache poisoning — missing Vary header causes CDN to cache RSC payload as HTML | Next.js 15.3.0–15.3.2 | MP4 |
-| CVE-2025-55173 | 2025 | 4.3 | Image content injection | — | MP4 |
-| CVE-2022-23646 | 2022 | Moderate | Image CSP misconfiguration | — | MP4 |
-| CVE-2021-39178 | 2021 | Moderate | Image SVG XSS | — | MP4 |
-| CVE-2021-37699 | 2021 | Moderate | Open Redirect (error page) | Next.js 10.0.5–11.0.1 | MP5 |
+| CVE-2025-49005 | 2025 | Medium | RSC/HTML format confusion cache poisoning — missing Vary header causes CDN to cache RSC payload as HTML | Next.js 15.3.0–15.3.2 and Vercel CLI 41.4.1–42.2.0; fixed in Next.js 15.3.3 | MP4 |
+| CVE-2025-55173 | 2025 | 4.3 | Image Optimization content injection / arbitrary file download under specific external image configurations | Next.js < 14.2.31 and 15.0.0–15.4.4; fixed in 14.2.31 / 15.4.5 | MP4 |
+| CVE-2022-23646 | 2022 | Moderate | Image Optimization UI misrepresentation via user-controlled SVG host | Next.js >=10.0.0, <12.1.0 with default image loader and user-controlled SVG host in `images.domains`; fixed in 12.1.0 | MP4 |
+| CVE-2021-39178 | 2021 | Moderate | Image SVG XSS | Next.js >=10.0.0, <11.1.1 with default image loader and user-controlled SVG host in `images.domains`; fixed in 11.1.1 | MP4 |
+| CVE-2021-37699 | 2021 | Moderate | Open Redirect via statically generated `pages/_error.js` and specially encoded paths | Next.js < 11.1.0; fixed in 11.1.0 | MP5 |
 | Eclipse (CVE-2025-32421) | 2025 | Low (3.7) | Cache batcher race condition | Pages Router + ISR | MP4 |
 
 ---
@@ -377,15 +377,15 @@ Next.js offers experimental React Taint APIs (`taintObjectReference`, `taintUniq
 | MP4 (Perf-Security Tradeoff) | CVE-2024-46982, CVE-2025-49826 | Internal header/parameter cache poisoning | Cache layer, image optimizer | `Vary` headers, security-aware cache keys, CDN config audit |
 | MP5 (Platform Mismatch) | CVE-2024-34351, CVE-2025-57822 | Host/X-Forwarded-Host spoofing on self-hosted | Server entry point | Reverse proxy Host enforcement, `allowedHosts`, network restrictions |
 | MP6 (Single-Layer Security) | CVE-2025-29927 chain attacks | Middleware bypass → all protections fail | Middleware architecture | Defense-in-depth: verify auth in middleware + Server Component + Server Action |
-| MP7 (Deserialization Trust) | CVE-2025-66478 (React2Shell) | Flight payload manipulation, arbitrary module invocation | RSC Flight protocol | Patch React/Next.js, WAF rules, restrict Flight endpoint access |
+| MP7 (Deserialization Trust) | CVE-2025-55182 (React2Shell; CVE-2025-66478 rejected duplicate / Next.js tracker) | Flight payload manipulation, arbitrary module invocation | RSC Flight protocol | Patch React/Next.js, WAF rules, restrict Flight endpoint access |
 
 ---
 
 ## Appendix B: Security Checklist
 
 ### Versions and Patches
-- [ ] Next.js >= 15.2.3 or >= 14.2.25 (CVE-2025-29927 patch)
-- [ ] React >= 19.0.1 / 19.1.2 / 19.2.1 (CVE-2025-55182 patch — 19.1.0, 19.1.1, 19.2.0 are still vulnerable)
+- [ ] Next.js patched on the active release line: 12.3.5 / 13.5.9 / 14.2.25 / 15.2.3 or newer (CVE-2025-29927)
+- [ ] React >= 19.0.4 / 19.1.5 / 19.2.4 (current RSC security baseline after CVE-2025-55182 follow-up patches; the initial 19.0.1 / 19.1.2 / 19.2.1 RCE fixes are not enough for all RSC CVEs)
 - [ ] All RSC-related CVE patches verified for latest patch versions
 
 ### Configuration Verification
@@ -517,9 +517,8 @@ export async function getProfileDTO(slug: string) {
 |---------|----------------|-----------------|-------|
 | 16.0 | `middleware.ts` → `proxy.ts` rename | Yes (codemod provided) | Discourages use as auth layer |
 | 15.5 | Node.js runtime middleware (stable) | No | Edge Runtime restriction lifted |
-| 15.2.3 | CVE-2025-29927 patch (cryptographic `x-middleware-subrequest` validation) | No | Affects all versions since 11.1.4 |
-| 15.0.5, 15.1.9, 15.2.6, 15.3.6, 15.4.8, 15.5.7, 16.0.7 | CVE-2025-66478 patch (React2Shell) | No | Per-release-line patches; intermediate versions (e.g., 15.1.0–15.1.8) remain vulnerable. Requires React >= 19.0.1 / 19.1.2 / 19.2.1 |
-| 14.2.25 | CVE-2025-29927 patch (14.x backport) | No | — |
+| 12.3.5 / 13.5.9 / 14.2.25 / 15.2.3 | CVE-2025-29927 release-line patches (cryptographic `x-middleware-subrequest` validation) | No | Fixes affected ranges 11.1.4–12.3.4, 13.0.0–13.5.8, 14.0.0–14.2.24, 15.0.0–15.2.2 |
+| 14.2.35, 15.0.8, 15.1.12, 15.2.9, 15.3.9, 15.4.11, 15.5.10, 16.0.11, 16.1.5 | CVE-2025-55182 / follow-up RSC patches (CVE-2025-66478 was rejected as duplicate) | No | Official React guidance updated on 2026-01-26. Earlier Next.js React2Shell-only fixes such as 15.0.5 / 15.1.9 / 15.2.6 / 15.3.6 / 15.4.8 / 15.5.7 / 16.0.7 do not cover all follow-up RSC CVEs. Pair with React RSC baseline 19.0.4 / 19.1.5 / 19.2.4 |
 | 14.2.10 | CVE-2024-46982 patch (cache poisoning) | No | Internal header validation + cache key differentiation |
 | 14.1.1 | CVE-2024-34351 patch (SSRF) | No | `originalHost.value` → `process.env.__NEXT_PRIVATE_HOST` |
 | 14.0 | Server Action closure variable encryption | No | Build-time private key generation |
@@ -535,7 +534,7 @@ export async function getProfileDTO(slug: string) {
 | **zhero_web_security** (Rachid Allam) | "The Stale Elixir", "Black Hole", "Eclipse on Next.js", "The Corrupt Middleware" | CVE-2025-29927, cache poisoning series, batcher race condition. Most prolific Next.js security researcher as of 2025 |
 | **Assetnote** | "Digging for SSRF in NextJS Apps" | CVE-2024-34351. Documented Vercel vs self-hosted security gap. Established Next.js pentest methodology |
 | **Lachlan Davidson** | React2Shell discovery | CVE-2025-55182/CVE-2025-66478 (CVSS 10.0) responsible disclosure |
-| **RyotaK** (GMO Flatt Security) | RSC DoS | CVE-2025-55184 / CVE-2025-67779 discovery |
+| **RyotaK** (GMO Flatt Security), Shinsaku Nomura, React team | RSC DoS variants | CVE-2025-55184 / CVE-2025-67779 / CVE-2026-23864 discovery and follow-up fixes |
 | **Andrew MacPherson** | RSC Source Leak | CVE-2025-55183 discovery |
 | **JFrog, Wiz, Akamai, Microsoft, AWS, Trend Micro** | Independent React2Shell analyses (2025.12) | Attack mechanics, detection signatures, cloud impact analysis |
 | **Sam Curry** | "Exploiting Web3's Hidden Attack Surface" (2022) | Netlify + Next.js UXSS |
@@ -574,21 +573,33 @@ export async function getProfileDTO(slug: string) {
 
 ## References
 
-- React Security Blog: Critical Security Vulnerability in React Server Components (December 2025)
-- Next.js Security Advisory: CVE-2025-66478 — https://nextjs.org/blog/CVE-2025-66478
-- Next.js Security Update: December 11, 2025 — https://nextjs.org/blog/security-update-2025-12-11
-- Next.js Blog: How to Think About Security in Next.js — https://nextjs.org/blog/security-nextjs-server-components-actions
-- Next.js Docs: Data Security — https://nextjs.org/docs/app/guides/data-security
-- ProjectDiscovery: CVE-2025-29927 Technical Analysis — https://projectdiscovery.io/blog/nextjs-middleware-authorization-bypass
-- Assetnote: Digging for SSRF in NextJS Apps — https://www.assetnote.io/resources/research/advisory-next-js-ssrf-cve-2024-34351
-- zhero_web_security: Next.js and the Corrupt Middleware — https://zhero-web-sec.github.io/research-and-things/nextjs-and-the-corrupt-middleware
-- zhero_web_security: Next.js, Cache, and Chains: The Stale Elixir — https://zhero-web-sec.github.io/research-and-things/nextjs-cache-and-chains-the-stale-elixir
-- zhero_web_security: Next.js and Cache Poisoning: A Quest for the Black Hole — https://zhero-web-sec.github.io/research-and-things/nextjs-and-cache-poisoning-a-quest-for-the-black-hole
-- zhero_web_security: Eclipse on Next.js — https://zhero-web-sec.github.io/research-and-things/eclipse-on-nextjs-conditioned-exploitation-of-an-intended-race-condition
-- Akamai: CVE-2025-55182 React and Next.js Server Functions Deserialization RCE — https://www.akamai.com/blog/security-research/cve-2025-55182-react-nextjs-server-functions-deserialization-rce
-- AWS Security Blog: China-nexus Groups Exploit React2Shell (December 2025)
-- Resecurity: React2Shell Explained — https://www.resecurity.com/blog/article/react2shell-explained-cve-2025-55182-from-vulnerability-discovery-to-exploitation
-- Sam Curry: Exploiting Web3's Hidden Attack Surface: Universal XSS on Netlify's Next.js Library (2022)
+- [React Security Blog: Critical Security Vulnerability in React Server Components (December 2025)](https://react.dev/blog/2025/12/03/critical-security-vulnerability-in-react-server-components)
+- [React Security Blog: Denial of Service and Source Code Exposure in React Server Components (updated January 26, 2026)](https://react.dev/blog/2025/12/11/denial-of-service-and-source-code-exposure-in-react-server-components)
+- [Next.js Security Advisory: CVE-2025-66478](https://nextjs.org/blog/CVE-2025-66478)
+- [Next.js Security Update: December 11, 2025](https://nextjs.org/blog/security-update-2025-12-11)
+- [Vercel Postmortem: Next.js Middleware Bypass / CVE-2025-29927](https://nextjs.org/blog/cve-2025-29927)
+- [Next.js Docs: Renaming Middleware to Proxy](https://nextjs.org/docs/messages/middleware-to-proxy)
+- [CVE Program Record: CVE-2025-55182](https://cveawg.mitre.org/api/cve/CVE-2025-55182)
+- [CVE Program Record: CVE-2025-55183](https://cveawg.mitre.org/api/cve/CVE-2025-55183)
+- [CVE Program Record: CVE-2025-55184](https://cveawg.mitre.org/api/cve/CVE-2025-55184)
+- [CVE Program Record: CVE-2025-67779](https://cveawg.mitre.org/api/cve/CVE-2025-67779)
+- [CVE Program Record: CVE-2026-23864](https://cveawg.mitre.org/api/cve/CVE-2026-23864)
+- [CVE Program Record: CVE-2025-29927](https://cveawg.mitre.org/api/cve/CVE-2025-29927)
+- [CVE Program Record: CVE-2024-34350](https://cveawg.mitre.org/api/cve/CVE-2024-34350)
+- [CVE Program Record: CVE-2025-57752](https://cveawg.mitre.org/api/cve/CVE-2025-57752)
+- [CVE Program Record: CVE-2025-55173](https://cveawg.mitre.org/api/cve/CVE-2025-55173)
+- [Next.js Blog: How to Think About Security in Next.js](https://nextjs.org/blog/security-nextjs-server-components-actions)
+- [Next.js Docs: Data Security](https://nextjs.org/docs/app/guides/data-security)
+- [ProjectDiscovery: CVE-2025-29927 Technical Analysis](https://projectdiscovery.io/blog/nextjs-middleware-authorization-bypass)
+- [Assetnote: Digging for SSRF in NextJS Apps](https://www.assetnote.io/resources/research/advisory-next-js-ssrf-cve-2024-34351)
+- [zhero_web_security: Next.js and the Corrupt Middleware](https://zhero-web-sec.github.io/research-and-things/nextjs-and-the-corrupt-middleware)
+- [zhero_web_security: Next.js, Cache, and Chains: The Stale Elixir](https://zhero-web-sec.github.io/research-and-things/nextjs-cache-and-chains-the-stale-elixir)
+- [zhero_web_security: Next.js and Cache Poisoning: A Quest for the Black Hole](https://zhero-web-sec.github.io/research-and-things/nextjs-and-cache-poisoning-a-quest-for-the-black-hole)
+- [zhero_web_security: Eclipse on Next.js](https://zhero-web-sec.github.io/research-and-things/eclipse-on-nextjs-conditioned-exploitation-of-an-intended-race-condition)
+- [Akamai: CVE-2025-55182 React and Next.js Server Functions Deserialization RCE](https://www.akamai.com/blog/security-research/cve-2025-55182-react-nextjs-server-functions-deserialization-rce)
+- [AWS Security Blog — China-nexus Groups Exploit React2Shell (December 2025)](https://aws.amazon.com/blogs/security/china-nexus-cyber-threat-groups-rapidly-exploit-react2shell-vulnerability-cve-2025-55182/)
+- [Resecurity: React2Shell Explained](https://www.resecurity.com/blog/article/react2shell-explained-cve-2025-55182-from-vulnerability-discovery-to-exploitation)
+- [Sam Curry — Exploiting Web3's Hidden Attack Surface: Universal XSS on Netlify's Next.js Library (2022)](https://samcurry.net/universal-xss-on-netlifys-next-js-library)
 
 ---
 

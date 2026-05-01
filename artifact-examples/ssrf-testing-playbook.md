@@ -224,7 +224,7 @@ High-value ports:
 If `gopher://` scheme is accepted by the SSRF entry point:
 
 ```
-# Redis → RCE via crontab injection
+# Redis → RCE chain via crontab injection (legacy/misconfigured Redis)
 # Generate payload with Gopherus:
 gopherus --exploit redis
 

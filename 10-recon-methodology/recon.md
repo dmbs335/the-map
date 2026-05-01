@@ -266,10 +266,10 @@ Discovering hidden parameters through indirect observation — timing difference
 | §4-3 (JSON Key) + §5-2 | CVE-2024-38983 — `mini-deep-assign` prototype pollution via `__proto__` key in deep merge | RCE / DoS / XSS via prototype pollution |
 | §5-1 (GraphQL Introspection) | CVE-2025-27507 — ZITADEL Admin API IDOR via introspection-discovered gRPC methods; non-admin users access admin operations | Unauthorized admin access |
 | §6-2 (Unkeyed Header) | Multiple — `X-Forwarded-Host` cache poisoning across CDNs | XSS via cached response poisoning |
-| §2-3 (Debug Param) | Multiple bug bounty reports — `?debug=true`, `_debug=1` exposing database credentials, API keys, internal IPs in production | Information disclosure ($500–$5,000+ bounties) |
+| §2-3 (Debug Param) | Multiple bug bounty reports — `?debug=true`, `_debug=1` exposing database credentials, API keys, internal IPs in production | Information disclosure; bounty-confirmed pattern |
 | §5-2 (Mass Assignment) | CVE-2024-7041 — IDOR via hidden parameter allowing unauthorized data access | Broken access control |
-| §4-2 (Content-Type Juggling) | WAFFLED research (2025) — 1,207+ WAF bypasses via content-type parsing discrepancies across AWS WAF, Cloudflare, Azure, ModSecurity | WAF bypass enabling downstream injection |
-| §1-3 (Source Map) | Multiple bounty programs — Webpack sourcemaps revealing admin endpoints, enabling account takeover via undocumented password-change API | Account takeover ($2,000–$10,000+ bounties) |
+| §4-2 (Content-Type Juggling) | WAFFLED research (2025) — WAF bypasses via content-type parsing discrepancies across AWS WAF, Cloudflare, Azure, ModSecurity | WAF bypass enabling downstream injection |
+| §1-3 (Source Map) | Multiple bounty programs — Webpack sourcemaps revealing admin endpoints, enabling account takeover via undocumented password-change API | Account takeover; bounty-confirmed pattern |
 
 ---
 

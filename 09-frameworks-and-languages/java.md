@@ -69,7 +69,7 @@ Gadget chains exploit the composition of existing library classes — each class
 | **Commons Collections chains** | `InvokerTransformer` → `ChainedTransformer` → `Runtime.exec()` via `LazyMap`/`TransformedMap` trigger from `AnnotationInvocationHandler.invoke()` | Apache Commons Collections 3.x/4.x on classpath | RCE |
 | **URLDNS detection chain** | `HashMap.readObject()` → `HashMap.hash()` → `URL.hashCode()` → DNS lookup to attacker domain — no RCE, used for blind detection | Any JDK; no external libraries | INFO |
 | **JRMP client chain** | `RemoteObject.readObject()` triggers outbound JRMP connection to attacker-controlled RMI server, which responds with a second deserialization payload | RMI classes on classpath (always present in JDK) | RCE |
-| **Dormant gadgets** | Gadget chains that become exploitable when a dependency is updated — ~26% of 533 analyzed dependencies contain patterns that activate chains upon minor code changes (USENIX 2025 research) | Dependency update bridges a gap in an incomplete chain | RCE |
+| **Dormant gadgets** | Gadget chains that become exploitable when a dependency is updated; USENIX 2025 research found this pattern across a meaningful share of analyzed dependencies | Dependency update bridges a gap in an incomplete chain | RCE |
 
 **Example payload (URLDNS detection):**
 ```bash
@@ -682,7 +682,7 @@ Java's security surface is the product of three interacting design forces:
 - Java Language Specification (JLS) — §4.6 Type Erasure, §5.1.7 Boxing Conversion, §4.10.3 Array Subtyping
 - OWASP XXE Prevention Cheat Sheet — Parser-specific hardening configurations
 - PortSwigger Research — XXE, SSRF, Deserialization
-- PortSwigger Research (Gareth Heyes) — "Hiding payloads in Java source code strings" (2024): https://portswigger.net/research/hiding-payloads-in-java-source-code-strings
+- [PortSwigger Research (Gareth Heyes) — "Hiding payloads in Java source code strings" (2024)](https://portswigger.net/research/hiding-payloads-in-java-source-code-strings)
 
 ---
 

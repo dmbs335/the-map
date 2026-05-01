@@ -125,7 +125,7 @@ Modern database and service protocols support message-level compression (zlib, L
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
-| **MongoDB OP_COMPRESSED heap memory disclosure (MongoBleed)** | MongoDB's OP_COMPRESSED message format includes an `uncompressedSize` field. When an attacker sends a compressed message declaring a much larger uncompressed size than the actual payload, MongoDB allocates an oversized buffer, fills it with the small decompressed payload, and the rest remains as **uninitialized heap memory**. The BSON parser's `validateBSON()` reads beyond the actual decompressed data because the allocation length field says there is more, and when parsing fails, the server includes the leaked heap data in the error response (CVE-2025-14847, CVSS 7.5 v3.1 / 8.7 v4.0, actively exploited; CISA KEV listing unverified as of 2026-03) | MongoDB with compression enabled (requires client-server compressor negotiation; zlib is advertised by default but only active when both sides agree); unauthenticated access to port 27017; 87K–213K exposed instances reported across sources |
+| **MongoDB OP_COMPRESSED heap memory disclosure (MongoBleed)** | MongoDB's OP_COMPRESSED message format includes an `uncompressedSize` field. When an attacker sends a compressed message declaring a much larger uncompressed size than the actual payload, MongoDB allocates an oversized buffer, fills it with the small decompressed payload, and the rest remains as **uninitialized heap memory**. The BSON parser's `validateBSON()` reads beyond the actual decompressed data because the allocation length field says there is more, and when parsing fails, the server includes the leaked heap data in the error response (CVE-2025-14847, CVSS 7.5 v3.1 / 8.7 v4.0; Akamai and Qualys report CISA KEV listing and active exploitation; exposed-instance counts vary by third-party source) | MongoDB with compression enabled (requires client-server compressor negotiation; zlib is advertised by default but only active when both sides agree); unauthenticated access to port 27017; broad internet exposure reported by multiple third-party sources |
 | **Decompression bomb in protocol messages** | Crafted compressed payloads with extreme compression ratios (e.g., 1KB compressed → 1GB decompressed) can cause memory exhaustion in protocol parsing, leading to DoS or exploitable heap state | Any protocol supporting message-level compression without decompression size limits |
 | **Compression algorithm negotiation downgrade** | During connection handshake, if the client can force a weaker or more exploitable compression algorithm, subsequent protocol interactions may be vulnerable to algorithm-specific attacks | Protocol with negotiable compression; no server-side algorithm restriction |
 
@@ -285,7 +285,7 @@ Protocol-level bugs can leak sensitive data from server memory, connection state
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
-| **MongoDB heap memory disclosure (MongoBleed)** | As detailed in §2-2: exploiting OP_COMPRESSED uncompressedSize mismatch to read uninitialized heap memory containing credentials, API keys, session tokens, and PII (CVE-2025-14847, CVSS 7.5/8.7, actively exploited, public PoC; CISA KEV listing unverified as of 2026-03) | MongoDB with compression negotiated; unauthenticated network access |
+| **MongoDB heap memory disclosure (MongoBleed)** | As detailed in §2-2: exploiting OP_COMPRESSED uncompressedSize mismatch to read uninitialized heap memory containing credentials, API keys, session tokens, and PII (CVE-2025-14847, CVSS 7.5/8.7, public PoC; Akamai and Qualys report CISA KEV listing and active exploitation) | MongoDB with compression negotiated; unauthenticated network access |
 | **Redis DEBUG OBJECT information leak** | `DEBUG OBJECT key` reveals internal encoding, refcount, serialization size, and LRU information. Combined with `KEYS *` or `SCAN`, this provides a complete inventory of the data store's contents and metadata | Redis without ACL restricting DEBUG commands |
 | **Redis CLIENT LIST connection information** | `CLIENT LIST` reveals all connected clients' IP addresses, ports, connection names, and currently executing commands — enabling reconnaissance of the application's internal architecture | Redis without ACL restricting CLIENT commands |
 | **Memcached stats information disclosure** | Memcached's `stats`, `stats items`, `stats cachedump` commands reveal key names, sizes, and access patterns. `stats` itself reveals version, uptime, connection count, and memory usage | Memcached without authentication (default configuration) |
@@ -355,7 +355,7 @@ Service protocol authentication mechanisms can be exploited through timing attac
 | §2-1 (pgx simple protocol) | CVE-2024-27289 (Go pgx v4) | SQL injection via simple protocol parameter pattern. |
 | §4-4 (PostgreSQL JDBC) | CVE-2024-1597 (PostgreSQL JDBC) | **CVSS 10.0.** preferQueryMode=SIMPLE SQL injection; affects Keycloak and hundreds of Java applications. |
 | §2-1 + §4-4 (psql UTF-8) | CVE-2025-1094 (PostgreSQL psql) | **Actively exploited.** Chained in BeyondTrust breach affecting 17+ enterprise customers including US Treasury. |
-| §2-2 (MongoDB compression) | CVE-2025-14847 (MongoDB, "MongoBleed") | **CVSS 7.5 (v3.1) / 8.7 (v4.0). Actively exploited.** Unauthenticated heap memory disclosure; 87K–213K exposed instances (varies by source). Public PoC. (CISA KEV listing unverified as of 2026-03) |
+| §2-2 (MongoDB compression) | CVE-2025-14847 (MongoDB, "MongoBleed") | **CVSS 7.5 (v3.1) / 8.7 (v4.0).** Unauthenticated heap memory disclosure; broad internet exposure reported by third-party sources. Public PoC. Akamai and Qualys report CISA KEV listing and active exploitation. |
 | §2-3 (FastCGI overflow) | CVE-2025-23016 (libfcgi) | Integer overflow in parameter parsing → heap overflow → RCE on 32-bit systems. |
 | §2-3 (PHP-CGI argument injection) | CVE-2024-4577 (PHP-CGI Windows) | **CVSS 9.8. Actively exploited.** PHP-CGI argument injection via Windows Best-Fit character mapping. Widespread exploitation in 2025. |
 | §4-1 (Netty HTTP CRLF) | CVE-2025-67735 (Netty HttpRequestEncoder) | CRLF injection in URI → HTTP request smuggling or cross-protocol injection. |
@@ -369,7 +369,7 @@ Service protocol authentication mechanisms can be exploited through timing attac
 | §6-2 (LDAP NTLM auth bypass) | CVE-2025-54918 (Windows LDAP) | NTLM LDAP authentication bypass → privilege escalation. |
 | §1-2 + §5-2 (Memcached + pickle) | CTF: Cyber Apocalypse 2024 "SerialFlow" | Educational: Flask-Session + Memcached CRLF → pickle RCE chain. |
 | §3-2 (DNS rebinding → MCP) | CVE-2025-66416 (MCP Python SDK) | DNS rebinding to local MCP server → tool invocation → potential RCE. |
-| §1-1 (Redis via GitHub Enterprise) | Orange Tsai's GitHub Enterprise chain ($18,000) | SSRF → CRLF injection in urllib → Redis → Ruby Marshal deserialization → RCE. **$18,000 bounty.** |
+| §1-1 (Redis via GitHub Enterprise) | Orange Tsai's GitHub Enterprise chain | SSRF → CRLF injection in urllib → Redis → Ruby Marshal deserialization → RCE. Public bounty writeup. |
 | §5-4 (Memcached UDP amplification) | 2018 GitHub DDoS (1.35 Tbps) | Largest DDoS attack at the time; Memcached UDP amplification factor 51,000x. |
 
 ---
@@ -432,35 +432,35 @@ The fundamental tension is that protocol simplicity enables injection: Redis's i
 
 ## References
 
-- Paul Gerste (SonarSource): "SQL Injection Isn't Dead: Smuggling Queries at the Protocol Level" — DEF CON 32, 2024 — https://media.defcon.org/DEF%20CON%2032/DEF%20CON%2032%20presentations/DEF%20CON%2032%20-%20Paul%20Gerste%20-%20SQL%20Injection%20Isn't%20Dead%20Smuggling%20Queries%20at%20the%20Protocol%20Level.pdf
-- Ivan Novikov: "The New Page of Injections Book: Memcached Injections" — Black Hat USA 2014 — https://blackhat.com/docs/us-14/materials/us-14-Novikov-The-New-Page-Of-Injections-Book-Memcached-Injections-WP.pdf
-- Akamai: "CVE-2025-14847: All You Need to Know About MongoBleed" — https://www.akamai.com/blog/security-research/cve-2025-14847-all-you-need-to-know-about-mongobleed
-- Wiz: "MongoBleed: Critical MongoDB Vulnerability CVE-2025-14847" — https://www.wiz.io/blog/mongobleed-cve-2025-14847-exploited-in-the-wild-mongodb
-- Unit42: "Threat Brief: MongoDB Vulnerability (CVE-2025-14847)" — https://unit42.paloaltonetworks.com/mongobleed-cve-2025-14847/
-- OX Security: "PoC: Exploiting MongoBleed, CVE-2025-14847 Technical Walkthrough" — https://www.ox.security/blog/poc-exploiting-mongobleed-cve-2025-14847-technical-walkthrough/
-- Synacktiv: "CVE-2025-23016: Exploiting the FastCGI library" — https://www.synacktiv.com/en/publications/cve-2025-23016-exploiting-the-fastcgi-library
-- Rapid7: "CVE-2025-1094: PostgreSQL psql SQL injection" — https://www.rapid7.com/blog/post/2025/02/13/cve-2025-1094-postgresql-psql-sql-injection-fixed/
-- OX Security: "Lessons from the PostgreSQL CVE-2025-1094 Exploitation" — https://www.ox.security/blog/lessons-from-the-postgresql-cve-2025-1094-exploitation/
-- Wiz: "Redis RCE CVE-2025-49844" — https://www.wiz.io/blog/wiz-research-redis-rce-cve-2025-49844
-- Sysdig: "Understanding CVE-2025-49844: RediShell" — https://www.sysdig.com/blog/cve-2025-49844-redishell
-- DEVCORE: "Security Alert: CVE-2024-4577 - PHP CGI Argument Injection Vulnerability" — https://devco.re/blog/2024/06/06/security-alert-cve-2024-4577-php-cgi-argument-injection-vulnerability-en/
-- Netty Security Advisory: "CVE-2025-67735: CRLF injection in HttpRequestEncoder" — https://github.com/netty/netty/security/advisories/GHSA-84h7-rjj3-6jx4
-- Netty Security Advisory: "CVE-2025-59419: SMTP Command Injection" — https://github.com/netty/netty/security/advisories/GHSA-jq43-27x9-3v86
-- CrowdStrike: "Analyzing NTLM LDAP Auth Bypass Vulnerability (CVE-2025-54918)" — https://www.crowdstrike.com/en-us/blog/analyzing-ntlm-ldap-authentication-bypass-vulnerability/
-- SafeBreach: "LDAPNightmare: CVE-2024-49113 PoC" — https://www.safebreach.com/blog/ldapnightmare-safebreach-labs-publishes-first-proof-of-concept-exploit-for-cve-2024-49113/
-- D4D Blog: "Memcached Command Injections at Pylibmc" — https://btlfry.gitlab.io/notes/posts/memcached-command-injections-at-pylibmc/
-- Orange Tsai: "How I Chained 4 vulnerabilities on GitHub Enterprise, From SSRF Execution Chain to RCE!" — https://blog.orange.tw/posts/2017-07-how-i-chained-4-vulnerabilities-on/
-- Redis: "Cross Protocol Scripting protection" — https://github.com/redis/redis/commit/874804da0c014a7d704b3d285aa500098a931f50
-- Redis: "Serialization protocol specification (RESP)" — https://redis.io/docs/latest/develop/reference/protocol-spec/
-- Straiker AI: "Agentic Danger: DNS Rebinding Exposes Internal MCP Servers" — https://www.straiker.ai/blog/agentic-danger-dns-rebinding-exposing-your-internal-mcp-servers
-- NCC Group: "Singularity: DNS Rebinding Attack Framework" — https://github.com/nccgroup/singularity
-- HackTricks: "6379 - Pentesting Redis" — https://book.hacktricks.wiki/en/network-services-pentesting/6379-pentesting-redis
-- HackTricks: "11211 - Pentesting Memcache" — https://book.hacktricks.wiki/en/network-services-pentesting/11211-memcache
-- PortSwigger: "Top 10 Web Hacking Techniques of 2024" — https://portswigger.net/research/top-10-web-hacking-techniques-of-2024
-- Snyk: "CVE-2024-1597: SQL Injection in org.postgresql:postgresql" — https://security.snyk.io/vuln/SNYK-JAVA-ORGPOSTGRESQL-6252740
-- Simon Willison: "SQL Injection Isn't Dead: Smuggling Queries at the Protocol Level" — https://simonwillison.net/2024/Aug/12/smuggling-queries-at-the-protocol-level/
-- su18: "JDBC Connection URL Attack" — https://su18.org/post/jdbc-connection-url-attack/
-- Code Intelligence: "New Vulnerability in MySQL JDBC Driver: RCE and Unauthorized DB Access" — https://www.code-intelligence.com/blog/cve-jdbc-mysql-driver-rce-unauthorized-read-write-access
+- [Paul Gerste (SonarSource): "SQL Injection Isn't Dead: Smuggling Queries at the Protocol Level" — DEF CON 32, 2024](https://media.defcon.org/DEF%20CON%2032/DEF%20CON%2032%20presentations/DEF%20CON%2032%20-%20Paul%20Gerste%20-%20SQL%20Injection%20Isn't%20Dead%20Smuggling%20Queries%20at%20the%20Protocol%20Level.pdf)
+- [Ivan Novikov: "The New Page of Injections Book: Memcached Injections" — Black Hat USA 2014](https://blackhat.com/docs/us-14/materials/us-14-Novikov-The-New-Page-Of-Injections-Book-Memcached-Injections-WP.pdf)
+- [Akamai: "CVE-2025-14847: All You Need to Know About MongoBleed"](https://www.akamai.com/blog/security-research/cve-2025-14847-all-you-need-to-know-about-mongobleed)
+- [Wiz: "MongoBleed: Critical MongoDB Vulnerability CVE-2025-14847"](https://www.wiz.io/blog/mongobleed-cve-2025-14847-exploited-in-the-wild-mongodb)
+- [Unit42: "Threat Brief: MongoDB Vulnerability (CVE-2025-14847)"](https://unit42.paloaltonetworks.com/mongobleed-cve-2025-14847/)
+- [OX Security: "PoC: Exploiting MongoBleed, CVE-2025-14847 Technical Walkthrough"](https://www.ox.security/blog/poc-exploiting-mongobleed-cve-2025-14847-technical-walkthrough/)
+- [Synacktiv: "CVE-2025-23016: Exploiting the FastCGI library"](https://www.synacktiv.com/en/publications/cve-2025-23016-exploiting-the-fastcgi-library)
+- [Rapid7: "CVE-2025-1094: PostgreSQL psql SQL injection"](https://www.rapid7.com/blog/post/2025/02/13/cve-2025-1094-postgresql-psql-sql-injection-fixed/)
+- [OX Security: "Lessons from the PostgreSQL CVE-2025-1094 Exploitation"](https://www.ox.security/blog/lessons-from-the-postgresql-cve-2025-1094-exploitation/)
+- [Wiz: "Redis RCE CVE-2025-49844"](https://www.wiz.io/blog/wiz-research-redis-rce-cve-2025-49844)
+- [Sysdig: "Understanding CVE-2025-49844: RediShell"](https://www.sysdig.com/blog/cve-2025-49844-redishell)
+- [DEVCORE: "Security Alert: CVE-2024-4577 - PHP CGI Argument Injection Vulnerability"](https://devco.re/blog/2024/06/06/security-alert-cve-2024-4577-php-cgi-argument-injection-vulnerability-en/)
+- [Netty Security Advisory: "CVE-2025-67735: CRLF injection in HttpRequestEncoder"](https://github.com/netty/netty/security/advisories/GHSA-84h7-rjj3-6jx4)
+- [Netty Security Advisory: "CVE-2025-59419: SMTP Command Injection"](https://github.com/netty/netty/security/advisories/GHSA-jq43-27x9-3v86)
+- [CrowdStrike: "Analyzing NTLM LDAP Auth Bypass Vulnerability (CVE-2025-54918)"](https://www.crowdstrike.com/en-us/blog/analyzing-ntlm-ldap-authentication-bypass-vulnerability/)
+- [SafeBreach: "LDAPNightmare: CVE-2024-49113 PoC"](https://www.safebreach.com/blog/ldapnightmare-safebreach-labs-publishes-first-proof-of-concept-exploit-for-cve-2024-49113/)
+- [D4D Blog: "Memcached Command Injections at Pylibmc"](https://btlfry.gitlab.io/notes/posts/memcached-command-injections-at-pylibmc/)
+- [Orange Tsai: "How I Chained 4 vulnerabilities on GitHub Enterprise, From SSRF Execution Chain to RCE!"](https://blog.orange.tw/posts/2017-07-how-i-chained-4-vulnerabilities-on/)
+- [Redis: "Cross Protocol Scripting protection"](https://github.com/redis/redis/commit/874804da0c014a7d704b3d285aa500098a931f50)
+- [Redis: "Serialization protocol specification (RESP)"](https://redis.io/docs/latest/develop/reference/protocol-spec/)
+- [Straiker AI: "Agentic Danger: DNS Rebinding Exposes Internal MCP Servers"](https://www.straiker.ai/blog/agentic-danger-dns-rebinding-exposing-your-internal-mcp-servers)
+- [NCC Group: "Singularity: DNS Rebinding Attack Framework"](https://github.com/nccgroup/singularity)
+- [HackTricks: "6379 - Pentesting Redis"](https://book.hacktricks.wiki/en/network-services-pentesting/6379-pentesting-redis)
+- [HackTricks: "11211 - Pentesting Memcache"](https://book.hacktricks.wiki/en/network-services-pentesting/11211-memcache)
+- [PortSwigger: "Top 10 Web Hacking Techniques of 2024"](https://portswigger.net/research/top-10-web-hacking-techniques-of-2024)
+- [Snyk: "CVE-2024-1597: SQL Injection in org.postgresql:postgresql"](https://security.snyk.io/vuln/SNYK-JAVA-ORGPOSTGRESQL-6252740)
+- [Simon Willison: "SQL Injection Isn't Dead: Smuggling Queries at the Protocol Level"](https://simonwillison.net/2024/Aug/12/smuggling-queries-at-the-protocol-level/)
+- [su18: "JDBC Connection URL Attack"](https://su18.org/post/jdbc-connection-url-attack/)
+- [Code Intelligence: "New Vulnerability in MySQL JDBC Driver: RCE and Unauthorized DB Access"](https://www.code-intelligence.com/blog/cve-jdbc-mysql-driver-rce-unauthorized-read-write-access)
 - SonarSource: "Zimbra Email — Stealing Clear-Text Credentials via Memcache injection" (2022) — Memcache CRLF injection in Zimbra enabling credential theft
 - Doyhenard: "Exploiting Inter-Process Communication in SAP's HTTP Server" (Black Hat USA 2022) — SAP ICM shared memory IPC exploitation
 

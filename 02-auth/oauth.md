@@ -278,7 +278,7 @@ The device code flow (RFC 8628) has emerged as a major attack vector in 2024-202
 |---------|-----------|---------------|-------------|
 | **Device code phishing** | Attacker initiates device authorization flow, obtains the user code, then socially engineers the victim (email, Teams message, QR code) to enter the code at the legitimate authorization URL. Victim authenticates and grants access to the attacker's session | Device flow enabled; social engineering target susceptible | D4 |
 | **MFA bypass via device flow** | Because the user authenticates directly at the AS's login page (which handles MFA), the attacker's device receives tokens with full MFA-authenticated privileges without ever possessing the second factor | Device flow by design separates authentication from the requesting device | D6 |
-| **Automated device code campaigns** | Large-scale automated phishing using tools like SquarePhish2 that generate QR codes → redirect to AS → email device codes. Success rates exceeding 50% reported in 2024-2025 campaigns | Bulk phishing infrastructure; enterprise targets | D4 |
+| **Automated device code campaigns** | Large-scale automated phishing using tools like SquarePhish2 that generate QR codes → redirect to AS → email device codes. Public campaign reporting shows this flow can achieve high success against enterprise targets | Bulk phishing infrastructure; enterprise targets | D4 |
 | **Mimicry apps** | Attacker registers OAuth applications with names mimicking legitimate tools ("Data Loader", "Security Compliance Tool", "My Ticket Portal") to appear trustworthy in consent prompts | Open app registration; no naming policy enforcement | D2, D5 |
 
 ---
@@ -381,12 +381,12 @@ The key insight is that OAuth/OIDC flows are inherently **cross-origin navigatio
 | §6-2 (Mass assignment session poisoning) | CVE-2021-27582 (MITREid Connect) | Spring `@ModelAttribute` mass assignment allows `redirectUri` override at consent endpoint |
 | §10-1 (COAT cross-app takeover) | CVE-2023-36019 (Microsoft) | CVSS 9.6 (Microsoft) / 7.4 (NVD). Power Platform Connector Spoofing — custom connector redirect URI spoofing could enable OAuth token theft in Power Platform / Azure Logic Apps scenarios |
 | §3-2 (First-party app abuse) | ConsentFix/AuthCodeFix (2025) | Azure CLI and Azure PowerShell pre-consented apps exploitable for tenant-wide privilege escalation |
-| §4-1 (Mutable claim confusion) | Google OAuth domain reuse (2024) | Failed startup domains potentially expose accounts (Truffle Security estimated 10M+ based on 100K+ expired domains; actual observed impact not confirmed). $1,337 Google VRP bounty |
+| §4-1 (Mutable claim confusion) | Google OAuth domain reuse (2024) | Failed startup domains potentially expose accounts; Truffle Security estimated large theoretical exposure from expired domains, but actual observed impact was not confirmed. Google VRP bounty |
 | §10-2 (MCP authorization endpoint injection) | CVE-2025-6514 (mcp-remote) | RCE via malicious MCP server. 437K+ cumulative downloads at time of disclosure (npm-stat.com, July 2025) |
 | §9-3 (LDAP injection via WebFinger) | CVE-2021-29156 (ForgeRock OpenAM) | Password hash extraction via character-by-character LDAP wildcard injection |
 | §8-3 (Device code phishing) | Storm-2372 campaign (2024-2025) | Device-code phishing against Microsoft 365 / Entra ID users. MFA is satisfied at the legitimate IdP, so the attacker's device receives MFA-backed tokens without possessing the second factor |
 | §7-2 (Supply chain token compromise) | UNC6395 / Drift-Salesforce fallout (2025) | Compromised connected apps / OAuth integrations enabled access into hundreds of customer environments. Public reporting attributes the scale to compromised integration context, not a single universally reusable token |
-| §2-1 (PKCE downgrade) | OAuth 2.1 (draft-ietf-oauth-v2-1-14, Internet-Draft as of 2026-03) | PKCE mandatory for authorization code grant (not all grant types — client_credentials and refresh_token are unaffected). Implicit and resource owner password grants removed. Note: not yet a final RFC |
+| §2-1 (PKCE downgrade) | OAuth 2.1 (draft-ietf-oauth-v2-1-15, Internet-Draft as of 2026-04) | PKCE mandatory for authorization code grant (not all grant types — client_credentials and refresh_token are unaffected). Implicit and resource owner password grants removed. Note: not yet a final RFC |
 | §4-2 (Audience injection) | Disclosed to IETF OAuth WG (Jan 2025) | New attack class affecting OAuth 2.0, OIDC, FAPI, CIBA, and multiple extensions. Coordinated multi-standard fix effort |
 | §10-1 (Cross-app attacks) | USENIX Security '25 | 11 of 18 major integration platforms vulnerable to COAT; 5 to CORF. Microsoft, Google, Amazon affected |
 | §1-1 (Redirect URI validation bypass) | Multiple HackerOne reports | Numerous $X,XXX+ bounties for redirect_uri bypasses across major platforms |
@@ -432,7 +432,7 @@ The 2024-2025 wave of device code phishing attacks illustrates this perfectly: t
 
 ### The Structural Solution
 
-A truly structural solution would require three properties that current OAuth deployments largely lack: **(1) sender-constrained tokens** (DPoP, mTLS-bound tokens) that cryptographically bind tokens to their intended holder, **(2) PKCE for authorization code grants** (mandated in the OAuth 2.1 Internet-Draft (draft-ietf-oauth-v2-1-14; not yet a final RFC as of 2026-03); does not apply to client_credentials or refresh_token grants) **+ issuer verification** (separately standardized in RFC 9207) that together prevent code interception and mix-up attacks, and **(3) continuous authorization evaluation** that moves beyond one-time consent to real-time policy enforcement over token usage, scope consumption, and behavioral anomalies. Until all three are ubiquitous, the taxonomy above will continue to grow.
+A truly structural solution would require three properties that current OAuth deployments largely lack: **(1) sender-constrained tokens** (DPoP, mTLS-bound tokens) that cryptographically bind tokens to their intended holder, **(2) PKCE for authorization code grants** (mandated in the OAuth 2.1 Internet-Draft (draft-ietf-oauth-v2-1-15; not yet a final RFC as of 2026-04); does not apply to client_credentials or refresh_token grants) **+ issuer verification** (separately standardized in RFC 9207) that together prevent code interception and mix-up attacks, and **(3) continuous authorization evaluation** that moves beyond one-time consent to real-time policy enforcement over token usage, scope consumption, and behavioral anomalies. Until all three are ubiquitous, the taxonomy above will continue to grow.
 
 ---
 
@@ -442,21 +442,28 @@ A truly structural solution would require three properties that current OAuth de
 
 ## References
 
-- Doyensec, "Common OAuth Vulnerabilities," January 2025 — https://blog.doyensec.com/2025/01/30/oauth-common-vulnerabilities.html
-- PortSwigger, "Hidden OAuth Attack Vectors" — https://portswigger.net/research/hidden-oauth-attack-vectors
-- PortSwigger, "OAuth 2.0 Authentication Vulnerabilities" — https://portswigger.net/web-security/oauth
-- Luo et al., "Universal Cross-app Attacks: Exploiting and Securing OAuth 2.0 in Integration Platforms," USENIX Security '25 — https://www.usenix.org/conference/usenixsecurity25/presentation/luo-kaixuan
-- Küsters & Würtele, "Audience Injection Attacks: A New Class of Attacks on Web-Based Authorization and Authentication Standards," 2025 — https://eprint.iacr.org/2025/629
-- IETF, "Updates to OAuth 2.0 Security Best Current Practice" — https://datatracker.ietf.org/doc/draft-wuertele-oauth-security-topics-update/
-- IETF, "OAuth 2.0 Security Best Current Practice" — https://www.ietf.org/archive/id/draft-ietf-oauth-security-topics-22.html
-- Obsidian Security, "The New Attack Surface: OAuth Token Abuse" — https://www.obsidiansecurity.com/blog/the-new-attack-surface-oauth-token-abuse
-- Obsidian Security, "From Well-Known to Well-Pwned: Common Vulnerabilities in AI Agents" — https://www.obsidiansecurity.com/blog/from-well-known-to-well-pwned-common-vulnerabilities-in-ai-agents
-- Semperis, "A New App Consent Attack: Hidden Consent Grant" — https://www.semperis.com/blog/app-consent-attack-hidden-consent-grant/
-- Amla Labs, "When OAuth Becomes a Weapon: Lessons from CVE-2025-6514" — https://amlalabs.com/blog/oauth-cve-2025-6514/
-- Proofpoint, "Access Granted: Phishing with Device Code Authorization" — https://www.proofpoint.com/us/blog/threat-insight/access-granted-phishing-device-code-authorization-account-takeover
-- Unit42, "Trusted Connections, Hidden Risks: Token Management in the Third-Party Supply Chain" — https://unit42.paloaltonetworks.com/third-party-supply-chain-token-management/
-- Push Security, "Dangerous OAuth Scopes in Third-Party Integrations" — https://pushsecurity.com/blog/the-risky-terrain-of-oauth-scopes-in-third-party
-- Praetorian, "Attacking and Defending OAuth 2.0" — https://www.praetorian.com/blog/attacking-and-defending-oauth-2/
-- WorkOS, "Defending OAuth: Common Attacks and How to Prevent Them" — https://workos.com/blog/oauth-common-attacks-and-how-to-prevent-them
-- HackTricks, "OAuth to Account Takeover" — https://book.hacktricks.xyz/pentesting-web/oauth-to-account-takeover
-- OWASP, "OAuth 2.0 Protocol Cheatsheet" — https://cheatsheetseries.owasp.org/cheatsheets/OAuth2_Cheat_Sheet.html
+- [Doyensec, "Common OAuth Vulnerabilities," January 2025](https://blog.doyensec.com/2025/01/30/oauth-common-vulnerabilities.html)
+- [PortSwigger, "Hidden OAuth Attack Vectors"](https://portswigger.net/research/hidden-oauth-attack-vectors)
+- [PortSwigger, "OAuth 2.0 Authentication Vulnerabilities"](https://portswigger.net/web-security/oauth)
+- [Luo et al., "Universal Cross-app Attacks: Exploiting and Securing OAuth 2.0 in Integration Platforms," USENIX Security '25](https://www.usenix.org/conference/usenixsecurity25/presentation/luo-kaixuan)
+- [Küsters & Würtele, "Audience Injection Attacks: A New Class of Attacks on Web-Based Authorization and Authentication Standards," 2025](https://eprint.iacr.org/2025/629)
+- [IETF, "The OAuth 2.1 Authorization Framework" (draft-ietf-oauth-v2-1-15, March 2026)](https://datatracker.ietf.org/doc/draft-ietf-oauth-v2-1/)
+- [IETF RFC 9700 / BCP 240, "Best Current Practice for OAuth 2.0 Security"](https://datatracker.ietf.org/doc/html/rfc9700)
+- [IETF, "Updates to OAuth 2.0 Security Best Current Practice"](https://datatracker.ietf.org/doc/draft-wuertele-oauth-security-topics-update/)
+- [IETF, "OAuth 2.0 Security Best Current Practice"](https://www.ietf.org/archive/id/draft-ietf-oauth-security-topics-22.html)
+- [Obsidian Security, "The New Attack Surface: OAuth Token Abuse"](https://www.obsidiansecurity.com/blog/the-new-attack-surface-oauth-token-abuse)
+- [Obsidian Security, "From Well-Known to Well-Pwned: Common Vulnerabilities in AI Agents"](https://www.obsidiansecurity.com/blog/from-well-known-to-well-pwned-common-vulnerabilities-in-ai-agents)
+- [Semperis, "A New App Consent Attack: Hidden Consent Grant"](https://www.semperis.com/blog/app-consent-attack-hidden-consent-grant/)
+- [Amla Labs, "When OAuth Becomes a Weapon: Lessons from CVE-2025-6514"](https://amlalabs.com/blog/oauth-cve-2025-6514/)
+- [CVE Program Record — CVE-2025-6514 (mcp-remote command injection via `authorization_endpoint`)](https://cveawg.mitre.org/api/cve/CVE-2025-6514)
+- [NVD — CVE-2025-6514](https://nvd.nist.gov/vuln/detail/CVE-2025-6514)
+- [CVE Program Record — CVE-2025-54576 (OAuth2-Proxy `skip_auth_routes` authentication bypass)](https://cveawg.mitre.org/api/cve/CVE-2025-54576)
+- [CVE Program Record — CVE-2023-36019 (Microsoft Power Platform connector spoofing)](https://cveawg.mitre.org/api/cve/CVE-2023-36019)
+- [CVE Program Record — CVE-2022-1774 (draw.io sensitive information exposure)](https://cveawg.mitre.org/api/cve/CVE-2022-1774)
+- [Proofpoint, "Access Granted: Phishing with Device Code Authorization"](https://www.proofpoint.com/us/blog/threat-insight/access-granted-phishing-device-code-authorization-account-takeover)
+- [Unit42, "Trusted Connections, Hidden Risks: Token Management in the Third-Party Supply Chain"](https://unit42.paloaltonetworks.com/third-party-supply-chain-token-management/)
+- [Push Security, "Dangerous OAuth Scopes in Third-Party Integrations"](https://pushsecurity.com/blog/the-risky-terrain-of-oauth-scopes-in-third-party)
+- [Praetorian, "Attacking and Defending OAuth 2.0"](https://www.praetorian.com/blog/attacking-and-defending-oauth-2/)
+- [WorkOS, "Defending OAuth: Common Attacks and How to Prevent Them"](https://workos.com/blog/oauth-common-attacks-and-how-to-prevent-them)
+- [HackTricks, "OAuth to Account Takeover"](https://book.hacktricks.xyz/pentesting-web/oauth-to-account-takeover)
+- [OWASP, "OAuth 2.0 Protocol Cheatsheet"](https://cheatsheetseries.owasp.org/cheatsheets/OAuth2_Cheat_Sheet.html)

@@ -149,12 +149,12 @@ GraphQL and other structured API formats can transmit prototype-polluting payloa
 
 ### §2-6. React Server Components (RSC) Protocol Deserialization
 
-A critical modern vector where the RSC Flight protocol deserializes payloads that can traverse the prototype chain.
+A critical modern vector where the RSC Flight protocol deserializes attacker-controlled payloads. This is a related JavaScript object deserialization risk rather than a confirmed generic prototype-pollution primitive.
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
-| **RSC payload injection** | Crafted deserialization payload exploits prototype chain traversal to access `Function` constructor | React 19.0–19.2.0, Next.js affected versions (CVE-2025-55182 / CVE-2025-66478, CVSS 10.0) |
-| **Server Function argument pollution** | Server Action arguments deserialized without validation allow prototype manipulation | Application uses React Server Components with server functions |
+| **RSC payload deserialization** | Crafted Flight / Server Function payloads abuse unsafe deserialization and module/function resolution paths to reach server-side code execution | Unpatched React Server Components packages 19.0.0–19.2.3; current safe baselines 19.0.4 / 19.1.5 / 19.2.4. Next.js affected when it bundles vulnerable React (CVE-2025-55182; CVE-2025-66478 rejected duplicate) |
+| **Server Function argument confusion** | Server Function arguments are deserialized from RSC payloads; unsafe framework-level validation can expose server functions or internal modules | Application exposes server functions through a vulnerable RSC implementation |
 
 ---
 
@@ -419,7 +419,7 @@ Techniques for identifying prototype pollution without causing denial of service
 | **Denial of Service** | Any JS application (server or client) | §1 + §2-1 | Application crash, resource exhaustion |
 | **Cache Poisoning** | CDN/proxy caching JSON API responses | §1 + §2-1 → §8-1 observable changes | Serving poisoned responses to all users |
 | **Supply Chain Attack** | npm ecosystem, transitive dependency with vulnerable merge | §1-1 (in dependency) | Affects all downstream consumers |
-| **Cross-Framework RCE (RSC)** | React 19 + Next.js App Router | §2-6 | Pre-auth RCE (CVSS 10.0) |
+| **Cross-Framework Deserialization RCE (RSC)** | React 19 + Next.js App Router | §2-6 | Pre-auth RCE via RSC deserialization (CVSS 10.0) |
 | **Python Application Compromise** | Flask/Django with recursive merge | §6-1 + custom merge | Secret key theft, RCE |
 
 ---
@@ -428,7 +428,7 @@ Techniques for identifying prototype pollution without causing denial of service
 
 | Mutation Combination | CVE / Case | Impact / Bounty |
 |---|---|---|
-| §2-6 (RSC deserialization) | CVE-2025-55182 / CVE-2025-66478 (React/Next.js) | **CVSS 10.0**. Pre-auth RCE affecting React 19.0–19.2.0 and Next.js. Public exploits available; in-the-wild exploitation detected Dec 2025. |
+| §2-6 (RSC deserialization; related, not prototype pollution) | CVE-2025-55182 / CVE-2025-66478 (React/Next.js) | **CVSS 10.0**. Pre-auth RCE in unpatched RSC packages 19.0.0–19.2.3; current safe React baselines are 19.0.4 / 19.1.5 / 19.2.4. CVE-2025-66478 was rejected as a duplicate / Next.js tracking entry. |
 | §3-3 (tRPC FormData) | CVE-2025-68130 (@trpc/server) | Prototype pollution via `formDataToObject`. Affects tRPC 10.27.0–10.45.2, 11.0.0–11.7.0. Auth bypass, DoS. |
 | §1-1 (lodash) | CVE-2025-13465 (lodash) | Prototype pollution in `_.unset`/`_.omit` functions (property deletion via crafted `__proto__` paths). |
 | §1-3 (dset path setter) | CVE-2024-21529 (dset) | Prototype pollution via `dset()` function, improper input sanitization. |
@@ -442,9 +442,9 @@ Techniques for identifying prototype pollution without causing denial of service
 | §5-1 (NPM CLI, Parse Server, Rocket.Chat) | 8 exploitable RCEs (USENIX 2023) | Full RCE in three high-profile applications via universal gadgets. |
 | §5-2 (EJS) | RCE in EJS v3.1.10 | `escapeFunction`/`outputFunctionName` gadgets. Template compilation RCE. |
 | §5-1 (Kibana) | CVE-2019-7609 (Kibana) | Landmark: `child_process.spawn` env injection → RCE. |
-| §4-3 + §4-1 (HubSpot) | Bug bounty | $4,000. Client-side PP via `jQuery.deparam`, initial fix bypassed. |
-| §4-1 (Lodash bounty) | Bug bounty | $250. `zipObjectDeep()` method pollution. |
-| §4-1 (Web3 game) | Bug bounty | $175. Client-side PP on blockchain game platform. |
+| §4-3 + §4-1 (HubSpot) | Bug bounty | Client-side PP via `jQuery.deparam`, initial fix bypassed. |
+| §4-1 (Lodash bounty) | Bug bounty | `zipObjectDeep()` method pollution. |
+| §4-1 (Web3 game) | Bug bounty | Client-side PP on blockchain game platform. |
 
 ---
 
@@ -471,7 +471,7 @@ Techniques for identifying prototype pollution without causing denial of service
 
 **Incremental patches fail** because the attack surface is a product of two independent dimensions: pollution sources (any code that recursively processes user input into objects) and exploitation gadgets (any code that reads undefined properties for security-sensitive operations). Fixing individual merge functions or individual gadgets addresses specific instances but not the combinatorial explosion. A new library with an unsafe merge, or a new code path that reads an undefined property, immediately creates a new exploitable combination. The supply chain amplifies this: a single vulnerable deep-merge function in a transitive dependency can expose thousands of applications.
 
-**A structural solution** requires breaking the fundamental assumption. `Object.freeze(Object.prototype)` prevents mutation of the shared root, eliminating the vulnerability class entirely — but risks breaking code that depends on prototype extensibility. Using `Map` instead of plain objects for key-value data, creating objects with `Object.create(null)` (no prototype chain), schema validation with `additionalProperties: false` (e.g., ajv, Zod), and Node.js `--disable-proto` flag all reduce the attack surface structurally rather than through case-by-case filtering. The 2025 emergence of prototype pollution in React Server Components (CVE-2025-55182, CVSS 10.0) demonstrates that even modern frameworks are not immune — the deserialization boundary remains the critical control point.
+**A structural solution** requires breaking the fundamental assumption. `Object.freeze(Object.prototype)` prevents mutation of the shared root, eliminating the vulnerability class entirely — but risks breaking code that depends on prototype extensibility. Using `Map` instead of plain objects for key-value data, creating objects with `Object.create(null)` (no prototype chain), schema validation with `additionalProperties: false` (e.g., ajv, Zod), and Node.js `--disable-proto` flag all reduce the attack surface structurally rather than through case-by-case filtering. The 2025 React Server Components issue (CVE-2025-55182, CVSS 10.0) is better treated as unsafe RSC deserialization, not generic prototype pollution; it still shows why deserialization boundaries must be explicit security controls.
 
 ---
 

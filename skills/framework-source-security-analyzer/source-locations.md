@@ -394,11 +394,11 @@ lib/
 
 각 프레임워크의 공식 보안 문서:
 
-- Spring: `https://docs.spring.io/spring-security/reference/`
-- Django: `https://docs.djangoproject.com/en/stable/topics/security/`
-- Express: `https://expressjs.com/en/advanced/best-practice-security.html`
-- ASP.NET: `https://learn.microsoft.com/en-us/aspnet/core/security/`
-- Rails: `https://guides.rubyonrails.org/security.html`
+- [Spring: `](https://docs.spring.io/spring-security/reference/`)
+- [Django: `](https://docs.djangoproject.com/en/stable/topics/security/`)
+- [Express: `](https://expressjs.com/en/advanced/best-practice-security.html`)
+- [ASP.NET: `](https://learn.microsoft.com/en-us/aspnet/core/security/`)
+- [Rails: `](https://guides.rubyonrails.org/security.html`)
 
 ---
 

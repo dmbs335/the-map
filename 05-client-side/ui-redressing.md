@@ -82,7 +82,7 @@ Alternative HTML elements that embed cross-origin pages without using `<iframe>`
 |---|---|---|
 | **`<object>` via `<param>` tag loading** | Chrome allows `<object><param name="url" value="https://target.com"></object>` to load a URL via `<param>` tags (also `name=code`, `name=movie`, `name=src`). While modern browsers enforce X-Frame-Options for standard `<object data="...">`, the `<param>`-based loading path may not trigger the same framing check — representing an alternative embedding vector (Heyes, 2022). JavaScript URLs do not work; data: URLs execute from null origin | Chrome; target accessible via `<param>` URL loading |
 | **`<embed>` via `code` attribute loading** | `<embed code="https://target.com">` uses the `code` attribute (distinct from standard `src`) to load content. Chrome and WebKit support this attribute, which follows a different loading path than `<embed src="...">` (Heyes, 2022) | Chrome or WebKit browser; `code` attribute supported |
-| **`<portal>` element embedding** *(historical/experimental)* | `<portal src="https://target.com">` was a Chromium experimental feature (origin trial, ~2020, Android-only) for seamless page transitions. Portals ignored `X-Frame-Options` because embedded content was treated as a top-level browsing context (Bentkowski / Securitum, 2019; $10K bounty). CSP `frame-ancestors` also did not cover `<portal>`. As of 2026, portals have **0% stable browser support** (caniuse.com), the origin trial never graduated to stable, and Mozilla's standards position is "defer." This is not a practical modern attack vector | Historical interest only; no stable browser implements `<portal>` |
+| **`<portal>` element embedding** *(historical/experimental)* | `<portal src="https://target.com">` was a Chromium experimental feature (origin trial, ~2020, Android-only) for seamless page transitions. Portals ignored `X-Frame-Options` because embedded content was treated as a top-level browsing context (Bentkowski / Securitum, 2019; public bounty case). CSP `frame-ancestors` also did not cover `<portal>`. As of 2026, portals have no stable browser support, the origin trial never graduated to stable, and Mozilla's standards position is "defer." This is not a practical modern attack vector | Historical interest only; no stable browser implements `<portal>` |
 
 **Key distinctions:** (1) Modern browsers enforce `X-Frame-Options` for standard `<object data="">` and `<embed src="">` — the blanket claim that XFO "does not cover" these elements is outdated per RFC 7034 era. The Heyes 2022 research discovered alternative loading attributes (`<param>` tags, `code` attribute) that may circumvent XFO enforcement via different browser code paths. (2) Both `X-Frame-Options` and `CSP frame-ancestors` cover standard `<object>`/`<embed>` embedding in modern browsers. (3) The `<portal>` element is covered by neither XFO nor `frame-ancestors` (Securitum, 2019). Sites should deploy `Content-Security-Policy: frame-ancestors` as defense-in-depth.
 
@@ -214,7 +214,7 @@ SVG filters applied to cross-origin iframes can access and process the rendered 
 | **Text-to-QR-code extraction** | SVG filter chain reads text characters from a framed document and maps them to a QR code rendered as visual output for the user to scan | Target renders sensitive text in predictable positions |
 | **Visual camouflage** | SVG filters transform the appearance of the target iframe content to match the attacker's decoy page, making the framed content appear native | SVG filter access to cross-origin pixels |
 
-This technique was demonstrated against Google Docs, achieving text exfiltration that earned a $3,133.70 Google VRP bounty. The attack constructs **computational logic gates** entirely from SVG filter primitives (`feColorMatrix` for AND/OR, `feComposite` for arithmetic operations), processing cross-origin pixels through arbitrary functions.
+This technique was demonstrated against Google Docs, achieving text exfiltration in a Google VRP case. The attack constructs **computational logic gates** entirely from SVG filter primitives (`feColorMatrix` for AND/OR, `feComposite` for arithmetic operations), processing cross-origin pixels through arbitrary functions.
 
 ### §6-2. Interactive SVG Clickjacking
 
@@ -251,7 +251,7 @@ Bypasses all overlay-based detection by exploiting **activity transition animati
 | **Device administrator grant** | TapTrap tricks user into enabling Device Administrator, allowing remote wipe | `finish()` called during animation, causing visual/touch desync |
 | **Custom Tab clickjacking** | Malicious app launches a Firefox Custom Tab and exploits the animation timing to perform clickjacking on arbitrary websites (CVE-2025-1939) | Firefox Custom Tabs with default animation settings |
 
-TapTrap was presented at USENIX Security 2025. Analysis of 99,705 Play Store apps found **76.3% vulnerable**. The core mechanism: calling `finish()` on the transparent activity during the closing animation creates a window where the **visual representation** still shows the transparent activity but **touch events** are routed to the malicious activity beneath. Fixed in the Android December 2025 Security Update for Android 13–16.
+TapTrap was presented at USENIX Security 2025. Large-scale Play Store analysis found the vulnerable pattern to be common. The core mechanism: calling `finish()` on the transparent activity during the closing animation creates a window where the **visual representation** still shows the transparent activity but **touch events** are routed to the malicious activity beneath. Fixed in the Android December 2025 Security Update for Android 13–16.
 
 ### §7-3. WebView-Based Mobile Redressing
 
@@ -343,15 +343,15 @@ Specialized UI redressing techniques targeting specific platform features and so
 | Mutation Combination | CVE / Case | Impact / Bounty |
 |---|---|---|
 | §2-1 (DoubleClickjacking) + OAuth | Shopify, Slack, Salesforce ATO demos (Dec 2024) | Account takeover on major platforms; no CVE assigned (design-level issue) |
-| §6-1 (SVG pixel exfiltration) | Google Docs text extraction (2025) | $3,133.70 Google VRP bounty; cross-origin text exfiltration |
+| §6-1 (SVG pixel exfiltration) | Google Docs text extraction (2025) | Google VRP bounty; cross-origin text exfiltration |
 | §6-1 (SVG filter on cross-origin iframe) | [Mozilla Bug 2004487](https://bugzilla.mozilla.org/show_bug.cgi?id=2004487) (2025) | SVG filters applicable to cross-origin iframes in Firefox |
 | §7-2 (TapTrap animation tapjacking) | CVE-2025-1939 (Firefox Custom Tabs) | Animation-based tapjacking on arbitrary websites; fixed Dec 2025 |
-| §7-2 (TapTrap) | Android Security Bulletin Dec 2025 | 76.3% of Play Store apps vulnerable; permission/device admin hijack |
+| §7-2 (TapTrap) | Android Security Bulletin Dec 2025 | Large-scale app analysis found common exposure; permission/device admin hijack |
 | §8-1 (Extension DOM clickjacking) | 1Password, Bitwarden, LastPass, et al. (DEF CON 33, 2025) | Credential/TOTP theft from 40M+ extension installs; Bitwarden patched v2025.8.0 |
 | §3-1 (Gesture Jacking) + OAuth | Coinbase, Yahoo API access (2024) | Account takeover via OAuth authorization through Enter key hold |
 | §1-1 (Classic iframe overlay) | CVE-2025-54139 (HAX CMS) | Unauthenticated clickjacking on login/admin pages |
 | §1-1 (Classic iframe) | CVE-2025-43854 / GHSA-jhgq-cx3f-vj5p (DIFY, langgenius/dify < 1.3.0) | Clickjacking via missing X-Frame-Options; CVSS v4.0 2.3 (Low); fixed in 1.3.0 |
-| §3-1 (Gesture Jacking) | $5,000 Google bounty (Google Drive) | Full Google Drive access via chained embed + open redirect + clickjacking |
+| §3-1 (Gesture Jacking) | Google bounty (Google Drive) | Full Google Drive access via chained embed + open redirect + clickjacking |
 | §2-1 (Safari TCC prompt hijack) | Apple rejected (Feb 2024); RenwaX23 disclosure (Aug 2025) | Camera/microphone/location permission grant via unfocused TCC prompt clickjacking on macOS Safari |
 | §9-2 (Widget permission inheritance) | LiveChat (fixed Dec 2024), Glassix (fixed May 2025) | Delegated permission hijack at scale via compromised support widgets; 100K–200K potential sites |
 
@@ -403,20 +403,20 @@ Until browsers implement a universal "verified intent" primitive — analogous t
 
 ## References
 
-- OWASP Clickjacking Defense Cheat Sheet — https://cheatsheetseries.owasp.org/cheatsheets/Clickjacking_Defense_Cheat_Sheet.html
-- Huang et al., "Clickjacking: Attacks and Defenses" (USENIX Security 2012) — https://www.usenix.org/system/files/conference/usenixsecurity12/sec12-final39.pdf
-- Rydstedt et al., "Busting Frame Busting: A Study of Clickjacking Vulnerabilities on Popular Sites" (Stanford) — https://crypto.stanford.edu/~dabo/pubs/papers/framebust.pdf
-- Paulos Yibelo, "DoubleClickjacking: A New Era of UI Redressing" (December 2024) — https://www.evil.blog/2024/12/doubleclickjacking-what.html
-- Eric Lawrence, "Attacker Techniques: Gesture Jacking" (March 2024) — https://textslashplain.com/2024/03/27/attacker-techniques-gesture-jacking/
-- Lyra Rebane, "SVG Filters — Clickjacking 2.0" (December 2025) — https://lyra.horse/blog/2025/12/svg-clickjacking/
-- Marek Tóth, "DOM-based Extension Clickjacking" (DEF CON 33, August 2025) — https://marektoth.com/blog/dom-based-extension-clickjacking/
-- Philipp Beer et al., "TapTrap: Animation-Driven Tapjacking on Android" (USENIX Security 2025) — https://www.usenix.org/conference/usenixsecurity25/presentation/beer
-- PortSwigger Web Security Academy: Clickjacking — https://portswigger.net/web-security/clickjacking
-- MDN Web Docs: Clickjacking — https://developer.mozilla.org/en-US/docs/Web/Security/Attacks/Clickjacking
+- [OWASP Clickjacking Defense Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Clickjacking_Defense_Cheat_Sheet.html)
+- [Huang et al., "Clickjacking: Attacks and Defenses" (USENIX Security 2012)](https://www.usenix.org/system/files/conference/usenixsecurity12/sec12-final39.pdf)
+- [Rydstedt et al., "Busting Frame Busting: A Study of Clickjacking Vulnerabilities on Popular Sites" (Stanford)](https://crypto.stanford.edu/~dabo/pubs/papers/framebust.pdf)
+- [Paulos Yibelo, "DoubleClickjacking: A New Era of UI Redressing" (December 2024)](https://www.evil.blog/2024/12/doubleclickjacking-what.html)
+- [Eric Lawrence, "Attacker Techniques: Gesture Jacking" (March 2024)](https://textslashplain.com/2024/03/27/attacker-techniques-gesture-jacking/)
+- [Lyra Rebane, "SVG Filters — Clickjacking 2.0" (December 2025)](https://lyra.horse/blog/2025/12/svg-clickjacking/)
+- [Marek Tóth, "DOM-based Extension Clickjacking" (DEF CON 33, August 2025)](https://marektoth.com/blog/dom-based-extension-clickjacking/)
+- [Philipp Beer et al., "TapTrap: Animation-Driven Tapjacking on Android" (USENIX Security 2025)](https://www.usenix.org/conference/usenixsecurity25/presentation/beer)
+- [PortSwigger Web Security Academy: Clickjacking](https://portswigger.net/web-security/clickjacking)
+- [MDN Web Docs: Clickjacking](https://developer.mozilla.org/en-US/docs/Web/Security/Attacks/Clickjacking)
 - renwa: "The Underrated Bugs, Clickjacking, CSS Injection, Drag-Drop XSS, Cookie Bomb..." (2022) — Unified argument for the combined significance of systematically undervalued vulnerability classes
-- RenwaX23, "PermissionJacking Safari" (August 2025) — Clickjacking Safari TCC permission prompts via unfocused window interaction. https://github.com/RenwaX23/X/blob/master/safari_bug.md
-- Alberto F. de la Rosa, "Permission Hijacking at Scale" (2025) — Third-party support widget compromise for delegated browser permission inheritance at scale. https://albertofdr.github.io/post/permission-hijacking-2025/
-- Gareth Heyes (PortSwigger Research), "Framing without iframes" (2022) — Non-iframe embedding via `<object>`, `<embed>`, and `<portal>` elements that bypass X-Frame-Options. https://portswigger.net/research/framing-without-iframes
+- [RenwaX23, "PermissionJacking Safari" (August 2025) — Clickjacking Safari TCC permission prompts via unfocused window interaction.](https://github.com/RenwaX23/X/blob/master/safari_bug.md)
+- [Alberto F. de la Rosa, "Permission Hijacking at Scale" (2025) — Third-party support widget compromise for delegated browser permission inheritance at scale.](https://albertofdr.github.io/post/permission-hijacking-2025/)
+- [Gareth Heyes (PortSwigger Research), "Framing without iframes" (2022) — Non-iframe embedding via `<object>`, `<embed>`, and `<portal>` elements that bypass X-Frame-Options.](https://portswigger.net/research/framing-without-iframes)
 
 ---
 

@@ -466,15 +466,15 @@ Business logic vulnerabilities that are specific to particular industry vertical
 
 | Mutation Combination | CVE / Case | Impact / Bounty |
 |---|---|---|
-| §2-1 + §6-1 | CVE-2025-29927 (Next.js) — `x-middleware-subrequest` header bypass skipped authentication middleware entirely | Critical. Allowed complete auth bypass on all Next.js middleware-protected routes |
-| §1-4 + §3-1 | Mass assignment in various platforms (HackerOne aggregate) | 45% of bounty awards in web3/crypto organizations on HackerOne directed at business logic errors (4% cross-industry average) |
-| §4-1 | Coupon race condition (HackerOne report) — Turbo Intruder used for 30 parallel coupon redemptions | $600,000 in unauthorized fee-free transactions |
-| §10-2 | DeFi smart contract logic exploits (2024 aggregate) — re-entrancy, oracle manipulation, bridge logic flaws | $2.013B total losses across 410 incidents in 2024 |
+| §2-1 + §6-1 | CVE-2025-29927 (Next.js) — `x-middleware-subrequest` header bypass skipped authentication middleware entirely | Critical. Allowed complete auth bypass on middleware-protected routes that lacked independent downstream authorization checks |
+| §1-4 + §3-1 | Mass assignment in various platforms (HackerOne aggregate) | Business logic errors account for a large share of web3/crypto bounty impact compared with cross-industry programs |
+| §4-1 | Coupon race condition (HackerOne report) — Turbo Intruder used for parallel coupon redemptions | Unauthorized fee-free transactions through coupon race |
+| §10-2 | DeFi smart contract logic exploits (2024 aggregate) — re-entrancy, oracle manipulation, bridge logic flaws | Major aggregate losses across incidents in 2024 |
 | §7-3 | O2 UK location data exposure — call metadata revealed user location (Data Oracle + Missing Permissions) | Regulatory investigation; privacy violation |
 | §6-3 | HashiCorp Vault / CyberArk Conjur logic flaws — authentication bypass, identity impersonation, policy enforcement circumvention (BlackHat 2024) | Secret exfiltration, identity impersonation, arbitrary code execution |
 | §9-1 | Open GraphQL introspection + shadow signup endpoint bypassing email validation | Account creation without verification; unauthorized access |
 | §2-3 | Unlimited discount redemption (HackerOne) — single coupon applied multiple times via replay | Significant financial impact on merchant |
-| §10-2 | DMM Bitcoin hack (2024) — $308M cryptocurrency theft attributed to Bluenoroff group via logic and social engineering | $308M stolen; largest single crypto hack of 2024 |
+| §10-2 | DMM Bitcoin hack (2024) — cryptocurrency theft attributed to Bluenoroff group via logic and social engineering | One of the largest single crypto hacks of 2024 |
 | §1-2 + §8-1 | PortSwigger Low-Level Logic Flaw lab — integer overflow in shopping cart total | Cart total wraps negative, attacker receives credit |
 
 ---
@@ -505,7 +505,7 @@ The entire spectrum of business logic vulnerabilities stems from a single fundam
 
 ### Why Incremental Patches Fail
 
-Business logic vulnerabilities resist systematic elimination because they are **semantically defined** — you cannot identify them without understanding what the application is *supposed* to do, which no automated tool can fully capture. Each fix addresses a specific assumption violation, but the assumption space is combinatorially vast. Fixing a coupon race condition doesn't prevent a cart manipulation bug; patching a price tampering issue doesn't address a workflow bypass. Moreover, new features continually introduce new state transitions and business rules, each with their own assumption surface. The 59% year-over-year increase in API business logic attacks (2023→2024) reflects this expanding attack surface as applications grow in complexity.
+Business logic vulnerabilities resist systematic elimination because they are **semantically defined** — you cannot identify them without understanding what the application is *supposed* to do, which no automated tool can fully capture. Each fix addresses a specific assumption violation, but the assumption space is combinatorially vast. Fixing a coupon race condition doesn't prevent a cart manipulation bug; patching a price tampering issue doesn't address a workflow bypass. Moreover, new features continually introduce new state transitions and business rules, each with their own assumption surface. Reported growth in API business logic attacks reflects this expanding attack surface as applications grow in complexity.
 
 A systematic analysis of fuzzing sanitizers against the CWE Top 40 (ANOTA, NDSS 2026) quantifies this blind spot: **27 of the 40 most dangerous software weaknesses require business logic context** for detection. These fall into two categories: *Unaddressed Weaknesses* — where no sanitizer exists at all (e.g., CWE-862 Missing Authorization, CWE-287 Improper Authentication, CWE-269 Improper Privilege Management) — and *Narrowly-Addressed Weaknesses* — where existing sanitizers rely on language-specific heuristics with limited generalizability (e.g., Atropos for PHP-only file uploads, ODDFuzz for Java-only deserialization, EDEFuzz requiring a rendered GUI). Standard fuzzers with traditional crash-based oracles detect **zero** business logic bugs even when supplied with vulnerability-triggering inputs, confirming that the sanitizer — not the input generator — is the bottleneck.
 
@@ -527,16 +527,16 @@ A principled defense requires operating at the **design level**, not the impleme
 
 ## References
 
-- OWASP Top 10 for Business Logic Abuse (2025) — https://owasp.org/www-project-top-10-for-business-logic-abuse/
-- OWASP Business Logic Vulnerability — https://owasp.org/www-community/vulnerabilities/Business_logic_vulnerability
-- OWASP Web Security Testing Guide: Business Logic Testing — https://owasp.org/www-project-web-security-testing-guide/v42/4-Web_Application_Security_Testing/10-Business_Logic_Testing/00-Introduction_to_Business_Logic
-- CWE-840: Business Logic Errors — https://cwe.mitre.org/data/definitions/840.html
-- PortSwigger Web Security Academy: Business Logic Vulnerabilities — https://portswigger.net/web-security/logic-flaws
-- Rapid7 Top 10 Business Logic Attack Vectors Whitepaper — https://information.rapid7.com/top-10-business-logic-vectors-whitepaper.html
-- HackerOne Top Business Logic Reports — https://github.com/reddelexc/hackerone-reports/blob/master/tops_by_bug_type/TOPBUSINESSLOGIC.md
-- Anota: Identifying Business Logic Vulnerabilities via Annotation-Based Sanitization (NDSS 2026) — https://dx.doi.org/10.14722/ndss.2026.240938
-- SlowMist 2024 Blockchain Security Report — https://www.slowmist.com/report/2024-Blockchain-Security-and-AML-Annual-Report(EN).pdf
-- PayloadsAllTheThings: Business Logic Errors — https://swisskyrepo.github.io/PayloadsAllTheThings/Business%20Logic%20Errors/
+- [OWASP Top 10 for Business Logic Abuse (2025)](https://owasp.org/www-project-top-10-for-business-logic-abuse/)
+- [OWASP Business Logic Vulnerability](https://owasp.org/www-community/vulnerabilities/Business_logic_vulnerability)
+- [OWASP Web Security Testing Guide: Business Logic Testing](https://owasp.org/www-project-web-security-testing-guide/v42/4-Web_Application_Security_Testing/10-Business_Logic_Testing/00-Introduction_to_Business_Logic)
+- [CWE-840: Business Logic Errors](https://cwe.mitre.org/data/definitions/840.html)
+- [PortSwigger Web Security Academy: Business Logic Vulnerabilities](https://portswigger.net/web-security/logic-flaws)
+- [Rapid7 Top 10 Business Logic Attack Vectors Whitepaper](https://information.rapid7.com/top-10-business-logic-vectors-whitepaper.html)
+- [HackerOne Top Business Logic Reports](https://github.com/reddelexc/hackerone-reports/blob/master/tops_by_bug_type/TOPBUSINESSLOGIC.md)
+- [Anota: Identifying Business Logic Vulnerabilities via Annotation-Based Sanitization (NDSS 2026)](https://dx.doi.org/10.14722/ndss.2026.240938)
+- [SlowMist 2024 Blockchain Security Report](https://www.slowmist.com/report/2024-Blockchain-Security-and-AML-Annual-Report(EN).pdf)
+- [PayloadsAllTheThings: Business Logic Errors](https://swisskyrepo.github.io/PayloadsAllTheThings/Business%20Logic%20Errors/)
 
 ---
 

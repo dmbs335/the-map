@@ -321,9 +321,9 @@ Java has the broadest XML processing ecosystem and, historically, the most permi
 
 | Aspect | Behavior |
 |--------|----------|
-| **PHP < 8.0** | External entity loading is **enabled by default** (the entity loader is NOT disabled). Applications must call `libxml_disable_entity_loader(true)` to harden against XXE |
-| **PHP >= 8.0** | External entity loading disabled by default; `libxml_disable_entity_loader()` deprecated |
-| **`LIBXML_NOENT` flag** | Explicitly enables entity substitution — re-introduces XXE even in PHP 8.0+ |
+| **PHP < 8.0 / legacy libxml** | Do not treat the PHP major version alone as the security boundary: behavior depends on the linked libxml2 version and parser options. Older stacks or code that enables DTD/entity expansion can still require explicit hardening via `libxml_disable_entity_loader(true)` or a custom external entity loader |
+| **PHP >= 8.0 / libxml2 >= 2.9** | External entity substitution is disabled by default in the common libxml2-based parser path; `libxml_disable_entity_loader()` is deprecated because default entity loading is no longer the normal XXE trigger |
+| **`LIBXML_NOENT` flag** | Explicitly enables entity substitution — can re-introduce XXE even on modern PHP/libxml stacks |
 | **`simplexml_load_string()` with options** | Passing `LIBXML_NOENT` as option makes it vulnerable |
 | **PHP stream wrappers** | `php://filter`, `expect://`, `phar://`, `data://` available via libxml2's I/O handlers (§3-4) |
 | **`LIBXML_NONET` bypass (double-parse)** | `LIBXML_NONET` suppresses network access but not parameter-entity expansion at parse time; in parse–sanitize–re-parse flows, entities referencing `php://filter` chains expand during the first pass before the flag takes effect, enabling local file reads in hardened configurations |
@@ -503,7 +503,7 @@ This section consolidates bypass techniques from across the taxonomy, organized 
 | §7-5 (nested deserialization → XXE) + §1-2 + §7-2 | CVE-2024-34102 — Adobe Commerce/Magento "CosmicSting" | CVSS 9.8. Unauthenticated XXE via nested deserialization; admin JWT forgery, chainable with CVE-2024-2961 for RCE. Actively exploited in the wild. |
 | §6-3 (.NET parser bypass) + §1-2 + §4-3 | CVE-2024-30043 — Microsoft SharePoint | CVSS 7.1. URL parsing confusion bypasses DTD prohibition; file read with Farm Service Account, NTLM relay, SSRF. Affects both on-prem and cloud. |
 | §1-1 + §3-2 + §7-2 | CVE-2025-58360 — GeoServer | CVSS High. XXE via GetMap WMS operation; file read, SSRF, DoS. Added to CISA KEV catalog; actively exploited. |
-| §4-1 (PDF/XFA carrier) + §1-1 | CVE-2025-66516 — Apache Tika | CVSS 10.0. XXE via crafted XFA content embedded in PDF files; affects tika-core, tika-pdf-module, tika-parsers. |
+| §4-1 (PDF/XFA carrier) + §1-1 | CVE-2025-66516 — Apache Tika | CVSS 8.4. XXE via crafted XFA content embedded in PDF files; affects tika-core, tika-pdf-module, tika-parsers. |
 | §1-1 + §6-1 (Java) | CVE-2024-45072 — IBM WebSphere Application Server | Privileged user XXE; sensitive information exposure, memory consumption. |
 | §1-1 + §3-2 + §6-1 | CVE-2024-22354 — IBM WebSphere Application Server Liberty | XXE with SSRF capability; remote attacker can expose sensitive information. |
 | §4-1 (XLSX) + §1-1 | CVE-2025-49493 — Akamai CloudTest | XXE via uploaded XML test configuration; fixed by disabling DTD processing entirely. |
@@ -549,18 +549,18 @@ This section consolidates bypass techniques from across the taxonomy, organized 
 
 ## References
 
-- OWASP XML External Entity Prevention Cheat Sheet: https://cheatsheetseries.owasp.org/cheatsheets/XML_External_Entity_Prevention_Cheat_Sheet.html
-- PortSwigger Web Security Academy — XXE: https://portswigger.net/web-security/xxe
-- PortSwigger Web Security Academy — Blind XXE: https://portswigger.net/web-security/xxe/blind
-- HackTricks XXE Reference: https://book.hacktricks.xyz/pentesting-web/xxe-xee-xml-external-entity
-- PayloadsAllTheThings XXE Injection: https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/XXE%20Injection
-- GoSecure Advanced XXE Workshop: https://gosecure.github.io/xxe-workshop/
-- Wallarm XXE WAF Bypass: https://lab.wallarm.com/xxe-that-can-bypass-waf-protection-98f679452ce0/
-- Assetnote — CVE-2024-34102 CosmicSting Analysis: https://www.assetnote.io/resources/research/why-nested-deserialization-is-harmful-magento-xxe-cve-2024-34102
-- ZDI — CVE-2024-30043 SharePoint XXE: https://www.thezdi.com/blog/2024/5/29/cve-2024-30043-abusing-url-parsing-confusion-to-exploit-xxe-on-sharepoint-server-and-cloud
-- Akamai — CVE-2025-66516 Apache Tika XXE: https://www.akamai.com/blog/security-research/cve-2025-66516-detecting-defending-apache-tika-xxe-attack
-- HackerOne XXE Complete Guide: https://www.hackerone.com/knowledge-center/xxe-complete-guide-impact-examples-and-prevention
-- Sonarsource — How to disable XXE processing: https://www.sonarsource.com/blog/secure-xml-processor/
+- [OWASP XML External Entity Prevention Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/XML_External_Entity_Prevention_Cheat_Sheet.html)
+- [PortSwigger Web Security Academy — XXE](https://portswigger.net/web-security/xxe)
+- [PortSwigger Web Security Academy — Blind XXE](https://portswigger.net/web-security/xxe/blind)
+- [HackTricks XXE Reference](https://book.hacktricks.xyz/pentesting-web/xxe-xee-xml-external-entity)
+- [PayloadsAllTheThings XXE Injection](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/XXE%20Injection)
+- [GoSecure Advanced XXE Workshop](https://gosecure.github.io/xxe-workshop/)
+- [Wallarm XXE WAF Bypass](https://lab.wallarm.com/xxe-that-can-bypass-waf-protection-98f679452ce0/)
+- [Assetnote — CVE-2024-34102 CosmicSting Analysis](https://www.assetnote.io/resources/research/why-nested-deserialization-is-harmful-magento-xxe-cve-2024-34102)
+- [ZDI — CVE-2024-30043 SharePoint XXE](https://www.thezdi.com/blog/2024/5/29/cve-2024-30043-abusing-url-parsing-confusion-to-exploit-xxe-on-sharepoint-server-and-cloud)
+- [Akamai — CVE-2025-66516 Apache Tika XXE](https://www.akamai.com/blog/security-research/cve-2025-66516-detecting-defending-apache-tika-xxe-attack)
+- [HackerOne XXE Complete Guide](https://www.hackerone.com/knowledge-center/xxe-complete-guide-impact-examples-and-prevention)
+- [Sonarsource — How to disable XXE processing](https://www.sonarsource.com/blog/secure-xml-processor/)
 
 ---
 

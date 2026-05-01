@@ -262,7 +262,7 @@ Additional scopes and beans exposed in Spring Framework.
 | **Environment Property Access** | `@environment.getProperty('secret.key')` reads configuration | Spring environment accessible |
 | **WebFlow Scope Pollution** | Accessing flow and conversation scopes in Spring WebFlow | WebFlow-specific scopes |
 
-**CVE-2025-41253**: Spring Cloud Gateway leaked environment variables via SpEL injection when actuator endpoints misconfigured.
+**CVE-2025-41253**: Spring Cloud Gateway Server WebFlux could expose environment variables and system properties when applications allowed SpEL-controlled routes through exposed, unsecured Gateway actuator endpoints.
 
 ### §6-3. OGNL Context Variables
 
@@ -360,7 +360,7 @@ Freemarker, Velocity, Thymeleaf unique exploitation.
 
 | Mutation Combination | CVE / Case | Impact / Bounty |
 |---------------------|-----------|----------------|
-| §5-3 + §2-1 | CVE-2025-41253 (Spring Cloud Gateway) | HIGH. Environment variable exposure via SpEL in actuator routes |
+| §5-3 + §2-1 | CVE-2025-41253 (Spring Cloud Gateway Server WebFlux) | MODERATE. Environment variable/system property exposure through SpEL-controlled routes under specific exposed-actuator conditions |
 | §5-2 + §3-1 | CVE-2024-51466 (IBM Cognos) | CRITICAL. RCE via reflection-based EL injection in validation messages |
 | §3-2 + §8-2 | CVE-2023-22527 (Confluence) | CVSS 10.0 CRITICAL. Unauthenticated OGNL RCE via Class.forName() bypass |
 | §5-3 + §2-1 | CVE-2022-22963 (Spring Cloud Function) | CRITICAL. SpEL RCE via routing-expression header, exploited in wild |
@@ -369,7 +369,7 @@ Freemarker, Velocity, Thymeleaf unique exploitation.
 | §5-2 + §6-3 | CVE-2021-26084 (Confluence) | CRITICAL. OGNL injection via WebWork |
 | §8-2 | CVE-2020-17530 (Struts) | CRITICAL. Double OGNL evaluation via #_memberAccess manipulation |
 | §8-3 | CVE-2020-13942 (Apache Unomi) | CRITICAL. MVEL RCE in profile condition evaluation |
-| §5-3 + §8-2 | CVE-2017-5638 (Struts/Equifax) | CRITICAL. $1.38B+ total cost ($700M FTC settlement + $1B security upgrades). OGNL injection via Content-Type header |
+| §5-3 + §8-2 | CVE-2017-5638 (Struts/Equifax) | CRITICAL. Major breach and regulatory/security remediation costs. OGNL injection via Content-Type header |
 | §4-1 + WAF bypass | Pulse Security Case Study | N/A. WAF bypass via ASCII character construction achieving RCE |
 | §1-3 + §3-2 | Nuxeo/JBoss Seam (Amazon, 2018) | Unauthenticated RCE via semicolon path parameter ACL bypass → Seam `actionMethod` double EL evaluation → blacklist bypass using array notation (`""["class"]` instead of `.getClass()`) |
 | §6-1 | PayPal Disclosure (Medium writeup) | Bug bounty. Internal information disclosure via implicit object access |
@@ -436,7 +436,8 @@ The only reliable defense is **architectural isolation**:
 ## References
 
 ### CVE Advisories
-- [Spring Cloud Gateway CVE-2025-41253](https://securityonline.info/spring-patches-two-flaws-spel-injection-cve-2025-41253-leaks-secrets-stomp-csrf-bypasses-websocket-security/)
+- [Spring Security Advisory — CVE-2025-41253](https://spring.io/security/cve-2025-41253)
+- [Spring Cloud Gateway release note addressing CVE-2025-41253](https://spring.io/blog/2025/10/15/spring-cloud-gateway-4)
 - [Confluence CVE-2023-22527 OGNL Injection](https://www.picussecurity.com/resource/blog/cve-2023-22527-another-ognl-injection-leads-to-rce-in-atlassian-confluence)
 - [Spring Cloud Function CVE-2022-22963](https://www.akamai.com/blog/security/spring-cloud-function)
 - [Apache Struts CVE-2017-5638 (Equifax Breach)](https://www.blackduck.com/blog/cve-2017-5638-apache-struts-vulnerability-explained.html)

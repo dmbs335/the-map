@@ -52,7 +52,7 @@ Integer overflows in dimension calculations or counter arithmetic cause the allo
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
 | **JBIG2 symbol count overflow** | `numSyms` can be smaller than the size of one `JBIG2Segment` due to integer overflow, causing loop iterations beyond allocated buffer bounds — the foundational primitive of the FORCEDENTRY exploit | Apple CoreGraphics JBIG2 decoder (CVE-2021-30860); Poppler, Xpdf JBIG2 decoders (CVE-2022-38784) |
-| **BMP encoder dimension overflow** | 32-bit integer overflow in ImageMagick's BMP encoder causes undersized heap allocation followed by oversized write when encoding images with extreme dimensions | ImageMagick on 32-bit builds (CVE-2025-57803, CVSS 9.8) |
+| **BMP encoder dimension overflow** | 32-bit integer overflow in ImageMagick's BMP encoder causes undersized heap allocation followed by oversized write when encoding images with extreme dimensions | ImageMagick on 32-bit builds (CVE-2025-57803, CVSS 7.5) |
 | **Palette index overflow** | Heap buffer over-read in `png_do_quantize` triggered by malformed palette index values exceeding the allocated palette size | libpng 1.6.0–1.6.50 (CVE-2025-64505) |
 | **TIFF StripByteCount overflow** | Integer overflow in TIFF strip/tile byte count fields causes undersized buffer allocation followed by oversized decompression write | libtiff (historical pattern — 63+ overflow CVEs, including CVE-2025-9900 write-what-where) |
 | **Reference count overflow** | `std::atomic_int` used for reference counting overflows, triggering use-after-free when the counter wraps to zero prematurely | Poppler ≤ 25.06.0 (CVE-2025-52886); PDF rendering pipelines |
@@ -241,7 +241,7 @@ Object Linking and Embedding (OLE) allows Office documents to contain embedded o
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
 | **Zero-click OLE heap overflow** | A zero-click vulnerability in Windows OLE enables RCE when Outlook processes RTF emails containing malformed OLE objects — no user interaction beyond email preview | Windows OLE (CVE-2025-21298, CVSS 9.8); zero-click via Outlook email preview |
-| **OLE kill bit bypass** | OLE object processing attempts to load `Shell.Explorer.1` embedded browser control, bypassing kill bit validation to achieve code execution without macro warnings or "Enable Content" prompts | Microsoft Office (CVE-2026-21509, CVSS 7.8); emergency out-of-band patch January 2026 |
+| **Office security feature bypass** | Reliance on untrusted inputs in a security decision allows a local Microsoft Office security-feature bypass. Treat OLE/kill-bit mechanics as secondary attribution unless separately sourced; NVD/MSRC do not classify this as standalone RCE | Microsoft Office (CVE-2026-21509, CVSS 7.8, UI:R; CISA KEV) |
 | **OLE Package file drop** | OLE Package objects embed arbitrary files. When processed, the embedded file is extracted to a temporary location and can be invoked via linked scripts or macros | Windows-based document processing; legacy OLE Package support |
 | **ActiveX control instantiation** | Documents referencing ActiveX controls trigger control instantiation in the host process. Vulnerable or misconfigured controls provide code execution primitives | Internet Explorer/Office with ActiveX enabled; increasingly rare but still exploited |
 
@@ -453,7 +453,7 @@ The pattern extends beyond ClamAV to any security tool that parses file formats.
 
 ---
 
-## CVE / Bounty Mapping (2021–2025)
+## CVE / Bounty Mapping (2021–2026)
 
 | Mutation Combination | CVE / Case | Impact / Bounty |
 |---|---|---|
@@ -463,7 +463,7 @@ The pattern extends beyond ClamAV to any security tool that parses file formats.
 | §4-1 (FreeType subglyph overflow) | CVE-2025-27363 (FreeType ≤ 2.13.0) | CVSS 8.1. Actively exploited zero-click. CISA KEV catalog. Affects billions of devices (Android, Linux, ChromeOS) |
 | §3-2 (CoreAudio AAC heap corruption) | CVE-2025-31200 (iOS CoreAudio) | Zero-day zero-click RCE via iMessage. Patched iOS 18.4.1 |
 | §6-1 (OLE zero-click heap overflow) | CVE-2025-21298 (Windows OLE) | CVSS 9.8. Zero-click via Outlook email preview. RTF document exploit |
-| §6-1 (OLE kill bit bypass) | CVE-2026-21509 (Microsoft Office) | CVSS 7.8. Emergency out-of-band patch. OLE security mitigation bypass |
+| §6-1 (Office security feature bypass) | CVE-2026-21509 (Microsoft Office) | CVSS 7.8. CISA KEV. Local/UI-required Office security feature bypass; not a standalone RCE per NVD/MSRC description |
 | §11-1 (ClamAV PDF parser overflow) | CVE-2025-20260 (ClamAV) | CVSS 9.8. RCE via PDF scanning in antivirus engine |
 | §11-1 (ClamAV HFS+ parser RCE) | CVE-2023-20032 (ClamAV) | CVSS 9.8. RCE via crafted HFS+ partition in antivirus scan |
 | §1-1 (WebP Huffman overflow) | CVE-2023-4863 / CVE-2023-5129 (libwebp) | CVSS 10.0. Affects every browser, Electron app, image library linking libwebp |
@@ -571,8 +571,8 @@ Effective defense against document and media processing RCE requires **architect
 - ImageTragick.com — ImageMagick CVE-2016-3714 Advisory
 - arxiv.org — Where the Polyglots Are: How Polyglot Files Enable Cyber Attack Chains (2024)
 - TU Braunschweig — Server-Side Browsers: Exploring the Web's Hidden Attack Surface
-- Emil Lerner — "HotPics 2021: The Current State of Server-Side Image Conversion Attacks" (ZeroNights X, 2021). Survey of ImageMagick, Ghostscript, Pillow exploitation including Ghostscript zero-day achieving bounties at Airbnb, Dropbox, and Yandex. https://www.slideshare.net/neexemil/hotpics-2021
-- PT SWARM — "Blind trust: what is hidden behind the process of creating your PDF file?" (2025). Path traversal encoding bypass, Phar deserialization, and security hook timing bypass in TCPDF, spipu/html2pdf, mpdf, and jsPDF. https://swarm.ptsecurity.com/blind-trust-what-is-hidden-behind-the-process-of-creating-your-pdf-file/
+- [Emil Lerner — "HotPics 2021: The Current State of Server-Side Image Conversion Attacks" (ZeroNights X, 2021). Survey of ImageMagick, Ghostscript, Pillow exploitation including Ghostscript zero-day achieving bounties at Airbnb, Dropbox, and Yandex.](https://www.slideshare.net/neexemil/hotpics-2021)
+- [PT SWARM — "Blind trust: what is hidden behind the process of creating your PDF file?" (2025). Path traversal encoding bypass, Phar deserialization, and security hook timing bypass in TCPDF, spipu/html2pdf, mpdf, and jsPDF.](https://swarm.ptsecurity.com/blind-trust-what-is-hidden-behind-the-process-of-creating-your-pdf-file/)
 
 ---
 

@@ -174,7 +174,7 @@ Salesforce's OAuth implementation for Connected Apps is a primary attack vector 
 
 | Subtype | Mechanism | Discrepancy |
 |---------|-----------|-------------|
-| **Compromised third-party integration tokens** | Attackers obtain OAuth refresh tokens from a compromised third-party integration (e.g., Salesloft/Drift), then use those tokens to access Salesforce environments of all customers using that integration — 700+ organizations affected in the 2025 UNC6395 campaign | D-AUTH |
+| **Compromised third-party integration tokens** | Attackers obtain OAuth refresh tokens from a compromised third-party integration (e.g., Salesloft/Drift), then use those tokens to access Salesforce environments of customers using that integration — broad organizational impact in the 2025 UNC6395 campaign | D-AUTH |
 | **Malicious Connected App authorization** | Attackers social-engineer users (often via vishing) into authorizing fraudulent Connected Apps that mimic legitimate tools (e.g., fake "Data Loader"), granting long-lived OAuth tokens | D-AUTH |
 | **OAuth token MFA bypass** | Once an OAuth refresh token is obtained, it generates new access tokens without requiring MFA, enabling persistent access that survives password changes | D-AUTH |
 | **Data Loader impersonation** | Attackers clone the Salesforce Data Loader OAuth client configuration, creating a connected app with identical scope that victims authorize through a spoofed device code flow | D-AUTH |
@@ -269,7 +269,7 @@ Salesforce exposes multiple API surfaces (REST, SOAP, Bulk, Composite, GraphQL, 
 
 | Subtype | Mechanism | Discrepancy |
 |---------|-----------|-------------|
-| **Bulk query exfiltration** | Compromised OAuth tokens used to execute SOQL queries via `/services/data/vXX.0/query`, returning ~2.3 MB (~1,000 records) per request — IP rotation evades per-IP rate limits | D-VISIBILITY |
+| **Bulk query exfiltration** | Compromised OAuth tokens used to execute SOQL queries via `/services/data/vXX.0/query`, returning batches of records per request — IP rotation evades per-IP rate limits | D-VISIBILITY |
 | **API-only access bypassing UI controls** | Security controls visible in the Lightning UI (warning dialogs, field visibility restrictions) do not apply to API access, enabling data access beyond what the UI would suggest | D-ENFORCE |
 | **Bulk API 2.0 mass export** | Bulk API jobs process millions of records asynchronously — a compromised service account can initiate bulk exports that blend with legitimate ETL traffic | D-VISIBILITY |
 | **Composite API chaining** | Composite requests chain up to 25 subrequests, enabling complex data harvesting operations in a single API call that may evade per-request monitoring | D-VISIBILITY |
@@ -325,7 +325,7 @@ Salesforce's AI integration through Agentforce and Einstein introduces a new att
 | Subtype | Mechanism | Discrepancy |
 |---------|-----------|-------------|
 | **Web-to-Lead payload injection** | Malicious text injected into Web-to-Lead form fields (particularly the 42,000-character `description` field) is later processed by Agentforce, executing injected instructions in the AI's context — CVSS 9.4 | D-TRUST |
-| **CSP bypass via expired whitelisted domain** | Salesforce's Content Security Policy whitelisted an expired domain (`my-salesforce-cms.com`) that researchers purchased for $5, enabling data exfiltration through attacker-controlled URLs | D-TRUST |
+| **CSP bypass via expired whitelisted domain** | Salesforce's Content Security Policy whitelisted an expired domain (`my-salesforce-cms.com`) that researchers purchased, enabling data exfiltration through attacker-controlled URLs | D-TRUST |
 | **CRM data exfiltration via AI** | Prompt injection causes Agentforce to query CRM objects and transmit results to attacker-controlled endpoints, bypassing traditional data access controls | D-TRUST |
 | **Persistent access establishment** | Injected prompts can manipulate CRM records (updating contact information, creating tasks) to establish persistent attacker footholds that survive the AI interaction | D-TRUST |
 
@@ -340,7 +340,7 @@ Salesforce's AI integration through Agentforce and Einstein introduces a new att
 
 ## §11. Third-Party & Supply Chain
 
-The Salesforce ecosystem includes ~7,000 AppExchange packages and countless custom integrations. Each extends the trust boundary of the platform.
+The Salesforce ecosystem includes many AppExchange packages and countless custom integrations. Each extends the trust boundary of the platform.
 
 ### §11-1. Managed Package Risks
 
@@ -410,7 +410,7 @@ Salesforce's email services, when misconfigured, provide high-trust phishing inf
 | §4-1 (Guest user Custom Settings access) | CVE-2025-43701 | Guest users could read Custom Settings via FlexCard SOQL |
 | §2-1 (Standard controller SOQL injection 0-day) | Disclosed 2025, no CVE | Built-in `CsvDataImportResourceFamilyController` allowed blind SOQL injection in all Salesforce orgs |
 | §8-2 (Public link SOQL injection) | Patched Feb 2024, no CVE | Blind SOQL injection through public link Aura endpoints enabled PII extraction |
-| §5-1 (Third-party token compromise) | UNC6395 / 2025 | 700+ organizations compromised via Salesloft/Drift OAuth token breach |
+| §5-1 (Third-party token compromise) | UNC6395 / 2025 | Broad organizational compromise via Salesloft/Drift OAuth token breach |
 | §5-1 + §8-1 (OAuth abuse + bulk exfil) | UNC6040 / 2025 | Google Ads Salesforce instance: 2.55M records exfiltrated via stolen OAuth tokens |
 | §10-1 (ForcedLeak prompt injection) | CVSS 9.4 / Patched Sept 2025 | Agentforce indirect prompt injection via Web-to-Lead with CSP bypass |
 | §12-1 (PhishForce email exploitation) | Disclosed Aug 2023 | Salesforce Email-to-Case exploited for phishing campaign targeting Facebook users |
@@ -473,37 +473,37 @@ Until these structural shifts occur, the Salesforce ecosystem will continue to p
 ## References
 
 ### CVE Databases & Advisories
-- Salesforce Security Advisories — https://security.salesforce.com/security-advisories
-- CVE Details: Salesforce — https://www.cvedetails.com/vendor/17066/Salesforce.html
+- [Salesforce Security Advisories](https://security.salesforce.com/security-advisories)
+- [CVE Details: Salesforce](https://www.cvedetails.com/vendor/17066/Salesforce.html)
 
 ### Research & Vulnerability Analysis
-- AppOmni — Salesforce Industry Clouds: 0-days and Exploitable Misconfigs (2025) — https://appomni.com/ao-labs/salesforce-industry-clouds-security-report-omnistudio-cves/
-- Mandiant / Google Cloud — AuraInspector: Auditing Salesforce Aura for Data Exposure — https://cloud.google.com/blog/topics/threat-intelligence/auditing-salesforce-aura-data-exposure
-- Varonis — Abusing Misconfigured Salesforce Experiences for Recon and Data Theft — https://www.varonis.com/blog/abusing-salesforce-communities
-- Varonis — Data Theft in Salesforce: Manipulating Public Links — https://www.varonis.com/blog/manipulating-salesforce-public-links
-- mastersplinter.work — Finding an SOQL Injection 0-Day in Salesforce (2025) — https://mastersplinter.work/research/salesforce-sqli/
-- Noma Security — ForcedLeak: AI Agent Risks Exposed in Salesforce AgentForce (2025) — https://noma.security/blog/forcedleak-agent-risks-exposed-in-salesforce-agentforce/
-- Enumerated.ie — Salesforce Lightning Exploitation Vectors — https://www.enumerated.ie/index/salesforce
-- Intigriti — Hacking Salesforce Lightning: A Guide for Bug Hunters — https://www.intigriti.com/researchers/blog/hacking-tools/hacking-salesforce-lightning-guide-for-bug-hunters
-- 0xbro — Pentesting Salesforce Communities — https://0xbro.red/writeups/web-hacking/salesforce-hacking/
-- Guard.io — PhishForce: Vulnerability Uncovered in Salesforce's Email Services — https://labs.guard.io/phishforce-vulnerability-uncovered-in-salesforces-email-services-exploited-for-phishing-32024ad4b5fa
+- [AppOmni — Salesforce Industry Clouds: 0-days and Exploitable Misconfigs (2025)](https://appomni.com/ao-labs/salesforce-industry-clouds-security-report-omnistudio-cves/)
+- [Mandiant / Google Cloud — AuraInspector: Auditing Salesforce Aura for Data Exposure](https://cloud.google.com/blog/topics/threat-intelligence/auditing-salesforce-aura-data-exposure)
+- [Varonis — Abusing Misconfigured Salesforce Experiences for Recon and Data Theft](https://www.varonis.com/blog/abusing-salesforce-communities)
+- [Varonis — Data Theft in Salesforce: Manipulating Public Links](https://www.varonis.com/blog/manipulating-salesforce-public-links)
+- [mastersplinter.work — Finding an SOQL Injection 0-Day in Salesforce (2025)](https://mastersplinter.work/research/salesforce-sqli/)
+- [Noma Security — ForcedLeak: AI Agent Risks Exposed in Salesforce AgentForce (2025)](https://noma.security/blog/forcedleak-agent-risks-exposed-in-salesforce-agentforce/)
+- [Enumerated.ie — Salesforce Lightning Exploitation Vectors](https://www.enumerated.ie/index/salesforce)
+- [Intigriti — Hacking Salesforce Lightning: A Guide for Bug Hunters](https://www.intigriti.com/researchers/blog/hacking-tools/hacking-salesforce-lightning-guide-for-bug-hunters)
+- [0xbro — Pentesting Salesforce Communities](https://0xbro.red/writeups/web-hacking/salesforce-hacking/)
+- [Guard.io — PhishForce: Vulnerability Uncovered in Salesforce's Email Services](https://labs.guard.io/phishforce-vulnerability-uncovered-in-salesforces-email-services-exploited-for-phishing-32024ad4b5fa)
 
 ### Threat Intelligence
-- Google Cloud / Mandiant — Widespread Data Theft Targets Salesforce Instances via Salesloft Drift (UNC6395) — https://cloud.google.com/blog/topics/threat-intelligence/data-theft-salesforce-instances-via-salesloft-drift
-- Google Cloud — The Cost of a Call: From Voice Phishing to Data Extortion — https://cloud.google.com/blog/topics/threat-intelligence/voice-phishing-data-extortion
-- Palo Alto Unit 42 — Threat Brief: Salesloft Drift Integration Compromise — https://unit42.paloaltonetworks.com/threat-brief-compromised-salesforce-instances/
-- Mitiga — Salesforce Data Loader Exfiltration Attack Explained — https://www.mitiga.io/blog/how-threat-actors-used-salesforce-data-loader-for-covert-api-exfiltration
+- [Google Cloud / Mandiant — Widespread Data Theft Targets Salesforce Instances via Salesloft Drift (UNC6395)](https://cloud.google.com/blog/topics/threat-intelligence/data-theft-salesforce-instances-via-salesloft-drift)
+- [Google Cloud — The Cost of a Call: From Voice Phishing to Data Extortion](https://cloud.google.com/blog/topics/threat-intelligence/voice-phishing-data-extortion)
+- [Palo Alto Unit 42 — Threat Brief: Salesloft Drift Integration Compromise](https://unit42.paloaltonetworks.com/threat-brief-compromised-salesforce-instances/)
+- [Mitiga — Salesforce Data Loader Exfiltration Attack Explained](https://www.mitiga.io/blog/how-threat-actors-used-salesforce-data-loader-for-covert-api-exfiltration)
 
 ### Salesforce Official Security Documentation
-- Salesforce Secure Coding Guide — https://developer.salesforce.com/docs/atlas.en-us.secure_coding_guide.meta/secure_coding_guide/
-- Salesforce Lightning Security — https://developer.salesforce.com/docs/atlas.en-us.secure_coding_guide.meta/secure_coding_guide/secure_coding_lightning_security.htm
-- Salesforce Top 20 AppExchange Vulnerabilities — https://developer.salesforce.com/blogs/2023/08/the-top-20-vulnerabilities-found-in-the-appexchange-security-review
-- Salesforce Trailhead: Secure Server-Side Development — https://trailhead.salesforce.com/content/learn/modules/secure-serverside-development/
-- Salesforce SOQL Injection Prevention — https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/pages_security_tips_soql_injection.htm
-- Spinning Code — Salesforce ID Iteration Attacks — https://spinningcode.org/2025/04/salesforce-id-iteration-attacks/
+- [Salesforce Secure Coding Guide](https://developer.salesforce.com/docs/atlas.en-us.secure_coding_guide.meta/secure_coding_guide/)
+- [Salesforce Lightning Security](https://developer.salesforce.com/docs/atlas.en-us.secure_coding_guide.meta/secure_coding_guide/secure_coding_lightning_security.htm)
+- [Salesforce Top 20 AppExchange Vulnerabilities](https://developer.salesforce.com/blogs/2023/08/the-top-20-vulnerabilities-found-in-the-appexchange-security-review)
+- [Salesforce Trailhead: Secure Server-Side Development](https://trailhead.salesforce.com/content/learn/modules/secure-serverside-development/)
+- [Salesforce SOQL Injection Prevention](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/pages_security_tips_soql_injection.htm)
+- [Spinning Code — Salesforce ID Iteration Attacks](https://spinningcode.org/2025/04/salesforce-id-iteration-attacks/)
 
 ### Industry Analysis
-- Salesforce Ben — Why Salesforce Orgs Got Hacked So Much in 2025 — https://www.salesforceben.com/why-salesforce-orgs-got-hacked-so-much-in-2025-and-how-to-avoid-this-in-2026/
-- AppOmni — How to Avoid Salesforce Security Vulnerabilities in Custom Lightning Components — https://appomni.com/resources/aolabs/how-to-avoid-introducing-salesforce-security-vulnerabilities-when-building-custom-lightning-components-in-apex/
-- Blueinfy — Understanding CRUD/FLS and Sharing Violation Vulnerabilities — https://blog.blueinfy.com/2024/11/understanding-crudfls-and-sharing.html
-- Obsidian Security — Salesforce Misconfigurations are Exposing Sensitive Data — https://www.obsidiansecurity.com/blog/salesforce-misconfigurations-expose-sensitive-data
+- [Salesforce Ben — Why Salesforce Orgs Got Hacked So Much in 2025](https://www.salesforceben.com/why-salesforce-orgs-got-hacked-so-much-in-2025-and-how-to-avoid-this-in-2026/)
+- [AppOmni — How to Avoid Salesforce Security Vulnerabilities in Custom Lightning Components](https://appomni.com/resources/aolabs/how-to-avoid-introducing-salesforce-security-vulnerabilities-when-building-custom-lightning-components-in-apex/)
+- [Blueinfy — Understanding CRUD/FLS and Sharing Violation Vulnerabilities](https://blog.blueinfy.com/2024/11/understanding-crudfls-and-sharing.html)
+- [Obsidian Security — Salesforce Misconfigurations are Exposing Sensitive Data](https://www.obsidiansecurity.com/blog/salesforce-misconfigurations-expose-sensitive-data)

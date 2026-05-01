@@ -524,10 +524,10 @@ Targets WebSocket connections that maintain persistent, bidirectional communicat
 
 | Mutation Combination | CVE / Case | Impact / Bounty |
 |---------------------|-----------|----------------|
-| §9-1 (multipart boundary) + §9-2 (header reordering) | WAFFLED bypasses (2025) — AWS WAF, Azure, Cloud Armor, Cloudflare, ModSecurity | 1,207 bypasses discovered; Google Cloud Armor classified as Tier 1/Priority 1/Severity 1 "Insecure by Default"; bug bounty awarded |
+| §9-1 (multipart boundary) + §9-2 (header reordering) | WAFFLED bypasses (2025) — AWS WAF, Azure, Cloud Armor, Cloudflare, ModSecurity | Large number of bypasses discovered; Google Cloud Armor classified as Tier 1/Priority 1/Severity 1 "Insecure by Default"; bug bounty awarded |
 | §10-2 (H2.CL, 0.CL desync) | Multiple desync CVEs (2024–2025) — Apache, NGINX, HAProxy | Server-side request smuggling enabling cache poisoning, credential theft |
 | §8-1 (SQL injection) + §9-3 (keyword fragmentation) | Sqirl grey-box SQLi detection (USENIX 2023) | Discovered previously unknown SQLi in real-world PHP applications |
-| §5-1 (REST API fuzzing) + §5-2 (GraphQL IDOR) | BOLABuster API testing (2024) — 15 CVEs in single project | BOLA/IDOR vulnerabilities in open-source projects; <1% of requests compared to other tools |
+| §5-1 (REST API fuzzing) + §5-2 (GraphQL IDOR) | BOLABuster API testing (2024) | BOLA/IDOR vulnerabilities in open-source projects; request-efficient compared to other tools |
 | §7-3 (single-packet race) + §7-1 (OTP brute-force) | Rate-limit bypass via First Sequence Sync (2024) | 5-attempt OTP limit bypassed to 1,000 attempts; authentication bypass demonstrated |
 | §6-1 (extension bypass) + §6-2 (polyglot) | Multiple WordPress plugin CVEs (2024) | Remote code execution via file upload bypass in popular plugins |
 | §8-5 (XSS) + §8-1 (SQLi) via §2-2 (parameter mutation) | PHUZZ 0-day discoveries (2024) — WordPress plugins | 24 security issues including 2 zero-day vulnerabilities; 2 CVE-IDs assigned |
@@ -599,7 +599,7 @@ The web fuzzing attack surface exists because web applications are inherently mu
 
 **Why do incremental patches fail to eliminate the threat?**
 
-Incremental patches address specific parsing inconsistencies or payload patterns, but they cannot resolve the fundamental architectural reality that multiple independent parsers interpret the same input. Each new framework, protocol version (HTTP/2, HTTP/3), content format (JSON, YAML, CBOR), and transport mechanism (WebSocket, gRPC) introduces fresh parsing surfaces. WAF rule updates create an arms race: every new rule can be tested against by automated fuzzing tools that systematically explore the gap between what the rule blocks and what the application processes. The WAFFLED research demonstrated this vividly — 1,207 bypasses across five major WAFs, all exploiting structural parsing discrepancies rather than novel payload patterns. As long as the security enforcement layer and the application layer are separate systems with separate parsers, this discrepancy surface will regenerate with every software update.
+Incremental patches address specific parsing inconsistencies or payload patterns, but they cannot resolve the fundamental architectural reality that multiple independent parsers interpret the same input. Each new framework, protocol version (HTTP/2, HTTP/3), content format (JSON, YAML, CBOR), and transport mechanism (WebSocket, gRPC) introduces fresh parsing surfaces. WAF rule updates create an arms race: every new rule can be tested against by automated fuzzing tools that systematically explore the gap between what the rule blocks and what the application processes. The WAFFLED research demonstrated this vividly through a large set of bypasses across major WAFs, all exploiting structural parsing discrepancies rather than novel payload patterns. As long as the security enforcement layer and the application layer are separate systems with separate parsers, this discrepancy surface will regenerate with every software update.
 
 **What would a structural solution look like?**
 
@@ -609,28 +609,28 @@ A structural solution requires either (1) unifying the parsing and security enfo
 
 ## References
 
-- WAFFLED: Exploiting Parsing Discrepancies to Bypass Web Application Firewalls (ACSAC 2025) — https://arxiv.org/abs/2503.10846
-- Atropos: Effective Fuzzing of Web Applications for Server-Side Vulnerabilities (USENIX Security 2024) — https://www.usenix.org/conference/usenixsecurity24/presentation/güler
-- PHUZZ: What All the Phuzz Is About (AsiaCCS 2024) — https://arxiv.org/abs/2406.06261
-- Predator: Directed Web Application Fuzzing for Efficient Vulnerability Validation (IEEE S&P 2025) — https://ieeexplore.ieee.org/document/11023300
-- FuzzCache: Optimizing Web Application Fuzzing Through Software-Based Data Cache (ACM CCS 2024) — https://dl.acm.org/doi/10.1145/3658644.3670278
-- WuppieFuzz: Coverage-Guided, Stateful REST API Fuzzing (2024) — https://arxiv.org/abs/2512.15554
-- Fuzzing Frameworks for Server-side Web Applications: A Survey (IJIS 2024) — https://link.springer.com/article/10.1007/s10207-024-00979-w
-- Deriving Semantics-Aware Fuzzers from Web API Schemas (ICSE 2022) — https://arxiv.org/abs/2112.10328
-- SSRFuzz: Where URLs Become Weapons — Automated Discovery of SSRF Vulnerabilities (IEEE S&P 2024) — https://ieeexplore.ieee.org/document/10646755
-- ANOTA: Identifying Business Logic Vulnerabilities via Annotation-Based Sanitization (NDSS 2026) — https://dx.doi.org/10.14722/ndss.2026.240938
-- Racing and Fuzzing HTTP/3: Open-sourcing QuicDraw (CyberArk, 2025) — https://www.cyberark.com/resources/threat-research-blog/racing-and-fuzzing-http-3-open-sourcing-quicdraw
-- CrawlMLLM: An MLLM-Assisted Web Crawler Approach for Web Application Fuzzing (Applied Sciences, 2025) — https://www.mdpi.com/2076-3417/15/2/962
-- Beyond the Limit: Expanding Single-Packet Race Condition (Flatt Security, 2024) — https://flatt.tech/research/posts/beyond-the-limit-expanding-single-packet-race-condition-with-first-sequence-sync/
-- WebSocket Turbo Intruder (PortSwigger Research) — https://portswigger.net/research/websocket-turbo-intruder-unearthing-the-websocket-goldmine
+- [WAFFLED: Exploiting Parsing Discrepancies to Bypass Web Application Firewalls (ACSAC 2025)](https://arxiv.org/abs/2503.10846)
+- [Atropos: Effective Fuzzing of Web Applications for Server-Side Vulnerabilities (USENIX Security 2024)](https://www.usenix.org/conference/usenixsecurity24/presentation/güler)
+- [PHUZZ: What All the Phuzz Is About (AsiaCCS 2024)](https://arxiv.org/abs/2406.06261)
+- [Predator: Directed Web Application Fuzzing for Efficient Vulnerability Validation (IEEE S&P 2025)](https://ieeexplore.ieee.org/document/11023300)
+- [FuzzCache: Optimizing Web Application Fuzzing Through Software-Based Data Cache (ACM CCS 2024)](https://dl.acm.org/doi/10.1145/3658644.3670278)
+- [WuppieFuzz: Coverage-Guided, Stateful REST API Fuzzing (2024)](https://arxiv.org/abs/2512.15554)
+- [Fuzzing Frameworks for Server-side Web Applications: A Survey (IJIS 2024)](https://link.springer.com/article/10.1007/s10207-024-00979-w)
+- [Deriving Semantics-Aware Fuzzers from Web API Schemas (ICSE 2022)](https://arxiv.org/abs/2112.10328)
+- [SSRFuzz: Where URLs Become Weapons — Automated Discovery of SSRF Vulnerabilities (IEEE S&P 2024)](https://ieeexplore.ieee.org/document/10646755)
+- [ANOTA: Identifying Business Logic Vulnerabilities via Annotation-Based Sanitization (NDSS 2026)](https://dx.doi.org/10.14722/ndss.2026.240938)
+- [Racing and Fuzzing HTTP/3: Open-sourcing QuicDraw (CyberArk, 2025)](https://www.cyberark.com/resources/threat-research-blog/racing-and-fuzzing-http-3-open-sourcing-quicdraw)
+- [CrawlMLLM: An MLLM-Assisted Web Crawler Approach for Web Application Fuzzing (Applied Sciences, 2025)](https://www.mdpi.com/2076-3417/15/2/962)
+- [Beyond the Limit: Expanding Single-Packet Race Condition (Flatt Security, 2024)](https://flatt.tech/research/posts/beyond-the-limit-expanding-single-packet-race-condition-with-first-sequence-sync/)
+- [WebSocket Turbo Intruder (PortSwigger Research)](https://portswigger.net/research/websocket-turbo-intruder-unearthing-the-websocket-goldmine)
 - Gudifu: Guided Differential Fuzzing for HTTP Parsing Discrepancies — PortSwigger Top 10 Web Hacking Techniques 2024
-- Sqirl: Grey-Box Detection of SQL Injection Vulnerabilities (USENIX Security 2023) — https://www.usenix.org/system/files/usenixsecurity23-al-wahaibi.pdf
-- ChatAFL: Large Language Model Guided Protocol Fuzzing (NDSS 2024) — https://abhikrc.com/pdf/NDSS24.pdf
-- Top 10 Web Hacking Techniques of 2024 (PortSwigger) — https://portswigger.net/research/top-10-web-hacking-techniques-of-2024
-- Top 10 Web Hacking Techniques of 2025 (PortSwigger) — https://portswigger.net/research/top-10-web-hacking-techniques-of-2025
-- Google Leveling Up Fuzzing: Finding More Vulnerabilities with AI (Google Security Blog, 2024) — https://security.googleblog.com/2024/11/leveling-up-fuzzing-finding-more.html
-- SecLists: The Security Tester's Companion (GitHub) — https://github.com/danielmiessler/SecLists
-- The Fuzzing Book (Interactive, 2023) — https://www.fuzzingbook.org/
+- [Sqirl: Grey-Box Detection of SQL Injection Vulnerabilities (USENIX Security 2023)](https://www.usenix.org/system/files/usenixsecurity23-al-wahaibi.pdf)
+- [ChatAFL: Large Language Model Guided Protocol Fuzzing (NDSS 2024)](https://abhikrc.com/pdf/NDSS24.pdf)
+- [Top 10 Web Hacking Techniques of 2024 (PortSwigger)](https://portswigger.net/research/top-10-web-hacking-techniques-of-2024)
+- [Top 10 Web Hacking Techniques of 2025 (PortSwigger)](https://portswigger.net/research/top-10-web-hacking-techniques-of-2025)
+- [Google Leveling Up Fuzzing: Finding More Vulnerabilities with AI (Google Security Blog, 2024)](https://security.googleblog.com/2024/11/leveling-up-fuzzing-finding-more.html)
+- [SecLists: The Security Tester's Companion (GitHub)](https://github.com/danielmiessler/SecLists)
+- [The Fuzzing Book (Interactive, 2023)](https://www.fuzzingbook.org/)
 
 ---
 

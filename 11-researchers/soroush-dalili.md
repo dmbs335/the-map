@@ -402,7 +402,7 @@ This table maps mutation categories to real-world attack scenarios.
 | §1-1 (TE.0 Desync) | Public research (Google Cloud) | Smuggling in GCP + IIS | 2024 |
 | §2-1 (::$DATA) | MS98-003 | Source code disclosure | 1998 |
 
-**Note**: Soroush Dalili contributed to $10k+ bug bounty (Tesla, Microsoft SQL Reporting Services, CVE-2020-0618).
+**Note**: Soroush Dalili contributed to public bug bounty work involving Tesla, Microsoft SQL Reporting Services, and CVE-2020-0618.
 
 ---
 

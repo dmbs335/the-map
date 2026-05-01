@@ -314,7 +314,7 @@ PHP's built-in validation and filtering functions contain design flaws and imple
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **Null Byte in fsockopen()** | `fsockopen("localhost\0.safedomain.com")` connects to `localhost` while `parse_url()` sees `localhost_.safedomain.com` (CVE-2025-1220) | PHP < 8.4.10; hostname validation via parse_url() |
+| **Null Byte in fsockopen()** | `fsockopen("localhost\0.safedomain.com")` can be interpreted differently from validation helpers such as `parse_url()`, creating SSRF / allowlist bypass or DoS risk (CVE-2025-1220) | PHP branch-specific affected ranges, including 8.1.x < 8.1.33, 8.2.x < 8.2.29, 8.3.x < 8.3.23, 8.4.x < 8.4.10; hostname validation via parse_url() |
 | **gethostbyname() Null Truncation** | `gethostbyname()` silently truncates hostnames at null bytes, creating SSRF opportunities | Hostname validation before DNS resolution |
 | **parse_url() vs. curl Differential** | `parse_url()` and `curl_exec()` parse URLs differently (different RFC compliance), enabling SSRF through parser differentials | URL validation via parse_url(), request via curl |
 | **Multibyte Encoding Exploits** | Incomplete multibyte sequences in Shift-JIS, GBK, and similar encodings can "eat" escape characters, bypassing security filters | Application using multibyte character sets |
@@ -434,18 +434,18 @@ libxml2 >= 2.9.0 (shipped with PHP 8.0+) disables external entity loading by def
 
 ---
 
-## §12. CVE / Bounty Mapping (2024–2025)
+## §12. CVE / Bounty Mapping (2024–2026)
 
 | Mutation Combination | CVE / Case | Impact / Bounty |
 |---------------------|-----------|----------------|
 | §8-3 (CGI Argument Injection) | CVE-2024-4577 (PHP-CGI on Windows) | CVSS 9.8. Mass exploitation — 1,089+ IPs in Jan 2025; ransomware, RAT, cryptominer deployment. Affects all PHP versions on Windows before 8.1.29/8.2.20/8.3.8 |
 | §8-1 (iconv Buffer Overflow) | CVE-2024-2961 (glibc iconv via PHP) | CVSS 8.8. 24-year-old glibc bug; PHP filter chains convert file read to RCE. Chained with CVE-2024-34102 (Magento) for unauthenticated RCE |
-| §2-1 (PHP Object Injection) | CVE-2025-49113 (Roundcube Webmail) | CVSS 9.9. Post-auth RCE via deserialization of _from parameter. Exploit sold in underground forums within 48 hours |
-| §2-1 (PHP Object Injection) | CVE-2024-10957 (WordPress UpdraftPlus) | High severity. Unauthenticated PHP object injection → arbitrary file deletion, data exfiltration, code execution |
-| §2-1 + §2-4 (Gadget Chain) | GiveWP Plugin CVE (2024) | CVSS 10.0. Unauthenticated POP chain via `give_title` parameter. **$4,998 bounty** |
+| §2-1 (PHP Object Injection) | CVE-2025-49113 (Roundcube Webmail) | CVSS 9.9. Post-auth RCE via deserialization of _from parameter. Exploit reportedly sold in underground forums shortly after disclosure |
+| §2-1 (PHP Object Injection) | CVE-2024-10957 (WordPress UpdraftPlus) | CVSS 8.8. Unauthenticated PHP object injection in UpdraftPlus 1.23.8–1.24.11; impact requires a POP chain from another plugin/theme and administrator search/replace action to trigger |
+| §2-1 + §2-4 (Gadget Chain) | GiveWP Plugin CVE (2024) | CVSS 10.0. Unauthenticated POP chain via `give_title` parameter. Public bounty case |
 | §8-1 (Heap Overflow) | CVE-2025-14178 (array_merge()) | Heap buffer overflow via integer overflow in element count precomputation. Affects PHP 7.1–8.5 |
-| §8-2 (Use-After-Free) | CVE in __set + ??= (PHP 8.3/8.4) | Use-after-free leading to potential RCE with controlled memory layout |
-| §7-2 (Null Byte in fsockopen) | CVE-2025-1220 (PHP core) | SSRF via null byte hostname truncation in fsockopen(), bypassing allowlist validation |
+| §8-2 (Use-After-Free) | CVE-2024-11235 (`__set` / `??=` + exceptions) | Use-after-free in PHP 8.3.x < 8.3.19 and 8.4.x < 8.4.5; potential RCE if attacker can shape memory layout |
+| §7-2 (Null Byte in fsockopen) | CVE-2025-1220 (PHP core) | Null-byte hostname handling in `fsockopen()` and related functions can bypass hostname validation patterns or cause parsing failures; patch per maintained PHP branch |
 | §3-3 (Filter Chain Oracle) | CVE-2026-22200 (osTicket) | PHP filter chain injection in rich text fields; server file exfiltration via PDF export |
 | §2-2 (PHAR Deserialization) | WP Meta SEO PHAR Deser (2024) | PHAR deserialization → RCE via file operation on attacker-controlled phar:// path |
 | §10-1 (XXE) | WordPress 5.7 XXE (Sonar) | XXE in WordPress media library XML parsing |
@@ -503,21 +503,21 @@ True mitigation requires abandoning convenience in security-critical code: stric
 
 ## References
 
-- PHP Official CVE Tracking: https://wiki.php.net/cve
-- PHPGGC Gadget Chain Library: https://github.com/ambionics/phpggc
-- PayloadsAllTheThings PHP Deserialization: https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Insecure%20Deserialization/PHP.md
-- PayloadsAllTheThings Type Juggling: https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Type%20Juggling/README.md
-- HackTricks PHP Tricks: https://book.hacktricks.xyz/network-services-pentesting/pentesting-web/php-tricks-esp
-- Synacktiv PHP Filter Chains: https://www.synacktiv.com/en/publications/php-filters-chain-what-is-it-and-how-to-use-it
-- Lexfo Lightyear / CNEXT: https://blog.lexfo.fr/lightyear-file-dump.html
-- Ambionics CVE-2024-2961 Exploits: https://github.com/ambionics/cnext-exploits
-- php_mt_seed: https://github.com/openwall/php_mt_seed
-- Watchtowr CVE-2024-4577 Analysis: https://labs.watchtowr.com/no-way-php-strikes-again-cve-2024-4577/
-- PHP Security — Survive The Deep End: https://phpsecurity.readthedocs.io/
-- Quarkslab Laravel Gadget Chain Research: https://blog.quarkslab.com/php-deserialization-attacks-and-a-new-gadget-chain-in-laravel.html
-- Synacktiv PHP Filter Chain Oracle Exploit: https://github.com/synacktiv/php_filter_chains_oracle_exploit
-- Dangerous PHP Functions Reference: https://gist.github.com/mccabe615/b0907514d34b2de088c4996933ea1720
-- GreyNoise CVE-2024-4577 Mass Exploitation Report: https://www.greynoise.io/blog/mass-exploitation-critical-php-cgi-vulnerability-cve-2024-4577
+- [PHP Official CVE Tracking](https://wiki.php.net/cve)
+- [PHPGGC Gadget Chain Library](https://github.com/ambionics/phpggc)
+- [PayloadsAllTheThings PHP Deserialization](https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Insecure%20Deserialization/PHP.md)
+- [PayloadsAllTheThings Type Juggling](https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Type%20Juggling/README.md)
+- [HackTricks PHP Tricks](https://book.hacktricks.xyz/network-services-pentesting/pentesting-web/php-tricks-esp)
+- [Synacktiv PHP Filter Chains](https://www.synacktiv.com/en/publications/php-filters-chain-what-is-it-and-how-to-use-it)
+- [Lexfo Lightyear / CNEXT](https://blog.lexfo.fr/lightyear-file-dump.html)
+- [Ambionics CVE-2024-2961 Exploits](https://github.com/ambionics/cnext-exploits)
+- [php_mt_seed](https://github.com/openwall/php_mt_seed)
+- [Watchtowr CVE-2024-4577 Analysis](https://labs.watchtowr.com/no-way-php-strikes-again-cve-2024-4577/)
+- [PHP Security — Survive The Deep End](https://phpsecurity.readthedocs.io/)
+- [Quarkslab Laravel Gadget Chain Research](https://blog.quarkslab.com/php-deserialization-attacks-and-a-new-gadget-chain-in-laravel.html)
+- [Synacktiv PHP Filter Chain Oracle Exploit](https://github.com/synacktiv/php_filter_chains_oracle_exploit)
+- [Dangerous PHP Functions Reference](https://gist.github.com/mccabe615/b0907514d34b2de088c4996933ea1720)
+- [GreyNoise CVE-2024-4577 Mass Exploitation Report](https://www.greynoise.io/blog/mass-exploitation-critical-php-cgi-vulnerability-cve-2024-4577)
 - Positive Technologies: "Exploiting Arbitrary Object Instantiations in PHP without Custom Classes" (2022) — Systematic exploitation of built-in PHP classes (`SplFileObject`, `SimpleXMLElement`, `GlobIterator`, `Imagick`, `ReflectionFunction`) via `new $class($arg)` patterns
 
 ---

@@ -4,7 +4,7 @@
 
 ## Classification Structure
 
-Open redirect vulnerabilities occur when a web application accepts user-controlled input to determine a redirect destination without sufficient validation. While historically dismissed as low-severity, recent research demonstrates that **8.7% of the top 10K websites** contain open redirect vulnerabilities, with over **11.5% of the open redirect vulnerabilities (across 38% of affected sites) being escalatable to critical vulnerabilities** including XSS, CSRF, and information leakage. This taxonomy classifies the full mutation space of open redirect techniques.
+Open redirect vulnerabilities occur when a web application accepts user-controlled input to determine a redirect destination without sufficient validation. While historically dismissed as low-severity, recent research demonstrates that open redirects remain common on popular sites and that a meaningful subset can escalate to critical vulnerabilities including XSS, CSRF, and information leakage. This taxonomy classifies the full mutation space of open redirect techniques.
 
 The taxonomy is organized around three axes. **Axis 1 (Mutation Target)** defines *what structural component of the URL or redirect mechanism* is manipulated — this forms the primary structure of the document. **Axis 2 (Bypass Type)** describes *what validation mechanism is defeated* — this is the cross-cutting dimension explaining why each mutation works. **Axis 3 (Attack Scenario)** identifies *where the redirect is weaponized* — this maps techniques to real-world impact chains.
 
@@ -438,7 +438,7 @@ Techniques that chain open redirects with other functionality to amplify impact 
 | §3-1 (Backslash) + §8-2 | Go-chi GHSA-mqqf-5wvp-8fh8 (RedirectSlashes, 5.2.2–5.2.3) | Backslash normalization bypass — `/\evil.com` not trimmed, browser normalizes `\` to `/` creating `//evil.com` redirect. Fixed in 5.2.4 |
 | §2-2 + §9-5 | Indeed → Microsoft 365 phishing (2024) | Open redirect on Indeed.com used to bypass email filters and target Microsoft 365 credentials |
 | §8-2 (16 parser differentials) | Flask-security, Flask-User, Flask-unchained, Video.js, Nagios XI, Clearance | Multiple open redirects via URL parsing confusion across 8 libraries |
-| §6-3 + §9-4 (DOM-based) | NDSS 2025 study: 20.8K instances across 623 sites | 8.7% of top 10K sites affected; 11.5% of open redirect vulnerabilities (across 38% of affected sites) escalatable to DOM XSS |
+| §6-3 + §9-4 (DOM-based) | NDSS 2025 study | Popular-site measurements found many DOM-based instances, with a meaningful subset escalatable to DOM XSS |
 
 ---
 
@@ -464,7 +464,7 @@ Techniques that chain open redirects with other functionality to amplify impact 
 
 Open redirects exist because of a **fundamental architectural gap**: web applications must programmatically construct navigation targets from user input, yet the URL specification is complex enough that no single validation approach reliably distinguishes "safe internal redirect" from "attacker-controlled external redirect." The URL standard itself is fractured — RFC 3986, RFC 3987, and the WHATWG URL Living Standard each define subtly different parsing rules — and every browser, library, framework, and proxy implements its own interpretation. This creates a combinatorial explosion of parser differentials that attackers systematically exploit.
 
-Incremental patches fail because **each fix addresses a specific encoding or structural trick without closing the underlying validation gap**. Blocking `//evil.com` does not prevent `\/\/evil.com`; blocking `javascript:` does not prevent `jav%0Aascript:`; validating the `Host` header does not prevent `X-Forwarded-Host` injection. The mutation space documented in this taxonomy demonstrates that for every validation check, multiple bypass techniques exist across encoding (§5), protocol (§1), authority (§2), path (§3), and parser differential (§8) dimensions. The shift from server-side to client-side redirects (§6-3) has further expanded the attack surface, with NDSS 2025 research confirming that DOM-based open redirects now affect nearly 9% of the top 10K websites, with significant escalation potential to XSS and CSRF.
+Incremental patches fail because **each fix addresses a specific encoding or structural trick without closing the underlying validation gap**. Blocking `//evil.com` does not prevent `\/\/evil.com`; blocking `javascript:` does not prevent `jav%0Aascript:`; validating the `Host` header does not prevent `X-Forwarded-Host` injection. The mutation space documented in this taxonomy demonstrates that for every validation check, multiple bypass techniques exist across encoding (§5), protocol (§1), authority (§2), path (§3), and parser differential (§8) dimensions. The shift from server-side to client-side redirects (§6-3) has further expanded the attack surface, with NDSS 2025 research confirming that DOM-based open redirects remain common on popular sites and can escalate to XSS and CSRF.
 
 A structural solution requires **treating redirect targets as opaque, validated tokens rather than user-supplied URLs**. This means: (1) maintaining an allowlist of exact redirect destinations or using signed/encrypted redirect tokens; (2) performing URL validation *after* full normalization using the *same parser* the redirect mechanism uses; (3) for DOM-based redirects, never passing user input directly to navigation sinks (`location.href`, `location.replace()`, `window.open()`) — instead mapping user input to pre-defined routes; and (4) eliminating the validator-vs-consumer parser split (§8-3) by ensuring a single canonical URL parser is used throughout the entire validation-and-redirect pipeline.
 
@@ -472,21 +472,21 @@ A structural solution requires **treating redirect targets as opaque, validated 
 
 ## References
 
-- OWASP Unvalidated Redirects and Forwards Cheat Sheet — https://cheatsheetseries.owasp.org/cheatsheets/Unvalidated_Redirects_and_Forwards_Cheat_Sheet.html
-- CWE-601: URL Redirection to Untrusted Site — https://cwe.mitre.org/data/definitions/601.html
-- PortSwigger URL Validation Bypass Cheat Sheet (2024 Edition) — https://portswigger.net/web-security/ssrf/url-validation-bypass-cheat-sheet
-- PortSwigger DOM-Based Open Redirection — https://portswigger.net/web-security/dom-based/open-redirection
-- HackTricks Open Redirect — https://book.hacktricks.wiki/en/pentesting-web/open-redirect.html
-- PayloadsAllTheThings Open Redirect — https://swisskyrepo.github.io/PayloadsAllTheThings/Open%20Redirect/
-- Intigriti Open URL Redirect Advanced Exploitation Guide — https://www.intigriti.com/researchers/blog/hacking-tools/open-url-redirects-a-complete-guide-to-exploiting-open-url-redirect-vulnerabilities
-- Claroty: Exploiting URL Parsing Confusion — https://claroty.com/team82/research/exploiting-url-parsing-confusion
-- Sonar: Security Implications of URL Parsing Differentials — https://www.sonarsource.com/blog/security-implications-of-url-parsing-differentials/
-- NDSS 2025: Do (Not) Follow the White Rabbit: Challenging the Myth of Harmless Open Redirection — https://www.ndss-symposium.org/ndss-paper/do-not-follow-the-white-rabbit-challenging-the-myth-of-harmless-open-redirection/
-- STORK Framework (GitHub) — https://github.com/SoheilKhodayari/STORK
-- CVE-2024-29041 (Express.js) — https://github.com/advisories/GHSA-rv95-896h-c2vc
-- CVE-2025-4123 (Grafana) — https://grafana.com/blog/grafana-security-release-medium-and-high-severity-security-fixes-for-cve-2025-4123-and-cve-2025-3580/
-- PortSwigger URL Cheat Sheet Data Repository — https://github.com/PortSwigger/url-cheatsheet-data
-- EdOverflow Bug Bounty Cheatsheet: Open Redirect — https://github.com/EdOverflow/bugbounty-cheatsheet/blob/master/cheatsheets/open-redirect.md
+- [OWASP Unvalidated Redirects and Forwards Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Unvalidated_Redirects_and_Forwards_Cheat_Sheet.html)
+- [CWE-601: URL Redirection to Untrusted Site](https://cwe.mitre.org/data/definitions/601.html)
+- [PortSwigger URL Validation Bypass Cheat Sheet (2024 Edition)](https://portswigger.net/web-security/ssrf/url-validation-bypass-cheat-sheet)
+- [PortSwigger DOM-Based Open Redirection](https://portswigger.net/web-security/dom-based/open-redirection)
+- [HackTricks Open Redirect](https://book.hacktricks.wiki/en/pentesting-web/open-redirect.html)
+- [PayloadsAllTheThings Open Redirect](https://swisskyrepo.github.io/PayloadsAllTheThings/Open%20Redirect/)
+- [Intigriti Open URL Redirect Advanced Exploitation Guide](https://www.intigriti.com/researchers/blog/hacking-tools/open-url-redirects-a-complete-guide-to-exploiting-open-url-redirect-vulnerabilities)
+- [Claroty: Exploiting URL Parsing Confusion](https://claroty.com/team82/research/exploiting-url-parsing-confusion)
+- [Sonar: Security Implications of URL Parsing Differentials](https://www.sonarsource.com/blog/security-implications-of-url-parsing-differentials/)
+- [NDSS 2025: Do (Not) Follow the White Rabbit: Challenging the Myth of Harmless Open Redirection](https://www.ndss-symposium.org/ndss-paper/do-not-follow-the-white-rabbit-challenging-the-myth-of-harmless-open-redirection/)
+- [STORK Framework (GitHub)](https://github.com/SoheilKhodayari/STORK)
+- [CVE-2024-29041 (Express.js)](https://github.com/advisories/GHSA-rv95-896h-c2vc)
+- [CVE-2025-4123 (Grafana)](https://grafana.com/blog/grafana-security-release-medium-and-high-severity-security-fixes-for-cve-2025-4123-and-cve-2025-3580/)
+- [PortSwigger URL Cheat Sheet Data Repository](https://github.com/PortSwigger/url-cheatsheet-data)
+- [EdOverflow Bug Bounty Cheatsheet: Open Redirect](https://github.com/EdOverflow/bugbounty-cheatsheet/blob/master/cheatsheets/open-redirect.md)
 
 ---
 

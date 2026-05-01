@@ -355,10 +355,10 @@ Server checks `Referer` or `Origin` header to reject cross-origin requests.
 
 | Mutation Combination | CVE / Case | Impact / Bounty |
 |---|---|---|
-| §3-1 (JSONP callback hijacking) | PayPal XSSI (HackerOne) | $15,300. Email + plaintext password leaked via dynamic JS inclusion |
+| §3-1 (JSONP callback hijacking) | PayPal XSSI (HackerOne) | Email + plaintext password leaked via dynamic JS inclusion |
 | §4-1 (Array constructor override) | Gmail Contact List Theft (2006) | Landmark. First public XSSI — full address book exfiltration via JSON array |
-| §3-1 + §7-1 (JSONP + SameSite=None) | XSSI on private program (HackerOne) | $800. JSONP endpoint leaked user data cross-origin |
-| §3-1 (JSONP access token theft) | Staging XSSI → Account Takeover (2023 writeup) | $1,250 (P2/High). Access token + UID leaked via JSONP callback; full message read/write/delete |
+| §3-1 + §7-1 (JSONP + SameSite=None) | XSSI on private program (HackerOne) | JSONP endpoint leaked user data cross-origin |
+| §3-1 (JSONP access token theft) | Staging XSSI → Account Takeover (2023 writeup) | Access token + UID leaked via JSONP callback; full message read/write/delete |
 | §6-1 (HTTP status oracle) | Coinbase XSSI (HackerOne #118631) | Disclosed. Authentication state detection via script inclusion |
 | §5-2 (UTF-16BE charset manipulation) | JSON Hijacking for the Modern Web (2016) | Research. UTF-16BE charset forces JSON to parse as JS variable names; CSP bypass demonstrated |
 | §3-2 (JSONP CSP bypass) | Liberapay JSONP Callback Exploitation (HackerOne #361951) | Disclosed. JSONP callback parameter used for CSP bypass |
@@ -388,7 +388,7 @@ Server checks `Referer` or `Origin` header to reject cross-origin requests.
 
 | Tool | Target Scope | Core Technique |
 |---|---|---|
-| **Browser SameSite enforcement** | Cookie-based XSSI | `SameSite=Lax` by default strips cookies from cross-site script requests |
+| **Browser SameSite enforcement** | Cookie-based XSSI | Browsers with Lax-by-default behavior, especially Chromium-family browsers, strip cookies from cross-site script requests; Firefox/Safari behavior should be assessed via ETP/ITP and compatibility tables |
 | **CORB / ORB** (Chromium) | Non-script response blocking | Blocks HTML/JSON/XML responses from being delivered to cross-origin `<script>` tags |
 | **`X-Content-Type-Options: nosniff`** | MIME sniffing prevention | Prevents browsers from sniffing content type; script rejected if Content-Type is not JS |
 | **JSON response prefix** (`)]}',\n`) | JSON execution prevention | Makes JSON responses syntactically invalid as JavaScript |
@@ -428,27 +428,27 @@ The structural solution is threefold: (1) **Eliminate JSONP entirely** in favor 
 
 ## References
 
-- OWASP Web Security Testing Guide: Testing for Cross Site Script Inclusion — https://owasp.org/www-project-web-security-testing-guide/v42/4-Web_Application_Security_Testing/11-Client-side_Testing/13-Testing_for_Cross_Site_Script_Inclusion
-- HackTricks: XSSI (Cross-Site Script Inclusion) — https://book.hacktricks.wiki/pentesting-web/xssi-cross-site-script-inclusion.html
-- Scip AG: Cross-Site Script Inclusion — A Fameless but Widespread Web Vulnerability Class — https://www.scip.ch/en/?labs.20160414
-- MBSD (Takeshi Terada): Identifier Based XSSI Attacks — https://www.mbsd.jp/Whitepaper/xssi.pdf
-- PortSwigger Research: JSON Hijacking for the Modern Web — https://portswigger.net/research/json-hijacking-for-the-modern-web
-- SideChannel/Tempest: XSSI — An Overview of the Vulnerability in 2024 — https://www.sidechannel.blog/en/xssi-an-overview-of-the-vulnerability-in-2024/
-- Hurricane Labs: How Red and Blue Teamers Can Leverage the XSSI Vector — https://hurricanelabs.com/blog/how-red-and-blue-teamers-can-leverage-the-xssi-vector/
-- Cobalt: Cross-Site Script Inclusion (XSSI) Vulnerability Wiki — https://www.cobalt.io/vulnerability-wiki/v5-validation-sanitization/cross-site-script-inclusion-xssi
-- PentesterLab: Cross-Site Script Inclusion (XSSI) Glossary — https://pentesterlab.com/glossary/cross-site-script-inclusion
-- CQR Company: Cross-Site Script Inclusion — https://cqr.company/web-vulnerabilities/cross-site-script-inclusion/
-- HackerOne: XSSI to Steal AccessToken and More (Writeup) — https://github.com/AnkitCuriosity/Write-Ups/blob/main/XSSI%20(Cross%20Site%20Script%20Inclusion)%20to%20Steal%20AccessToken%20and%20More.md
-- HackerOne: Coinbase XSSI Disclosure (#118631) — https://hackerone.com/reports/118631
-- HackerOne: Liberapay JSONP Callback Exploitation (#361951) — https://hackerone.com/reports/361951
-- Angular: XSSI Prefix Relevance Discussion (#52027) — https://github.com/angular/angular/issues/52027
-- Chromium: Cross-Origin Read Blocking for Developers — https://www.chromium.org/Home/chromium-security/corb-for-developers/
-- XS-Leaks Wiki: Cross-Origin Read Blocking — https://xsleaks.dev/docs/defenses/secure-defaults/corb/
-- XS-Leaks Wiki: Error Events — https://xsleaks.dev/docs/attacks/error-events/
-- XSinator: XS-Leak Browser Test Suite — https://xsinator.com/
-- PortSwigger: Bypassing SameSite Cookie Restrictions — https://portswigger.net/web-security/csrf/bypassing-samesite-restrictions
-- Reconless Blog: SameSite by Default and What It Means for Bug Bounty Hunters — https://blog.reconless.com/samesite-by-default/
-- OffensiveWeb: Cross-Origin Read Blocking (CORB) — https://www.offensiveweb.com/docs/http/cross-origin-read-blocking-corb/
+- [OWASP Web Security Testing Guide: Testing for Cross Site Script Inclusion](https://owasp.org/www-project-web-security-testing-guide/v42/4-Web_Application_Security_Testing/11-Client-side_Testing/13-Testing_for_Cross_Site_Script_Inclusion)
+- [HackTricks: XSSI (Cross-Site Script Inclusion)](https://book.hacktricks.wiki/pentesting-web/xssi-cross-site-script-inclusion.html)
+- [Scip AG: Cross-Site Script Inclusion — A Fameless but Widespread Web Vulnerability Class](https://www.scip.ch/en/?labs.20160414)
+- [MBSD (Takeshi Terada): Identifier Based XSSI Attacks](https://www.mbsd.jp/Whitepaper/xssi.pdf)
+- [PortSwigger Research: JSON Hijacking for the Modern Web](https://portswigger.net/research/json-hijacking-for-the-modern-web)
+- [SideChannel/Tempest: XSSI — An Overview of the Vulnerability in 2024](https://www.sidechannel.blog/en/xssi-an-overview-of-the-vulnerability-in-2024/)
+- [Hurricane Labs: How Red and Blue Teamers Can Leverage the XSSI Vector](https://hurricanelabs.com/blog/how-red-and-blue-teamers-can-leverage-the-xssi-vector/)
+- [Cobalt: Cross-Site Script Inclusion (XSSI) Vulnerability Wiki](https://www.cobalt.io/vulnerability-wiki/v5-validation-sanitization/cross-site-script-inclusion-xssi)
+- [PentesterLab: Cross-Site Script Inclusion (XSSI) Glossary](https://pentesterlab.com/glossary/cross-site-script-inclusion)
+- [CQR Company: Cross-Site Script Inclusion](https://cqr.company/web-vulnerabilities/cross-site-script-inclusion/)
+- [HackerOne: XSSI to Steal AccessToken and More (Writeup)](https://github.com/AnkitCuriosity/Write-Ups/blob/main/XSSI%20(Cross%20Site%20Script%20Inclusion)%20to%20Steal%20AccessToken%20and%20More.md)
+- [HackerOne: Coinbase XSSI Disclosure (#118631)](https://hackerone.com/reports/118631)
+- [HackerOne: Liberapay JSONP Callback Exploitation (#361951)](https://hackerone.com/reports/361951)
+- [Angular: XSSI Prefix Relevance Discussion (#52027)](https://github.com/angular/angular/issues/52027)
+- [Chromium: Cross-Origin Read Blocking for Developers](https://www.chromium.org/Home/chromium-security/corb-for-developers/)
+- [XS-Leaks Wiki: Cross-Origin Read Blocking](https://xsleaks.dev/docs/defenses/secure-defaults/corb/)
+- [XS-Leaks Wiki: Error Events](https://xsleaks.dev/docs/attacks/error-events/)
+- [XSinator: XS-Leak Browser Test Suite](https://xsinator.com/)
+- [PortSwigger: Bypassing SameSite Cookie Restrictions](https://portswigger.net/web-security/csrf/bypassing-samesite-restrictions)
+- [Reconless Blog: SameSite by Default and What It Means for Bug Bounty Hunters](https://blog.reconless.com/samesite-by-default/)
+- [OffensiveWeb: Cross-Origin Read Blocking (CORB)](https://www.offensiveweb.com/docs/http/cross-origin-read-blocking-corb/)
 
 ---
 

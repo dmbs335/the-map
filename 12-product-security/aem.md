@@ -349,7 +349,7 @@ AEM has been affected by a massive volume of XSS vulnerabilities — the APSB25-
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **RUM proxy JavaScript injection** | AEM Cloud's Real User Monitoring loads JS from `/.rum/@adobe/helix-rum-js` via CDN proxy (JSDelivr/Unpkg). Bypassing the package name allowlist allows injecting arbitrary JavaScript | CVE-2025-47114, CVE-2025-47115 — estimated ~45,000 AEM Cloud sites affected (Searchlight Cyber researcher estimate, not an Adobe-confirmed figure). All AEM Cloud customers were automatically patched |
+| **RUM proxy JavaScript injection** | AEM Cloud's Real User Monitoring loads JS from `/.rum/@adobe/helix-rum-js` via CDN proxy (JSDelivr/Unpkg). Bypassing the package name allowlist allows injecting arbitrary JavaScript | CVE-2025-47114, CVE-2025-47115 — researcher-estimated broad AEM Cloud impact, not an Adobe-confirmed site count. All AEM Cloud customers were automatically patched |
 | **CDN allowlist bypass** | Validation mistakes in the reverse proxy layer allow substituting the legitimate NPM package with an attacker-controlled one | Three distinct bypasses found and patched in 2025 |
 
 ---
@@ -368,7 +368,7 @@ The most critical AEM RCE discovered to date, stemming from Apache Struts2 devel
 | **Auth bypass + code execution chain** | Security filter bypassed by inserting `login.` in URL, then code execution (per Searchlight Cyber write-up) | `/adminui/updateLicense1.do;login.?debug=command&expression=...` |
 | **Struts2 devmode expression evaluation** *(researcher attribution)* | Searchlight Cyber attributes the mechanism to DevMode's debug interceptor evaluating user-supplied OGNL expressions; Adobe's advisory does not specify this level of root cause detail | `/adminui/debug?debug=OGNL:` (per researcher) |
 
-**Impact**: Pre-authentication RCE. Adobe bulletin states a **public PoC exists** but does **not** confirm active in-the-wild exploitation. As of 2026-03, CISA KEV listing has not been verified
+**Impact**: Pre-authentication RCE. Adobe bulletin states a **public PoC exists** but does **not** confirm active in-the-wild exploitation in the bulletin; CISA KEV later added CVE-2025-54253 on 2025-10-15 based on known exploitation.
 
 ### §8-2. Groovy Console Script Execution
 
@@ -469,10 +469,10 @@ The most critical AEM RCE discovered to date, stemming from Apache Struts2 devel
 
 | Mutation Combination | CVE / Case | Impact / Bounty |
 |---------------------|-----------|----------------|
-| §6-2 + §8-1 (Auth bypass + RCE) | CVE-2025-54253 (AEM Forms on JEE) | CVSS 10.0. Pre-auth RCE via incorrect authorization (Adobe); Searchlight Cyber attributes to Struts2 devmode OGNL. Public PoC exists; Adobe does **not** confirm in-the-wild exploitation |
+| §6-2 + §8-1 (Auth bypass + RCE) | CVE-2025-54253 (AEM Forms on JEE) | CVSS 10.0. Pre-auth RCE via incorrect authorization (Adobe); Searchlight Cyber attributes to Struts2 devmode OGNL. Public PoC exists; Adobe did **not** confirm in-the-wild exploitation in APSB25-82, but CISA KEV added the CVE on 2025-10-15 |
 | §9-1 (XXE in Forms web services) | CVE-2025-54254 (AEM Forms on JEE) | CVSS 8.6. Arbitrary file read via XXE. Zero-day disclosure. |
 | §8-5 (Deserialization in Forms) | CVE-2025-49533 (AEM Forms on JEE) | Pre-auth RCE via untrusted data deserialization. |
-| §7-3 (Cloud RUM proxy XSS) | CVE-2025-47114, CVE-2025-47115 (AEM Cloud) | Persistent XSS on AEM Cloud sites (~45,000 affected per Searchlight Cyber estimate; not Adobe-confirmed). Three distinct bypasses found. All cloud customers auto-patched |
+| §7-3 (Cloud RUM proxy XSS) | CVE-2025-47114, CVE-2025-47115 (AEM Cloud) | Persistent XSS on AEM Cloud sites, with broad impact estimated by Searchlight Cyber but not Adobe-confirmed. Three distinct bypasses found. All cloud customers auto-patched |
 | §1 + §7-1 (Multiple Dispatcher bypass + XSS) | CVE-2025-54251, -54249, -54252, -54250, -54247, -54248, -54246 | Multiple critical/important dispatcher bypass and XSS flaws found by Searchlight Cyber. |
 | §7-1 + §7-2 (Mass XSS) | APSB25-115 / AEM Cloud Release 2025.5 | 254 patched flaws, vast majority XSS (225/254 figure from secondary reporting; not independently verified against Adobe primary source). Affects AEM Cloud and all versions ≤ 6.5.22 |
 | §5-3 (SSRF via ReportingServicesServlet) | CVE-2018-12809 | SSRF enabling secret exfiltration and XSS via reporting proxy. |
@@ -551,7 +551,9 @@ A defense-in-depth approach is required: (1) **Dispatcher hardening** using full
 - [Adobe Security Bulletin APSB25-115](https://helpx.adobe.com/security/products/experience-manager/apsb25-115.html)
 - [Adobe Security Bulletin APSB25-82](https://helpx.adobe.com/security/products/aem-forms/apsb25-82.html)
 - [Adobe AEM Security Checklist](https://experienceleague.adobe.com/en/docs/experience-manager-65/content/security/security-checklist)
-- [CVE-2025-54253 — CISA KEV catalog (listing unverified as of 2026-03)](https://www.cisa.gov/known-exploited-vulnerabilities-catalog) (see also: [The Hacker News coverage](https://thehackernews.com/2025/10/cisa-flags-adobe-aem-flaw-with-perfect.html))
+- [CVE-2025-54253 — CISA KEV catalog](https://www.cisa.gov/known-exploited-vulnerabilities-catalog?field_cve=CVE-2025-54253)
+- [NVD — CVE-2025-54253](https://nvd.nist.gov/vuln/detail/CVE-2025-54253)
+- [The Hacker News — CISA flags Adobe AEM flaw](https://thehackernews.com/2025/10/cisa-flags-adobe-aem-flaw-with-perfect.html)
 - [CVE Details — AEM Vulnerability List](https://www.cvedetails.com/vulnerability-list/vendor_id-53/product_id-33138/Adobe-Experience-Manager.html)
 - [AEM Vulnerability Checklist (Az0x7)](https://github.com/Az0x7/vulnerability-Checklist/blob/main/Aem%20misconfiguration/aem.md)
 - [Burp AEM Scanner Extension (thomashartm)](https://github.com/thomashartm/burp-aem-scanner)

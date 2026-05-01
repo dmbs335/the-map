@@ -11,7 +11,7 @@ Web cache attacks exploit **discrepancies** between how a **caching layer** (CDN
 
 Both attack families share the same root cause — **parser discrepancy between caching and serving components** — but differ in who generates the harmful content (attacker vs. victim) and the direction of information flow (attacker→victim vs. victim→attacker).
 
-WCD is not limited to authenticated pages or personal information. Public, unauthenticated pages frequently contain dynamically generated security tokens — CSRF tokens (37% of vulnerable sites), session identifiers (5%), OAuth state parameters (3%), and CSP nonces (1%) — that are equally valuable to attackers. Attacks targeting these tokens on public pages enable confused deputy attacks, session hijacking, Login CSRF, and CSP bypass without requiring victim authentication (Mirheidari et al., USENIX Security 2022 — 1188/10K sites vulnerable, 11.88%).
+WCD is not limited to authenticated pages or personal information. Public, unauthenticated pages frequently contain dynamically generated security tokens — CSRF tokens, session identifiers, OAuth state parameters, and CSP nonces — that are equally valuable to attackers. Attacks targeting these tokens on public pages enable confused deputy attacks, session hijacking, Login CSRF, and CSP bypass without requiring victim authentication (Mirheidari et al., USENIX Security 2022).
 
 ### Axis 1 — Mutation Target (Primary Structure)
 
@@ -72,10 +72,10 @@ The original web cache deception technique appends a static file extension to a 
 | **Dot-extension via delimiter** | `/account/profile;foo.css` — origin treats `;` as delimiter and serves `/account/profile`; cache sees `.css` and caches | Origin framework uses `;` as delimiter (e.g., Java Spring matrix variables) |
 | **Format extension stripping** | `/account/profile.css` — Ruby on Rails strips `.css` as format specifier and serves profile; cache caches as static CSS | Rails or similar framework that treats `.` as format delimiter |
 | **Null-byte truncation** | `/account/profile%00.js` — OpenLiteSpeed truncates at `%00`; cache sees `.js` extension | Origin server that treats encoded null byte as string terminator |
-| **Newline truncation** | `/account/profile%0a.css` — origin truncates at `%0a` (newline); cache sees `.css` extension and stores | General technique effective across many servers — not limited to Nginx rewrites; 44% of vulnerable sites used newline-based path confusion (Mirheidari et al. 2022) |
+| **Newline truncation** | `/account/profile%0a.css` — origin truncates at `%0a` (newline); cache sees `.css` extension and stores | General technique effective across many servers — not limited to Nginx rewrites; observed in vulnerable-site measurements (Mirheidari et al. 2022) |
 | **Encoded fragment truncation** | `/account/profile%23nonexistent.css` — origin decodes `%23` to `#` and ignores fragment, serving `/account/profile`; cache sees `.css` extension in full URL and stores | Origin decodes `%23` to fragment delimiter before routing; cache does not decode before rule evaluation |
 | **Encoded slash confusion** | `/profile%2Fnot_a_file.css` — CDN treats `%2F` as literal path character and caches as `.css`; origin decodes to `/` creating new path segment, routing to `/profile` | CDN does not decode `%2F` before cache rule evaluation |
-| **Double-encoded delimiter confusion** | `/profile%25%33%46not_a_file.css` (double `?`), `%25%33%42` (`;`), `%25%32%33` (`#`), `%25%32%46` (`/`), `%25%30%41` (newline), `%25%30%30` (null) — CDN decodes one layer, still sees encoded delimiter as literal; origin decodes both layers, delimiter terminates/alters path | Multi-layer decoding: CDN performs single decode, origin performs double; 30–34% of vulnerable sites per technique (Mirheidari et al. 2022) |
+| **Double-encoded delimiter confusion** | `/profile%25%33%46not_a_file.css` (double `?`), `%25%33%42` (`;`), `%25%32%33` (`#`), `%25%32%46` (`/`), `%25%30%41` (newline), `%25%30%30` (null) — CDN decodes one layer, still sees encoded delimiter as literal; origin decodes both layers, delimiter terminates/alters path | Multi-layer decoding: CDN performs single decode, origin performs double; observed across multiple delimiter classes (Mirheidari et al. 2022) |
 
 ### §1-2. Static Directory Rule Exploitation
 
@@ -102,7 +102,7 @@ CDNs may apply wildcard caching rules (e.g., `/share/*` for all content under a 
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **Encoded path escape** | `/share/%2f..%2fapi/auth/session` — CDN matches `/share/*` wildcard and caches; origin decodes `%2f..%2f` and serves `/api/auth/session` containing auth tokens | CDN does not decode URL-encoded slashes before rule evaluation; origin does ($6,500 bounty on ChatGPT) |
+| **Encoded path escape** | `/share/%2f..%2fapi/auth/session` — CDN matches `/share/*` wildcard and caches; origin decodes `%2f..%2f` and serves `/api/auth/session` containing auth tokens | CDN does not decode URL-encoded slashes before rule evaluation; origin does; bounty-confirmed ChatGPT case |
 | **Backslash confusion** | `/share\..\..\api/auth/session` — IIS normalizes backslashes to forward slashes; CDN treats backslashes as literal characters within wildcard scope | Microsoft IIS origin behind non-IIS CDN |
 
 ---
@@ -435,11 +435,11 @@ Beyond DoS amplification, CDN forwarding request modifications create CPDoS, WCP
 | **Response Queue Hijack** | H2 front-end + H/1.1 back-end + cache | §9-2 (queue poisoning) | Cross-user data leakage |
 | **CDN Amplification DoS** | CDN stripping conditional/encoding headers + large origin resources | §10 (HeadAmp/CondAmp/AEAmp) | Origin server overload; up to 1,920,000× amplification |
 | **CDN Forwarding CPDoS** | CDN modifying method/version/headers during forwarding + cacheable error responses | §10-5 (method conversion, version confusion, duplicate header divergence, fat request forwarding) | CPDoS via cached 4xx/5xx; semantic mismatch between client intent and origin processing |
-| **CSRF Token Theft via WCD** | CDN + origin with CSRF tokens on public pages | §1 (path confusion) + §2 (normalization) | Confused deputy attack; attacker forges cross-site requests using victim's cached CSRF token. Most common WCD leak — 37% of vulnerable sites (Mirheidari et al. 2022) |
+| **CSRF Token Theft via WCD** | CDN + origin with CSRF tokens on public pages | §1 (path confusion) + §2 (normalization) | Confused deputy attack; attacker forges cross-site requests using victim's cached CSRF token; commonly observed WCD leak class (Mirheidari et al. 2022) |
 | **CSP Nonce Theft via WCD** | CDN + origin with nonce-based CSP on cacheable pages | §1 (path confusion) | Attacker retrieves CDN-cached CSP nonce, bypasses Content-Security-Policy to inject inline scripts. Server-side CDN cache scenario distinct from browser disk cache nonce reuse (Mirheidari et al. 2022) |
 | **Login CSRF via OAuth State Theft** | CDN + origin with OAuth state on error/login pages | §1 (path confusion) | WCD caches page containing OAuth state parameter; attacker retrieves state and binds victim to attacker-controlled session via Login CSRF. Mozilla Thunderbird add-ons portal case (Mirheidari et al. 2022) |
 | **Reflected XSS → Stored XSS via WCD** | CDN with WCD + origin with reflected XSS | §1 (path confusion) + §3 (unkeyed headers) | WCD causes erroneous caching; reflected XSS payload (e.g., X-Forwarded-Host reflection) cached with response, escalating to stored XSS for all visitors. Payment processor case (Mirheidari et al. 2022) |
-| **Supply Chain WCD** | Shared SaaS vendor integration with WCD vulnerability | §1 (path confusion) | All customers integrating the vendor's platform inherit its WCD vulnerability. Single vendor caused 38% (456/1188) of all WCD findings in Alexa Top 10K — infrastructure misconfiguration propagation (Mirheidari et al. 2022) |
+| **Supply Chain WCD** | Shared SaaS vendor integration with WCD vulnerability | §1 (path confusion) | All customers integrating the vendor's platform inherit its WCD vulnerability. A single vendor can propagate the same infrastructure misconfiguration across many customer sites (Mirheidari et al. 2022) |
 
 ---
 
@@ -447,7 +447,7 @@ Beyond DoS amplification, CDN forwarding request modifications create CPDoS, WCP
 
 | Mutation Combination | CVE / Case | Impact / Bounty |
 |---------------------|-----------|----------------|
-| §1-4 + §2-2 (wildcard rule + encoded path escape) | ChatGPT Wildcard WCD (2024) | Account takeover via auth token theft; $6,500 bounty |
+| §1-4 + §2-2 (wildcard rule + encoded path escape) | ChatGPT Wildcard WCD (2024) | Account takeover via auth token theft; public bounty writeup |
 | §8-2 (Next.js pages router internal cache) | CVE-2024-46982 | Cache poisoning DoS on non-dynamic SSR routes via unintended Cache-Control headers; patched in Next.js 13.5.7 / 14.2.10 (NVD/GHSA do not describe stored XSS impact) |
 | §8-2 (Next.js RSC Vary header) | CVE-2025-49005 | RSC payload confusion; on Vercel deployments limited to browser cache impact, CDN cache poisoning possible only in self-hosted + external CDN configurations; patched in 15.3.3 |
 | §8-2 (Next.js middleware bypass) | CVE-2025-29927 | Middleware auth bypass; chainable with cache poisoning |
@@ -518,23 +518,23 @@ Each fix addresses a specific mutation — stripping one header, blocking one de
 
 ## References
 
-- PortSwigger Research — *Practical Web Cache Poisoning* (2018): https://portswigger.net/research/practical-web-cache-poisoning
-- PortSwigger Research — *Web Cache Entanglement: Novel Pathways to Poisoning* (2020): https://portswigger.net/research/web-cache-entanglement
-- PortSwigger Research — *Gotta Cache 'em All: Bending the Rules of Web Cache Exploitation* (2024): https://portswigger.net/research/gotta-cache-em-all
+- [PortSwigger Research — *Practical Web Cache Poisoning* (2018)](https://portswigger.net/research/practical-web-cache-poisoning)
+- [PortSwigger Research — *Web Cache Entanglement: Novel Pathways to Poisoning* (2020)](https://portswigger.net/research/web-cache-entanglement)
+- [PortSwigger Research — *Gotta Cache 'em All: Bending the Rules of Web Cache Exploitation* (2024)](https://portswigger.net/research/gotta-cache-em-all)
 - Mirheidari et al. — *Cached and Confused: Web Cache Deception in the Wild*, USENIX Security 2020
-- Mirheidari et al. — *Web Cache Deception Escalates!*, USENIX Security 2022 — Novel detection via page identicality + cache header heuristics; Alexa Top 10K: 1188 (11.88%) vulnerable; 37% leaked CSRF tokens, 5% session IDs, 3% OAuth state, 1% CSP nonces; demonstrated WCD on unauthenticated pages; supply chain propagation via shared SaaS vendors (456 sites from single vendor)
-- Guo et al. — *Internet's Invisible Enemy: Detecting and Measuring Web Cache Poisoning in the Wild*, ACM CCS 2024: https://dl.acm.org/doi/10.1145/3658644.3690361
-- Nguyen, Lo Iacono, Federrath — *Your Cache Has Fallen: Cache-Poisoned Denial-of-Service Attack*, ACM CCS 2019: https://cpdos.org/
-- Zheng, Li, Wang, Guo, Duan, Chen, Zhang, Shen — *REQSMINER: Automated Discovery of CDN Forwarding Request Inconsistencies and DoS Attacks with Grammar-based Fuzzing*, NDSS 2024: https://github.com/Konano/ReqsMiner
-- Harel — *ChatGPT Account Takeover - Wildcard Web Cache Deception* (2024): https://nokline.github.io/bugbounty/2024/02/04/ChatGPT-ATO.html
-- zhero_web_security — *Next.js, Cache, and Chains: The Stale Elixir* (2024): https://zhero-web-sec.github.io/research-and-things/nextjs-cache-and-chains-the-stale-elixir
+- Mirheidari et al. — *Web Cache Deception Escalates!*, USENIX Security 2022 — Novel detection via page identicality + cache header heuristics; found WCD across popular sites, including leaks of CSRF tokens, session IDs, OAuth state, and CSP nonces; demonstrated WCD on unauthenticated pages; supply chain propagation via shared SaaS vendors
+- [Guo et al. — *Internet's Invisible Enemy: Detecting and Measuring Web Cache Poisoning in the Wild*, ACM CCS 2024](https://dl.acm.org/doi/10.1145/3658644.3690361)
+- [Nguyen, Lo Iacono, Federrath — *Your Cache Has Fallen: Cache-Poisoned Denial-of-Service Attack*, ACM CCS 2019](https://cpdos.org/)
+- [Zheng, Li, Wang, Guo, Duan, Chen, Zhang, Shen — *REQSMINER: Automated Discovery of CDN Forwarding Request Inconsistencies and DoS Attacks with Grammar-based Fuzzing*, NDSS 2024](https://github.com/Konano/ReqsMiner)
+- [Harel — *ChatGPT Account Takeover - Wildcard Web Cache Deception* (2024)](https://nokline.github.io/bugbounty/2024/02/04/ChatGPT-ATO.html)
+- [zhero_web_security — *Next.js, Cache, and Chains: The Stale Elixir* (2024)](https://zhero-web-sec.github.io/research-and-things/nextjs-cache-and-chains-the-stale-elixir)
 - Berto et al. — *A Methodology for Web Cache Deception Vulnerability Discovery*, CLOSER 2024
-- PortSwigger Web Security Academy — *Web Cache Poisoning*: https://portswigger.net/web-security/web-cache-poisoning
-- PortSwigger Web Security Academy — *Web Cache Deception*: https://portswigger.net/web-security/web-cache-deception
-- Hackmanit — *Web Cache Vulnerability Scanner*: https://github.com/Hackmanit/Web-Cache-Vulnerability-Scanner
-- HCache Research Tool: https://github.com/phantomnothingness/HCache
-- Jacopo Tediosi — *Worldwide Server-side Cache Poisoning on All Akamai Edge Nodes* (2022): https://medium.com/@jacopotediosi/worldwide-server-side-cache-poisoning-on-all-akamai-edge-nodes-50k-bounty-earned-f97d80f3922b
-- nokline — *Caching the Un-cacheables — Abusing URL Parser Confusions (Web Cache Exploitation at Scale)* (2022): https://nokline.github.io/bugbounty/2022/09/02/Glassdoor-Cache-Poisoning.html
+- [PortSwigger Web Security Academy — *Web Cache Poisoning*](https://portswigger.net/web-security/web-cache-poisoning)
+- [PortSwigger Web Security Academy — *Web Cache Deception*](https://portswigger.net/web-security/web-cache-deception)
+- [Hackmanit — *Web Cache Vulnerability Scanner*](https://github.com/Hackmanit/Web-Cache-Vulnerability-Scanner)
+- [HCache Research Tool](https://github.com/phantomnothingness/HCache)
+- [Jacopo Tediosi — *Worldwide Server-side Cache Poisoning on All Akamai Edge Nodes* (2022)](https://medium.com/@jacopotediosi/worldwide-server-side-cache-poisoning-on-all-akamai-edge-nodes-50k-bounty-earned-f97d80f3922b)
+- [nokline — *Caching the Un-cacheables — Abusing URL Parser Confusions (Web Cache Exploitation at Scale)* (2022)](https://nokline.github.io/bugbounty/2022/09/02/Glassdoor-Cache-Poisoning.html)
 
 ---
 

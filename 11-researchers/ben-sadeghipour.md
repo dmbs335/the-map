@@ -118,7 +118,7 @@ Backend systems using headless browsers for rendering, ad delivery, or content p
 
 | Subtype | Mechanism | Example/Condition |
 |---------|-----------|-------------------|
-| **Patch Lag RCE** | Backend headless Chrome instances remain unpatched for known CVEs | Meta ad platform server used vulnerable Chrome → RCE via known browser exploit ($100,000 bounty, October 2024) |
+| **Patch Lag RCE** | Backend headless Chrome instances remain unpatched for known CVEs | Meta ad platform server used vulnerable Chrome → RCE via known browser exploit; public high-impact bounty case |
 | **Ad Payload Injection** | Malicious content delivered through ad creation workflows triggers headless Chrome vulnerabilities | Crafted ad payload exploits unpatched Chrome flaw in rendering pipeline |
 | **Lateral Movement from Ad Server** | RCE on ad processing server provides access to internal infrastructure | Command-line control over Meta's ad workflow server → internal network access |
 
@@ -132,7 +132,7 @@ Backend systems using headless browsers for rendering, ad delivery, or content p
 
 | Subtype | Mechanism | Example/Condition |
 |---------|-----------|-------------------|
-| **Jenkins Console Exposure** | Non-production Jenkins instances accessible via misconfigured OAuth | Snapchat's Jenkins: Gmail OAuth granted Script Console access → arbitrary Groovy code execution ($5,000+) |
+| **Jenkins Console Exposure** | Non-production Jenkins instances accessible via misconfigured OAuth | Snapchat's Jenkins: Gmail OAuth granted Script Console access → arbitrary Groovy code execution; public bounty case |
 | **Admin Panel Discovery via Recon** | Systematic subdomain enumeration reveals employee-facing admin portals | `REDACTED-jenkins-{env}.sc-corp.net` pattern discovered via Censys certificate enumeration |
 | **Actuator/Debug Endpoint Exposure** | Spring Boot Actuator endpoints leak heap dumps containing valid session tokens | `/actuator/heapdump` exposed authentication cookies on Apple infrastructure |
 
@@ -230,7 +230,7 @@ Three-month collaborative engagement (July–September 2020) with Sam Curry, Bre
 | **High** | 29 |
 | **Medium** | 13 |
 | **Low** | 2 |
-| **Total Bounty** | $288,500+ |
+| **Total Bounty** | Public high-value bounty history |
 
 ### §7-2. Vulnerability Categories Discovered
 
@@ -265,10 +265,10 @@ Three-month collaborative engagement (July–September 2020) with Sam Curry, Bre
 
 | Vulnerability | Target | Impact / Bounty |
 |---------------|--------|----------------|
-| Headless Chrome RCE in ad platform (§3-1) | Meta / Facebook | $100,000. Server-side RCE via unpatched Chrome in ad delivery infrastructure |
-| 55 vulnerabilities across Apple services (§7) | Apple | $288,500+. 11 critical, 29 high severity across entire ecosystem |
+| Headless Chrome RCE in ad platform (§3-1) | Meta / Facebook | Server-side RCE via unpatched Chrome in ad delivery infrastructure; high-impact bounty case |
+| 55 vulnerabilities across Apple services (§7) | Apple | Broad multi-service research effort with multiple critical and high-severity findings |
 | WeasyPrint SSRF via expense reports (§2-1) | Lyft | Maximum bounty on program. File read via `<link rel=attachment>` in PDF generator |
-| Jenkins Script Console RCE (§4-1) | Snapchat | $5,000+. Unauthenticated Groovy code execution via exposed Jenkins |
+| Jenkins Script Console RCE (§4-1) | Snapchat | Unauthenticated Groovy code execution via exposed Jenkins |
 | Multi-vuln chain to admin access (§4-2) | Private HackerOne Program | Undisclosed. IDOR + 2FA bypass + role escalation → full admin |
 
 ---
@@ -310,6 +310,6 @@ The common thread across all research areas is **trust boundary identification**
 - "Secure Your Jenkins Instance or Hackers Will Force You To" (NahamSec Blog, 2017)
 - "Chaining Multiple Vulnerabilities to Gain Admin Access" (NahamSec Blog, 2018)
 - "Vulnerabilities to Master in 2025" (NahamSec Blog, 2025)
-- Meta Bug Bounty $100,000 Disclosure (TechCrunch, January 2025)
-- NahamSec Blog: https://www.nahamsec.com/posts
-- GitHub: https://github.com/nahamsec
+- Meta Bug Bounty Disclosure (TechCrunch, January 2025)
+- [NahamSec Blog](https://www.nahamsec.com/posts)
+- [GitHub](https://github.com/nahamsec)

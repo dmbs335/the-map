@@ -477,7 +477,7 @@ Techniques for maintaining XSS access beyond a single page load and maximizing e
 | **SW as C2 channel** | Service worker maintains persistent communication with attacker server | SW push notifications or periodic sync as command channel |
 | **SW via DOM clobbering** | DOM clobbering overwrites the service worker registration URL | Service worker path loaded from a clobberable DOM property |
 
-Service workers persist across sessions until replaced or manually cleared (average update cycle: ~40 days), making them the most powerful XSS persistence mechanism.
+Service workers persist across sessions until replaced or manually cleared, making them one of the strongest XSS persistence mechanisms.
 
 ### §11-2. Blind XSS
 
@@ -548,7 +548,7 @@ Blind XSS payloads typically use `import()` or external script loading with out-
 | §6-3 (postMessage to XSS) | CVE-2024-49038 (Microsoft Copilot Studio) | CVSS 9.3; XSS / Elevation of Privilege per NVD. MSRC describes postMessage-based root cause; official classification is broader than token theft alone |
 | §9-1 (Vue template XSS) | CVE-2024-6783 (vue-template-compiler) | Prototype pollution enables XSS in Vue 2.x template compiler |
 | §6-3 (postMessage chain) | ZoomInfo Chat (July 2024) | Two-stage: token leakage via `postMessage('*')` + DOM XSS |
-| §6-3 (postMessage ATO) | Meta Conversion API Gateway (Jan 2026, personal blog report) | Account takeover via unvalidated postMessage origin. $12,500 bounty. Source: individual researcher blog post — details not independently confirmed by Meta advisory |
+| §6-3 (postMessage ATO) | Meta Conversion API Gateway (Jan 2026, personal blog report) | Account takeover via unvalidated postMessage origin. Source: individual researcher blog post — details not independently confirmed by Meta advisory |
 | §10-2 (Cookie sandwich) | Apache Tomcat (2025 research) | HttpOnly cookie theft via RFC2109 parsing switch; phantom `$Version` cookie |
 | §8-3 (Parameter pollution) | WAF bypass research (2024) | 14 of 17 major WAF configurations bypassed (AWS, GCP, Azure, Cloudflare) |
 | §9-1 (Expression sandbox escape) | CVE-2025-59840 (Vega) | Expression sandbox bypass via implicit toString gadget chain; arbitrary JS execution |
@@ -569,7 +569,7 @@ Blind XSS payloads typically use `import()` or external script loading with out-
 | **DOMPurify** (Sanitizer) | mXSS, HTML injection | Server/client-side HTML sanitization; regularly updated mutation rules |
 | **Trusted Types** (Browser API) | DOM XSS | Browser-enforced policy requiring sanitized types for DOM sinks |
 | **xssFuzz** (Fuzzer) | WAF bypass, CSP misconfig | Tag/attribute fuzzing; CSP configuration analysis |
-| **XSSGAI** (AI Fuzzer) | WAF bypass | ML-generated adversarial payloads; 80% bypass rate against SOTA WAFs |
+| **XSSGAI** (AI Fuzzer) | WAF bypass | ML-generated adversarial payloads; high bypass rates reported against tested WAFs |
 | **Shadow Workers** (C2) | XSS post-exploitation | Service worker-based persistence and proxying framework |
 | **Knoxss** (AI Scanner) | All XSS types | AI-powered automated deep scanning; minimal configuration |
 | **CSP Evaluator** (Google) | CSP configuration | Static analysis of Content Security Policy for bypass-prone directives |
@@ -590,46 +590,46 @@ Blind XSS payloads typically use `import()` or external script loading with out-
 
 ## References
 
-- PortSwigger Research. "Cross-Site Scripting (XSS) Cheat Sheet — 2026 Edition." https://portswigger.net/web-security/cross-site-scripting/cheat-sheet
-- PortSwigger Research. "Bypassing DOMPurify again with mutation XSS." https://portswigger.net/research/bypassing-dompurify-again-with-mutation-xss
-- PortSwigger Research. "Stealing HttpOnly cookies with the cookie sandwich technique." https://portswigger.net/research/stealing-httponly-cookies-with-the-cookie-sandwich-technique
-- PortSwigger Research. "Bypassing WAFs with the phantom $Version cookie." https://portswigger.net/research/bypassing-wafs-with-the-phantom-version-cookie
-- PortSwigger Research. "Cookie Chaos: How to bypass __Host and __Secure cookie prefixes." https://portswigger.net/research/cookie-chaos-how-to-bypass-host-and-secure-cookie-prefixes
-- PortSwigger Research. "Exploiting XSS in hidden inputs and meta tags." https://portswigger.net/research/exploiting-xss-in-hidden-inputs-and-meta-tags
-- PortSwigger Research. "SVG animate XSS vector." https://portswigger.net/research/svg-animate-xss-vector
-- PortSwigger Research. "Hijacking service workers via DOM Clobbering." https://portswigger.net/research/hijacking-service-workers-via-dom-clobbering
-- PortSwigger Research. "Evading CSP with DOM-based dangling markup." https://portswigger.net/research/evading-csp-with-dom-based-dangling-markup
-- PortSwigger Research (Gareth Heyes). "Bypassing CSP using polyglot JPEGs" (2016). https://portswigger.net/research/bypassing-csp-using-polyglot-jpegs
-- PortSwigger Research (Gareth Heyes). "Portable Data exFiltration: XSS for PDFs" (2020). https://portswigger.net/research/portable-data-exfiltration
-- PortSwigger Research (Gareth Heyes). "Bypassing CSP with dangling iframes" (2022). https://portswigger.net/research/bypassing-csp-with-dangling-iframes
-- PortSwigger Research (Gareth Heyes). "Using form hijacking to bypass CSP" (2024). https://portswigger.net/research/using-form-hijacking-to-bypass-csp
-- PortSwigger Research. "New exotic events in the XSS cheat sheet." https://portswigger.net/research/new-exotic-events-in-the-xss-cheat-sheet
-- Mizu.re. "Exploring the DOMPurify library: Bypasses and Fixes." https://mizu.re/post/exploring-the-dompurify-library-bypasses-and-fixes
-- Securitum Research. "Mutation XSS via namespace confusion — DOMPurify < 2.0.17 bypass." https://research.securitum.com/mutation-xss-via-mathml-mutation-dompurify-2-0-17-bypass/
-- BeaconRed Research. "When Purification Fails: Exploiting DOMPurify's Leftovers." https://shaheen.beaconred.net/research/2025/05/28/when-purification-fails.html
-- CVE News. "CVE-2024-47875 — Breaking Down the DOMPurify mXSS Vulnerability." https://www.cve.news/cve-2024-47875/
-- CVE News. "CVE-2025-26791 — Exploiting DOMPurify's Regular Expression Bug for mXSS." https://www.cve.news/cve-2025-26791/
-- GitHub Advisory. "Webpack AutoPublicPathRuntimeModule DOM Clobbering XSS (GHSA-4vvj-4cpr-p986)." https://github.com/webpack/webpack/security/advisories/GHSA-4vvj-4cpr-p986
-- GitHub Advisory. "Astro client-side router DOM Clobbering XSS (CVE-2024-47885)." https://advisories.gitlab.com/pkg/npm/astro/CVE-2024-47885/
-- Buer.haus. "Go Go XSS Gadgets: Chaining a DOM Clobbering Exploit in the Wild." https://buer.haus/2024/02/23/go-go-xss-gadgets-chaining-a-dom-clobbering-exploit-in-the-wild/
-- USENIX Security 2025. "The DOMino Effect: Detecting and Exploiting DOM Clobbering Gadgets." https://www.usenix.org/system/files/conference/usenixsecurity25/sec25cycle1-prepub-858-liu-zhengyu.pdf
-- Ethiack Blog. "Bypassing WAFs for Fun and JS Injection with Parameter Pollution." https://blog.ethiack.com/blog/bypassing-wafs-for-fun-and-js-injection-with-parameter-pollution
-- TrustedSec. "Persistence Through Service Workers." https://trustedsec.com/blog/persistence-through-service-workers-part-1-introduction-and-target-application-setup
-- Shadow Workers Project. https://shadow-workers.github.io/
-- Akamai Blog. "Abusing the Service Workers API." https://www.akamai.com/blog/security/abusing-the-service-workers-api
-- Microsoft MSRC. "Weaponizing cross site scripting: When one bug isn't enough." https://www.microsoft.com/en-us/msrc/blog/2025/11/weaponizing-cross-site-scripting-when-one-bug-isnt-enough
-- Microsoft MSRC. "PostMessaged and Compromised." https://www.microsoft.com/en-us/msrc/blog/2025/08/postmessaged-and-compromised
-- Youssef Sammouda. "Multiple XSS in Meta Conversion API Gateway Leading to Zero-Click Account Takeover." https://ysamm.com/uncategorized/2025/01/13/capig-xss.html
-- Bugcrowd Blog. "The guide to blind XSS." https://www.bugcrowd.com/blog/the-guide-to-blind-xss-advanced-techniques-for-bug-bounty-hunters-worth-250000/
-- Intigriti Blog. "CSP Bypasses: Advanced Exploitation Guide." https://www.intigriti.com/researchers/blog/hacking-tools/content-security-policy-csp-bypasses
-- Jorian Woltjer. "Nonce CSP bypass using Disk Cache." https://jorianwoltjer.com/blog/p/research/nonce-csp-bypass-using-disk-cache
-- Node.js Security. "How I found an XSS in the Nuxt MDC Library for Markdown Content." https://www.nodejs-security.com/blog/nuxt-mdc-xss-vulnerability
-- W3C Blog. "How to protect your Web applications from XSS (2025)." https://www.w3.org/blog/2025/how-to-protect-your-web-applications-from-xss/
-- The Hacker News. "Why React Didn't Kill XSS: The New JavaScript Injection Playbook." https://thehackernews.com/2025/07/why-react-didnt-kill-xss-new-javascript.html
-- BroadChannel. "XSSGAI and AI-Generated XSS: Why Traditional WAF Rules Are Obsolete in 2025." https://broadchannel.org/xssgai-ai-generated-xss-waf-bypass/
-- OWASP. "XSS Filter Evasion Cheat Sheet." https://cheatsheetseries.owasp.org/cheatsheets/XSS_Filter_Evasion_Cheat_Sheet.html
-- OWASP. "DOM Clobbering Prevention Cheat Sheet." https://cheatsheetseries.owasp.org/cheatsheets/DOM_Clobbering_Prevention_Cheat_Sheet.html
-- HackTricks. "Cross Site Scripting (XSS)." https://book.hacktricks.wiki/pentesting-web/xss-cross-site-scripting
+- [PortSwigger Research. "Cross-Site Scripting (XSS) Cheat Sheet — 2026 Edition."](https://portswigger.net/web-security/cross-site-scripting/cheat-sheet)
+- [PortSwigger Research. "Bypassing DOMPurify again with mutation XSS."](https://portswigger.net/research/bypassing-dompurify-again-with-mutation-xss)
+- [PortSwigger Research. "Stealing HttpOnly cookies with the cookie sandwich technique."](https://portswigger.net/research/stealing-httponly-cookies-with-the-cookie-sandwich-technique)
+- [PortSwigger Research. "Bypassing WAFs with the phantom $Version cookie."](https://portswigger.net/research/bypassing-wafs-with-the-phantom-version-cookie)
+- [PortSwigger Research. "Cookie Chaos: How to bypass __Host and __Secure cookie prefixes."](https://portswigger.net/research/cookie-chaos-how-to-bypass-host-and-secure-cookie-prefixes)
+- [PortSwigger Research. "Exploiting XSS in hidden inputs and meta tags."](https://portswigger.net/research/exploiting-xss-in-hidden-inputs-and-meta-tags)
+- [PortSwigger Research. "SVG animate XSS vector."](https://portswigger.net/research/svg-animate-xss-vector)
+- [PortSwigger Research. "Hijacking service workers via DOM Clobbering."](https://portswigger.net/research/hijacking-service-workers-via-dom-clobbering)
+- [PortSwigger Research. "Evading CSP with DOM-based dangling markup."](https://portswigger.net/research/evading-csp-with-dom-based-dangling-markup)
+- [PortSwigger Research (Gareth Heyes). "Bypassing CSP using polyglot JPEGs" (2016).](https://portswigger.net/research/bypassing-csp-using-polyglot-jpegs)
+- [PortSwigger Research (Gareth Heyes). "Portable Data exFiltration: XSS for PDFs" (2020).](https://portswigger.net/research/portable-data-exfiltration)
+- [PortSwigger Research (Gareth Heyes). "Bypassing CSP with dangling iframes" (2022).](https://portswigger.net/research/bypassing-csp-with-dangling-iframes)
+- [PortSwigger Research (Gareth Heyes). "Using form hijacking to bypass CSP" (2024).](https://portswigger.net/research/using-form-hijacking-to-bypass-csp)
+- [PortSwigger Research. "New exotic events in the XSS cheat sheet."](https://portswigger.net/research/new-exotic-events-in-the-xss-cheat-sheet)
+- [Mizu.re. "Exploring the DOMPurify library: Bypasses and Fixes."](https://mizu.re/post/exploring-the-dompurify-library-bypasses-and-fixes)
+- [Securitum Research. "Mutation XSS via namespace confusion — DOMPurify < 2.0.17 bypass."](https://research.securitum.com/mutation-xss-via-mathml-mutation-dompurify-2-0-17-bypass/)
+- [BeaconRed Research. "When Purification Fails: Exploiting DOMPurify's Leftovers."](https://shaheen.beaconred.net/research/2025/05/28/when-purification-fails.html)
+- [CVE News. "CVE-2024-47875 — Breaking Down the DOMPurify mXSS Vulnerability."](https://www.cve.news/cve-2024-47875/)
+- [CVE News. "CVE-2025-26791 — Exploiting DOMPurify's Regular Expression Bug for mXSS."](https://www.cve.news/cve-2025-26791/)
+- [GitHub Advisory. "Webpack AutoPublicPathRuntimeModule DOM Clobbering XSS (GHSA-4vvj-4cpr-p986)."](https://github.com/webpack/webpack/security/advisories/GHSA-4vvj-4cpr-p986)
+- [GitHub Advisory. "Astro client-side router DOM Clobbering XSS (CVE-2024-47885)."](https://advisories.gitlab.com/pkg/npm/astro/CVE-2024-47885/)
+- [Buer.haus. "Go Go XSS Gadgets: Chaining a DOM Clobbering Exploit in the Wild."](https://buer.haus/2024/02/23/go-go-xss-gadgets-chaining-a-dom-clobbering-exploit-in-the-wild/)
+- [USENIX Security 2025. "The DOMino Effect: Detecting and Exploiting DOM Clobbering Gadgets."](https://www.usenix.org/system/files/conference/usenixsecurity25/sec25cycle1-prepub-858-liu-zhengyu.pdf)
+- [Ethiack Blog. "Bypassing WAFs for Fun and JS Injection with Parameter Pollution."](https://blog.ethiack.com/blog/bypassing-wafs-for-fun-and-js-injection-with-parameter-pollution)
+- [TrustedSec. "Persistence Through Service Workers."](https://trustedsec.com/blog/persistence-through-service-workers-part-1-introduction-and-target-application-setup)
+- [Shadow Workers Project.](https://shadow-workers.github.io/)
+- [Akamai Blog. "Abusing the Service Workers API."](https://www.akamai.com/blog/security/abusing-the-service-workers-api)
+- [Microsoft MSRC. "Weaponizing cross site scripting: When one bug isn't enough."](https://www.microsoft.com/en-us/msrc/blog/2025/11/weaponizing-cross-site-scripting-when-one-bug-isnt-enough)
+- [Microsoft MSRC. "PostMessaged and Compromised."](https://www.microsoft.com/en-us/msrc/blog/2025/08/postmessaged-and-compromised)
+- [Youssef Sammouda. "Multiple XSS in Meta Conversion API Gateway Leading to Zero-Click Account Takeover."](https://ysamm.com/uncategorized/2025/01/13/capig-xss.html)
+- [Bugcrowd Blog. "The guide to blind XSS."](https://www.bugcrowd.com/blog/the-guide-to-blind-xss-advanced-techniques-for-bug-bounty-hunters-worth-250000/)
+- [Intigriti Blog. "CSP Bypasses: Advanced Exploitation Guide."](https://www.intigriti.com/researchers/blog/hacking-tools/content-security-policy-csp-bypasses)
+- [Jorian Woltjer. "Nonce CSP bypass using Disk Cache."](https://jorianwoltjer.com/blog/p/research/nonce-csp-bypass-using-disk-cache)
+- [Node.js Security. "How I found an XSS in the Nuxt MDC Library for Markdown Content."](https://www.nodejs-security.com/blog/nuxt-mdc-xss-vulnerability)
+- [W3C Blog. "How to protect your Web applications from XSS (2025)."](https://www.w3.org/blog/2025/how-to-protect-your-web-applications-from-xss/)
+- [The Hacker News. "Why React Didn't Kill XSS: The New JavaScript Injection Playbook."](https://thehackernews.com/2025/07/why-react-didnt-kill-xss-new-javascript.html)
+- [BroadChannel. "XSSGAI and AI-Generated XSS: Why Traditional WAF Rules Are Obsolete in 2025."](https://broadchannel.org/xssgai-ai-generated-xss-waf-bypass/)
+- [OWASP. "XSS Filter Evasion Cheat Sheet."](https://cheatsheetseries.owasp.org/cheatsheets/XSS_Filter_Evasion_Cheat_Sheet.html)
+- [OWASP. "DOM Clobbering Prevention Cheat Sheet."](https://cheatsheetseries.owasp.org/cheatsheets/DOM_Clobbering_Prevention_Cheat_Sheet.html)
+- [HackTricks. "Cross Site Scripting (XSS)."](https://book.hacktricks.wiki/pentesting-web/xss-cross-site-scripting)
 - tttang. "A Magic Way of XSS in HTTP/2" (2022) — XSS vectors exploiting HTTP/2 binary framing and header compression characteristics
 
 ---

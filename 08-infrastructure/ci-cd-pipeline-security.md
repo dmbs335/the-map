@@ -90,7 +90,7 @@ Source control systems (Git, SVN, Mercurial) manage code versioning. Attackers t
 | **Orphan Branch Trigger** | Create disconnected branch to trigger CI without appearing in normal commit history | CI triggers on all branch pushes |
 | **Release Hijacking** | Create malicious release tags to distribute trojanized artifacts | Automated release process on tag creation |
 
-**Tag Retargeting** was weaponized in the March 2025 tj-actions/changed-files compromise, where attackers retroactively modified version tags (v1, v2, etc.) to reference a malicious commit, affecting 23,000+ repositories.
+**Tag Retargeting** was weaponized in the March 2025 tj-actions/changed-files compromise, where attackers retroactively modified version tags (v1, v2, etc.) to reference a malicious commit, affecting many repositories.
 
 ### §2-2. Commit and History Manipulation
 
@@ -174,7 +174,7 @@ Modern applications depend on hundreds of external packages. The dependency laye
 | **Typosquatting** | Register packages with similar names to popular dependencies | Developers make typos in dependency declarations |
 | **Version Precedence Exploitation** | Publish higher version number on public registry to override private package | Highest version wins regardless of registry |
 
-**Dependency confusion** exploits package manager resolution order. If `@internal/package` exists in a private registry and `@internal/package` version 999.999.999 is published to npm, the public version may be installed. Up to 49% of organizations have vulnerable assets.
+**Dependency confusion** exploits package manager resolution order. If `@internal/package` exists in a private registry and `@internal/package` version 999.999.999 is published to npm, the public version may be installed. Asset-inventory studies continue to find vulnerable organizations.
 
 ### §4-2. Direct Dependency Poisoning
 
@@ -185,7 +185,7 @@ Modern applications depend on hundreds of external packages. The dependency laye
 | **Package Lifecycle Hooks** | Abuse `preinstall`, `postinstall`, or similar hooks to execute code | Package managers execute lifecycle scripts |
 | **Legitimate Package Trojanization** | Add malicious code to previously benign package | Maintainer account compromise or insider threat |
 
-The **Shai-Hulud 2.0** campaign (November 2025) exploited npm `preinstall` lifecycle scripts, executing malicious payloads even when installation failed, compromising 25,000+ repositories.
+The **Shai-Hulud 2.0** campaign (November 2025) exploited npm `preinstall` lifecycle scripts, executing malicious payloads even when installation failed and compromising many repositories.
 
 ---
 
@@ -300,7 +300,7 @@ CI/CD pipelines integrate with third-party actions, webhooks, external APIs, and
 | **Action Dependency Poisoning** | Inject malicious code into action's dependencies | Actions with complex dependency trees |
 | **Action Tag Retargeting** | Modify action version tags to point to malicious code | Mutable tags (v1, v2 vs v1.2.3) |
 
-The tj-actions/changed-files (CVE-2025-30066) and reviewdog/action-setup (CVE-2025-30154) supply chain attacks leveraged tag retargeting to affect 23,000+ repositories.
+The tj-actions/changed-files (CVE-2025-30066) and reviewdog/action-setup (CVE-2025-30154) supply chain attacks leveraged tag retargeting to affect many repositories.
 
 ### §8-2. Expression Language Injection
 
@@ -360,13 +360,13 @@ Real-world incidents demonstrating taxonomy categories.
 
 | Mutation Combination | CVE / Case | Impact / Bounty | Year |
 |---------------------|-----------|----------------|------|
-| §7-1 + §4-2 + §3-1 | Shai-Hulud 2.0 | 25,000+ repos, self-hosted runner backdoors, mass credential theft | Nov 2025 |
-| §8-1 + §3-1 + §2-1 | CVE-2025-30066 (tj-actions/changed-files) | 23,000+ repos, AWS/GitHub/npm token exposure | Mar 2025 |
+| §7-1 + §4-2 + §3-1 | Shai-Hulud 2.0 | Self-hosted runner backdoors, mass credential theft | Nov 2025 |
+| §8-1 + §3-1 + §2-1 | CVE-2025-30066 (tj-actions/changed-files) | AWS/GitHub/npm token exposure across many repositories | Mar 2025 |
 | §8-1 + §3-1 | CVE-2025-30154 (reviewdog/action-setup) | Cascade attack enabling tj-actions compromise | Mar 2025 |
 | §5-1 | CVE-2024-4985 (GitHub Enterprise SAML) | Site admin access, all repos/secrets/CI compromise | 2024 |
 | §8-2 | GHSL-2024-050, 051, 057, 145, 277 | Expression injection → repository takeover | 2024 |
 | §1-1 + §7-3 + §4-2 | Ultralytics PyPI Compromise | Cryptomining via GitHub Actions, credential exfiltration | Dec 2024 |
-| §7-1 | CVE-2024-23897 (Jenkins CLI RCE) | Critical RCE, read arbitrary files, used in ransomware (CVSS 9.8) | Jan 2024 |
+| §7-1 | CVE-2024-23897 (Jenkins CLI arbitrary file read) | Critical arbitrary file read through CLI `@` expansion; can lead to RCE when leaked secrets/keys enable follow-on compromise (CVSS 9.8) | Jan 2024 |
 | §1-1 + §7-1 | CVE-2025-53652 (Jenkins Git Parameter) | Command injection via Git parameter values | Jul 2025 |
 | §1-2 + §3-1 + §6-1 | GhostAction Supply Chain Attack | 327 GitHub users, 817 repos, 3,325 secrets exfiltrated | Sep 2025 |
 | §1-1 + §2-1 | CVE-2024-5655, 9164, 6678 (GitLab) | Trigger pipelines as other users, arbitrary branch execution (CVSS 9.6-9.9) | 2024 |

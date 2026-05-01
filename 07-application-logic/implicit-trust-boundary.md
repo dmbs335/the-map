@@ -39,7 +39,7 @@ Cloud providers expose instance metadata on link-local addresses (e.g., `169.254
 | **GCP Metadata Credential Access** | SSRF to `http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token` with `Metadata-Flavor: Google` header | GCP environment; custom header injection available |
 | **Alternative IP Representation Bypass** | Metadata endpoint accessed via decimal (`2852039166`), hex (`0xA9FEA9FE`), octal, or IPv6-mapped representations to evade blocklists | SSRF filter uses string matching rather than IP normalization |
 
-A notable example is CVE-2025-53767 (Azure OpenAI SSRF, CVSS 10.0), which allowed metadata token retrieval through insufficient URL validation.
+A notable example is CVE-2025-53767 (Azure OpenAI Elevation of Privilege / CWE-918 SSRF, CVSS 10.0), which demonstrates cloud-service SSRF/EoP through insufficient request-destination validation; metadata-token retrieval is reported in secondary analyses rather than detailed in the terse MSRC/NVD record.
 
 ### §1-2. Internal Network / Localhost Trust
 
@@ -201,7 +201,7 @@ Deserialization converts untrusted byte streams into live objects within the app
 | **Java Gadget Chain RCE** | Attacker crafts serialized Java object containing a chain of class invocations (gadget chain) that culminates in `Runtime.exec()` | Application deserializes untrusted Java objects; gadget classes on classpath (Commons Collections, Spring, etc.) |
 | **PHP Magic Method Abuse** | Serialized PHP object triggers `__wakeup()`, `__destruct()`, or `__toString()` with attacker-controlled properties | Application calls `unserialize()` on user input; exploitable magic methods in loaded classes |
 | **Python Pickle RCE** | Pickle's `__reduce__` method allows arbitrary function execution during deserialization | Application uses `pickle.loads()` on untrusted input |
-| **React Server Components Deserialization** | Flight protocol payloads deserialized on server; malicious serialized data injected through client-controlled RSC payloads | React Server Components with Server Functions; prototype validation missing (CVE-2025-55182) |
+| **React Server Components Deserialization** | Flight protocol payloads deserialized on server; malicious serialized data injected through client-controlled RSC payloads | React Server Components with Server Functions; unsafe Flight / Server Function payload validation (CVE-2025-55182) |
 | **.NET ViewState Tampering** | ViewState deserialization with known or weak machine key allows arbitrary object instantiation | Machine key leaked or default; ViewState MAC validation disabled or bypassable (CVE-2025-53690) |
 
 ### §5-2. Template Engine Trust
@@ -413,7 +413,7 @@ CI/CD pipelines implicitly trust their inputs: source code, environment variable
 
 | Mutation Combination | CVE / Case | Impact / Bounty |
 |---------------------|-----------|----------------|
-| §1-1 (IMDS SSRF) | CVE-2025-53767 (Azure OpenAI) | CVSS 10.0. Managed identity token theft via URL validation bypass |
+| §1-1 (Azure OpenAI SSRF/EoP) | CVE-2025-53767 (Azure OpenAI) | CVSS 10.0. CWE-918 SSRF / Elevation of Privilege via insufficient request-destination validation; managed-identity token theft is a secondary-analysis claim, not stated in the terse NVD/MSRC entry |
 | §5-1 (Deserialization) | CVE-2025-55182 (React/Next.js) | RCE via Server Functions deserialization; Flight protocol trust boundary |
 | §5-1 (ViewState) | CVE-2025-53690 (Sitecore) | RCE via ViewState deserialization zero-day |
 | §5-1 (Deserialization) | CVE-2025-30382 (SharePoint) | RCE via SharePoint deserialization |
@@ -472,22 +472,22 @@ The structural answer is **Zero Trust Architecture** applied not just at the net
 
 ## References
 
-- CWE-501: Trust Boundary Violation — https://cwe.mitre.org/data/definitions/501.html
-- OWASP Top 10:2021 A04 Insecure Design — https://owasp.org/Top10/A04_2021-Insecure_Design/
-- PortSwigger Web Security Academy — https://portswigger.net/web-security
-- PortSwigger Top 10 Web Hacking Techniques 2024 — https://portswigger.net/research/top-10-web-hacking-techniques-of-2024
-- HackTricks — https://book.hacktricks.xyz/
-- Can I Take Your Subdomain? (Same-Site Attacks Research) — https://canitakeyoursubdomain.name/
-- Cookie Tossing Research (Thomas Houhou) — https://www.thomashouhou.com/post/cookie-tossing-attacks/
-- Doyensec Common OAuth Vulnerabilities — https://blog.doyensec.com/2025/01/30/oauth-common-vulnerabilities.html
-- SSO Protocol Security Vulnerabilities 2025 — https://guptadeepak.com/security-vulnerabilities-in-saml-oauth-2-0-openid-connect-and-jwt/
-- Reverse Proxy Security Paradox — https://blog.devsecopsguides.com/p/secure-by-design-the-reverse-proxy
-- Abusing Reverse Proxies (ProjectDiscovery) — https://projectdiscovery.io/blog/abusing-reverse-proxies-internal-access
-- Resecurity SSRF to AWS Metadata — https://www.resecurity.com/blog/article/ssrf-to-aws-metadata-exposure-how-attackers-steal-cloud-credentials
-- Akamai CVE-2025-55182 React/Next.js RCE — https://www.akamai.com/blog/security-research/cve-2025-55182-react-nextjs-server-functions-deserialization-rce
-- CISA npm Supply Chain Alert — https://www.cisa.gov/news-events/alerts/2025/09/23/widespread-supply-chain-compromise-impacting-npm-ecosystem
-- Straiker MCP DNS Rebinding — https://www.straiker.ai/blog/agentic-danger-dns-rebinding-exposing-your-internal-mcp-servers
-- Microsoft postMessage Research — https://www.microsoft.com/en-us/msrc/blog/2025/08/postmessaged-and-compromised
-- PortSwigger CSP DOM Clobbering Bypass — https://portswigger.net/research/bypassing-csp-via-dom-clobbering
-- PortSwigger Nonce-Based CSP Bypass Research — https://portswigger.net/research/hunting-nonce-based-csp-bypasses-with-dynamic-analysis
-- Lovable Account Takeover (Vidoc Security) — https://blog.vidocsecurity.com/blog/how-we-secured-lovable
+- [CWE-501: Trust Boundary Violation](https://cwe.mitre.org/data/definitions/501.html)
+- [OWASP Top 10:2021 A04 Insecure Design](https://owasp.org/Top10/A04_2021-Insecure_Design/)
+- [PortSwigger Web Security Academy](https://portswigger.net/web-security)
+- [PortSwigger Top 10 Web Hacking Techniques 2024](https://portswigger.net/research/top-10-web-hacking-techniques-of-2024)
+- [HackTricks](https://book.hacktricks.xyz/)
+- [Can I Take Your Subdomain? (Same-Site Attacks Research)](https://canitakeyoursubdomain.name/)
+- [Cookie Tossing Research (Thomas Houhou)](https://www.thomashouhou.com/post/cookie-tossing-attacks/)
+- [Doyensec Common OAuth Vulnerabilities](https://blog.doyensec.com/2025/01/30/oauth-common-vulnerabilities.html)
+- [SSO Protocol Security Vulnerabilities 2025](https://guptadeepak.com/security-vulnerabilities-in-saml-oauth-2-0-openid-connect-and-jwt/)
+- [Reverse Proxy Security Paradox](https://blog.devsecopsguides.com/p/secure-by-design-the-reverse-proxy)
+- [Abusing Reverse Proxies (ProjectDiscovery)](https://projectdiscovery.io/blog/abusing-reverse-proxies-internal-access)
+- [Resecurity SSRF to AWS Metadata](https://www.resecurity.com/blog/article/ssrf-to-aws-metadata-exposure-how-attackers-steal-cloud-credentials)
+- [Akamai CVE-2025-55182 React/Next.js RCE](https://www.akamai.com/blog/security-research/cve-2025-55182-react-nextjs-server-functions-deserialization-rce)
+- [CISA npm Supply Chain Alert](https://www.cisa.gov/news-events/alerts/2025/09/23/widespread-supply-chain-compromise-impacting-npm-ecosystem)
+- [Straiker MCP DNS Rebinding](https://www.straiker.ai/blog/agentic-danger-dns-rebinding-exposing-your-internal-mcp-servers)
+- [Microsoft postMessage Research](https://www.microsoft.com/en-us/msrc/blog/2025/08/postmessaged-and-compromised)
+- [PortSwigger CSP DOM Clobbering Bypass](https://portswigger.net/research/bypassing-csp-via-dom-clobbering)
+- [PortSwigger Nonce-Based CSP Bypass Research](https://portswigger.net/research/hunting-nonce-based-csp-bypasses-with-dynamic-analysis)
+- [Lovable Account Takeover (Vidoc Security)](https://blog.vidocsecurity.com/blog/how-we-secured-lovable)

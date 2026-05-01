@@ -521,8 +521,8 @@ Every language boundary is a potential type confusion point. Type systems are no
 
 | Mutation Combination | CVE / Case | Impact / Bounty |
 |---|---|---|
-| §2-1 + §2-4 (V8 JIT type speculation + guard elimination) | CVE-2024-0517 (Chrome V8) | OOB write, $16,000 bounty |
-| §2-5 (Wasm cross-module type validation) | CVE-2024-2887 (Chrome V8 Wasm) | Full chain RCE, $42,500 Pwn2Own (Chrome exploit component) |
+| §2-1 + §2-4 (V8 JIT type speculation + guard elimination) | CVE-2024-0517 (Chrome V8) | OOB write; public bounty case |
+| §2-5 (Wasm cross-module type validation) | CVE-2024-2887 (Chrome V8 Wasm) | Full chain RCE; Pwn2Own Chrome exploit component |
 | §2-1 (V8 Maglev type feedback) | CVE-2024-4947 (Chrome) | In-the-wild zero-day, APT espionage |
 | §2-4 (V8 optimization pipeline) | CVE-2024-5274 (Chrome V8) | In-the-wild zero-day |
 | §2-4 (V8 optimization) | CVE-2024-7971 (Chrome V8) | In-the-wild zero-day, Citrine Sleet + kernel exploit chain |
@@ -535,9 +535,9 @@ Every language boundary is a potential type confusion point. Type systems are no
 | §4-3 (Windows Best-Fit character mapping coercion) | CVE-2024-4577 (PHP-CGI Windows) | Argument injection via char coercion, CVSS 9.8 |
 | §10-2 (Swift-ObjC id bridging + kernel objects) | CVE-2024-27804 (Apple XNU/IOKit) | Kernel type confusion, targeted exploitation |
 | §2 (Windows JScript9 scripting engine) | CVE-2024-38178 (Windows JScript9) | In-the-wild zero-day, ScarCruft APT |
-| §3-1 (PHP loose comparison) + §6-1 (JSON type injection) | Multiple HackerOne/Bugcrowd reports | Authentication bypass, $500–$15,000 per report |
-| §7-2 (NoSQL operator injection) | Multiple Synack/HackerOne reports | Account takeover via MongoDB injection, $500–$5,000 |
-| §9-4 (JSON integer precision loss) | Google VRP, Shopify reports | Cross-parser IDOR, $1,500–$10,000 |
+| §3-1 (PHP loose comparison) + §6-1 (JSON type injection) | Multiple HackerOne/Bugcrowd reports | Authentication bypass; bounty-confirmed reports |
+| §7-2 (NoSQL operator injection) | Multiple Synack/HackerOne reports | Account takeover via MongoDB injection; bounty-confirmed reports |
+| §9-4 (JSON integer precision loss) | Google VRP, Shopify reports | Cross-parser IDOR; bounty-confirmed reports |
 
 ---
 
@@ -618,7 +618,7 @@ True elimination of type confusion requires **end-to-end type provenance**: ever
 - JIT-Picking (CCS 2022): Differential fuzzing for JIT type confusion
 - V8 Blog: Sandbox architecture and type guard design
 - RFC 8259: JSON data interchange format (duplicate key semantics)
-- Jake Miller (Bishop Fox) — "An Exploration of JSON Interoperability Vulnerabilities" (2021). Survey of 49 JSON parsers across 10 languages; documented duplicate key handling divergences, number precision differences, key collision attacks, and permissive parsing discrepancies enabling cross-parser smuggling. https://bishopfox.com/blog/json-interoperability-vulnerabilities
+- [Jake Miller (Bishop Fox) — "An Exploration of JSON Interoperability Vulnerabilities" (2021). Survey of 49 JSON parsers across 10 languages; documented duplicate key handling divergences, number precision differences, key collision attacks, and permissive parsing discrepancies enabling cross-parser smuggling.](https://bishopfox.com/blog/json-interoperability-vulnerabilities)
 
 ---
 

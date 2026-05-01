@@ -144,7 +144,7 @@ Attack Flow:
 4. Writes malicious Marshal object to Memcached cache
 5. Rails retrieves and deserializes → RCE
 
-Bounty: $7,500 (GitHub Bug Bounty)
+Bounty: GitHub Bug Bounty
 ```
 
 **Vulnerable Libraries**: Python `httplib`, Ruby `Net::HTTP`, Java `HttpURLConnection`, PHP `curl`, Node.js `http`
@@ -475,7 +475,7 @@ Attack Chain:
 2. CVE-2021-34523: Exchange PowerShell elevation
 3. CVE-2021-31207: Post-auth arbitrary file write
 
-Result: $200,000 bounty (Pwn2Own Vancouver 2021)
+Result: Pwn2Own Vancouver 2021 bounty
 Recognition: Pwnie Award 2021 - Best Server-Side Bug
 ```
 
@@ -571,7 +571,7 @@ Attack Flow:
 5. Gadget triggers: ERB template execution
 6. Result: Command injection as git user
 
-Bounty: $7,500 (GitHub Best Report Anniversary Promotion)
+Bounty: GitHub Best Report Anniversary Promotion
 ```
 
 **Affected**: Ruby on Rails, GitLab, Redmine (any Rails app with known secret keys)
@@ -682,9 +682,9 @@ Result: Pre-auth RCE (no Overall/Read permission needed)
 
 | Scenario | Architecture | Primary Mutation Categories | Notable Cases |
 |----------|-------------|----------------------------|---------------|
-| **Pre-auth RCE** | Externally exposed services with no auth requirement | §5-2 (SSL VPN), §5-3 (MDM), §7-1 (Format String), §8-1 (Meta-Programming) | Palo Alto ($0), Fortinet, Pulse Secure, MobileIron, Jenkins |
-| **SSRF to RCE Chain** | Internal services accessible via SSRF + deserialization/protocol smuggling | §1-1 (URL Parser) + §2-1 (CR-LF) + §6-1 (Marshal) | GitHub Enterprise ($7,500), Amazon Nuxeo |
-| **Post-auth Privilege Escalation** | Authenticated user → SYSTEM/root | §5-1 (ProxyLogon), §4-1 (DocumentRoot Confusion) | Exchange ProxyShell ($200K Pwn2Own) |
+| **Pre-auth RCE** | Externally exposed services with no auth requirement | §5-2 (SSL VPN), §5-3 (MDM), §7-1 (Format String), §8-1 (Meta-Programming) | Palo Alto, Fortinet, Pulse Secure, MobileIron, Jenkins |
+| **SSRF to RCE Chain** | Internal services accessible via SSRF + deserialization/protocol smuggling | §1-1 (URL Parser) + §2-1 (CR-LF) + §6-1 (Marshal) | GitHub Enterprise, Amazon Nuxeo |
+| **Post-auth Privilege Escalation** | Authenticated user → SYSTEM/root | §5-1 (ProxyLogon), §4-1 (DocumentRoot Confusion) | Exchange ProxyShell, Pwn2Own |
 | **ACL/Auth Bypass** | Multi-layer architectures (proxy + backend) | §1-2 (Path Normalization), §4-1 (Filename Confusion) | Apache Confusion (CVE-2024-38473) |
 | **Source Code Disclosure** | Unsafe RewriteRules, handler confusion | §4-1 (DocumentRoot/Handler Confusion) | Apache CGI/PHP source exposure |
 | **Cache/Response Poisoning** | Shared caches between users | §2-2 (HTTP Response Splitting) | Apache CVE-2023-38709 |
@@ -696,14 +696,14 @@ Result: Pre-auth RCE (no Overall/Read permission needed)
 
 | Mutation Combination | CVE / Case | Product | Impact / Bounty | Year |
 |---------------------|-----------|---------|-----------------|------|
-| §1-1 + §2-1 + §6-1 | GitHub Enterprise | GitHub | $7,500 • Pre-auth RCE via SSRF→Memcached→Marshal | 2017 |
+| §1-1 + §2-1 + §6-1 | GitHub Enterprise | GitHub | Pre-auth RCE via SSRF→Memcached→Marshal | 2017 |
 | §1-2 + §4-2 | Amazon Collaboration | Nuxeo/Amazon | Recognition • ACL bypass→EL injection→RCE | 2018 |
 | §8-1 | CVE-2019-1003000, CVE-2019-1003005, CVE-2019-1003029 | Jenkins | Pre-auth RCE via Groovy meta-programming | 2019 |
 | §7-1 | CVE-2019-1579 | Palo Alto GlobalProtect | Pre-auth RCE via format string (Uber case study) | 2019 |
 | §5-2 | CVE-2018-13382 | Fortinet SSL VPN | Pre-auth password reset via magic backdoor (Improper Authorization) | 2019 |
 | §5-3 | CVE-2020-15505 | MobileIron Core/Connector | Pre-auth RCE (official: unspecified vectors; Rapid7 analysis: path traversal + Hessian deserialization). APT-weaponized (CISA AA20-258A) | 2020 |
 | §5-1 | CVE-2021-26855, CVE-2021-27065 | Microsoft Exchange (ProxyLogon) | Pre-auth RCE • Pwnie Award 2021 Best Server-Side Bug | 2021 |
-| §5-1 | CVE-2021-34473, CVE-2021-34523, CVE-2021-31207 | Microsoft Exchange (ProxyShell) | **$200,000** • Pwn2Own Vancouver 2021 Master of Pwn | 2021 |
+| §5-1 | CVE-2021-34473, CVE-2021-34523, CVE-2021-31207 | Microsoft Exchange (ProxyShell) | Pwn2Own Vancouver 2021 Master of Pwn | 2021 |
 | §3-1 | CVE-2024-4577 | PHP-CGI | CVSS 9.8 • RCE via soft hyphen Best-Fit bypass | 2024 |
 | §4-1 | CVE-2024-38472 | Apache HTTPd | Windows UNC SSRF | 2024 |
 | §4-1 | CVE-2024-39573 | Apache HTTPd | Potential SSRF via mod_rewrite (official advisory); Redmine RCE chain is Orange's demo | 2024 |
@@ -714,7 +714,7 @@ Result: Pre-auth RCE (no Overall/Read permission needed)
 | §3-1 | CVE-2024-45720 | Apache Subversion | Argument injection via Best-Fit | 2024 |
 | §3-1 | CVE-2024-8067 | Perforce | RCE via Best-Fit argument splitting | 2024 |
 
-**Total Estimated Bounties**: $207,500+ (excludes undisclosed amounts and Pwnie Awards recognition)
+**Total Estimated Bounties**: significant publicly disclosed bounty impact (excludes undisclosed amounts and Pwnie Awards recognition)
 
 **Recognition**:
 - **Pwnie Awards**: 2019 (SSL VPN), 2021 (ProxyLogon) - Best Server-Side Bug
@@ -739,7 +739,7 @@ Result: Pre-auth RCE (no Overall/Read permission needed)
 
 ### Research Resources
 
-- **Orange Tsai Blog**: [blog.orange.tw](https://blog.orange.tw) - Primary source for all vulnerability disclosures
+- [Orange Tsai Blog](https://blog.orange.tw) — Primary source for all vulnerability disclosures
 - **DEVCORE Security Research**: Corporate blog with team research
 - **GitHub**: orangetw/awesome-jenkins-rce-2019 - Jenkins exploitation research
 - **Black Hat Archives**: Presentation slides (2017-2024)
@@ -836,26 +836,27 @@ Orange Tsai's genius is recognizing that these aren't bugs to be patched—they'
 **Orange Tsai** (🍊)
 - Principal Security Researcher, DEVCORE
 - Core Member, CHROOT Security Group (Taiwan)
-- Twitter/X: [@orange_8361](https://twitter.com/orange_8361)
-- Blog: [blog.orange.tw](https://blog.orange.tw)
-- GitHub Bug Bounty: [orangetw](https://bounty.github.com/researchers/orangetw.html)
+- [Twitter/X — @orange_8361](https://twitter.com/orange_8361)
+- [Blog — blog.orange.tw](https://blog.orange.tw)
+- [GitHub Bug Bounty — orangetw](https://bounty.github.com/researchers/orangetw.html)
 
 ### Key Publications & Presentations
 
-1. **A New Era of SSRF** (2017) - [Black Hat USA 2017](https://blackhat.com/docs/us-17/thursday/us-17-Tsai-A-New-Era-Of-SSRF-Exploiting-URL-Parser-In-Trending-Programming-Languages.pdf)
-2. **How I Chained 4 Vulnerabilities on GitHub Enterprise** (2017) - [Blog Post](https://blog.orange.tw/posts/2017-07-how-i-chained-4-vulnerabilities-on/)
-3. **Breaking Parser Logic** (2018) - [Black Hat USA 2018](https://i.blackhat.com/us-18/Wed-August-8/us-18-Orange-Tsai-Breaking-Parser-Logic-Take-Your-Path-Normalization-Off-And-Pop-0days-Out-2.pdf)
-4. **How I Chained 4 Bugs into RCE on Amazon** (2018) - [Blog Post](https://blog.orange.tw/posts/2018-08-how-i-chained-4-bugs-features-into-rce-on-amazon/)
-5. **Hacking Jenkins Part 1 - Play with Dynamic Routing** (2019) - [Blog Post](https://blog.orange.tw/posts/2019-01-hacking-jenkins-part-1-play-with-dynamic-routing/)
-6. **Hacking Jenkins Part 2 - Abusing Meta Programming** (2019) - [Blog Post](https://blog.orange.tw/posts/2019-02-abusing-meta-programming-for-unauthenticated-rce/)
-7. **Attacking SSL VPN Part 1 - Palo Alto GlobalProtect** (2019) - [Blog Post](https://blog.orange.tw/posts/2019-07-attacking-ssl-vpn-part-1-preauth-rce-on-palo-alto/)
-8. **Attacking SSL VPN Part 2 - Breaking Fortigate** (2019) - [Blog Post](https://blog.orange.tw/posts/2019-08-attacking-ssl-vpn-part-2-breaking-the-fortigate-ssl-vpn/)
-9. **Attacking SSL VPN Part 3 - Pulse Secure** (2019) - [Blog Post](https://blog.orange.tw/posts/2019-09-attacking-ssl-vpn-part-3-golden-pulse-secure-rce-chain/)
-10. **Infiltrating Corporate Intranet Like NSA** (2019) - [DEF CON 27](https://media.defcon.org/DEF%20CON%2027/DEF%20CON%2027%20presentations/DEFCON-27-Orange-Tsai-and-Meh-Chang-Infiltrating-Corporate-Intranet-Like-NSA-Pre-auth-RCE-on-Leading-SSL-VPNs.pdf)
-11. **ProxyLogon - A New Attack Surface on MS Exchange** (2021) - [Blog Post](https://blog.orange.tw/posts/2021-08-proxylogon-a-new-attack-surface-on-ms-exchange-part-1/)
-12. **CVE-2024-4577 - Yet Another PHP RCE** (2024) - [Blog Post](https://blog.orange.tw/posts/2024-06-cve-2024-4577-yet-another-php-rce/)
-13. **Confusion Attacks on Apache HTTP Server** (2024) - [Blog Post](https://blog.orange.tw/posts/2024-08-confusion-attacks-en/) | [Black Hat USA 2024](https://i.blackhat.com/BH-US-24/Presentations/US24-Orange-Confusion-Attacks-Exploiting-Hidden-Semantic-Thursday.pdf)
-14. **WorstFit: Unveiling Hidden Transformers in Windows ANSI** (2025) - [Blog Post](https://blog.orange.tw/posts/2025-01-worstfit-unveiling-hidden-transformers-in-windows-ansi/)
+1. [A New Era of SSRF (Black Hat USA 2017)](https://blackhat.com/docs/us-17/thursday/us-17-Tsai-A-New-Era-Of-SSRF-Exploiting-URL-Parser-In-Trending-Programming-Languages.pdf)
+2. [How I Chained 4 Vulnerabilities on GitHub Enterprise (2017)](https://blog.orange.tw/posts/2017-07-how-i-chained-4-vulnerabilities-on/)
+3. [Breaking Parser Logic (Black Hat USA 2018)](https://i.blackhat.com/us-18/Wed-August-8/us-18-Orange-Tsai-Breaking-Parser-Logic-Take-Your-Path-Normalization-Off-And-Pop-0days-Out-2.pdf)
+4. [How I Chained 4 Bugs into RCE on Amazon (2018)](https://blog.orange.tw/posts/2018-08-how-i-chained-4-bugs-features-into-rce-on-amazon/)
+5. [Hacking Jenkins Part 1 - Play with Dynamic Routing (2019)](https://blog.orange.tw/posts/2019-01-hacking-jenkins-part-1-play-with-dynamic-routing/)
+6. [Hacking Jenkins Part 2 - Abusing Meta Programming (2019)](https://blog.orange.tw/posts/2019-02-abusing-meta-programming-for-unauthenticated-rce/)
+7. [Attacking SSL VPN Part 1 - Palo Alto GlobalProtect (2019)](https://blog.orange.tw/posts/2019-07-attacking-ssl-vpn-part-1-preauth-rce-on-palo-alto/)
+8. [Attacking SSL VPN Part 2 - Breaking Fortigate (2019)](https://blog.orange.tw/posts/2019-08-attacking-ssl-vpn-part-2-breaking-the-fortigate-ssl-vpn/)
+9. [Attacking SSL VPN Part 3 - Pulse Secure (2019)](https://blog.orange.tw/posts/2019-09-attacking-ssl-vpn-part-3-golden-pulse-secure-rce-chain/)
+10. [Infiltrating Corporate Intranet Like NSA (DEF CON 27)](https://media.defcon.org/DEF%20CON%2027/DEF%20CON%2027%20presentations/DEFCON-27-Orange-Tsai-and-Meh-Chang-Infiltrating-Corporate-Intranet-Like-NSA-Pre-auth-RCE-on-Leading-SSL-VPNs.pdf)
+11. [ProxyLogon - A New Attack Surface on MS Exchange (2021)](https://blog.orange.tw/posts/2021-08-proxylogon-a-new-attack-surface-on-ms-exchange-part-1/)
+12. [CVE-2024-4577 - Yet Another PHP RCE (2024)](https://blog.orange.tw/posts/2024-06-cve-2024-4577-yet-another-php-rce/)
+13. [Confusion Attacks on Apache HTTP Server (2024 blog post)](https://blog.orange.tw/posts/2024-08-confusion-attacks-en/)
+14. [Confusion Attacks on Apache HTTP Server (Black Hat USA 2024)](https://i.blackhat.com/BH-US-24/Presentations/US24-Orange-Confusion-Attacks-Exploiting-Hidden-Semantic-Thursday.pdf)
+15. [WorstFit: Unveiling Hidden Transformers in Windows ANSI (2025)](https://blog.orange.tw/posts/2025-01-worstfit-unveiling-hidden-transformers-in-windows-ansi/)
 
 ### Collaborators
 
@@ -864,26 +865,26 @@ Orange Tsai's genius is recognizing that these aren't bugs to be patched—they'
 
 ### Academic & Industry Sources
 
-- **WAFFLED Research** (2025) - [arXiv:2503.10846](https://arxiv.org/abs/2503.10846) - WAF parsing discrepancy exploitation
-- **PortSwigger Research** - [Top 10 Web Hacking Techniques 2024](https://portswigger.net/research/top-10-web-hacking-techniques-of-2024)
-- **OWASP SSRF Prevention** - [Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html) featuring Orange Tsai's research
-- **Apache HTTP Server Security** - [Vulnerability Database](https://httpd.apache.org/security/vulnerabilities_24.html)
+- [WAFFLED Research (2025): arXiv:2503.10846](https://arxiv.org/abs/2503.10846) — WAF parsing discrepancy exploitation
+- [PortSwigger Research — Top 10 Web Hacking Techniques 2024](https://portswigger.net/research/top-10-web-hacking-techniques-of-2024)
+- [OWASP SSRF Prevention Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html) — features Orange Tsai's research
+- [Apache HTTP Server Security Vulnerability Database](https://httpd.apache.org/security/vulnerabilities_24.html)
 - **Microsoft Security Response Center** - Exchange CVE advisories
-- **Akamai Research** - [Apache httpd Proactive Collaboration](https://www.akamai.com/blog/security-research/apache-waf-proactive-collaboration-orange-tsai-devcore)
+- [Akamai Research — Apache httpd Proactive Collaboration](https://www.akamai.com/blog/security-research/apache-waf-proactive-collaboration-orange-tsai-devcore)
 
 ### News & Media Coverage
 
-- **The Daily Swig** - [ProxyLogon Coverage](https://portswigger.net/daily-swig/a-whole-new-attack-surface-researcher-orange-tsai-documents-proxylogon-exploits-against-microsoft-exchange-server)
-- **SecurityWeek** - [Pwnie Awards 2021](https://www.securityweek.com/black-hat-2021-microsoft-wins-worst-pwnie-awards/)
-- **TechCrunch** - [Corporate VPN Flaws](https://techcrunch.com/2019/07/23/corporate-vpn-flaws-risk/)
-- **CSO Online** - [Windows Best-Fit Exploitation](https://www.csoonline.com/article/3623569/microsoft-windows-best-fit-character-conversion-ripe-for-exploitation.html)
+- [The Daily Swig — ProxyLogon Coverage](https://portswigger.net/daily-swig/a-whole-new-attack-surface-researcher-orange-tsai-documents-proxylogon-exploits-against-microsoft-exchange-server)
+- [SecurityWeek — Pwnie Awards 2021](https://www.securityweek.com/black-hat-2021-microsoft-wins-worst-pwnie-awards/)
+- [TechCrunch — Corporate VPN Flaws](https://techcrunch.com/2019/07/23/corporate-vpn-flaws-risk/)
+- [CSO Online — Windows Best-Fit Exploitation](https://www.csoonline.com/article/3623569/microsoft-windows-best-fit-character-conversion-ripe-for-exploitation.html)
 
 ### Tool & Framework References
 
-- **HTTP Request Smuggler** - [PortSwigger Burp Extension](https://portswigger.net/bappstore/aaaa60ef945341e8a450217a54a11646)
-- **nginx-alias-traversal** - [GitHub Repository](https://github.com/PortSwigger/nginx-alias-traversal)
+- [HTTP Request Smuggler — PortSwigger Burp Extension](https://portswigger.net/bappstore/aaaa60ef945341e8a450217a54a11646)
+- [nginx-alias-traversal — GitHub Repository](https://github.com/PortSwigger/nginx-alias-traversal)
 - **worst.fit** - WorstFit vulnerability database
-- **Apache HTTP Server** - [Official Project](https://httpd.apache.org/)
+- [Apache HTTP Server — Official Project](https://httpd.apache.org/)
 
 ### Additional Research (Not Yet Fully Cataloged)
 
@@ -898,4 +899,3 @@ Orange Tsai's genius is recognizing that these aren't bugs to be patched—they'
 - **Total CVEs Cataloged**: 20+
 - **Total Mutation Subtypes**: 65+
 - **Research Classification**: Offensive Security, Vulnerability Research, Web Application Security
-

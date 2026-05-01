@@ -294,7 +294,7 @@ Differential fuzzing of QUIC implementations against DPI systems (DPIFuzz) has d
 
 | Mutation Combination | CVE / Case | Impact / Bounty |
 |---|---|---|
-| §5-1 (coalesced packet memory leak) | CVE-2025-54939 (LSQUIC / QUIC-LEAK) | CVSS 7.5. Pre-handshake DoS via memory exhaustion. Affects 34% of HTTP/3 sites (LiteSpeed/OpenLiteSpeed). ~96 bytes leaked per invalid DCID packet, linear memory growth. Fixed in LSQUIC 4.3.1 / OpenLiteSpeed 1.8.4 / LiteSpeed Web Server 6.3.4 |
+| §5-1 (coalesced packet memory leak) | CVE-2025-54939 (LSQUIC / QUIC-LEAK) | CVSS 5.3. Pre-handshake DoS via memory exhaustion. Affects 34% of HTTP/3 sites (LiteSpeed/OpenLiteSpeed). ~96 bytes leaked per invalid DCID packet, linear memory growth. Fixed in LSQUIC 4.3.1 / OpenLiteSpeed 1.8.4 / LiteSpeed Web Server 6.3.4 |
 | §5-1 (buffer overwrite) | CVE-2024-32760 (NGINX HTTP/3) | NGINX worker process memory corruption via HTTP/3 QUIC module. Affects 1.25.0+ |
 | §5-1 (stack overflow + UAF) | CVE-2024-31079 (NGINX HTTP/3) | Stack overflow and use-after-free in HTTP/3 processing. Worker process crash or potential RCE |
 | §5-1 (NULL pointer deref) | CVE-2024-35200 (NGINX HTTP/3) | NULL pointer dereference → worker process termination. Affects QUIC-enabled NGINX |
@@ -386,10 +386,10 @@ With HTTP/3 adoption reaching ~40% of websites as of 2025, and browser support e
 - CyberArk — *Racing and Fuzzing HTTP/3: Open-sourcing QuicDraw* (2025). Quic-Fin-Sync race technique for HTTP/3; first HTTP/3-native security testing tool.
 - Imperva Offensive Team — *QUIC-LEAK (CVE-2025-54939)* (2025). Pre-handshake memory exhaustion in LSQUIC via coalesced Initial packet DCID validation failure.
 - Florian Tschorsch, Nguyen Phong Hoang — *DPIFuzz: A Differential Fuzzing Framework to Detect DPI Elusion Strategies for QUIC* (ACSAC 2020). Systematic QUIC DPI evasion discovery.
-- Traefik Security Advisory GHSA-gxrv-wf35-62w9 — *Bypassing IP Allow-lists via HTTP/3 Early Data Requests in QUIC 0-RTT Handshakes* (CVE-2024-39321, 2024). Demonstrated 0-RTT IP spoofing against Traefik's IP allowlist middleware. https://github.com/traefik/traefik/security/advisories/GHSA-gxrv-wf35-62w9
+- [Traefik Security Advisory GHSA-gxrv-wf35-62w9 — *Bypassing IP Allow-lists via HTTP/3 Early Data Requests in QUIC 0-RTT Handshakes* (CVE-2024-39321, 2024). Demonstrated 0-RTT IP spoofing against Traefik's IP allowlist middleware.](https://github.com/traefik/traefik/security/advisories/GHSA-gxrv-wf35-62w9)
 
 ### Security Advisories
 
-- NGINX HTTP/3 QUIC Security Advisories (2024). CVE-2024-32760 (buffer overwrite), CVE-2024-31079 (stack overflow / use-after-free), CVE-2024-35200 (NULL pointer dereference), CVE-2024-34161 (memory disclosure), CVE-2024-24990 (use-after-free in connection handling). Affects NGINX 1.25.0–1.25.5 with HTTP/3 QUIC module. Fixed in 1.26.1+ / 1.27.0+. https://nginx.org/en/security_advisories.html
-- quic-go GHSA-g754-hx8w-x2g6 — *HTTP/3 QPACK Header Expansion Memory Exhaustion*. QPACK-encoded HEADERS frame decompresses to unbounded header section; implementation enforced compressed size but not decoded size. Fixed via `SETTINGS_MAX_FIELD_SECTION_SIZE` enforcement with incremental decoding. https://github.com/quic-go/quic-go/security/advisories/GHSA-g754-hx8w-x2g6
-- Jetty GHSA-wgh7-54f2-x98r — *HTTP/2 HPACK, and HTTP/3 QPACK Integer Overflow and Buffer Allocation*. Variable-length integer encoding overflow in HPACK/QPACK decoding logic. https://github.com/jetty/jetty.project/security/advisories/GHSA-wgh7-54f2-x98r
+- [NGINX HTTP/3 QUIC Security Advisories (2024). CVE-2024-32760 (buffer overwrite), CVE-2024-31079 (stack overflow / use-after-free), CVE-2024-35200 (NULL pointer dereference), CVE-2024-34161 (memory disclosure), CVE-2024-24990 (use-after-free in connection handling). Affects NGINX 1.25.0–1.25.5 with HTTP/3 QUIC module. Fixed in 1.26.1+ / 1.27.0+.](https://nginx.org/en/security_advisories.html)
+- [quic-go GHSA-g754-hx8w-x2g6 — *HTTP/3 QPACK Header Expansion Memory Exhaustion*. QPACK-encoded HEADERS frame decompresses to unbounded header section; implementation enforced compressed size but not decoded size. Fixed via `SETTINGS_MAX_FIELD_SECTION_SIZE` enforcement with incremental decoding.](https://github.com/quic-go/quic-go/security/advisories/GHSA-g754-hx8w-x2g6)
+- [Jetty GHSA-wgh7-54f2-x98r — *HTTP/2 HPACK, and HTTP/3 QPACK Integer Overflow and Buffer Allocation*. Variable-length integer encoding overflow in HPACK/QPACK decoding logic.](https://github.com/jetty/jetty.project/security/advisories/GHSA-wgh7-54f2-x98r)

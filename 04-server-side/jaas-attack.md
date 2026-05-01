@@ -190,14 +190,14 @@ When cloud data platforms accept user-provided JDBC connection strings, the JAAS
 ## References
 
 - Black Hat Europe 2024 — *A Novel Attack Surface: Java Authentication and Authorization Service (JAAS)*
-- Oracle JAAS Reference Guide: https://docs.oracle.com/javase/8/docs/technotes/guides/security/jaas/JAASRefGuide.html
-- CVE-2023-25194 — Apache Kafka Connect SASL JAAS RCE: https://kafka.apache.org/cve-list.html
-- CVE-2025-27818 — Apache Kafka LdapLoginModule RCE: https://seclists.org/oss-sec/2025/q2/236
-- CVE-2025-27819 — Apache Kafka Broker JndiLoginModule RCE: https://www.mail-archive.com/dev@kafka.apache.org/msg150246.html
-- CVE-2023-25561 — DataHub JAAS Authentication Bypass: https://securitylab.github.com/advisories/GHSL-2022-076_GHSL-2022-083_DataHub/
-- CVE-2014-3612 — ActiveMQ LDAPLoginModule Empty Password: https://www.cvedetails.com/cve/CVE-2014-3612/
-- Apache Kafka Disallowed Login Modules: https://kafka.apache.org/community/cve-list/
-- JNDI Injection Exploit Kit: https://github.com/pimps/JNDI-Exploit-Kit
+- [Oracle JAAS Reference Guide](https://docs.oracle.com/javase/8/docs/technotes/guides/security/jaas/JAASRefGuide.html)
+- [CVE-2023-25194 — Apache Kafka Connect SASL JAAS RCE](https://kafka.apache.org/cve-list.html)
+- [CVE-2025-27818 — Apache Kafka LdapLoginModule RCE](https://seclists.org/oss-sec/2025/q2/236)
+- [CVE-2025-27819 — Apache Kafka Broker JndiLoginModule RCE](https://www.mail-archive.com/dev@kafka.apache.org/msg150246.html)
+- [CVE-2023-25561 — DataHub JAAS Authentication Bypass](https://securitylab.github.com/advisories/GHSL-2022-076_GHSL-2022-083_DataHub/)
+- [CVE-2014-3612 — ActiveMQ LDAPLoginModule Empty Password](https://www.cvedetails.com/cve/CVE-2014-3612/)
+- [Apache Kafka Disallowed Login Modules](https://kafka.apache.org/community/cve-list/)
+- [JNDI Injection Exploit Kit](https://github.com/pimps/JNDI-Exploit-Kit)
 
 ---
 

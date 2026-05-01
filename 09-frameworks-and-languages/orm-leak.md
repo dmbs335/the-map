@@ -435,7 +435,7 @@ Frameworks that automatically coerce input types create unexpected ORM query str
 |---------|-----------|---------------|
 | **Express.js query parameter parsing** | `filter[field][operator]=value` in URL query strings is parsed into nested objects by Express.js `qs` module, converting what should be a string into a filter operator object. | Express.js with default query parser; input reaches Prisma/Sequelize |
 | **Cookie JSON injection** | Express.js `cookie-parser` interprets `j:{...}` prefix as JSON. `Cookie: token=j:{"not":"E"}` converts a string token to a Prisma filter object. | `cookie-parser` with JSON parsing; value reaches ORM filter |
-| **Mongoose operator injection** | `{ username: { $gt: "" } }` — when request body is parsed as JSON, MongoDB query operators are injected into Mongoose queries. Operators like `$gt`, `$ne`, `$regex` enable data extraction. (CVE-2025-23061) | Mongoose with unvalidated JSON body reaching query methods |
+| **Mongoose operator injection** | `{ username: { $gt: "" } }` — when request body is parsed as JSON, MongoDB query operators are injected into Mongoose queries. Operators like `$gt`, `$ne`, `$regex` enable data extraction; nested `$where` in `populate().match()` is covered by CVE-2025-23061 and can become code/search injection depending on the evaluation path | Mongoose with unvalidated JSON body reaching query methods |
 
 ### §8-3. ORM Operator Alias Exploitation
 
@@ -462,7 +462,7 @@ Legacy or misconfigured operator alias systems allow injecting query operators t
 
 ---
 
-## CVE / Bounty Mapping (2023–2025)
+## CVE / Bounty Mapping (2023–2026)
 
 | Mutation Combination | CVE / Case | Impact / Bounty |
 |---------------------|-----------|----------------|
@@ -473,7 +473,7 @@ Legacy or misconfigured operator alias systems allow injecting query operators t
 | §4-1 (Q object _connector injection) | CVE-2025-64459 (Django) | SQL injection via ORM query structure manipulation. NVD has not yet assigned an independent CVSS score. |
 | §4-2 (order_by alias injection) | CVE-2026-1312 (Django) | SQL injection through FilteredRelation + order_by with period characters. |
 | §1-3 (search on concealed fields) | CVE-2025-64748 (Directus) | Concealed field existence inference — search on directus_users returns success/failure for masked values (tokens, TFA secrets), enabling boolean-based extraction of whether a concealed value exists. Not direct value leak. |
-| §8-2 (Mongoose operator injection) | CVE-2025-23061 (Mongoose) | RCE via nested `$where` operator in `populate().match()` — officially classified as NoSQL injection leading to code execution (CVSS 9.1), not an ORM leak/information disclosure issue. Included here as the entry point is ORM-layer operator injection, but the impact class (RCE) belongs in NoSQL injection taxonomy. |
+| §8-2 (Mongoose operator injection) | CVE-2025-23061 (Mongoose) | Nested `$where` operator in `populate().match()`; better classified under NoSQL/ODM operator injection than ORM leak. GitHub scores 9.1 and NVD analysis lists 9.8; impact depends on the application-side evaluation path |
 | §8-3 (Sequelize operator aliases) | CVE-2019-10748/10749 (Sequelize) | SQL injection via unescaped JSON path keys on MySQL/MariaDB and operator alias injection. |
 | §8-3 (Sequelize replacement escaping) | CVE-2023-25813 (Sequelize) | SQL injection through improper parameter escaping. |
 | §1-1 + §2-1 (filter injection + FK traversal) | CVE-2023-47117 (Label Studio) | Authenticated user leaks password hashes via ORM filter chain. Combined with hardcoded SECRET_KEY, session token forgery becomes possible — but "full admin compromise" depends on the SECRET_KEY exposure being separately exploitable. |
@@ -510,27 +510,27 @@ Legacy or misconfigured operator alias systems allow injecting query operators t
 
 ## References
 
-- elttam, "ORM Leaking More Than You Joined For" (2024) — https://www.elttam.com/blog/leaking-more-than-you-joined-for/
-- elttam, "plORMbing your Django ORM" (2024) — https://www.elttam.com/blog/plormbing-your-django-orm/
-- elttam, "plORMbing your Prisma ORM with Time-based Attacks" (2024) — https://www.elttam.com/blog/plorming-your-primsa-orm/
-- CyberArk, "Let's Be Authentik: You Can't Always Leak ORMs" (2024) — https://www.cyberark.com/resources/threat-research-blog/lets-be-authentik-you-cant-always-leak-orms
-- swisskyrepo, "PayloadsAllTheThings: ORM Leak" — https://swisskyrepo.github.io/PayloadsAllTheThings/ORM%20Leak/
-- OWASP, "Testing for ORM Injection" — https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/07-Input_Validation_Testing/05.7-Testing_for_ORM_Injection
-- OWASP, "Mass Assignment Cheat Sheet" — https://cheatsheetseries.owasp.org/cheatsheets/Mass_Assignment_Cheat_Sheet.html
-- PortSwigger, "Top 10 Web Hacking Techniques of 2024" — https://portswigger.net/research/top-10-web-hacking-techniques-of-2024
-- PortSwigger, "Top 10 Web Hacking Techniques of 2025" — https://portswigger.net/research/top-10-web-hacking-techniques-of-2025
-- Sonar, "Exploiting Hibernate Injections" — https://www.sonarsource.com/blog/exploiting-hibernate-injections/
-- Trustwave, "HQL Injection Exploitation in MySQL" — https://www.trustwave.com/en-us/resources/blogs/spiderlabs-blog/hql-injection-exploitation-in-mysql/
-- 0ang3el, "Hibernate Injection Study" — https://github.com/0ang3el/Hibernate-Injection-Study
-- Snyk, "Sequelize ORM npm library found vulnerable to SQL Injection attacks" — https://snyk.io/blog/sequelize-orm-npm-library-found-vulnerable-to-sql-injection-attacks/
-- Wallarm, "Risks involved with operatorAliases in Sequelize" — https://lab.wallarm.com/risks-involved-with-operatoraliases-in-sequelize/
-- Aikido, "Prisma and PostgreSQL vulnerable to NoSQL injection?" — https://www.aikido.dev/blog/prisma-and-postgresql-vulnerable-to-nosql-injection
-- CVE-2024-47062 (Navidrome) — https://github.com/advisories/GHSA-58vj-cv5w-v4v6
-- CVE-2025-30086 (Harbor) — https://github.com/advisories/GHSA-h27m-3qw8-3pw8
-- CVE-2025-64459 (Django) — https://www.cycognito.com/blog/emerging-threat-django-sql-injection-vulnerability-cve-2025-64459/
-- CVE-2025-64748 (Directus) — https://github.com/advisories/GHSA-8jpw-gpr4-8cmh
-- CVE-2025-23061 (Mongoose) — https://github.com/advisories/GHSA-vg7j-7cwx-8wgw
-- elttam, "plormber" tool — https://github.com/elttam/plormber
+- [elttam, "ORM Leaking More Than You Joined For" (2024)](https://www.elttam.com/blog/leaking-more-than-you-joined-for/)
+- [elttam, "plORMbing your Django ORM" (2024)](https://www.elttam.com/blog/plormbing-your-django-orm/)
+- [elttam, "plORMbing your Prisma ORM with Time-based Attacks" (2024)](https://www.elttam.com/blog/plorming-your-primsa-orm/)
+- [CyberArk, "Let's Be Authentik: You Can't Always Leak ORMs" (2024)](https://www.cyberark.com/resources/threat-research-blog/lets-be-authentik-you-cant-always-leak-orms)
+- [swisskyrepo, "PayloadsAllTheThings: ORM Leak"](https://swisskyrepo.github.io/PayloadsAllTheThings/ORM%20Leak/)
+- [OWASP, "Testing for ORM Injection"](https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/07-Input_Validation_Testing/05.7-Testing_for_ORM_Injection)
+- [OWASP, "Mass Assignment Cheat Sheet"](https://cheatsheetseries.owasp.org/cheatsheets/Mass_Assignment_Cheat_Sheet.html)
+- [PortSwigger, "Top 10 Web Hacking Techniques of 2024"](https://portswigger.net/research/top-10-web-hacking-techniques-of-2024)
+- [PortSwigger, "Top 10 Web Hacking Techniques of 2025"](https://portswigger.net/research/top-10-web-hacking-techniques-of-2025)
+- [Sonar, "Exploiting Hibernate Injections"](https://www.sonarsource.com/blog/exploiting-hibernate-injections/)
+- [Trustwave, "HQL Injection Exploitation in MySQL"](https://www.trustwave.com/en-us/resources/blogs/spiderlabs-blog/hql-injection-exploitation-in-mysql/)
+- [0ang3el, "Hibernate Injection Study"](https://github.com/0ang3el/Hibernate-Injection-Study)
+- [Snyk, "Sequelize ORM npm library found vulnerable to SQL Injection attacks"](https://snyk.io/blog/sequelize-orm-npm-library-found-vulnerable-to-sql-injection-attacks/)
+- [Wallarm, "Risks involved with operatorAliases in Sequelize"](https://lab.wallarm.com/risks-involved-with-operatoraliases-in-sequelize/)
+- [Aikido, "Prisma and PostgreSQL vulnerable to NoSQL injection?"](https://www.aikido.dev/blog/prisma-and-postgresql-vulnerable-to-nosql-injection)
+- [CVE-2024-47062 (Navidrome)](https://github.com/advisories/GHSA-58vj-cv5w-v4v6)
+- [CVE-2025-30086 (Harbor)](https://github.com/advisories/GHSA-h27m-3qw8-3pw8)
+- [CVE-2025-64459 (Django)](https://www.cycognito.com/blog/emerging-threat-django-sql-injection-vulnerability-cve-2025-64459/)
+- [CVE-2025-64748 (Directus)](https://github.com/advisories/GHSA-8jpw-gpr4-8cmh)
+- [CVE-2025-23061 (Mongoose)](https://github.com/advisories/GHSA-vg7j-7cwx-8wgw)
+- [elttam, "plormber" tool](https://github.com/elttam/plormber)
 
 ---
 

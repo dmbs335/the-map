@@ -23,7 +23,7 @@ Every discovered API falls into one of these states, regardless of discovery met
 | **Third-Party API** | External or partner API consumed by internal services | **Medium-High** — Limited visibility into security posture and changes |
 | **Internal/Microservice API** | Service-to-service communication endpoint in distributed architecture | **Variable** — Often lacks external gateway visibility |
 
-The 2024-2025 threat landscape shows **99% of organizations experienced at least one API security incident** in the prior 12 months, with improper inventory management (OWASP API9:2023) cited as a root cause in numerous breaches. **AI-related API vulnerabilities surged 1,205%** in 2024, driven by rapid endpoint proliferation without corresponding inventory updates.
+Recent API security reports consistently show API incidents are widespread, with improper inventory management (OWASP API9:2023) cited as a root cause in numerous breaches. AI-related API exposure is also increasing quickly as teams add endpoints faster than inventory and governance can keep up.
 
 ---
 
@@ -76,7 +76,7 @@ Imports API specifications from definition files or registry repositories.
 | **Documentation Portal Scraping** | Extracts OpenAPI specs embedded in developer portals or documentation sites | Public documentation must be available |
 | **CI/CD Artifact Collection** | Harvests spec files from build pipelines as versioned artifacts | Build process must generate/export specs |
 
-**2024-2025 Trend**: 82% of organizations now follow API-first approach (Postman State of API 2025), making specification-based discovery increasingly viable.
+**2024-2025 Trend**: API-first development is now common, making specification-based discovery increasingly viable.
 
 ### §2-2. GraphQL Schema Introspection
 
@@ -236,7 +236,7 @@ Catalogs third-party APIs by analyzing application dependencies and network egre
 | **API Client Library Detection** | Identifies SDK usage (Stripe, Twilio, SendGrid) in code to infer external API dependencies | Code analysis access |
 | **SaaS Shadow IT Discovery** | Uses CASB (Cloud Access Security Broker) or network monitoring to detect unauthorized SaaS API usage | CASB or similar monitoring deployed |
 
-Gartner predicts 20% revenue increase for businesses with unified visibility including third-party integration inventory (2025).
+Gartner predicts business value for organizations with unified visibility including third-party integration inventory (2025).
 
 ---
 
@@ -298,7 +298,7 @@ Once APIs are discovered and cataloged, various governance operations maintain a
 | **Schema Drift Bypass** | API accepts undocumented `is_admin` parameter | Security testing based on outdated spec misses new parameter | §2-3 (Drift Detection) + Contract testing |
 | **Microservice Shadow Endpoints** | Internal service-to-service APIs exposed via misconfigured ingress | Internal APIs never cataloged because they bypass API gateway | §4-2 (Service Mesh Discovery) + Network segmentation |
 | **API Key Exposure via OSINT** | Postman workspace public with production API keys | No inventory of credential locations or access monitoring | §5-2 (Public Repo Scanning) + Secret scanning tools |
-| **Low-and-Slow Authenticated Abuse** | Valid credentials used to exfiltrate data over weeks | 95% of 2024 API attacks from authenticated sessions; no behavioral baseline | §3-3 (Behavioral ML) + Continuous runtime protection |
+| **Low-and-Slow Authenticated Abuse** | Valid credentials used to exfiltrate data over weeks | Authenticated-session abuse is heavily represented in API incident reporting; no behavioral baseline | §3-3 (Behavioral ML) + Continuous runtime protection |
 
 **2025 Attack Landscape**: SesameOp backdoor (July 2025) represents novel C2 evasion using OpenAI Assistants API — replacing traditional C2 servers with legitimate cloud APIs. This technique exploits third-party API inventory gaps, as security teams lack visibility into all external API dependencies.
 
@@ -312,8 +312,8 @@ Once APIs are discovered and cataloged, various governance operations maintain a
 | §2-2 (GraphQL Introspection) + Shadow API | Parse Server GraphQL Vulnerability (2024) | Public schema access without authentication; complete API mapping |
 | §3-2 (Active Probing) + Deprecated Endpoint | CVE-2024-27564 (pictureproxy.php URL injection) | URL parameter injection redirecting to malicious endpoints without authentication |
 | §5-3 (Third-Party) + Shadow API | SesameOp Backdoor via OpenAI API (July 2025) | Novel C2 technique using legitimate API to evade detection; long-term network intrusion |
-| §2-3 (Schema Drift) + §6-2 (Fuzzing) | Undocumented Parameter Exploitation (2024 trend) | Low-and-slow attacks via undocumented fields; 95% from authenticated sessions |
-| Google AI API Vulnerabilities | Google VRP AI Vulnerability Rewards (Oct 2025) | $5,000-$30,000 for AI API exploitation (data modification, exfiltration, model theft) |
+| §2-3 (Schema Drift) + §6-2 (Fuzzing) | Undocumented Parameter Exploitation (2024 trend) | Low-and-slow attacks via undocumented fields, often from authenticated sessions |
+| Google AI API Vulnerabilities | Google VRP AI Vulnerability Rewards (Oct 2025) | AI API exploitation classes include data modification, exfiltration, and model theft |
 
 ---
 
@@ -360,13 +360,13 @@ Once APIs are discovered and cataloged, various governance operations maintain a
 
 ## Summary: Core Principles
 
-API inventory management in 2025 faces an unprecedented challenge: **the average organization adds over 300 new publicly accessible services each month**, while AI-accelerated development has triggered a **1,205% surge in API vulnerabilities**. Traditional periodic inventory audits cannot keep pace with this velocity, making continuous, automated discovery the new baseline.
+API inventory management in 2025 faces an unprecedented challenge: organizations are adding publicly accessible services quickly, while AI-accelerated development increases endpoint churn. Traditional periodic inventory audits cannot keep pace with this velocity, making continuous, automated discovery the new baseline.
 
 ### The Fundamental Property: Distributed Ownership Without Centralized Visibility
 
 Unlike web applications where pages are centrally managed, modern APIs emerge from decentralized sources: microservices teams independently deploy endpoints, shadow IT provisions SaaS integrations, developers spin up test environments, and third-party libraries introduce external dependencies. Each source operates in isolation, creating an **inventory gap** where security teams lack a complete attack surface map.
 
-The 2024-2025 incident data confirms this: **95% of API attacks originate from authenticated sessions**, exploiting business logic flaws in endpoints that never appeared in any inventory. The most damaging breaches involved **shadow APIs** (undocumented endpoints unknown to security) and **zombie APIs** (deprecated but still active) — both invisible to traditional security controls.
+Recent incident data confirms this pattern: many API attacks originate from authenticated sessions, exploiting business logic flaws in endpoints that never appeared in any inventory. The most damaging breaches involved **shadow APIs** (undocumented endpoints unknown to security) and **zombie APIs** (deprecated but still active) — both invisible to traditional security controls.
 
 ### Why Incremental Fixes Fail
 
@@ -390,7 +390,7 @@ A mature API inventory management system in 2025 must integrate **all six discov
 
 The system must maintain **inventory state transitions** (Table 1) in real-time: when a documented API shows zero traffic for 90 days, it becomes a zombie candidate; when traffic analysis detects an endpoint absent from all specs, it triggers a shadow API investigation; when drift detection flags spec-reality divergence, it initiates remediation workflow.
 
-**Compliance drivers** are accelerating adoption: PCI DSS 4.0.1 (April 2025 mandatory) requires maintaining accurate API inventory (Req 6.3.2), and Gartner predicts 80% of regulated organizations will implement ASPM platforms by 2027. The future of API security shifts from perimeter-based defense to **continuous inventory-driven risk management**, where every management operation (§7) starts with the question: *Do we know this API exists?*
+**Compliance drivers** are accelerating adoption: PCI DSS 4.0.1 requires maintaining accurate API inventory (Req 6.3.2), and analyst forecasts increasingly point toward ASPM-style platforms for regulated organizations. The future of API security shifts from perimeter-based defense to **continuous inventory-driven risk management**, where every management operation (§7) starts with the question: *Do we know this API exists?*
 
 ---
 

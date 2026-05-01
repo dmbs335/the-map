@@ -382,7 +382,7 @@ Unicode mutations that affect data processing, storage, comparison, and protocol
 
 | Mutation Combination | CVE / Case | Impact / Bounty |
 |---------------------|-----------|----------------|
-| §5-1 (Soft Hyphen Best-Fit) | CVE-2024-4577 (PHP-CGI on Windows) | CVSS 9.8. RCE via argument injection. Mass exploitation within 48 hours of disclosure |
+| §5-1 (Soft Hyphen Best-Fit) | CVE-2024-4577 (PHP-CGI on Windows) | CVSS 9.8. RCE via argument injection. Rapid mass exploitation after disclosure |
 | §1-1 (Overlong Encoding) + §1-2 | CVE-2000-0884 (IIS 4.0/5.0) | Directory traversal, arbitrary file access. Nimda worm propagation vector |
 | §3-2 (BiDi Reordering) | CVE-2021-42574 (Trojan Source — multiple compilers) | Source code backdoor invisible to human reviewers. Affects C, C++, C#, JS, Java, Rust, Go, Python |
 | §3-1 (Homoglyph) | CVE-2021-42694 *(Disputed)* (Trojan Source — homoglyph variant) | Function impersonation via homoglyph-renamed functions. **Note:** This CVE is marked as **Disputed** in NVD |
@@ -393,7 +393,7 @@ Unicode mutations that affect data processing, storage, comparison, and protocol
 | §1-3 (GBK Multi-Byte) | CVE-2006-2753 (MySQL) | SQL injection via GBK multi-byte character consuming escape backslash (CVE-2006-2314 is a separate PostgreSQL vulnerability) |
 | §7-3 (Rules File Injection) | Pillar Security Disclosure (2025) | Supply chain attack on GitHub Copilot / Cursor via invisible Unicode in configuration files |
 | §4-2 (Tag Character Steganography) | os-info-checker-es6 npm package (2025) | Malware distribution via Unicode steganography hiding C2 payload in npm package |
-| §4-2 (Tag Character Injection) | GlassWorm Campaign (2025) | 35,800+ downloads. Invisible Unicode characters used to hide loader code |
+| §4-2 (Tag Character Injection) | GlassWorm Campaign (2025) | Malicious packages downloaded at scale. Invisible Unicode characters used to hide loader code |
 | §7-1 (Invisible Prompt Injection) | Microsoft Copilot ASCII Smuggling (2024) | Data exfiltration from Microsoft 365 Copilot via Unicode tag character injection |
 | §6-1 (IDN Homograph) | adoḅe.com Betabot Campaign | Trojan distribution via IDN homograph domain spoofing |
 
@@ -449,7 +449,7 @@ These principles must be applied **at every component boundary** in the stack, n
 
 ## References
 
-- Unicode Technical Standard #39: Unicode Security Mechanisms — https://unicode.org/reports/tr39/
+- [Unicode Technical Standard #39: Unicode Security Mechanisms](https://unicode.org/reports/tr39/)
 - RFC 3629: UTF-8, a transformation format of ISO 10646
 - "Trojan Source: Invisible Vulnerabilities" — Boucher & Anderson, 2021 (published in proceedings of USENIX Security 2023; CVE-2021-42574)
 - "Host/Split: Exploitable Antipatterns in Unicode Normalization" — Birch, Black Hat USA 2019

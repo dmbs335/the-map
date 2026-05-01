@@ -92,7 +92,7 @@ A two-phase attack: (1) extract a symlink entry that points outside the destinat
 | **Relative symlink escape** | Symlink entry targets `../../etc/` ; subsequent file `symlink_name/crontab` writes to `/etc/crontab` | Library does not validate symlink targets or does not check resolved paths after symlink resolution |
 | **Absolute symlink** | Symlink targets an absolute path like `/etc/` directly | Library creates symlinks without restricting target to extraction directory |
 | **Chained symlinks** | Multiple symlink entries, each one level deeper, that together traverse to an arbitrary location | Library validates each symlink individually but not the composed chain |
-| **Cross-platform symlink conversion** | Linux-style symlinks in ZIP entries are converted to Windows junction points or NTFS symlinks during extraction, without revalidating the target | 7-Zip on Windows (CVE-2025-11001, CVE-2025-11002, CVE-2025-55188) |
+| **Cross-platform symlink conversion** | Linux-style symlinks in ZIP entries are converted to Windows junction points or NTFS symlinks during extraction, without revalidating the target | 7-Zip on Windows (CVE-2025-11001, CVE-2025-11002); distinct from CVE-2025-55188, which is primarily a Linux symlink extraction issue with conditional Windows exposure |
 
 ### §2-2. Symlink Read Primitives
 
@@ -335,7 +335,7 @@ The original PKWARE encryption scheme (ZipCrypto) is fundamentally broken but re
 |---|---|---|
 | §2-1 (cross-platform symlink) | CVE-2025-11001 (7-Zip < 25.00) | Path traversal → RCE via symlink on Windows. Actively exploited in the wild. |
 | §2-1 (cross-platform symlink) | CVE-2025-11002 (7-Zip < 25.00) | Secondary symlink traversal vector in 7-Zip. |
-| §2-1 (symlink → arbitrary file write) | CVE-2025-55188 (7-Zip < 25.01) | Arbitrary file write on extraction via unsafe symlink creation. |
+| §2-1 (symlink → arbitrary file write) | CVE-2025-55188 (7-Zip < 25.01) | Arbitrary file write on extraction via unsafe symlink handling; primarily affects Linux, with Windows exposure only when symlink creation is permitted (e.g., Developer Mode or elevated extraction). |
 | §5-1 (nested archive MotW bypass) | CVE-2025-0411 (7-Zip < 24.09) | MotW bypass → SmokeLoader malware delivery. Ukrainian organizations targeted. CVSS 7.0. |
 | §5-2 (ADS path traversal) | CVE-2025-8088 (WinRAR < 7.13) | Zero-day ADS + `../` traversal → Startup folder persistence. Exploited by RomCom, APT44, Turla, PRC actors. |
 | §5-2 (ADS space-in-path) | CVE-2025-6218 (WinRAR < 7.12) | ADS with spaces in relative path → RCE. CVSS 7.8. |
@@ -353,10 +353,11 @@ The original PKWARE encryption scheme (ZipCrypto) is fundamentally broken but re
 | §5-2 (APK signature bypass) | CVE-2017-13156 (Android Janus) | DEX+APK polyglot bypasses APK v1 signature verification. |
 | §3-4 (duplicate filenames) | Android Master Key Bug (2013) | Duplicate ZIP entries; first passes verification, second is loaded. |
 | §7-4 (parser differential) | Gmail/Coremail/Zoho bounties (2025) | ZIP parser differential bypasses secure email gateway scanning. |
-| §7-4 (parser differential) | Spring Boot CVE (2025) | Signed JAR tampering via CD offset manipulation. |
-| §7-4 (parser differential) | LibreOffice CVE (2025) | ZIP64 EOCD manipulation causes document content spoofing. |
-| §6-1 (polyglot) | CVE-2025-58440 (Laravel FileManager) | Polyglot file + null byte injection → RCE. |
-| §5-2 (tampered headers) | BadPack APK malware (2023–2024) | ~9,200 samples with tampered ZIP headers to prevent analysis tool parsing. |
+| §7-4 (parser differential) | CVE-2024-38807 (Spring Boot) | Signed JAR tampering / parser differential via ZIP central-directory offset handling. |
+| §7-4 (parser differential) | CVE-2024-7788 (LibreOffice) | ZIP64 EOCD parser differential leading to document content spoofing. |
+| §7-4 (parser differential) | CVE-2024-24789 (Go `archive/zip`) | ZIP parser discrepancy identified in the same parser-differential research line. |
+| §6-1 (polyglot) | Rejected CVE-2025-58440 claim (Laravel FileManager) | Do not cite as confirmed: CVE Program/NVD mark this record rejected because `unisharp/laravel-filemanager` is a separate project unrelated to `laravel-filemanager`. Treat the polyglot/null-byte RCE claim as unverified unless a valid advisory is available. |
+| §5-2 (tampered headers) | BadPack APK malware (2023–2024) | Large malware sample set with tampered ZIP headers to prevent analysis tool parsing. |
 | §7-4 (parser differential) | CVE-2025-62156 (Argo Workflow) | Zip Slip vulnerability in Argo Workflow's archive handling. |
 
 ---
@@ -389,20 +390,21 @@ The original PKWARE encryption scheme (ZipCrypto) is fundamentally broken but re
 
 ## References
 
-- USENIX Security '25: "My ZIP isn't your ZIP: Identifying and Exploiting Semantic Gaps Between ZIP Parsers" — https://www.usenix.org/conference/usenixsecurity25/presentation/you
-- WOOT '19: "A better zip bomb" — https://www.bamsoftware.com/hacks/zipbomb/
-- Snyk Research: "Zip Slip Vulnerability" — https://security.snyk.io/research/zip-slip-vulnerability
-- Ostorlab: "ZIP Exploitation: Critical Vulnerabilities Found in Popular Zip Libraries" — https://blog.ostorlab.co/zip-packages-exploitation.html
-- Arxiv: "Where the Polyglots Are: How Polyglot Files Enable Cyber Attack Chains" — https://arxiv.org/html/2407.01529v1
-- INRIA: "Decompression Quines and Anti-Viruses" — https://inria.hal.science/hal-01589192v2/document
-- Trend Micro: "CVE-2025-0411: Ukrainian Organizations Targeted in Zero-Day Campaign" — https://www.trendmicro.com/en_us/research/25/a/cve-2025-0411-ukrainian-organizations-targeted.html
-- Google Cloud Blog: "Diverse Threat Actors Exploiting Critical WinRAR Vulnerability CVE-2025-8088" — https://cloud.google.com/blog/topics/threat-intelligence/exploiting-critical-winrar-vulnerability
-- ThreatLocker: "Analysis of 7-Zip vulnerabilities: CVE-2025-11001 and CVE-2025-11002" — https://www.threatlocker.com/blog/analysis-of-7-zip-vulnerabilities-cve-2025-11001-and-cve-2025-11002
-- Perception Point: "Evasive ZIP Concatenation: Trojan Targets Windows Users" — https://perception-point.io/blog/evasive-concatenated-zip-trojan-targets-windows-users/
-- Sonatype: "Exposing 4 Critical Vulnerabilities in Python Picklescan" — https://www.sonatype.com/blog/bypassing-picklescan-sonatype-discovers-four-vulnerabilities
-- Biham & Kocher: "A known plaintext attack on the PKZIP stream cipher" — https://math.ucr.edu/~mike/zipattacks.pdf
-- Palo Alto Unit 42: "Beware of BadPack: One Weird Trick Being Used Against Android Devices" — https://unit42.paloaltonetworks.com/apk-badpack-malware-tampered-headers/
-- CrowdStrike: "How to Prevent Zip File Exploitation" — https://www.crowdstrike.com/en-us/blog/how-to-prevent-zip-file-exploitation/
+- [USENIX Security '25: "My ZIP isn't your ZIP: Identifying and Exploiting Semantic Gaps Between ZIP Parsers"](https://www.usenix.org/conference/usenixsecurity25/presentation/you)
+- [WOOT '19: "A better zip bomb"](https://www.bamsoftware.com/hacks/zipbomb/)
+- [Snyk Research: "Zip Slip Vulnerability"](https://security.snyk.io/research/zip-slip-vulnerability)
+- [Ostorlab: "ZIP Exploitation: Critical Vulnerabilities Found in Popular Zip Libraries"](https://blog.ostorlab.co/zip-packages-exploitation.html)
+- [Arxiv: "Where the Polyglots Are: How Polyglot Files Enable Cyber Attack Chains"](https://arxiv.org/html/2407.01529v1)
+- [INRIA: "Decompression Quines and Anti-Viruses"](https://inria.hal.science/hal-01589192v2/document)
+- [Trend Micro: "CVE-2025-0411: Ukrainian Organizations Targeted in Zero-Day Campaign"](https://www.trendmicro.com/en_us/research/25/a/cve-2025-0411-ukrainian-organizations-targeted.html)
+- [Google Cloud Blog: "Diverse Threat Actors Exploiting Critical WinRAR Vulnerability CVE-2025-8088"](https://cloud.google.com/blog/topics/threat-intelligence/exploiting-critical-winrar-vulnerability)
+- [ThreatLocker: "Analysis of 7-Zip vulnerabilities: CVE-2025-11001 and CVE-2025-11002"](https://www.threatlocker.com/blog/analysis-of-7-zip-vulnerabilities-cve-2025-11001-and-cve-2025-11002)
+- [Perception Point: "Evasive ZIP Concatenation: Trojan Targets Windows Users"](https://perception-point.io/blog/evasive-concatenated-zip-trojan-targets-windows-users/)
+- [Sonatype: "Exposing 4 Critical Vulnerabilities in Python Picklescan"](https://www.sonatype.com/blog/bypassing-picklescan-sonatype-discovers-four-vulnerabilities)
+- [Biham & Kocher: "A known plaintext attack on the PKZIP stream cipher"](https://math.ucr.edu/~mike/zipattacks.pdf)
+- [Palo Alto Unit 42: "Beware of BadPack: One Weird Trick Being Used Against Android Devices"](https://unit42.paloaltonetworks.com/apk-badpack-malware-tampered-headers/)
+- [CrowdStrike: "How to Prevent Zip File Exploitation"](https://www.crowdstrike.com/en-us/blog/how-to-prevent-zip-file-exploitation/)
+- [NVD — CVE-2025-58440 rejected record](https://nvd.nist.gov/vuln/detail/CVE-2025-58440)
 
 ---
 

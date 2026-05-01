@@ -358,7 +358,7 @@ Race conditions are not confined to server-side processing. The browser environm
 
 ---
 
-## CVE / Bounty Mapping (2023–2025)
+## CVE / Bounty Mapping (2023–2026)
 
 | Mutation Combination | CVE / Case | Impact / Bounty |
 |---------------------|-----------|----------------|
@@ -368,13 +368,13 @@ Race conditions are not confined to server-side processing. The browser environm
 | §8-3 (framework cache race) | CVE-2024-46982 (Next.js) | Cache poisoning via race condition in Pages Router. Patched in 13.5.7 / 14.2.10 |
 | §8-3 (framework cache race — patch bypass) | CVE-2025-32421 (Next.js) | "Eclipse" technique — bypasses CVE-2024-46982 patch via response-cache batcher race condition exposing pageProps |
 | §6-1 (symlink race in upload) | CVE-2025-67124 (Miniserve) | Arbitrary file overwrite outside document root via TOCTOU symlink race in upload finalization |
-| §6-1 (symlink lock file) | CVE-2026-22701 / CVE-2025-68146 (Python filelock) | Arbitrary file truncation via symlink attack during lock file creation TOCTOU window |
+| §6-1 (symlink lock file) | CVE-2026-22701 / CVE-2025-68146 (Python filelock) | CVSS 5.3 / 6.3. SoftFileLock TOCTOU symlink race can cause lock failure, unexpected target-file interaction, or DoS; the earlier UnixFileLock/WindowsFileLock race can truncate or corrupt target files. Both require local filesystem access and symlink capability |
 | §6-1 (container runtime symlink) | CVE-2024-21626 (runC) | Container escape via file descriptor leak exploited through symlink, gaining host filesystem access |
 | §1-2 (coupon multi-redemption) | HackerOne #157996 (Instacart) | Multiple coupon redemptions via concurrent requests |
 | §2-3 (OAuth code multi-exchange) | HackerOne #55140 (OAuth2 implementations) | Multiple access/refresh token pairs from single authorization code |
 | §1-2 (promo code bypass) | HackerOne #1717650 (Stripe) | Promotion code used more than once via race condition |
 | §1-1 (gift card double-redeem) | HackerOne #759247 (Reverb.com) | Gift card redemption race allowing multiple uses |
-| §4-1 (email verification race) | Multiple bounty programs, $1,000+ | Email change during verification causes tokens to route to different addresses |
+| §4-1 (email verification race) | Multiple bounty programs | Email change during verification causes tokens to route to different addresses |
 | §8-1 (CI/CD TOCTOU) | Dependabot Core CI dispatch race | 19-second TOCTOU window in GitHub Actions workflow dispatch |
 | §2-4 (session collision) | GitLab CVE-2022-4037 | Cross-user session assignment under concurrent authentication |
 

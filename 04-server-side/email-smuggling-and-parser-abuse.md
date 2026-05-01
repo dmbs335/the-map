@@ -407,7 +407,7 @@ Email infrastructure components — autoresponders, vacation messages, out-of-of
 
 ---
 
-## CVE / Bounty Mapping (2018–2025)
+## CVE / Bounty Mapping (2018–2026)
 
 | Mutation Combination | CVE / Case | Impact / Bounty |
 |---------------------|-----------|----------------|
@@ -430,7 +430,7 @@ Email infrastructure components — autoresponders, vacation messages, out-of-of
 | §1-3 (SMTP command injection, Ruby Net::SMTP) | HackerOne #137631 | SMTP command injection via CRLF in Ruby standard library |
 | §1-3 (SMTP command injection, Nextcloud) | HackerOne #1509216 | SMTP command injection in Nextcloud mail sending functionality |
 | §2 (Address parsing differential) | **CVE-2023-27043** (Python `email.utils.parseaddr`) | Medium — ACL bypass. `parseaddr()` returns display name in address tuple for crafted inputs (e.g., `"attacker@evil.com"<legit@safe.com>` → extracts `attacker@evil.com`). Downstream frameworks using `parseaddr()` for email-based access control grant access to wrong identity |
-| §5 (Header injection, Python stdlib) | **CVE-2024-6923**, **CVE-2026-1299** (Python `email.generator`) | Medium — email header injection. `BytesGenerator` fails to sanitize `\n` in header values; attacker-controlled header content injects additional headers (BCC, Subject) or body content via CRLF sequences |
+| §5 (Header injection, Python stdlib) | **CVE-2024-6923**, **CVE-2026-1299** (Python `email.generator`) | Medium — email header injection. `BytesGenerator` failed to reject improperly folded headers when serializing messages; CVE-2026-1299 specifically applies to `LiteralHeader` values that do not respect email folding rules (CVSS v4.0 6.0) |
 
 ---
 
@@ -468,21 +468,21 @@ A structural defense requires **parser canonicalization at trust boundaries**: b
 
 ## References
 
-- SEC Consult, "SMTP Smuggling — Spoofing E-Mails Worldwide," December 2023. https://sec-consult.com/blog/detail/smtp-smuggling-spoofing-e-mails-worldwide/
-- CERT/CC, "VU#302671: SMTP end-of-data uncertainty can be abused to spoof emails and bypass policies," January 2024. https://kb.cert.org/vuls/id/302671
-- Wang et al., "Email Spoofing with SMTP Smuggling: How the Shared Email Infrastructures Magnify this Vulnerability," USENIX Security 2025. https://www.usenix.org/conference/usenixsecurity25/presentation/wang-chuhan
-- Chen et al., "Composition Kills: A Case Study of Email Sender Authentication," USENIX Security 2020. https://www.usenix.org/conference/usenixsecurity20/presentation/chen-jianjun
-- Ma et al., "FakeBehalf: Imperceptible Email Spoofing Attacks against the Delegation Mechanism in Email Systems," USENIX Security 2024. https://www.usenix.org/conference/usenixsecurity24/presentation/ma-jinrui
-- Shen et al., "Weak Links in Authentication Chains: A Large-scale Analysis of Email Sender Spoofing Attacks," USENIX Security 2021. https://www.usenix.org/system/files/sec21summer_shen-kaiwen.pdf
-- Heyes, "Splitting the email atom: exploiting parsers to bypass access controls," PortSwigger Research / Black Hat USA 2024. https://portswigger.net/research/splitting-the-email-atom
-- Wang et al., "Inbox Invasion: Exploiting MIME Ambiguities to Evade Email Attachment Detectors," ACM CCS 2024. https://dl.acm.org/doi/10.1145/3658644.3670386
-- Chand et al., "Doubly Dangerous: Evading Phishing Reporting Systems by Leveraging Email Tracking Techniques," USENIX Security 2025. https://www.usenix.org/conference/usenixsecurity25/presentation/chand
-- Poddebniak et al., "Efail: Breaking S/MIME and OpenPGP Email Encryption using Exfiltration Channels," USENIX Security 2018. https://efail.de/
-- Noxxi, "Dubious MIME — Conflicting Multipart Boundaries," 2015. https://noxxi.de/research/mime-conflicting-boundary.html
-- CERT/CC, "VU#244112: Multiple SMTP services are susceptible to spoofing attacks due to insufficient enforcement," July 2024. https://kb.cert.org/vuls/id/244112
-- Revisiting Email Forwarding Security under the Authenticated Received Chain Protocol, WWW 2022. https://gangw.cs.illinois.edu/arc-www22.pdf
-- Heyes, "Bypassing character blocklists with unicode overflows," PortSwigger Research. https://portswigger.net/research/bypassing-character-blocklists-with-unicode-overflows
-- OWASP, "Testing for IMAP SMTP Injection." https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/07-Input_Validation_Testing/10-Testing_for_IMAP_SMTP_Injection
+- [SEC Consult, "SMTP Smuggling — Spoofing E-Mails Worldwide," December 2023.](https://sec-consult.com/blog/detail/smtp-smuggling-spoofing-e-mails-worldwide/)
+- [CERT/CC, "VU#302671: SMTP end-of-data uncertainty can be abused to spoof emails and bypass policies," January 2024.](https://kb.cert.org/vuls/id/302671)
+- [Wang et al., "Email Spoofing with SMTP Smuggling: How the Shared Email Infrastructures Magnify this Vulnerability," USENIX Security 2025.](https://www.usenix.org/conference/usenixsecurity25/presentation/wang-chuhan)
+- [Chen et al., "Composition Kills: A Case Study of Email Sender Authentication," USENIX Security 2020.](https://www.usenix.org/conference/usenixsecurity20/presentation/chen-jianjun)
+- [Ma et al., "FakeBehalf: Imperceptible Email Spoofing Attacks against the Delegation Mechanism in Email Systems," USENIX Security 2024.](https://www.usenix.org/conference/usenixsecurity24/presentation/ma-jinrui)
+- [Shen et al., "Weak Links in Authentication Chains: A Large-scale Analysis of Email Sender Spoofing Attacks," USENIX Security 2021.](https://www.usenix.org/system/files/sec21summer_shen-kaiwen.pdf)
+- [Heyes, "Splitting the email atom: exploiting parsers to bypass access controls," PortSwigger Research / Black Hat USA 2024.](https://portswigger.net/research/splitting-the-email-atom)
+- [Wang et al., "Inbox Invasion: Exploiting MIME Ambiguities to Evade Email Attachment Detectors," ACM CCS 2024.](https://dl.acm.org/doi/10.1145/3658644.3670386)
+- [Chand et al., "Doubly Dangerous: Evading Phishing Reporting Systems by Leveraging Email Tracking Techniques," USENIX Security 2025.](https://www.usenix.org/conference/usenixsecurity25/presentation/chand)
+- [Poddebniak et al., "Efail: Breaking S/MIME and OpenPGP Email Encryption using Exfiltration Channels," USENIX Security 2018.](https://efail.de/)
+- [Noxxi, "Dubious MIME — Conflicting Multipart Boundaries," 2015.](https://noxxi.de/research/mime-conflicting-boundary.html)
+- [CERT/CC, "VU#244112: Multiple SMTP services are susceptible to spoofing attacks due to insufficient enforcement," July 2024.](https://kb.cert.org/vuls/id/244112)
+- [Revisiting Email Forwarding Security under the Authenticated Received Chain Protocol, WWW 2022.](https://gangw.cs.illinois.edu/arc-www22.pdf)
+- [Heyes, "Bypassing character blocklists with unicode overflows," PortSwigger Research.](https://portswigger.net/research/bypassing-character-blocklists-with-unicode-overflows)
+- [OWASP, "Testing for IMAP SMTP Injection."](https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/07-Input_Validation_Testing/10-Testing_for_IMAP_SMTP_Injection)
 - Viettel Cybersecurity: "The OWASSRF + TabShell exploit chain" (2022/2024) — Microsoft Exchange multi-stage exploitation: ProxyNotShell bypass (CVE-2022-41080 + CVE-2022-41082) and TabShell (CVE-2024-49040)
 
 ---

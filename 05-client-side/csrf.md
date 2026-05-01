@@ -116,7 +116,7 @@ The Double Submit Cookie pattern sends the same token value in both a cookie and
 
 ## §2. SameSite Cookie Restriction Bypass
 
-Modern browsers default to `SameSite=Lax` for cookies without an explicit attribute, which blocks cookies on cross-site POST requests while allowing them on top-level GET navigations. `SameSite=Strict` blocks cookies on all cross-site requests. These bypasses subvert this browser-level defense.
+Chromium-based browsers and some other modern browsers default cookies without an explicit `SameSite` attribute to `SameSite=Lax`; Firefox and Safari differ, relying more on Total Cookie Protection / ITP and not universally enabling Lax-by-default. Where Lax-by-default applies, it blocks most cross-site subresource/POST cookie sends while allowing top-level safe-method navigations. `SameSite=Strict` blocks cookies on all cross-site requests. These bypasses subvert this browser-level defense.
 
 ### §2-1. Lax Mode Bypasses
 
@@ -465,7 +465,7 @@ This pattern only generalizes to platforms where customer applications and manag
 | §6-1 (CSWSH) + §3-2 (GraphQL WS) | Include Security Research (2025) | GraphQL API protected against direct CSRF but accessible via WebSocket without Origin validation — arbitrary API calls including account deletion |
 | §7-2 (OAuth state) + §7-1 (Login CSRF) | Multiple OAuth implementations | Missing state parameter allows attacker's OAuth code to be bound to victim's session — account linkage takeover |
 | §1-3 (Double submit bypass) + §2-2 (Subdomain takeover) | Various bug bounty reports | Subdomain takeover enables cookie injection, breaking unsigned double-submit cookie protection |
-| §8-5 (Cloud management plane CSRF → RCE) | EmojiDeploy (Ermetic, 2023) | Azure Kudu SCM same-site CSRF with origin validation bypass → ZIP deployment → RCE on Azure Web Services. $30,000 MSRC bounty |
+| §8-5 (Cloud management plane CSRF → RCE) | EmojiDeploy (Ermetic, 2023) | Azure Kudu SCM same-site CSRF with origin validation bypass → ZIP deployment → RCE on Azure Web Services |
 
 ---
 
@@ -519,26 +519,26 @@ The ultimate architectural evolution is toward **token-bound sessions** and **or
 
 ## References
 
-- OWASP Cross-Site Request Forgery Prevention Cheat Sheet — https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html
-- PortSwigger Web Security Academy: CSRF — https://portswigger.net/web-security/csrf
-- PortSwigger: Bypassing SameSite Cookie Restrictions — https://portswigger.net/web-security/csrf/bypassing-samesite-restrictions
-- PortSwigger: Bypassing CSRF Token Validation — https://portswigger.net/web-security/csrf/bypassing-token-validation
-- Intigriti CSRF Advanced Exploitation Guide — https://www.intigriti.com/researchers/blog/hacking-tools/csrf-a-complete-guide-to-exploiting-advanced-csrf-vulnerabilities
-- DEF CON 30: "The CSRF Resurrections" (Service Worker + SameSite + Fetch) — https://forum.defcon.org/node/242201
-- Include Security: Cross-Site WebSocket Hijacking Exploitation in 2025 — https://blog.includesecurity.com/2025/04/cross-site-websocket-hijacking-exploitation-in-2025/
-- Apollo GraphQL: CSRF Prevention — https://www.apollographql.com/docs/graphos/routing/security/csrf
-- Mozilla Bug #1658869: SameSite Bypass via Service Worker FetchEvent — https://bugzilla.mozilla.org/show_bug.cgi?id=1658869
-- W3C Fetch Metadata Specification — https://github.com/w3c/webappsec-fetch-metadata
-- Google Web.dev: Protect Resources with Fetch Metadata — https://web.dev/articles/fetch-metadata
-- Stanford WebSec: Robust Defenses for Cross-Site Request Forgery — https://seclab.stanford.edu/websec/csrf/csrf.pdf
-- Cobalt CSRF & Bypasses — https://www.cobalt.io/learning-center/csrf-bypasses
-- CWE-352: Cross-Site Request Forgery — https://cwe.mitre.org/data/definitions/352.html
-- MDN: Cross-site request forgery (CSRF) — https://developer.mozilla.org/en-US/docs/Web/Security/Attacks/CSRF
-- Auth0: Prevent CSRF Attacks in OAuth 2.0 — https://auth0.com/blog/prevent-csrf-attacks-in-oauth-2-implementations/
-- CVE-2024-48962 (Apache OFBiz SameSite Bypass) — https://seclists.org/oss-sec/2024/q4/95
-- CVE-2025-34291 (Langflow CSRF to ATO+RCE) — https://www.obsidiansecurity.com/blog/cve-2025-34291-critical-account-takeover-and-rce-vulnerability-in-the-langflow-ai-agent-workflow-platform
-- XSRFProbe — https://github.com/0xInfection/XSRFProbe
-- Bolt CSRF Scanner — https://github.com/s0md3v/Bolt
+- [OWASP Cross-Site Request Forgery Prevention Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html)
+- [PortSwigger Web Security Academy: CSRF](https://portswigger.net/web-security/csrf)
+- [PortSwigger: Bypassing SameSite Cookie Restrictions](https://portswigger.net/web-security/csrf/bypassing-samesite-restrictions)
+- [PortSwigger: Bypassing CSRF Token Validation](https://portswigger.net/web-security/csrf/bypassing-token-validation)
+- [Intigriti CSRF Advanced Exploitation Guide](https://www.intigriti.com/researchers/blog/hacking-tools/csrf-a-complete-guide-to-exploiting-advanced-csrf-vulnerabilities)
+- [DEF CON 30: "The CSRF Resurrections" (Service Worker + SameSite + Fetch)](https://forum.defcon.org/node/242201)
+- [Include Security: Cross-Site WebSocket Hijacking Exploitation in 2025](https://blog.includesecurity.com/2025/04/cross-site-websocket-hijacking-exploitation-in-2025/)
+- [Apollo GraphQL: CSRF Prevention](https://www.apollographql.com/docs/graphos/routing/security/csrf)
+- [Mozilla Bug #1658869: SameSite Bypass via Service Worker FetchEvent](https://bugzilla.mozilla.org/show_bug.cgi?id=1658869)
+- [W3C Fetch Metadata Specification](https://github.com/w3c/webappsec-fetch-metadata)
+- [Google Web.dev: Protect Resources with Fetch Metadata](https://web.dev/articles/fetch-metadata)
+- [Stanford WebSec: Robust Defenses for Cross-Site Request Forgery](https://seclab.stanford.edu/websec/csrf/csrf.pdf)
+- [Cobalt CSRF & Bypasses](https://www.cobalt.io/learning-center/csrf-bypasses)
+- [CWE-352: Cross-Site Request Forgery](https://cwe.mitre.org/data/definitions/352.html)
+- [MDN: Cross-site request forgery (CSRF)](https://developer.mozilla.org/en-US/docs/Web/Security/Attacks/CSRF)
+- [Auth0: Prevent CSRF Attacks in OAuth 2.0](https://auth0.com/blog/prevent-csrf-attacks-in-oauth-2-implementations/)
+- [CVE-2024-48962 (Apache OFBiz SameSite Bypass)](https://seclists.org/oss-sec/2024/q4/95)
+- [CVE-2025-34291 (Langflow CSRF to ATO+RCE)](https://www.obsidiansecurity.com/blog/cve-2025-34291-critical-account-takeover-and-rce-vulnerability-in-the-langflow-ai-agent-workflow-platform)
+- [XSRFProbe](https://github.com/0xInfection/XSRFProbe)
+- [Bolt CSRF Scanner](https://github.com/s0md3v/Bolt)
 
 ---
 

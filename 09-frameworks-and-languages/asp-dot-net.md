@@ -303,7 +303,7 @@ The Razor View Engine resolves views through a deterministic search hierarchy. C
 | **Middleware Ordering Vulnerability** | ASP.NET Core middleware executes in registration order. If authorization middleware is registered after a middleware that short-circuits the pipeline (e.g., static file middleware serving from a writable directory), requests bypass authorization entirely. | E3 | `app.UseStaticFiles()` registered before `app.UseAuthorization()`. |
 | **Endpoint Routing Mismatch** | `[Authorize]` attributes on controllers may not apply to endpoints registered via `MapGet`/`MapPost` minimal APIs if `RequireAuthorization()` is not chained. Developers may assume attribute-based authorization applies globally. | E3 | Mixed controller + minimal API routing without consistent authorization. |
 | **Fallback Policy Gaps** | `FallbackPolicy` in `AuthorizationOptions` only applies to endpoints that don't have any authorization metadata. Endpoints with an empty `[AllowAnonymous]` attribute or custom policies may inadvertently bypass the fallback. | E3 | Fallback policy assumed to cover all endpoints. |
-| **Referer-Based Authentication Bypass** | SharePoint's request validation exempts requests referencing certain administrative pages in the `Referer` header. Spoofing `Referer: /_layouts/SignOut.aspx` on POST requests to `/_layouts/15/ToolPane.aspx?DisplayMode=Edit` bypasses authentication entirely, granting unauthenticated access to server-side control rendering and enabling deserialization chains (CVE-2025-53771). Combined with a `DataSetSurrogateSelector` allowlist bypass via generic-wrapper type-confusion, this achieves the "ToolShell" pre-auth RCE chain (CVE-2025-53770). | E3, E4 | SharePoint Server without July 2025 patches (KB5002768/KB5002754/KB5002760); externally accessible deployment. Pwn2Own Berlin 2025 ($100,000). |
+| **Referer-Based Authentication Bypass** | SharePoint's request validation exempts requests referencing certain administrative pages in the `Referer` header. Spoofing `Referer: /_layouts/SignOut.aspx` on POST requests to `/_layouts/15/ToolPane.aspx?DisplayMode=Edit` bypasses authentication entirely, granting unauthenticated access to server-side control rendering and enabling deserialization chains (CVE-2025-53771). Combined with a `DataSetSurrogateSelector` allowlist bypass via generic-wrapper type-confusion, this achieves the "ToolShell" pre-auth RCE chain (CVE-2025-53770). | E3, E4 | SharePoint Server without July 2025 patches (KB5002768/KB5002754/KB5002760); externally accessible deployment. Pwn2Own Berlin 2025. |
 
 ---
 
@@ -457,10 +457,10 @@ While XSS is a generic web vulnerability, ASP.NET has framework-specific pattern
 
 | Mutation Combination | CVE / Case | Impact / Bounty |
 |---------------------|-----------|----------------|
-| §2-1 (Chunked LF differential) | CVE-2025-55315 (ASP.NET Core Kestrel) | CVSS 9.9. HTTP request smuggling via lone LF in chunk extension. $10,000 MSRC bounty. Highest-severity ASP.NET Core CVE ever. |
+| §2-1 (Chunked LF differential) | CVE-2025-55315 (ASP.NET Core Kestrel) | CVSS 9.9. HTTP request smuggling via lone LF in chunk extension. Highest-severity ASP.NET Core CVE ever. |
 | §9-1 (SOAPwn WSDL file write) | CVE-2025-34392 (Barracuda RMM), CVE-2025-13659 (Ivanti EPM) | Pre-auth RCE via WSDL proxy generation. Webshell deployment to IIS wwwroot. Microsoft declined to patch framework flaw. |
 | §1-1 (ViewState + machine keys) | CVE-2025-53690 (Sitecore), CVE-2025-30406 (Gladinet CentreStack) | Zero-day ViewState deserialization via exposed machine keys. Active exploitation in the wild. Godzilla webshell deployment. |
-| §7-3 + §1-1 (Referer auth bypass + ViewState deserialization) | CVE-2025-49704 + CVE-2025-49706 (SharePoint Server) | "ToolShell" pre-auth RCE chain: Referer spoofing bypasses auth → ToolPane deserialization deploys webshell → MachineKey extraction → persistent ViewState RCE. Pwn2Own Berlin 2025 ($100,000, Viettel Cyber Security). Zero-day exploitation; 75–85+ servers compromised globally. July 2025 emergency patch; subsequent bypass variants CVE-2025-53770/CVE-2025-53771 patched later. |
+| §7-3 + §1-1 (Referer auth bypass + ViewState deserialization) | CVE-2025-49704 + CVE-2025-49706 (SharePoint Server) | "ToolShell" pre-auth RCE chain: Referer spoofing bypasses auth → ToolPane deserialization deploys webshell → MachineKey extraction → persistent ViewState RCE. Pwn2Own Berlin 2025, Viettel Cyber Security. Zero-day exploitation; public reporting described compromised servers globally. July 2025 emergency patch; subsequent bypass variants CVE-2025-53770/CVE-2025-53771 patched later. |
 | §3-1 (Double cookieless auth bypass) | CVE-2023-36899 (ASP.NET Framework) | Authentication bypass on protected directories. WAF bypass via path manipulation. |
 | §3-1 (Cookieless App Pool escalation) | CVE-2023-36560 (ASP.NET Framework) | Privilege escalation — execute code under parent App Pool identity. |
 | §6-1 (RefreshSignInAsync impersonation) | CVE-2025-24070 (ASP.NET Core) | Elevation of privilege — sign in as another user. |
@@ -533,7 +533,7 @@ Until legacy ASP.NET Framework deployments are fully retired and applications co
 ## References
 
 - Microsoft Security Blog: "Code injection attacks using publicly disclosed ASP.NET machine keys" (Feb 2025)
-- Praetorian: "How I Found the Worst ASP.NET Vulnerability — A $10K Bug (CVE-2025-55315)"
+- Praetorian: "How I Found the Worst ASP.NET Vulnerability" (CVE-2025-55315)
 - watchTowr Labs: "SOAPwn: Pwning .NET Framework Applications Through HTTP Client Proxies And WSDL" (Dec 2025)
 - Soroush Dalili: "Cookieless DuoDrop: IIS Auth Bypass & App Pool Privesc in ASP.NET Framework (CVE-2023-36899 & CVE-2023-36560)"
 - PT SWARM: "Source Code Disclosure in ASP.NET apps" (2024)

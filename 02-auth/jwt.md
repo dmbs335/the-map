@@ -43,7 +43,7 @@ The `alg` field is set to `"none"` (or case variants), instructing the verifier 
 | **Case variation** | Use `"None"`, `"NONE"`, `"nOnE"` to bypass case-sensitive blocklists. Note: per RFC 7515, `alg` values are case-sensitive ASCII strings — a spec-compliant library should reject these outright. This only works against implementations with case-insensitive algorithm lookup or naive blocklists that check case but the underlying parser normalizes | Non-spec-compliant parser with case-insensitive algorithm matching, or blocklist that checks case while parser normalizes |
 | **Empty signature preservation** | Set `alg` to `"none"` but retain the trailing dot (e.g., `header.payload.`) | Parser requires three segments but doesn't enforce signature presence |
 | **Whitespace/encoding tricks** | Insert whitespace, null bytes, or alternate Base64 padding around `"none"`. As with case variation, RFC 7515 does not permit these — this exploits implementation-specific leniency in JSON/Base64 parsing, not a protocol-level weakness | Parser normalizes whitespace/encoding before comparison but blocklist checks raw value; non-compliant JSON/Base64 handling |
-| **Unknown algorithm empty-signature bypass** | Set `alg` to an arbitrary unsupported value (e.g., `"zzz"`, `"foo"`). The library's signature computation function returns an empty string for unrecognized algorithms instead of raising an error. The attacker supplies an empty signature segment (trailing dot). Verification compares `"" == ""` and passes — a different code path from the `none` handler, which explicitly skips verification (CVE-2026-23993) | Library returns empty/default from signature computation for unknown algorithms; signature comparison does not reject empty values |
+| **Unknown algorithm empty-signature bypass** | Set `alg` to an arbitrary unsupported value (e.g., `"zzz"`, `"foo"`). The library's signature computation function returns an empty string for unrecognized algorithms instead of raising an error. The attacker supplies an empty signature segment (trailing dot). Verification compares `"" == ""` and passes — a different code path from the `none` handler, which explicitly skips verification. PentesterLab reports this for HarbourJwt, but the claimed CVE-2026-23993 was not present in the CVE Program API when checked on 2026-04-29 | Library returns empty/default from signature computation for unknown algorithms; signature comparison does not reject empty values |
 
 **Example payload:**
 ```
@@ -185,6 +185,29 @@ JWE supports password-based encryption via PBES2 (RFC 7518 §4.8), where a Conte
 - **lestrrat-go/jwx** (Go): fixed in v1.2.27 / v2.0.18 (CVE-2023-49290)
 - **jose2go** (Go): fixed in v1.6.0
 - **josekit-rs** (Rust): fixed in v0.8.5
+- **jwcrypto** (Python): vulnerable before 1.5.1 (CVE-2023-6681)
+- **latchset/jose** (C): vulnerable (CVE-2023-50967)
+- **jjwt** (Java): vulnerable (CVE-2024-39960)
+- **nimbus-jose-jwt** (Java): vulnerable (CVE-2023-52428)
+
+### §3-5. Compression Decompression Abuse (Compression DoS)
+
+JWE supports payload compression via the `zip` header parameter (RFC 7516 §4.1.3). When set to `"DEF"` (Deflate), the library may decompress plaintext after successful JWE decryption and before returning it. Since `zip` is attacker-controlled and decompression can occur *before* application-level size validation, a crafted JWE containing a highly compressed payload that expands to gigabytes triggers excessive memory allocation — a classic decompression bomb. Unlike PBES2 billion hashes (§3-4), which targets CPU before token validity can be established, this attack targets memory during the decrypt/decompress path. JWTeemo found this class across multiple JWE-supporting implementations and CVEs.
+
+| Subtype | Mechanism | Key Condition |
+|---|---|---|
+| **Decompression bomb via `zip`** | Craft a JWE with `zip: "DEF"` and a payload that compresses to a small token but expands to gigabytes upon Deflate decompression. The library decompresses after decryption but before returning the payload, consuming server memory proportional to the decompressed size. Describe this as unauthenticated only when the deployment accepts attacker-supplied encrypted tokens that reach the JWE decryption path; unlike PBES2 `p2c` abuse, the decompression step normally depends on successful processing of the JWE ciphertext. | Library supports `zip` parameter and does not enforce a maximum decompressed payload size (CVE-2024-28176, CVE-2024-28180, CVE-2024-29370, CVE-2024-28102, CVE-2024-29371, CVE-2024-27663, CVE-2025-63811, CVE-2024-28122) |
+| **`zip` in JWS (RFC violation)** | The `zip` parameter is defined only for JWE (RFC 7516 §4.1.3), not JWS. However, some libraries accept `zip` in JWS headers and decompress the payload after signature verification. An attacker crafts a JWS with `zip: "DEF"` to trigger decompression in contexts where only JWS is expected — bypassing defenses that restrict JWE-specific attack surface. This is an RFC-violating behavior: the JWT specification (RFC 7515) does not define `zip` for JWS. | Library processes `zip` in JWS despite RFC restriction; no explicit rejection of compression in signed-only tokens |
+
+**Affected libraries and fixes:**
+- **jose** (JavaScript): fixed with decompression size limits (CVE-2024-28176)
+- **go-jose** (Go): fixed in v3.0.3 / v4.0.1 (CVE-2024-28180)
+- **python-jose** (Python): vulnerable (CVE-2024-29370)
+- **jwcrypto** (Python): fixed in v1.5.6 (CVE-2024-28102)
+- **jose4j** (Java): fixed (CVE-2024-29371)
+- **jose-jwt** (C#): fixed (CVE-2024-27663)
+- **jose2go** (Go): vulnerable (CVE-2025-63811)
+- **lestrrat-go/jwx** (Go): fixed (CVE-2024-28122)
 
 ---
 
@@ -331,6 +354,15 @@ JWS (signed) and JWE (encrypted) share the same compact serialization format —
 | **Session fixation via JWT** | Fix a victim's session by injecting a known JWT, maintaining access even after the victim's actions | Application doesn't bind JWTs to additional session state |
 | **Missing `jti` uniqueness** | Replay tokens when the `jti` (JWT ID) claim is absent or the server doesn't track used `jti` values | No `jti` enforcement; no server-side tracking |
 
+### §7-5. Serialization Format Confusion
+
+RFC 7515 defines two serialization formats for JWS: Compact (three dot-separated Base64URL segments) and JSON (a JSON object with `protected`, `payload`, `signature` fields, plus an optional Flattened variant). While the JWT specification (RFC 7519) mandates Compact serialization, some libraries accept JSON-serialized JWS through the same parse interface. When the application layer assumes Compact format for claim extraction but the library validates a JSON-format token, the resulting mismatch between claim extraction logic and signature verification creates an authentication bypass.
+
+| Subtype | Mechanism | Key Condition |
+|---|---|---|
+| **Compact↔JSON format mismatch** | Attacker crafts a JWS in JSON serialization format with a spoofed claim field (e.g., a `fakeiss` field containing a base64url-encoded `{"iss":"fakeissuer"}`). The JWT library (e.g., go-jose) validates the signature against the legitimate `protected` header — which is intact and correctly signed. However, the application extracts claims by assuming Compact format: splitting on dots and base64-decoding the middle segment. In the JSON-format token, this splitting operation hits the spoofed field instead of the real payload, causing the application to accept the attacker's forged claims while the library reports a valid signature. The attack splits signature verification from claim extraction across two different serialization assumptions. | Library accepts both Compact and JSON JWS serialization via unified parse; application assumes Compact format for claim extraction (e.g., splitting on `.` and decoding the second segment); no explicit format enforcement (CVE-2024-5037, Kubernetes bug bounty) |
+| **Cross-system format confusion** | In multi-component architectures, one component (e.g., API gateway) validates the token as JSON-format JWS, while another component (e.g., application server) re-parses it as Compact. The fields validated differ between the two parsing modes, allowing attacker-controlled claims to pass through the gateway validation but be interpreted differently by the backend. | Multi-component architecture where JWT is validated and consumed by different systems; each system uses a different serialization assumption |
+
 ---
 
 ## §8. Attack Scenario Mapping (Axis 3)
@@ -344,8 +376,8 @@ JWS (signed) and JWE (encrypted) share the same compact serialization format —
 | **Cross-Tenant Access** | Multi-tenant SaaS / cloud platform | §4-2 (tenant ID manipulation) + §4-4 (ALBEAST) |
 | **SSRF** | Server fetches remote resources from JWT headers | §2-2 (`jku` injection) + §2-4 (`x5u` injection) |
 | **Remote Code Execution** | Unsafe deserialization or command injection | §2-1 (`kid` command injection) + §2-5 (`cty` deserialization) |
-| **Denial of Service** | Resource-constrained server | §3-2 (invalid curve) + §3-4 (PBES2 billion hashes) + §7-3 (memory exhaustion) |
-| **Token Forgery via Type Confusion** | Asymmetric signing with public key exposure (OIDC) | §7-1 (sign/encrypt confusion, polyglot token) + §2-6 (`typ` confusion) |
+| **Denial of Service** | Resource-constrained server | §3-2 (invalid curve) + §3-4 (PBES2 billion hashes) + §3-5 (compression DoS) + §7-3 (memory exhaustion) |
+| **Token Forgery via Type Confusion** | Asymmetric signing with public key exposure (OIDC) | §7-1 (sign/encrypt confusion, polyglot token) + §2-6 (`typ` confusion) + §7-5 (format confusion) |
 | **WAF/Gateway Bypass** | Security appliance in front of application | §7-2 (encoding tricks) + §1-1 (case variants) |
 
 ---
@@ -366,9 +398,27 @@ JWS (signed) and JWE (encrypted) share the same compact serialization format —
 | §7-1 (Sign/encrypt confusion) | CVE-2023-51774 (json-jwt/Ruby) | Identity check bypass. NVD describes sign/encrypt confusion in json-jwt gem 1.16.3. Broader version ranges (1.15.x, 1.16.x) may be affected per gem changelog but are not explicitly stated in the NVD entry. |
 | §3-4 (PBES2 billion hashes) | CVE-2023-51775 (jose4j/Java) | DoS. Unbounded `p2c` parameter allows CPU exhaustion via 2^31 PBKDF2 iterations. Fixed in jose4j 0.9.4. |
 | §3-4 (PBES2 billion hashes) | CVE-2023-49290 (lestrrat-go/jwx) | DoS. Same PBES2 `p2c` exploitation. Fixed in lestrrat-go/jwx v1.2.27 / v2.0.18. |
-| §1-1 (Unknown algorithm empty-signature) | CVE-2026-23993 (HarbourJwt) ⚠️ *Not in NVD; PentesterLab sole source — unverified. Treat as unconfirmed* | Authentication bypass. `GetSignature()` returns empty string for unrecognized `alg` values; empty-vs-empty comparison passes verification. Requires independent verification before citing as confirmed. |
+| §1-1 (Unknown algorithm empty-signature) | PentesterLab HarbourJwt report (claimed CVE-2026-23993, not present in CVE Program API as of 2026-04-29) | Authentication bypass. `GetSignature()` returns empty string for unrecognized `alg` values; empty-vs-empty comparison passes verification. Requires independent verification before citing as confirmed. |
 | §5-1 / §6-3 (Token leakage) | Grafana Bug Bounty | JWT tokens in query parameters leaked to backend data sources via proxied requests. |
 | §6-3 (Replay / revocation) | HackerOne #3120790 (WakaTime) | Session replay. Logged-out tokens remain valid, enabling persistent access. |
+| §1-2 (Algorithm confusion) | CVE-2024-57453 (libjwt/C) | Authentication bypass. RS256→HS256 confusion allowing token forgery with public key. |
+| §1-2 (Algorithm confusion) | CVE-2024-57454 (cpp-jwt/C++) | Authentication bypass. RS256→HS256 confusion allowing token forgery with public key. |
+| §3-4 (PBES2 billion hashes) | CVE-2023-6681 (jwcrypto/Python) | DoS. Unbounded `p2c` parameter allows CPU exhaustion. |
+| §3-4 (PBES2 billion hashes) | CVE-2023-50967 (latchset/jose/C) | DoS. Unbounded `p2c` parameter allows CPU exhaustion. |
+| §3-4 (PBES2 billion hashes) | CVE-2024-39960 (jjwt/Java) | DoS. Unbounded `p2c` parameter allows CPU exhaustion. |
+| §3-4 (PBES2 billion hashes) | CVE-2023-52428 (nimbus-jose-jwt/Java) | DoS. Unbounded `p2c` parameter allows CPU exhaustion. |
+| §3-4 (PBES2 billion hashes) | CVE-2023-50658 (jose2go/Go) | DoS. Unbounded `p2c` parameter allows CPU exhaustion. |
+| §3-5 (Compression DoS) | CVE-2024-29370 (python-jose/Python) | DoS. Decompression bomb via `zip` parameter causes memory exhaustion. |
+| §3-5 (Compression DoS) | CVE-2024-28102 (jwcrypto/Python) | DoS. Decompression bomb via `zip` parameter causes memory exhaustion. |
+| §3-5 (Compression DoS) | CVE-2024-29371 (jose4j/Java) | DoS. Decompression bomb via `zip` parameter causes memory exhaustion. |
+| §3-5 (Compression DoS) | CVE-2024-28176 (jose/JavaScript) | DoS. Decompression bomb via `zip` parameter causes memory exhaustion. |
+| §3-5 (Compression DoS) | CVE-2024-27663 (jose-jwt/C#) | DoS. Decompression bomb via `zip` parameter causes memory exhaustion. |
+| §3-5 (Compression DoS) | CVE-2025-63811 (jose2go/Go) | DoS. Decompression bomb via `zip` parameter causes memory exhaustion. |
+| §3-5 (Compression DoS) | CVE-2024-28180 (go-jose/Go) | DoS. Decompression bomb via `zip` parameter causes memory exhaustion. Fixed in v3.0.3 / v4.0.1. |
+| §3-5 (Compression DoS) | CVE-2024-28122 (lestrrat-go/jwx) | DoS. Decompression bomb via `zip` parameter causes memory exhaustion. |
+| §7-1 (Sign/encrypt confusion) | CVE-2024-24238 (jose-jwt/C#) | Authentication bypass. JWS public key used to forge JWE tokens via unified decode interface. |
+| §7-5 (Format confusion) | CVE-2024-5037 (OpenShift Telemeter) | CVSS 7.5. Authentication bypass via JSON-serialized JWS with spoofed issuer field. go-jose validates signature on real header while application extracts claims from spoofed JSON field. |
+| §7-5 (Format confusion) | Kubernetes bug bounty | Authentication bypass. Same JSON vs. Compact serialization format confusion as CVE-2024-5037; forged issuer accepted by Kubernetes API server. |
 
 ---
 
@@ -385,6 +435,7 @@ JWS (signed) and JWE (encrypted) share the same compact serialization format —
 | **jwtfuzz** (Rust) | Fuzzing and malformation | Generates malformed tokens: null signatures, swapped algorithms, psychic signatures, encoding edge cases |
 | **JWTForge** | OAuth2/OIDC testing | JWT vending service generating customizable tokens for fuzzing authentication systems |
 | **Burp JWT Scanner** (Extension) | Automated vulnerability detection | Scans for none algorithm, algorithm confusion, weak secrets, header injection in intercepted traffic |
+| **JWTeemo** | Systematic JWT implementation fuzzing | Grammar-based fuzzer using FBNF (Function-extended BNF) + UCT-Rand feedback-driven generation; differential analyzer detects cross-library parsing discrepancies and resource exhaustion via Chebyshev-based anomaly detection. Evaluated 43 libraries across 10 languages, discovered 31 vulnerabilities (20 CVEs). Findings incorporated into IETF RFC 8725bis draft |
 
 ### Defensive Tools
 
@@ -421,7 +472,7 @@ Backend-as-a-Service platforms (Supabase, Firebase, Appwrite) expose database ac
 
 **Incremental fixes fail because the attack surface is combinatorial.** Fixing `alg: none` doesn't prevent algorithm confusion. Fixing algorithm confusion doesn't prevent `kid` injection. Fixing `kid` injection doesn't prevent `jku` SSRF. Each mutation target (§1–§7) is independently exploitable, and combinations create novel attack chains (e.g., `jku` bypass + algorithm confusion + claim manipulation). Libraries must implement a "deny-by-default" posture across *all* header parameters simultaneously, which many fail to do — evidenced by recurring CVEs across different libraries year after year (2015 through 2026).
 
-**The structural solution requires four architectural principles:** (1) **Server-side algorithm pinning** — never read the algorithm from the token; configure it at the application level. (2) **Closed key resolution** — never fetch, embed, or dynamically resolve keys from token headers; use a pre-configured, immutable key store. (3) **Explicit token type enforcement** — always enforce whether JWS or JWE is expected; never use a unified decode() interface that auto-detects token type. The sign/encrypt confusion and polyglot token attacks (§7-1) demonstrate that collapsing signing and encryption into a single code path converts a proof-of-authenticity check into a mere decryption check, which anyone with the public key can pass. (4) **Stateful lifecycle management** — accept that purely stateless JWTs cannot support revocation, replay prevention, or session binding; augment with server-side state (token blacklists, refresh token rotation, `jti` tracking) for any use case requiring these properties. The PBES2 billion hashes DoS (§3-4) underscores a protocol-level gap: RFC 7518 defines `p2c` as a positive integer and recommends a minimum of 1000 but sets no upper bound, leaving the door open for attacker-controlled iteration counts. However, adding an upper-bound check on `p2c` is fully standards-compliant — the RFC does not prohibit it — and affected libraries have in fact shipped such fixes without deviating from the specification.
+**The structural solution requires four architectural principles:** (1) **Server-side algorithm pinning** — never read the algorithm from the token; configure it at the application level. (2) **Closed key resolution** — never fetch, embed, or dynamically resolve keys from token headers; use a pre-configured, immutable key store. (3) **Explicit token type enforcement** — always enforce whether JWS or JWE is expected; never use a unified decode() interface that auto-detects token type. The sign/encrypt confusion and polyglot token attacks (§7-1) demonstrate that collapsing signing and encryption into a single code path converts a proof-of-authenticity check into a mere decryption check, which anyone with the public key can pass. (4) **Stateful lifecycle management** — accept that purely stateless JWTs cannot support revocation, replay prevention, or session binding; augment with server-side state (token blacklists, refresh token rotation, `jti` tracking) for any use case requiring these properties. The PBES2 billion hashes DoS (§3-4) and compression decompression abuse (§3-5) underscore protocol-level gaps: RFC 7518 defines `p2c` as a positive integer and recommends a minimum of 1000 but sets no upper bound, leaving the door open for attacker-controlled iteration counts; similarly, the `zip` parameter enables decompression bombs with no specified size limit, and some implementations incorrectly accept `zip` in JWS despite it being defined only for JWE. The serialization format confusion (§7-5) adds another dimension: libraries that accept JSON-serialized JWS alongside Compact format enable claim extraction/verification mismatches exploited in real-world systems like Kubernetes. However, adding an upper-bound check on `p2c` and decompressed payload size is fully standards-compliant — the RFCs do not prohibit it — and affected libraries have in fact shipped such fixes without deviating from the specification.
 
 ---
 
@@ -431,20 +482,21 @@ Backend-as-a-Service platforms (Supabase, Firebase, Appwrite) expose database ac
 
 ## References
 
-- RFC 7519: JSON Web Token (JWT) — https://datatracker.ietf.org/doc/html/rfc7519
-- RFC 7518: JSON Web Algorithms (JWA) — https://datatracker.ietf.org/doc/html/rfc7518
-- PortSwigger Web Security Academy: JWT Attacks — https://portswigger.net/web-security/jwt
-- Auth0: Critical Vulnerabilities in JSON Web Token Libraries — https://auth0.com/blog/critical-vulnerabilities-in-json-web-token-libraries/
-- PentesterLab: The Ultimate Guide to JWT Vulnerabilities and Attacks — https://pentesterlab.com/blog/jwt-vulnerabilities-attacks-guide
-- HackTricks: JWT Vulnerabilities — https://book.hacktricks.xyz/pentesting-web/hacking-jwt-json-web-tokens
-- OWASP WSTG: Testing JSON Web Tokens — https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/06-Session_Management_Testing/10-Testing_JSON_Web_Tokens
-- Red Sentry: JWT Vulnerabilities List 2026 — https://redsentry.com/resources/blog/jwt-vulnerabilities-list-2026-security-risks-mitigation-guide
-- TrustedSec: Keys to JWT Assessments — https://trustedsec.com/blog/keys-to-jwt-assessments-from-a-cheat-sheet-to-a-deep-dive
-- Wallarm: 340 Weak JWT Secrets — https://lab.wallarm.com/340-weak-jwt-secrets-you-should-check-in-your-code/
-- Intigriti: Exploiting JWT Vulnerabilities — https://www.intigriti.com/researchers/blog/hacking-tools/exploiting-jwt-vulnerabilities
-- Akamai: Analyzing Broken User Authentication Threats to JWT — https://www.akamai.com/blog/security-research/owasp-authentication-threats-for-json-web-token
-- PentesterLab: CVE-2026-23993 HarbourJwt Unknown Algorithm JWT Bypass — https://pentesterlab.com/blog/cve-2026-23993-harbourjwt-unknown-alg-jwt-bypass
-- JFrog: CVE-2022-21449 "Psychic Signatures" Analysis — https://jfrog.com/blog/cve-2022-21449-psychic-signatures-analyzing-the-new-java-crypto-vulnerability/
-- Traceable AI: JWTs Under the Microscope — https://www.traceable.ai/blog-post/jwts-under-the-microscope-how-attackers-exploit-authentication-and-authorization-weaknesses
-- Tom Tervoort (Secura): Three New Attacks Against JSON Web Tokens (BlackHat US 2023) — https://i.blackhat.com/BH-US-23/Presentations/US-23-Tervoort-Three-New-Attacks-Against-JSON-Web-Tokens.pdf
-- Trail of Bits: Out of the kernel, into the tokens — https://blog.trailofbits.com/2024/03/08/out-of-the-kernel-into-the-tokens/
+- [RFC 7519: JSON Web Token (JWT)](https://datatracker.ietf.org/doc/html/rfc7519)
+- [RFC 7518: JSON Web Algorithms (JWA)](https://datatracker.ietf.org/doc/html/rfc7518)
+- [PortSwigger Web Security Academy: JWT Attacks](https://portswigger.net/web-security/jwt)
+- [Auth0: Critical Vulnerabilities in JSON Web Token Libraries](https://auth0.com/blog/critical-vulnerabilities-in-json-web-token-libraries/)
+- [PentesterLab: The Ultimate Guide to JWT Vulnerabilities and Attacks](https://pentesterlab.com/blog/jwt-vulnerabilities-attacks-guide)
+- [HackTricks: JWT Vulnerabilities](https://book.hacktricks.xyz/pentesting-web/hacking-jwt-json-web-tokens)
+- [OWASP WSTG: Testing JSON Web Tokens](https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/06-Session_Management_Testing/10-Testing_JSON_Web_Tokens)
+- [Red Sentry: JWT Vulnerabilities List 2026](https://redsentry.com/resources/blog/jwt-vulnerabilities-list-2026-security-risks-mitigation-guide)
+- [TrustedSec: Keys to JWT Assessments](https://trustedsec.com/blog/keys-to-jwt-assessments-from-a-cheat-sheet-to-a-deep-dive)
+- [Wallarm: 340 Weak JWT Secrets](https://lab.wallarm.com/340-weak-jwt-secrets-you-should-check-in-your-code/)
+- [Intigriti: Exploiting JWT Vulnerabilities](https://www.intigriti.com/researchers/blog/hacking-tools/exploiting-jwt-vulnerabilities)
+- [Akamai: Analyzing Broken User Authentication Threats to JWT](https://www.akamai.com/blog/security-research/owasp-authentication-threats-for-json-web-token)
+- [PentesterLab: claimed CVE-2026-23993 HarbourJwt Unknown Algorithm JWT Bypass](https://pentesterlab.com/blog/cve-2026-23993-harbourjwt-unknown-alg-jwt-bypass)
+- [JFrog: CVE-2022-21449 "Psychic Signatures" Analysis](https://jfrog.com/blog/cve-2022-21449-psychic-signatures-analyzing-the-new-java-crypto-vulnerability/)
+- [Traceable AI: JWTs Under the Microscope](https://www.traceable.ai/blog-post/jwts-under-the-microscope-how-attackers-exploit-authentication-and-authorization-weaknesses)
+- [Tom Tervoort (Secura): Three New Attacks Against JSON Web Tokens (BlackHat US 2023)](https://i.blackhat.com/BH-US-23/Presentations/US-23-Tervoort-Three-New-Attacks-Against-JSON-Web-Tokens.pdf)
+- [Trail of Bits: Out of the kernel, into the tokens](https://blog.trailofbits.com/2024/03/08/out-of-the-kernel-into-the-tokens/)
+- [Yang et al. (Tsinghua): Token Time Bomb: Evaluating JWT Implementations for Vulnerability Discovery (NDSS 2026)](https://dx.doi.org/10.14722/ndss.2026.240697)

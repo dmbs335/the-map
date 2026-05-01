@@ -370,12 +370,12 @@ This section maps the structural leak categories (§1–§8) to real-world attac
 | §1-4 (Connection Pool Prioritization) | **XSS-Leak: Leaking Cross-Origin Redirects** (Takeshi Kaneko) | Chrome connection-pool oracle leaks redirect hostnames; Top 10 2025 | 2025 |
 | §1-3 (Cache Timing) + §3-1 (Error Events) | **Massive XS-Search on Google Products** (terjanq) | Inferred Gmail search terms, Drive files, Calendar events via combined timing + frame counting | ~2020 |
 | §8-1 (postMessage) + §5-1 (ID) + §7-1 (CSS) | **Intigriti December CTF** (XS-Leaks + postMessage XSS chain) | Chained XS-Leaks, DOM clobbering, CSP bypass, postMessage to achieve XSS with one click | 2024 |
-| §1-2 (Execution Timing) + §2-1 (Frame Count) | **AutoLeak Discovery** (CCS 2023) | 8,403 leak techniques identified; 5 novel XS-Leak classes; 20/24 Tranco Top 50 sites affected | 2023 |
+| §1-2 (Execution Timing) + §2-1 (Frame Count) | **AutoLeak Discovery** (CCS 2023) | Thousands of leak techniques identified; novel XS-Leak classes; popular-site impact demonstrated | 2023 |
 | §3-2 (CORB) + §3-3 (CORP) | **XSinator 14 New Attack Classes** (CCS 2021) | Evaluated 56 browser/OS combinations, found 14 novel attack classes including CORB/CORP side-channels | 2021 |
 | §7-1 (CSS Injection) | **CTFd 0day: XS-Leaking flags with CSS** (Jorian Woltjer) | Extracted CTF flags via CSS selector brute-force without HTML injection | 2024 |
 | Multiple | **Meta Bug Bounty Program** (payout guidelines) | Meta rewards XS-Leaks based on data type (PII, friend lists, private content) + attack vector; browser bugs excluded | Ongoing |
 
-**Note**: Many XS-Leaks are not assigned CVEs because they exploit intended browser features, not implementation bugs. Impact is assessed via bug bounties (Meta $2.3M paid in 2024) and security researcher disclosures.
+**Note**: Many XS-Leaks are not assigned CVEs because they exploit intended browser features, not implementation bugs. Impact is assessed via bug bounties and security researcher disclosures.
 
 ---
 
@@ -386,7 +386,7 @@ This section maps the structural leak categories (§1–§8) to real-world attac
 | Tool | Type | Target Scope | Core Technique |
 |------|------|-------------|---------------|
 | **XSinator** (xsinator.com) | Browser Test Suite | Automated XS-Leak vulnerability scanning for 56 browser/OS combinations | Tests 34+ XS-Leak vectors with one click; accompanying CCS 2021 paper |
-| **AutoLeak** | Differential Fuzzer | Automated XS-Leak detection in Chrome, Firefox, Safari | Generates 151,776 test cases; detected 8,403 leak techniques per case; found 5 novel classes (CCS 2023) |
+| **AutoLeak** | Differential Fuzzer | Automated XS-Leak detection in Chrome, Firefox, Safari | Generates large differential test suites; found novel leak classes (CCS 2023) |
 | **The Leaky Web** | Automated Scanner | Detects observation channels in Chromium, Firefox, Safari engines | Identified 280 observation channels cross-site (IEEE S&P 2023) |
 | **Scripted Henchmen** | Vulnerability Scanner | Leverages XS-Leaks to detect XSS/SQLi cross-site | Uses XS-Leaks as detection primitives; analyzed attacker-initiated requests (WOOT 2023) |
 | **HTTP Garden** | Differential Testing | HTTP parser differentials (related to request smuggling, not direct XS-Leaks) | Identifies parser inconsistencies that may enable leak vectors |
@@ -431,7 +431,7 @@ XS-Leaks are not vulnerabilities in code but **vulnerabilities in design**. Patc
 - **2015**: Timing attacks (Tom Van Goethem)
 - **2019**: Leaky Images (USENIX)
 - **2021**: 14 new attack classes via XSinator (CORB/CORP leaks, frame counting)
-- **2023**: 280 observation channels via The Leaky Web; 8,403 techniques via AutoLeak
+- **2023**: broad observation-channel taxonomy via The Leaky Web; large-scale technique discovery via AutoLeak
 - **2025**: ETag-length oracle via 431 errors; connection-pool redirect hostname leaks
 
 Each browser mitigation (partitioned cache, Site Isolation, COOP) closes a subset of vectors, but the **combinatorial space of observables** ensures new techniques emerge. AutoLeak's systematic evaluation shows that even after years of mitigations, modern browsers expose thousands of exploitable leak techniques.

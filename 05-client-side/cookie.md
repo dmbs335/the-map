@@ -321,7 +321,7 @@ Attacks that exploit the temporal aspects of cookie creation, validation, and de
 | §8-2 (CORF token fixation) | CVE-2022-24895 (Symfony), CVE-2022-25896 (Passport), CVE-2023-29020 (Fastify), CVE-2022-35943 (Shield/CI4), CVE-2023-27495 (CI4 Shield) | CSRF bypass via pre-login CORF in synchronizer token pattern (7 of 12 STP frameworks vulnerable) and post-login CORF in double-submit pattern (all 6 DSP frameworks vulnerable) (Cookie Crumbles, USENIX Sec 2023). Note: CVE-2023-29019 is a separate @fastify/passport session fixation issue. |
 | §7-2 (Extension-based theft) | Cookie-Bite PoC (Varonis, Apr 2025) | Azure Entra ID MFA bypass; up to 90-day M365 access (session policy dependent) |
 | §4-2 + §8-1 (CORS + cookie misconfiguration) | CVE-2025-34291 (Langflow) | Account takeover via permissive CORS (`Access-Control-Allow-Credentials: true` + reflected origin) combined with `SameSite=None` refresh-token cookie and missing CSRF protection on the refresh endpoint; JWT is the token format but the core flaw is cross-origin cookie relay |
-| §7-2 (Infostealer) | Lumma Stealer takedown (May 2025) | 394,000+ Windows systems infected; ~2,300 domains taken down (of which 1,300+ redirected to Microsoft sinkhole) |
+| §7-2 (Infostealer) | Lumma Stealer takedown (May 2025) | Large Windows infection footprint; many domains taken down or redirected to Microsoft sinkhole |
 
 ---
 
@@ -372,24 +372,24 @@ The only comprehensive defense is defense-in-depth: `__Host-` prefixes for integ
 
 ## References
 
-- PortSwigger Research — [Cookie Chaos: How to bypass __Host and __Secure cookie prefixes](https://portswigger.net/research/cookie-chaos-how-to-bypass-host-and-secure-cookie-prefixes)
-- PortSwigger Research — [Stealing HttpOnly cookies with the cookie sandwich technique](https://portswigger.net/research/stealing-httponly-cookies-with-the-cookie-sandwich-technique)
-- PortSwigger Research — [Bypassing WAFs with the phantom $Version cookie](https://portswigger.net/research/bypassing-wafs-with-the-phantom-version-cookie)
-- PortSwigger — [Bypassing SameSite cookie restrictions](https://portswigger.net/web-security/csrf/bypassing-samesite-restrictions)
-- USENIX Security 2023 — [Cookie Crumbles: Breaking and Fixing Web Session Integrity](https://www.usenix.org/conference/usenixsecurity23/presentation/squarcina)
-- Varonis — [Cookie-Bite: How Your Digital Crumbs Let Threat Actors Bypass MFA](https://www.varonis.com/blog/cookie-bite)
-- CyberArk — [C4 Bomb: Blowing Up Chrome's AppBound Cookie Encryption](https://www.cyberark.com/resources/threat-research-blog/c4-bomb-blowing-up-chromes-appbound-cookie-encryption)
-- Snyk Labs — [Hijacking OAuth flows via Cookie Tossing](https://labs.snyk.io/resources/hijacking-oauth-flows-via-cookie-tossing/)
-- Thomas Houhou — [Cookie Tossing: Self-XSS Exploitation, Multi-Step Process Hijacking, and Targeted Action Poisoning](https://www.thomashouhou.com/post/cookie-tossing-attacks/)
-- Ankur Sundara — [Cookie Bugs: Smuggling & Injection](https://blog.ankursundara.com/cookie-bugs/)
-- HackTricks — [Cookies Hacking](https://book.hacktricks.wiki/en/pentesting-web/hacking-with-cookies/index.html)
-- HackTricks — [Cookie Bomb](https://book.hacktricks.xyz/pentesting-web/hacking-with-cookies/cookie-bomb)
-- HackTricks — [Cookie Jar Overflow](https://book.hacktricks.xyz/pentesting-web/hacking-with-cookies/cookie-jar-overflow)
-- GitHub Advisory — [CVE-2024-47764: cookie package out-of-bounds characters](https://github.com/advisories/GHSA-pxg6-pf52-xh8x)
-- Cobalt — [Got Cookies? Cookie Based Authentication Vulnerabilities in the Wild](https://www.cobalt.io/blog/got-cookies-cookie-based-authentication-vulnerabilities-in-wild)
-- DeepStrike — [Stealer Log Statistics 2025](https://deepstrike.io/blog/stealer-log-statistics-2025)
-- HP Wolf Security — [Tracing the Rise of Breaches Involving Session Cookie Theft](https://threatresearch.ext.hp.com/tracing-the-rise-of-breaches-involving-session-cookie-theft/)
-- jub0bs.com — [The great SameSite confusion](https://jub0bs.com/posts/2021-01-29-great-samesite-confusion/)
-- 0xn3va — [Cookie Tossing Cheat Sheet](https://0xn3va.gitbook.io/cheat-sheets/web-application/cookie-security/cookie-tossing)
-- OWASP — [Session Fixation](https://owasp.org/www-community/attacks/Session_fixation)
+- [PortSwigger Research — [Cookie Chaos: How to bypass __Host and __Secure cookie prefixes](](https://portswigger.net/research/cookie-chaos-how-to-bypass-host-and-secure-cookie-prefixes))
+- [PortSwigger Research — [Stealing HttpOnly cookies with the cookie sandwich technique](](https://portswigger.net/research/stealing-httponly-cookies-with-the-cookie-sandwich-technique))
+- [PortSwigger Research — [Bypassing WAFs with the phantom $Version cookie](](https://portswigger.net/research/bypassing-wafs-with-the-phantom-version-cookie))
+- [PortSwigger — [Bypassing SameSite cookie restrictions](](https://portswigger.net/web-security/csrf/bypassing-samesite-restrictions))
+- [USENIX Security 2023 — [Cookie Crumbles: Breaking and Fixing Web Session Integrity](](https://www.usenix.org/conference/usenixsecurity23/presentation/squarcina))
+- [Varonis — [Cookie-Bite: How Your Digital Crumbs Let Threat Actors Bypass MFA](](https://www.varonis.com/blog/cookie-bite))
+- [CyberArk — [C4 Bomb: Blowing Up Chrome's AppBound Cookie Encryption](](https://www.cyberark.com/resources/threat-research-blog/c4-bomb-blowing-up-chromes-appbound-cookie-encryption))
+- [Snyk Labs — [Hijacking OAuth flows via Cookie Tossing](](https://labs.snyk.io/resources/hijacking-oauth-flows-via-cookie-tossing/))
+- [Thomas Houhou — [Cookie Tossing: Self-XSS Exploitation, Multi-Step Process Hijacking, and Targeted Action Poisoning](](https://www.thomashouhou.com/post/cookie-tossing-attacks/))
+- [Ankur Sundara — [Cookie Bugs: Smuggling & Injection](](https://blog.ankursundara.com/cookie-bugs/))
+- [HackTricks — [Cookies Hacking](](https://book.hacktricks.wiki/en/pentesting-web/hacking-with-cookies/index.html))
+- [HackTricks — [Cookie Bomb](](https://book.hacktricks.xyz/pentesting-web/hacking-with-cookies/cookie-bomb))
+- [HackTricks — [Cookie Jar Overflow](](https://book.hacktricks.xyz/pentesting-web/hacking-with-cookies/cookie-jar-overflow))
+- [GitHub Advisory — [CVE-2024-47764: cookie package out-of-bounds characters](](https://github.com/advisories/GHSA-pxg6-pf52-xh8x))
+- [Cobalt — [Got Cookies? Cookie Based Authentication Vulnerabilities in the Wild](](https://www.cobalt.io/blog/got-cookies-cookie-based-authentication-vulnerabilities-in-wild))
+- [DeepStrike — [Stealer Log Statistics 2025](](https://deepstrike.io/blog/stealer-log-statistics-2025))
+- [HP Wolf Security — [Tracing the Rise of Breaches Involving Session Cookie Theft](](https://threatresearch.ext.hp.com/tracing-the-rise-of-breaches-involving-session-cookie-theft/))
+- [jub0bs.com — [The great SameSite confusion](](https://jub0bs.com/posts/2021-01-29-great-samesite-confusion/))
+- [0xn3va — [Cookie Tossing Cheat Sheet](](https://0xn3va.gitbook.io/cheat-sheets/web-application/cookie-security/cookie-tossing))
+- [OWASP — [Session Fixation](](https://owasp.org/www-community/attacks/Session_fixation))
 - Zack — Cookie Chaos: Exploiting Cookie Parser Discrepancies (conference talk, 2025) — Octal encoding → Memcached injection, Safari Set-Cookie comma splitting, browser attribute injection, Pylibmc RCE chain, Observe→Encode→Observe→Exploit methodology

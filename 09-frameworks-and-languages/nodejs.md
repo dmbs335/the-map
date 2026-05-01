@@ -89,7 +89,7 @@ vm.runInNewContext(
 
 ### §1-4. The vm2 Saga — Proof of Unsandboxability
 
-The `vm2` package (16M+ weekly npm downloads at peak) was the most popular attempt to create a secure sandbox on top of `vm`. It used Proxy-based interception, prototype chain hardening, and compiler transformations. All were defeated:
+The `vm2` package was a widely used attempt to create a secure sandbox on top of `vm`. It used Proxy-based interception, prototype chain hardening, and compiler transformations. All were defeated:
 
 | CVE | Year | CVSS | Escape Mechanism |
 |---|---|---|---|
@@ -311,7 +311,7 @@ If any argument to `path.resolve()` is an absolute path, all previous arguments 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
 | **Windows case insensitivity** | `C:\Windows` === `c:\windows` === `C:\WINDOWS` on NTFS. Path containment checks using `startsWith()` may fail if cases differ | Windows; string-based path comparison without normalization |
-| **Windows drive letter normalization** | `C:\file` vs `c:\file` vs `\\?\C:\file` — same file, different string representations (CVE-2025-23084) | Permission model or application path checks |
+| **Windows drive-name path traversal** | `path.join()` on Windows may treat drive-name inputs as relative while the resolved path can refer to a drive root, escaping a restricted parent directory (CVE-2025-23084) | Windows; `path.join()` used for containment or permission checks without final resolved-path validation |
 | **Windows 8.3 short names** | `PROGRA~1` = `Program Files`. Containment check against full name bypassed by short name alias | Windows NTFS; short name generation enabled |
 | **Windows alternate data streams** | `file.txt::$DATA` accesses the default stream of `file.txt`. Can bypass extension checks (`file.php::$DATA` → served as PHP on some servers) | Windows NTFS; file extension validation |
 | **Null byte injection** | `path.join('/uploads/', 'file.txt\x00.jpg')` — null byte survives through `path` module. Only caught by `fs` module at system call level | Pre-Node.js 8 or path operations not followed by `fs` calls |
@@ -652,12 +652,12 @@ The npm ecosystem is the single largest practical attack surface for any Node.js
 
 | Year | Package | Downloads/week | Attack Method | Impact |
 |---|---|---|---|---|
-| 2018 | `event-stream` | ~8M | Social engineering → targeted dependency injection | Copay Bitcoin wallet credential theft |
-| 2021 | `ua-parser-js` | ~8M | Compromised npm credentials | Cryptominer + password stealer |
-| 2021 | `coa` | ~9M | Compromised npm credentials | Credential stealer |
-| 2021 | `rc` | ~14M | Compromised npm credentials | Credential stealer |
-| 2022 | `colors`, `faker` | ~20M combined | Maintainer protest | Infinite loops; broke `aws-cdk` and thousands of projects |
-| 2022 | `node-ipc` | ~1M | Maintainer sabotage | File destruction targeting Russian/Belarusian IPs |
+| 2018 | `event-stream` | Very high npm usage | Social engineering → targeted dependency injection | Copay Bitcoin wallet credential theft |
+| 2021 | `ua-parser-js` | Very high npm usage | Compromised npm credentials | Cryptominer + password stealer |
+| 2021 | `coa` | High npm usage | Compromised npm credentials | Credential stealer |
+| 2021 | `rc` | Very high npm usage | Compromised npm credentials | Credential stealer |
+| 2022 | `colors`, `faker` | Very high combined usage | Maintainer protest | Infinite loops; broke `aws-cdk` and thousands of projects |
+| 2022 | `node-ipc` | High npm usage | Maintainer sabotage | File destruction targeting Russian/Belarusian IPs |
 
 ### §10-3. require() Module Injection
 
@@ -788,8 +788,8 @@ The experimental Permission Model (`--experimental-permission`, Node.js 20+) att
 
 | CVE | Bypass Method | Root Cause |
 |---|---|---|
-| CVE-2025-23083 | `diagnostics_channel` + `worker_threads` | Diagnostics channel observed/extracted data from restricted workers |
-| CVE-2025-23084 | Windows drive letter handling | `C:\file` vs `c:\file` vs `\\?\C:\file` treated as different paths |
+| CVE-2025-23083 | `diagnostics_channel` + `worker_threads` | Worker creation events expose internal worker instances/constructors, enabling Permission Model bypass |
+| CVE-2025-23084 | Windows drive-name handling in `path.join()` | Drive-name input can escape an intended restricted directory by resolving to a drive root |
 
 ### §12-2. Architectural Limitations
 
@@ -899,7 +899,7 @@ fetch(userUrl, { agent }); // Validates RESOLVED IP, not hostname
 | CVE | Year | Severity | Root Cause | Module | Meta-Pattern |
 |---|---|---|---|---|---|
 | CVE-2025-23083 | 2025 | High | Permission bypass via `diagnostics_channel` + `worker_threads` | Permission Model | P5 (Implicit Trust) |
-| CVE-2025-23084 | 2025 | Medium | Windows drive letter normalization in Permission Model | Permission Model / path | P4 (Parser Differential) |
+| CVE-2025-23084 | 2025 | Medium | Windows drive-name path traversal through `path.join()` | path | P4 (Parser Differential) |
 | CVE-2024-27980 | 2024 | High | Windows `.bat`/`.cmd` implicit shell in `child_process` | child_process | P3 (Abstraction Opacity) |
 | CVE-2024-27983 | 2024 | High | HTTP/2 CONTINUATION flood — unbounded memory | HTTP/2 | P1 (Missing Limits) |
 | CVE-2024-27982 | 2024 | Medium | CL/TE inconsistency in llhttp | HTTP parser | P4 (Parser Differential) |
@@ -1014,14 +1014,14 @@ fetch(userUrl, { agent }); // Validates RESOLVED IP, not hostname
 ## References
 
 ### Node.js Source Code
-- Node.js core: https://github.com/nodejs/node (`lib/` directory)
+- [Node.js core](https://github.com/nodejs/node) (`lib/` directory)
 - `lib/vm.js`, `lib/child_process.js`, `lib/url.js`, `lib/internal/url.js`, `lib/path.js`, `lib/fs.js`, `lib/_http_server.js`, `lib/_http_common.js`, `lib/crypto.js`, `lib/buffer.js`
-- llhttp parser: https://github.com/nodejs/llhttp
+- [llhttp parser](https://github.com/nodejs/llhttp)
 
 ### Node.js Documentation
-- Security Best Practices: https://nodejs.org/en/learn/getting-started/security-best-practices
-- Threat Model: https://github.com/nodejs/node/blob/main/SECURITY.md
-- Permission Model: https://nodejs.org/api/permissions.html
+- [Security Best Practices](https://nodejs.org/en/learn/getting-started/security-best-practices)
+- [Threat Model](https://github.com/nodejs/node/blob/main/SECURITY.md)
+- [Permission Model](https://nodejs.org/api/permissions.html)
 
 ### Security Research
 - "Silent Spring: Prototype Pollution Leads to Remote Code Execution in Node.js" — Shcherbakov & Balliu, USENIX Security 2023
@@ -1030,13 +1030,13 @@ fetch(userUrl, { agent }); // Validates RESOLVED IP, not hostname
 - "Server-Side Prototype Pollution: Black-Box Detection Without the DoS" — Gareth Heyes, PortSwigger 2023
 - "Exploiting URL Parsers" — Orange Tsai, BlackHat USA 2017
 - "CONTINUATION Flood" — Bartek Nowotarski, 2024
-- vm2 sandbox escape history and deprecation — https://github.com/patriksimek/vm2/security/advisories
+- [vm2 sandbox escape history and deprecation](https://github.com/patriksimek/vm2/security/advisories)
 - Snyk State of Open Source Security Reports 2022-2024
 - npm Manifest Confusion — Darcy Clarke, 2023
-- "When Two Parsers Disagree: Exploiting Query String Differentials for XSS" — Voorivex, 2025 — https://blog.voorivex.team/when-two-parsers-disagree-exploiting-query-string-differentials-for-xss
+- ["When Two Parsers Disagree: Exploiting Query String Differentials for XSS" — Voorivex, 2025](https://blog.voorivex.team/when-two-parsers-disagree-exploiting-query-string-differentials-for-xss)
 
 ### CVE Databases
-- NVD: https://nvd.nist.gov/vuln/search?query=node.js
-- HackerOne Node.js: https://hackerone.com/nodejs
-- GitHub Advisories: https://github.com/advisories?query=ecosystem%3Anpm
-- Snyk: https://security.snyk.io
+- [NVD](https://nvd.nist.gov/vuln/search?query=node.js)
+- [HackerOne Node.js](https://hackerone.com/nodejs)
+- [GitHub Advisories](https://github.com/advisories?query=ecosystem%3Anpm)
+- [Snyk](https://security.snyk.io)
