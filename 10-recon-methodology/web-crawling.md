@@ -409,5 +409,3 @@ Phase 6: Parameter Mining (§3)
 - SwissKyRepo. "PayloadsAllTheThings — Hidden Parameters." GitHub.
 
 ---
-
-*This document was created for defensive security research and vulnerability understanding purposes.*

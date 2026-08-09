@@ -548,5 +548,3 @@ Until legacy ASP.NET Framework deployments are fully retired and applications co
 - Qibo Shi, VictorV, Wei Xiao, Zhiniang Peng (Cyber Kunlun Lab): "Diving into Windows HTTP: Unveiling Hidden Preauth Vulnerabilities in Windows HTTP Services" (Black Hat USA) — Windows HTTP service framework (httpapi.dll/HTTP.sys) pre-auth DoS and RCE across KDC Proxy, BranchCache, UPnP Host, OCSP, RDP Gateway
 
 ---
-
-*This document was created for defensive security research and vulnerability understanding purposes.*

@@ -431,18 +431,6 @@ Mass assignment does not always stop at the application object — when bound ob
 
 ---
 
-## Summary: Core Principles
-
-Mass assignment is not a single vulnerability — it is a **structural consequence** of automatic data binding, a design pattern adopted by virtually every modern web framework. The fundamental property that makes the entire mutation space possible is the **impedance mismatch between binding convenience and access control granularity**: frameworks default to binding all properties for developer productivity, while security requires per-property, per-context access decisions.
-
-The escalation from simple field overwrite to remote code execution is a matter of object graph depth. Research across Java web frameworks (Spring, Grails, Struts) demonstrated a unified threat model: *any* data binding implementation that resolves nested property paths without restriction, combined with a language runtime that exposes metaclass information (Java's `getClass()`, JavaScript's `__proto__`, Python's `__class__`), creates a path from user-controlled HTTP parameters to runtime-internal objects. The CVE history — from CVE-2010-1622 through Spring4Shell (CVE-2022-22965) to CVE-2022-35912 — is a twelve-year case study in the failure of incremental denylist patching against a structurally open attack surface.
-
-Incremental fixes fail because the attack surface is defined by the **reachable object graph**, which evolves with every runtime update (JDK 9's `Module`), every framework plugin, and every application model change. A denylist that blocks `class.classLoader` becomes obsolete when `class.module.classLoader` appears; a regex that blocks `^class\\..*` becomes obsolete when bracket notation or URL encoding is supported. The structural solution requires inverting the default: binding must be **closed by default** (explicit allowlisting of bindable properties per endpoint), combined with **depth-limited** property resolution that prevents traversal beyond the immediately bound object. Frameworks that have adopted this approach — Rails' strong parameters, Spring's post-5.3.18 `CachedIntrospectionResults` allowlist, Django's explicit `fields` declarations — represent the architectural direction, but the legacy of "bind everything" defaults means that mass assignment will remain a productive vulnerability class for years to come.
-
----
-
-*This document was created for defensive security research and vulnerability understanding purposes.*
-
 ## References
 
 - CVE-2022-22965 (Spring4Shell) — NVD, Spring Security Advisory

@@ -1,7 +1,6 @@
 # MongoDB Injection & Exploitation Mutation Taxonomy
 
 ---
-
 ## Classification Structure
 
 This taxonomy classifies the full attack surface of MongoDB-targeting injection and exploitation techniques under three orthogonal axes:
@@ -415,7 +414,3 @@ An ObjectId's 24 hex characters encode:
 - [PMC — The MongoDB Injection Dataset (2024)](https://pmc.ncbi.nlm.nih.gov/articles/PMC10997947/)
 - [Snyk — Prototype Pollution in Mongoose](https://security.snyk.io/vuln/SNYK-JS-MONGOOSE-5777721)
 - [MongoDB — Security Alerts](https://www.mongodb.com/resources/products/alerts)
-
----
-
-*This document was created for defensive security research and vulnerability understanding purposes.*

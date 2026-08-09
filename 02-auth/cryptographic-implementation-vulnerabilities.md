@@ -459,27 +459,6 @@ E2EE in web applications (messaging, cloud storage, collaboration tools) introdu
 
 ---
 
-## Summary: Core Principles
-
-### The Fundamental Property
-
-Web cryptographic implementation vulnerabilities arise from a **structural asymmetry**: cryptographic algorithms provide security guarantees only under precise mathematical conditions (unique nonces, constant-time operations, authenticated ciphertext, validated parameters), but the web development ecosystem systematically violates these conditions. The gap between "mathematically secure" and "securely implemented" is where this entire taxonomy lives.
-
-### Why Incremental Fixes Fail
-
-Each vulnerability in this taxonomy has a straightforward "fix" in isolation—use AEAD instead of CBC, use constant-time comparison, validate certificates properly. Yet the vulnerability classes persist because:
-
-1. **Abstraction inversion**: High-level web frameworks expose low-level cryptographic primitives (AES-CBC, RSA-OAEP, ECDSA nonces) that require specialist knowledge to use correctly. The WebCrypto API is a canonical example of developer-hostile design.
-2. **Default insecurity**: Libraries and APIs default to insecure options (no certificate validation, weak algorithms, non-constant-time operations) and require explicit opt-in to security.
-3. **Composition failures**: Individual components may be secure, but their composition (MAC-then-Encrypt, encryption without integrity, key reuse across protocols) introduces vulnerabilities that neither component has in isolation.
-4. **Migration debt**: Cryptographic agility requires infrastructure that most applications lack. When algorithms are deprecated (MD5, SHA-1, RC4, 3DES), the migration is slow, incomplete, and creates transitional vulnerabilities.
-
-### The Structural Solution
-
-The only durable approach is **raising the abstraction level**: developers should interact with goal-oriented APIs ("encrypt this message for this recipient with integrity and authentication") rather than primitive-oriented APIs ("encrypt with AES-256-GCM using this key and this nonce"). Libraries like libsodium, Tink, and age exemplify this approach. Combined with automated cryptographic inventory (§8-3), hardware-backed key management (§5), and protocol-level enforcement of minimum algorithm strength (§8-1), the attack surface can be reduced—though never eliminated—structurally.
-
----
-
 ## References
 
 - Weiss, Y. et al. "What Was Your Prompt? A Remote Keylogging Attack on AI Assistants." USENIX Security 2024.
@@ -505,5 +484,3 @@ The only durable approach is **raising the abstraction level**: developers shoul
 - MystenLabs. "ed25519-unsafe-libs: Vulnerable Ed25519 Implementations." GitHub.
 
 ---
-
-*This document was created for defensive security research and vulnerability understanding purposes.*

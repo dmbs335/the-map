@@ -641,30 +641,6 @@ class SleepyPickle:
 
 ---
 
-## Summary: Core Principles
-
-### The Root Cause
-
-The fundamental property that makes deserialization vulnerabilities both pervasive and difficult to eliminate is that **serialization formats conflate data with behavior**. When a format encodes type information, reconstruction logic, or callback invocations alongside the data itself, deserialization becomes a code-execution primitive rather than a data-parsing operation. This is not a bug in any specific implementation — it is an inherent property of formats designed for full object graph reconstruction (pickle, Marshal, BinaryFormatter, Java ObjectInputStream). Even formats that appear data-only (JSON, YAML, XML) become dangerous when libraries add polymorphic type resolution or tag-based object instantiation.
-
-### Why Incremental Fixes Fail
-
-Deserialization defense typically follows a reactive pattern: a new gadget chain is discovered, the dangerous class is added to a blocklist, and the cycle repeats. This approach fails for three structural reasons:
-
-1. **Asymmetric discovery**: The attacker needs to find *one* exploitable chain; the defender must block *all* possible chains. With dormant gadgets activatable in 26% of dependencies, the gadget space is effectively unbounded.
-2. **Format-level insecurity**: For formats like pickle and Marshal, security is architecturally impossible — `__reduce__` is *designed* to execute arbitrary callables. No amount of filtering can make arbitrary pickle deserialization safe.
-3. **Ecosystem expansion**: New attack surfaces (ML model files, React Flight protocol, AI agent serialization) continuously emerge, each introducing deserialization in contexts where security teams may not expect it.
-
-### The Structural Solution
-
-The only robust defense is to **eliminate the conflation of data and behavior**: use data-only formats (JSON without polymorphic typing, Protocol Buffers, SafeTensors) for untrusted input, validate schemas before deserialization, and apply strict allowlists (not blocklists) when type-resolving deserialization is unavoidable. For ML models specifically, the migration from pickle to SafeTensors/ONNX represents the correct structural approach — removing executable code from the serialization format entirely rather than trying to detect malicious code within an inherently executable format.
-
----
-
-*This document was created for defensive security research and vulnerability understanding purposes.*
-
----
-
 ## References
 
 ### Research Papers

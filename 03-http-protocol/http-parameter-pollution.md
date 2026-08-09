@@ -344,29 +344,6 @@ Using HPP not as the primary attack, but as an evasion technique to deliver othe
 
 ---
 
-## Summary: Core Principles
-
-### The Root Cause
-
-HTTP Parameter Pollution exists because of a **specification gap combined with implementation diversity**. HTTP standards define how parameters are transmitted but not how duplicates should be resolved. Every framework, server, proxy, and WAF independently decided on a behavior — first-wins, last-wins, concatenation, array, or error — and these decisions were never coordinated. The result is that **any request processing pipeline with two or more components has potential for parameter interpretation mismatch**.
-
-### Why Incremental Fixes Fail
-
-HPP is not a single vulnerability but a **class of semantic mismatches**. Fixing the application's parameter handling doesn't address the discrepancy between the WAF and the application, or between the proxy and the backend. Each new component added to the architecture (CDN, API gateway, service mesh sidecar, cloud WAF) introduces a new parsing layer with its own duplicate-parameter behavior. Patching individual instances is a game of whack-a-mole because the fundamental condition — multiple independent parameter parsers in the same request path — is an architectural feature of modern web applications, not a bug.
-
-Furthermore, the attack surface has expanded beyond classic query-string duplication into JSON duplicate keys, GraphQL argument pollution, multipart boundary confusion, and structured format injection. Each new data format and API paradigm reintroduces the same fundamental problem in a new context.
-
-### The Structural Solution
-
-A comprehensive defense requires:
-
-1. **Canonical parameter normalization** at the first entry point: deduplicate, decode, and validate parameters once, then pass a normalized representation downstream. All downstream components must use this canonical form rather than re-parsing the raw request.
-2. **Explicit parameter schemas** (allowlists of expected parameter names, types, and cardinalities) enforced at every boundary. Reject requests with unexpected duplicates rather than silently choosing one.
-3. **Consistent serialization** when constructing internal API requests: use parameterized query building or structured serialization libraries rather than string concatenation.
-4. **Defense-in-depth testing**: specifically test for HPP across all parameter transports (query, body, JSON, headers, cookies, multipart) and across all component boundaries in the pipeline.
-
----
-
 ## References
 
 - di Paola, S. & Carettoni, L. (2009). "HTTP Parameter Pollution." OWASP AppSec EU.
@@ -379,5 +356,3 @@ A comprehensive defense requires:
 - CWE-235: Improper Handling of Extra Parameters. MITRE.
 
 ---
-
-*This document was created for defensive security research and vulnerability understanding purposes.*

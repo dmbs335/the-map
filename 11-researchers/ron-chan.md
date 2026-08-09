@@ -1,7 +1,6 @@
 # Ron Chan (ngalog) Bug Bounty Research Techniques & Methodologies Taxonomy
 
 ---
-
 ## Classification Structure
 
 This taxonomy organizes Ron Chan's documented vulnerability discovery techniques across three analytical dimensions:
@@ -206,17 +205,3 @@ Exploiting flawed business logic, IDOR, and access control mechanisms in large-s
 | **Vim** | Payload crafting | Text editing for exploit development |
 | **bug-bounty-reference** (GitHub) | Community resource | Curated write-up reference categorized by vulnerability type |
 | **Burp Collaborator** | SSRF confirmation | Out-of-band interaction detection for SSRF validation |
-
----
-
-## Summary: Core Principles
-
-Ron Chan's research reveals a fundamental insight about modern authentication systems: **the complexity of multi-party OAuth and SSO flows creates an exponentially large attack surface where individual low-severity flaws compose into critical account takeover chains**.
-
-His most impactful findings consistently follow the same pattern: identify a trivial bug (open redirect, Login CSRF, missing origin check), then chain it through the OAuth/SSO flow to intercept authentication tokens. The redirect_uri validation bypass at Uber demonstrates how double encoding defeats single-layer validation. The Flickr attack chain shows how Login CSRF creates the precondition for SSO token theft. The fix bypass using fragment identifiers proves that incremental patches addressing specific payloads fail when the underlying architectural flaw (tokens in URLs) persists.
-
-The structural solution requires treating the entire OAuth redirect chain as a trust boundary: validating at every hop, never exposing tokens in URLs or fragments, and implementing defense-in-depth that survives individual component bypass. Ron Chan's work at Shopify's H1-2102 event — earning 1st place, Best Bug, and MVP — demonstrates that this chain-construction methodology scales to the most hardened targets when combined with deep domain knowledge.
-
----
-
-*This document was created for defensive security research and vulnerability understanding purposes.*

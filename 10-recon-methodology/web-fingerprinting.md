@@ -551,20 +551,6 @@ These are not fingerprinting vulnerabilities per se, but exploitation campaigns 
 
 ---
 
-## Summary: Core Principles
-
-**1. Fingerprinting is an emergent property of implementation diversity.** Every layer of the web stack — from TCP window sizes to CSS trigonometric function precision — exists because RFCs and specifications leave room for implementation-defined behavior. This implementation diversity is not a bug; it is intrinsic to how standards evolve and how vendors optimize for their platforms. Eliminating fingerprinting would require eliminating this diversity, which conflicts with innovation and performance optimization.
-
-**2. Incremental defenses fail because the attack surface is combinatorial.** Blocking canvas fingerprinting shifts trackers to WebGL; blocking WebGL shifts to audio; blocking audio shifts to CSS-only techniques that work even without JavaScript. The total entropy budget across all accessible surfaces is enormous, and studies consistently show high uniqueness across browser fingerprints. Each individual surface reduction helps, but the combination of remaining surfaces typically provides sufficient entropy. Chrome's Privacy Budget proposal — enforcing a total entropy limit across all surfaces per site — represents the most structurally sound defense, but faces adoption and compatibility challenges.
-
-**3. The structural solution requires standardization, not just restriction.** Tor Browser's approach — making all users present an identical fingerprint — is the only defense that fundamentally defeats fingerprinting. But this comes at the cost of functionality, performance, and usability. The tension between a rich, capable web platform and a privacy-preserving one is irreducible. Future defenses will likely involve a spectrum: from Tor-style full standardization for high-privacy contexts, through Privacy Budget-style entropy caps for mainstream browsing, to behavioral biometric challenges that no technical defense can address because they fingerprint the human, not the machine.
-
----
-
-*This document was created for defensive security research and vulnerability understanding purposes.*
-
----
-
 ## References and Key Sources
 
 - NDSS 2025 — "Cascading Spy Sheets: Exploiting the Complexity of Modern CSS for Email and Browser Fingerprinting"

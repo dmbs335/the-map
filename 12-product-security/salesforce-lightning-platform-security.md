@@ -466,7 +466,6 @@ Until these structural shifts occur, the Salesforce ecosystem will continue to p
 
 ---
 
-*This document was created for defensive security research and vulnerability understanding purposes.*
 
 ---
 

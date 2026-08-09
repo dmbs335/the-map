@@ -1,7 +1,6 @@
 # TLS/SSL Security — Mutation/Variation Taxonomy
 
 ---
-
 ## Scope & Boundary
 
 This document covers **TLS (Transport Layer Security) and SSL (Secure Sockets Layer) protocol-level attacks, implementation vulnerabilities, and infrastructure weaknesses** as they affect web communications. The scope encompasses the full TLS lifecycle: version negotiation, key exchange, record-layer encryption, certificate validation, session management, extensions, deployment configuration, and the emerging post-quantum transition.
@@ -484,30 +483,6 @@ Cloudflare reported broad production use of PQ key agreement (X25519Kyber768) by
 
 ---
 
-## Summary: Core Principles
-
-### The Fundamental Property
-
-TLS security vulnerabilities arise from a **structural tension between backward compatibility and security**. The TLS protocol evolved over 30 years across SSL 2.0 (1995) through TLS 1.3 (2018), accumulating deprecated features, transitional mechanisms, and implementation baggage at every stage. Each generation's "secure" configuration becomes the next generation's attack surface. Export-grade cryptography mandated by 1990s U.S. policy continued to threaten the internet two decades after the restrictions were lifted (FREAK, Logjam, DROWN). CBC cipher suites deprecated in TLS 1.3 (2018) still cause vulnerabilities in the TLS 1.2 deployments that constitute the majority of internet traffic.
-
-### Why Incremental Fixes Fail
-
-Each named TLS attack has a known fix — disable SSL 3.0 for POODLE, disable RSA key exchange for ROBOT, use AEAD for Lucky13. Yet the vulnerability classes persist because:
-
-1. **Ecosystem inertia**: Disabling a cipher suite or protocol version breaks compatibility with some subset of clients. Server operators choose availability over security, leaving legacy support enabled "just in case." The long tail of legacy clients (IoT, embedded, government systems) extends the life of vulnerable configurations indefinitely.
-
-2. **Implementation diversity**: The TLS specification is implemented independently in dozens of libraries (OpenSSL, BoringSSL, LibreSSL, GnuTLS, NSS, wolfSSL, mbedTLS, Schannel, SecureTransport, rustls). Each implementation independently introduces bugs in state machines, parsers, and timing behavior. The same logical vulnerability (Bleichenbacher) was independently rediscovered in multiple libraries across 25 years (1998 → ROBOT 2017 → Marvin 2023).
-
-3. **Trust chain complexity**: TLS security depends on a global PKI of hundreds of CAs, billions of certificates, and multiple revocation mechanisms — all of which must function correctly simultaneously. A single CA compromise (DigiNotar), a single BGP hijack, or a single OCSP outage breaks the chain.
-
-4. **Metadata leakage is structural**: Even with perfect cryptography, TLS's design leaks information through handshake parameters, packet sizes, timing patterns, and connection metadata. Each new privacy feature (ECH, traffic padding) adds complexity and introduces new attack surface.
-
-### The Structural Solution
-
-TLS 1.3 represents a significant structural improvement — eliminating RSA key exchange (ROBOT, DROWN), mandating AEAD (Lucky13, BEAST), removing renegotiation (injection attacks), and adding downgrade protection. However, TLS 1.3 alone is insufficient because: (a) TLS 1.2 will coexist for years; (b) implementation bugs persist in any version; (c) the PKI trust model has not fundamentally changed; and (d) post-quantum migration introduces a new generation of transition vulnerabilities. The durable solution requires aggressive deprecation of legacy protocol versions, adoption of memory-safe TLS implementations (rustls), MPIC for certificate issuance, and proactive PQ hybrid deployment to address harvest-now-decrypt-later threats.
-
----
-
 ## References
 
 - Böck, H. et al. "Return Of Bleichenbacher's Oracle Threat (ROBOT)." USENIX Security 2018.
@@ -528,7 +503,3 @@ TLS 1.3 represents a significant structural improvement — eliminating RSA key 
 - curl Advisory. CVE-2024-2466 (mbedTLS cert bypass).
 - Weiss, Y. et al. "What Was Your Prompt? A Remote Keylogging Attack on AI Assistants." USENIX Security 2024.
 - AISLE. "AI-Discovered 12 OpenSSL Zero-Days." January 2026.
-
----
-
-*This document was created for defensive security research and vulnerability understanding purposes.*

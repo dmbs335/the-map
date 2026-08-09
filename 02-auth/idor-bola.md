@@ -1,7 +1,6 @@
 # IDOR / BOLA (Insecure Direct Object Reference / Broken Object Level Authorization) Mutation/Variation Taxonomy
 
 ---
-
 ## Classification Structure
 
 This taxonomy organizes the entire attack surface of IDOR/BOLA vulnerabilities across three orthogonal axes. **Axis 1 (Identifier Mutation Target)** is the primary structural axis — it classifies techniques by *what component of the object reference or authorization flow is being manipulated*. **Axis 2 (Authorization Gap Type)** is the cross-cutting axis — it explains *what kind of authorization deficiency* makes each mutation exploitable. **Axis 3 (Impact Scenario)** maps techniques to *real-world exploitation outcomes*.
@@ -380,16 +379,6 @@ The deployment architecture of modern applications creates authorization gaps at
 
 ---
 
-## Summary: Core Principles
-
-**The fundamental property that makes IDOR/BOLA the most persistent web vulnerability class is the decoupling of authentication from authorization.** Modern web frameworks universally provide authentication middleware (session management, JWT validation, OAuth flows) that developers adopt by default. However, no framework can automatically determine *which* authenticated user should access *which* specific object — this is inherently a business logic decision. The result is a systematic gap: developers correctly verify *who* the user is, but neglect to verify *what* the user should access. Every endpoint that accepts a user-supplied object identifier is a potential IDOR surface, and with the proliferation of RESTful APIs, GraphQL, and microservices, the number of such endpoints per application has grown from dozens to thousands.
-
-**Incremental fixes fail because IDOR is not a single bug but an architectural omission.** Patching one endpoint leaves hundreds of others unprotected. Replacing sequential IDs with UUIDs shifts the attack from enumeration to leakage exploitation without addressing the root cause. Adding API gateways moves the authorization problem rather than solving it. Even automated scanning tools struggle because BOLA is a *semantic* flaw — determining whether User A should access Object X requires understanding the application's business rules, not just its HTTP behavior. This is why BOLA has maintained its #1 position in the OWASP API Security Top 10 since 2019.
-
-**The structural solution requires authorization-by-default architecture:** every data access operation must pass through an authorization layer that evaluates ownership/permission before returning data. This can be implemented as database-level row-level security (RLS) policies, ORM-level query scoping (e.g., always filtering by `tenant_id` and `user_id`), or middleware-level policy engines (e.g., OPA, Casbin, Cedar). The key architectural principle is that authorization must be **mandatory and inescapable** — no code path should be able to access an object without passing through the authorization gate. Combined with comprehensive integration testing that verifies cross-user access is denied for every endpoint (using tools like Autorize or BOLABuster), this transforms IDOR from an endpoint-by-endpoint patching problem into a systemic guarantee.
-
----
-
 ## References
 
 - [OWASP API Security Top 10 — API1:2023 Broken Object Level Authorization](https://owasp.org/API-Security/editions/2023/en/0xa1-broken-object-level-authorization/)
@@ -405,7 +394,3 @@ The deployment architecture of modern applications creates authorization gaps at
 - [Fortbridge — IDOR Exploitation via HPP Case Study](https://fortbridge.co.uk/research/idor-exploitation-via-hpp-api-hacking-case-study/)
 - [Escape.tech — IDOR in GraphQL](https://escape.tech/blog/idor-in-graphql/)
 - Intruder: "In GUID We Trust" (2022) — Systematic analysis of UUID version predictability; UUIDv1 timestamp/MAC extraction, UUID cracking methodology
-
----
-
-*This document was created for defensive security research and vulnerability understanding purposes.*

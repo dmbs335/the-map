@@ -1,7 +1,6 @@
 # Open Redirect Mutation/Variation Taxonomy
 
 ---
-
 ## Classification Structure
 
 Open redirect vulnerabilities occur when a web application accepts user-controlled input to determine a redirect destination without sufficient validation. While historically dismissed as low-severity, recent research demonstrates that open redirects remain common on popular sites and that a meaningful subset can escalate to critical vulnerabilities including XSS, CSRF, and information leakage. This taxonomy classifies the full mutation space of open redirect techniques.
@@ -460,16 +459,6 @@ Techniques that chain open redirects with other functionality to amplify impact 
 
 ---
 
-## Summary: Core Principles
-
-Open redirects exist because of a **fundamental architectural gap**: web applications must programmatically construct navigation targets from user input, yet the URL specification is complex enough that no single validation approach reliably distinguishes "safe internal redirect" from "attacker-controlled external redirect." The URL standard itself is fractured — RFC 3986, RFC 3987, and the WHATWG URL Living Standard each define subtly different parsing rules — and every browser, library, framework, and proxy implements its own interpretation. This creates a combinatorial explosion of parser differentials that attackers systematically exploit.
-
-Incremental patches fail because **each fix addresses a specific encoding or structural trick without closing the underlying validation gap**. Blocking `//evil.com` does not prevent `\/\/evil.com`; blocking `javascript:` does not prevent `jav%0Aascript:`; validating the `Host` header does not prevent `X-Forwarded-Host` injection. The mutation space documented in this taxonomy demonstrates that for every validation check, multiple bypass techniques exist across encoding (§5), protocol (§1), authority (§2), path (§3), and parser differential (§8) dimensions. The shift from server-side to client-side redirects (§6-3) has further expanded the attack surface, with NDSS 2025 research confirming that DOM-based open redirects remain common on popular sites and can escalate to XSS and CSRF.
-
-A structural solution requires **treating redirect targets as opaque, validated tokens rather than user-supplied URLs**. This means: (1) maintaining an allowlist of exact redirect destinations or using signed/encrypted redirect tokens; (2) performing URL validation *after* full normalization using the *same parser* the redirect mechanism uses; (3) for DOM-based redirects, never passing user input directly to navigation sinks (`location.href`, `location.replace()`, `window.open()`) — instead mapping user input to pre-defined routes; and (4) eliminating the validator-vs-consumer parser split (§8-3) by ensuring a single canonical URL parser is used throughout the entire validation-and-redirect pipeline.
-
----
-
 ## References
 
 - [OWASP Unvalidated Redirects and Forwards Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Unvalidated_Redirects_and_Forwards_Cheat_Sheet.html)
@@ -487,7 +476,3 @@ A structural solution requires **treating redirect targets as opaque, validated 
 - [CVE-2025-4123 (Grafana)](https://grafana.com/blog/grafana-security-release-medium-and-high-severity-security-fixes-for-cve-2025-4123-and-cve-2025-3580/)
 - [PortSwigger URL Cheat Sheet Data Repository](https://github.com/PortSwigger/url-cheatsheet-data)
 - [EdOverflow Bug Bounty Cheatsheet: Open Redirect](https://github.com/EdOverflow/bugbounty-cheatsheet/blob/master/cheatsheets/open-redirect.md)
-
----
-
-*This document was created for defensive security research and vulnerability understanding purposes.*

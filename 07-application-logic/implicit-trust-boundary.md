@@ -450,26 +450,6 @@ CI/CD pipelines implicitly trust their inputs: source code, environment variable
 
 ---
 
-## Summary: Core Principles
-
-### Why Implicit Trust Boundaries Persist
-
-The root cause of implicit trust boundary vulnerabilities is **architectural composition under incomplete threat models**. Modern web applications are assembled from layers (browsers, CDNs, proxies, gateways, microservices, databases, cloud infrastructure) where each layer was designed with its own security assumptions. When these layers are composed, the *interfaces between them* inherit trust assumptions that were never explicitly stated or validated. A reverse proxy assumes it's the only path to the origin. An internal service assumes the gateway validated the token. A cache assumes unkeyed headers don't affect security. A package manager assumes the registry is trustworthy. None of these assumptions are documented as security requirements — they are implicit in the architecture.
-
-### Why Incremental Fixes Fail
-
-Each individual trust boundary violation can be patched (enforce IMDSv2, validate CORS origins, add mTLS). But the underlying pattern — *that systems trust their neighbors by default* — is never addressed. New architectural components (MCP servers, AI code generators, server components with novel serialization protocols) immediately inherit the same implicit trust patterns. The September 2025 npm supply chain attack demonstrated that even after years of awareness, the fundamental trust-by-default model of package registries remained exploitable at catastrophic scale. Similarly, CVE-2025-55182 showed that React Server Components introduced a new deserialization trust boundary that mirrored decades-old Java deserialization patterns.
-
-### The Structural Solution
-
-The structural answer is **Zero Trust Architecture** applied not just at the network layer but at every interface: every message, every token, every origin, every dependency, every DNS resolution must be independently verified. In practice, this means: treat every component boundary as a trust boundary, enumerate the assumptions at each boundary, and convert implicit assumptions into explicit verification. The cost is significant — mTLS everywhere, SRI for all scripts, SSRF-safe URL validation with DNS pinning, strict CSP with no wildcards, per-service authorization, signed artifacts, and reproducible builds. But the alternative is an ever-expanding taxonomy of the same fundamental mistake: trusting without verifying.
-
----
-
-*This document was created for defensive security research and vulnerability understanding purposes.*
-
----
-
 ## References
 
 - [CWE-501: Trust Boundary Violation](https://cwe.mitre.org/data/definitions/501.html)

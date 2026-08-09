@@ -392,47 +392,6 @@ Freemarker, Velocity, Thymeleaf unique exploitation.
 
 ---
 
-## Summary: Core Principles
-
-### The Fundamental Vulnerability
-
-Expression Language Injection exists because of a **fundamental tension in EL design**: these languages must be powerful enough for developers to access application state and invoke methods, yet safe enough to handle user input. The core issue is **insufficient separation of code and data contexts**. When user-controlled strings flow into expression interpreters without strict type enforcement or context isolation, arbitrary code execution becomes possible.
-
-This vulnerability class persists across decades because:
-
-1. **Implicit Trust**: Frameworks implicitly trust expression inputs, assuming developers will never pass user data directly to interpreters
-2. **Feature Richness**: EL 2.2+ method invocation, reflection APIs, and type operators enable Turing-complete computation
-3. **Context Proliferation**: Expressions appear in diverse contexts (templates, annotations, validation messages, headers) making comprehensive filtering impractical
-4. **Layered Evaluation**: Double resolution, preprocessing, and multi-stage evaluation create blind spots for validators
-
-### Why Incremental Patches Fail
-
-Blacklists and character filters are systematically defeated by:
-- **Encoding diversity**: Unicode, hex, octal, ASCII construction bypass signature detection
-- **Syntax flexibility**: Multiple equivalent representations (bracket vs dot notation, T() vs Class.forName())
-- **Gadget availability**: Reflection and ClassLoader APIs provide universal RCE primitives regardless of blocked methods
-- **Parser differentials**: Validators and interpreters parse expressions differently, enabling smuggling
-
-Historical CVEs demonstrate this pattern: CVE-2017-5638 (Struts) was followed by CVE-2017-9791, CVE-2019-0230, CVE-2020-17530 — each bypassing previous mitigations through new injection contexts or encoding techniques.
-
-### Structural Solution
-
-The only reliable defense is **architectural isolation**:
-
-1. **Never evaluate user input as expressions**: Use parameterized queries, allow-listed values, and type-safe data binding instead of string-based expression evaluation
-2. **Context-aware output encoding**: If expressions are unavoidable, use frameworks with safe evaluation contexts (Spring's `SimpleEvaluationContext`) and properly escape user data before injection
-3. **Principle of least privilege**: Disable reflection, class loading, and static method access in expression contexts unless explicitly required
-4. **Input validation at boundaries**: Validate data type and structure at system entry points before it reaches any expression layer
-5. **Defense in depth**: Combine framework-level sandboxing (disabled double resolution, restricted bean access) with runtime protections (security manager, network egress controls)
-
-**Gold Standard**: Spring Framework's move from permissive `StandardEvaluationContext` to restrictive `SimpleEvaluationContext`, though even this is bypassed by ReDoS — demonstrating that true security requires eliminating user input from expression evaluation entirely.
-
----
-
-*This document was created for defensive security research and vulnerability understanding purposes.*
-
----
-
 ## References
 
 ### CVE Advisories

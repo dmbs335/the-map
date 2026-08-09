@@ -1,7 +1,6 @@
 # Payload-Level WAF Bypass — Mutation/Variation Taxonomy
 
 ---
-
 ## Classification Structure
 
 This taxonomy covers **payload-level WAF bypass techniques** — mutations that transform the attack payload itself so that the WAF's detection engine (signatures, regex, ML models) fails to recognize it as malicious, while the backend interpreter (SQL engine, JavaScript engine, shell, XML parser, etc.) still executes it. These bypasses are **detection-focused**: the request reaches the WAF normally and passes through it, but the payload evades recognition through encoding, obfuscation, syntax transformation, or exploitation of the detection engine's limitations.
@@ -290,7 +289,3 @@ ML-based WAFs shift the problem from rule completeness to training data complete
 - [Miggo Research: More than Half of Public Vulnerabilities Bypass Leading WAFs (2025)](https://www.helpnetsecurity.com/2025/12/18/miggo-research-waf-vulnerability-bypass/)
 - [WAFFLED: Exploiting Parsing Discrepancies to Bypass Web Application Firewalls (ACSAC 2025)](https://arxiv.org/html/2503.10846v1)
 - terjanq: "WAF bypasses via 0days" (2022) — Novel browser behavior exploitation for WAF evasion using zero-day techniques
-
----
-
-*This document was created for defensive security research and vulnerability understanding purposes.*

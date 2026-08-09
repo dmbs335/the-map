@@ -3,7 +3,6 @@
 A comprehensive, generalized classification of all known mutation and variation types across the ZIP (and related archive) vulnerability surface. This document organizes the entire attack landscape under structural criteria — what is mutated, what discrepancy it creates, and where it is weaponized — rather than by individual paper or source.
 
 ---
-
 ## Classification Structure
 
 This taxonomy is organized along three orthogonal axes:
@@ -378,16 +377,6 @@ The original PKWARE encryption scheme (ZipCrypto) is fundamentally broken but re
 
 ---
 
-## Summary: Core Principles
-
-**The fundamental property** that makes the entire ZIP vulnerability surface possible is **structural redundancy combined with end-anchored indexing**. The ZIP format stores metadata in multiple locations (Local File Headers, Central Directory, EOCD, Data Descriptors, Extra Fields), allows arbitrary data to exist between and around these structures, and anchors its primary index (the Central Directory) at the end of the file rather than the beginning. This design, originally optimized for append-friendly operation on floppy disks, creates an inherently ambiguous format where different parsers can legitimately interpret the same byte sequence as different archives.
-
-**Incremental patches fail** because the attack surface is not a collection of individual bugs but a consequence of specification-level ambiguity. Fixing one parser's handling of LFH/CDH inconsistency does not affect the 49 other parsers that handle it differently. Fixing symlink handling in 7-Zip 25.00 does not prevent the same vulnerability pattern from recurring in every new ZIP library written from scratch. The ZIP specification (APPNOTE.TXT) is descriptive rather than prescriptive — it documents what PKWARE's implementation does rather than mandating what all implementations must do, leaving vast room for interpretation.
-
-**A structural solution** would require either (1) a strict, unambiguous archive format that eliminates all redundant metadata and mandates a single canonical parsing algorithm (effectively a new format, not ZIP), or (2) universal adoption of a "paranoid parsing" approach that rejects any archive containing inconsistencies between redundant fields — an approach that would break compatibility with a significant fraction of existing ZIP files in the wild. In practice, the most effective defense is defense-in-depth: validate extracted paths against the destination directory after full resolution, never follow symlinks during extraction, impose resource limits on decompression, propagate security metadata through all nesting levels, and use the same ZIP parser for scanning as for extraction to eliminate parser differentials.
-
----
-
 ## References
 
 - [USENIX Security '25: "My ZIP isn't your ZIP: Identifying and Exploiting Semantic Gaps Between ZIP Parsers"](https://www.usenix.org/conference/usenixsecurity25/presentation/you)
@@ -405,7 +394,3 @@ The original PKWARE encryption scheme (ZipCrypto) is fundamentally broken but re
 - [Palo Alto Unit 42: "Beware of BadPack: One Weird Trick Being Used Against Android Devices"](https://unit42.paloaltonetworks.com/apk-badpack-malware-tampered-headers/)
 - [CrowdStrike: "How to Prevent Zip File Exploitation"](https://www.crowdstrike.com/en-us/blog/how-to-prevent-zip-file-exploitation/)
 - [NVD — CVE-2025-58440 rejected record](https://nvd.nist.gov/vuln/detail/CVE-2025-58440)
-
----
-
-*This document was created for defensive security research and vulnerability understanding purposes.*

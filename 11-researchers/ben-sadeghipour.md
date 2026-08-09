@@ -1,7 +1,6 @@
 # Ben Sadeghipour (NahamSec) Bug Bounty Research Techniques & Methodologies Taxonomy
 
 ---
-
 ## Classification Structure
 
 This taxonomy organizes Ben Sadeghipour's documented vulnerability discovery techniques across three analytical dimensions:
@@ -287,29 +286,3 @@ Three-month collaborative engagement (July–September 2020) with Sam Curry, Bre
 | **CAIDO** (proxy/cache analysis) | HTTP traffic analysis | HTTPQL for cache behavior tracking and web cache deception testing |
 | **XSS Hunter** (blind XSS) | Blind XSS payload tracking | Custom JS payload with PHP parser for capturing blind execution contexts |
 | **Censys.io** (certificate search) | Certificate transparency and host discovery | SAN enumeration for infrastructure mapping |
-
----
-
-## Summary: Core Principles
-
-Sadeghipour's research demonstrates that **breadth of reconnaissance directly correlates with depth of exploitation**. His most impactful findings — from Snapchat's Jenkins to Meta's ad platform — began with systematic asset discovery that revealed backend infrastructure invisible to surface-level testing.
-
-The PDF generator attack surface represents a structural weakness in modern web architecture: any feature that converts user-controlled HTML to rendered output (expense reports, invoicing, reporting dashboards) introduces server-side execution capabilities that bypass client-side security models entirely. This pattern extends to ad platforms, where headless browsers process untrusted content with elevated infrastructure privileges.
-
-The common thread across all research areas is **trust boundary identification** — finding the seam between user-controlled input and server-side processing, then leveraging that boundary for escalation. Whether through PDF generators, admin panel blind XSS, or CI/CD credential harvesting, the methodology consistently transforms reconnaissance breadth into exploitation depth through systematic chaining.
-
----
-
-*This document was created for defensive security research and vulnerability understanding purposes.*
-
-### References
-
-- DEF CON 27: "Owning the Clout Through SSRF and PDF Generators" (Ben Sadeghipour & Cody Brocious, 2019)
-- "We Hacked Apple for 3 Months: Here's What We Found" (Sam Curry, Ben Sadeghipour, Brett Buerhaus, Samuel Erb, Tanner Barnes, 2020)
-- "My Expense Report Resulted in a Server-Side Request Forgery (SSRF) on Lyft" (NahamSec Blog, 2020)
-- "Secure Your Jenkins Instance or Hackers Will Force You To" (NahamSec Blog, 2017)
-- "Chaining Multiple Vulnerabilities to Gain Admin Access" (NahamSec Blog, 2018)
-- "Vulnerabilities to Master in 2025" (NahamSec Blog, 2025)
-- Meta Bug Bounty Disclosure (TechCrunch, January 2025)
-- [NahamSec Blog](https://www.nahamsec.com/posts)
-- [GitHub](https://github.com/nahamsec)

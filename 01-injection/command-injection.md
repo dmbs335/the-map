@@ -1,7 +1,6 @@
 # Command Injection Mutation/Variation Taxonomy
 
 ---
-
 ## Classification Structure
 
 Command injection (CWE-77/CWE-78) exploits the boundary between data and executable instructions within operating system shell interpreters. The fundamental vulnerability arises when an application constructs OS commands by concatenating user-controlled input with command strings, then passes the result to a shell for interpretation. The shell's rich syntax—metacharacters, expansion mechanisms, quoting rules, and environment variable interpolation—provides an enormous mutation surface that attackers exploit to escape data context and enter command context.
@@ -536,7 +535,3 @@ CISA and FBI's 2024 joint advisory explicitly called on technology manufacturers
 - [OWASP. "OS Command Injection Defense Cheat Sheet."](https://cheatsheetseries.owasp.org/cheatsheets/OS_Command_Injection_Defense_Cheat_Sheet.html)
 - [Flatt Security. "BatBadBut: You can't securely execute commands on Windows." April 2024.](https://flatt.tech/research/posts/batbadbut-you-cant-securely-execute-commands-on-windows/)
 - [CERT/CC. "VU#123335: Multiple programming languages fail to escape arguments properly when invoking programs on Windows." April 2024.](https://kb.cert.org/vuls/id/123335)
-
----
-
-*This document was created for defensive security research and vulnerability understanding purposes.*

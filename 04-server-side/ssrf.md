@@ -1,6 +1,6 @@
 # Server-Side Request Forgery (SSRF) Mutation/Variation Taxonomy
 
-*Comprehensive classification of SSRF bypass techniques, attack vectors, and exploitation chains — organized by structural mutation target.*
+*SSRF bypass techniques and exploitation chains, organized by structural mutation target.*
 
 ---
 
@@ -484,7 +484,6 @@ The reported increase in SSRF attacks observed in 2024 (SonicWall, "2025 Cyber T
 
 ---
 
-*This document was created for defensive security research and vulnerability understanding purposes.*
 
 ---
 

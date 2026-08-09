@@ -1,7 +1,6 @@
 # PHP-Specific Vulnerabilities: Mutation/Variation Taxonomy
 
 ---
-
 ## Classification Structure
 
 This taxonomy catalogs vulnerabilities **intrinsic to the PHP language**, its runtime, standard library, and interpreter — as opposed to generic web application vulnerabilities (SQLi, XSS) that merely happen to be written in PHP. The focus is on weaknesses that arise from PHP's design decisions, type system, built-in functions, configuration model, and C-level implementation.
@@ -519,7 +518,3 @@ True mitigation requires abandoning convenience in security-critical code: stric
 - [Dangerous PHP Functions Reference](https://gist.github.com/mccabe615/b0907514d34b2de088c4996933ea1720)
 - [GreyNoise CVE-2024-4577 Mass Exploitation Report](https://www.greynoise.io/blog/mass-exploitation-critical-php-cgi-vulnerability-cve-2024-4577)
 - Positive Technologies: "Exploiting Arbitrary Object Instantiations in PHP without Custom Classes" (2022) — Systematic exploitation of built-in PHP classes (`SplFileObject`, `SimpleXMLElement`, `GlobIterator`, `Imagick`, `ReflectionFunction`) via `new $class($arg)` patterns
-
----
-
-*This document was created for defensive security research and vulnerability understanding purposes.*

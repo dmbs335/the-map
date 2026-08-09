@@ -479,34 +479,6 @@ A quirk of HTML parsing: `<html>`, `<body>`, and `<head>` tags appearing later i
 
 ---
 
-## Summary: Core Principles
-
-### The Root Cause: Legacy Named Access as a Feature
-
-The entire DOM Clobbering attack surface exists because of a **20+ year-old browser specification feature**: the Named Property Access algorithm. This algorithm was designed in the early days of HTML to provide convenient access to form elements and page anchors, long before JavaScript security was a concern. The WHATWG HTML Living Standard continues to mandate this behavior for backward compatibility, making it a permanent part of the web platform.
-
-The fundamental property that makes DOM Clobbering possible is the **bidirectional coupling between the HTML layer and the JavaScript runtime**. In every other programming environment, injecting passive data (HTML markup) cannot affect the behavior of executable code (JavaScript). On the web, injecting a `<div id="config">` silently overwrites `window.config`, violating the assumption that HTML and JavaScript are separate layers.
-
-### Why Incremental Fixes Fail
-
-Each CVE patch follows the same pattern: add a type check (`tagName === 'SCRIPT'`), validate the property type (`instanceof NamedNodeMap`), or prefix user-controlled attributes. These fixes address individual gadgets but do not eliminate the underlying mechanism. New gadgets are continuously discovered — 497 unique gadgets were found in a single 2025 study — because:
-
-1. **The specification mandates the behavior**: Browsers cannot remove named access without breaking the web.
-2. **Every JavaScript library is a potential gadget**: Any code pattern that reads an undefined global variable or accesses `document.*` without type validation creates a clobbering opportunity.
-3. **HTML sanitizers provide incomplete protection**: popular sanitizers can be vulnerable to clobbering markup by default, and CSP cannot mitigate many identified DOM clobbering vulnerabilities.
-
-### Structural Solutions
-
-A comprehensive defense requires layered controls at multiple levels:
-
-1. **Sanitizer-level**: Enable strict namespace isolation (DOMPurify `SANITIZE_NAMED_PROPS: true`) to prefix all `id` and `name` attributes with `user-content-`.
-2. **Code-level**: Never reference undefined global variables; always use explicit `var`/`let`/`const` declarations; validate types with `instanceof` before security-sensitive operations; avoid `window.x || default` patterns.
-3. **CSP-level**: While CSP alone cannot prevent DOM Clobbering, combining `strict-dynamic` with Trusted Types policies closes many gadget exploitation paths.
-4. **Build tool-level**: Ensure bundlers (Webpack, Rollup, Vite) are updated past their respective DOM Clobbering patches; validate `document.currentScript.tagName` in custom build plugins.
-5. **Specification-level**: The ultimate fix would be a browser opt-in mechanism (similar to `Cross-Origin-Opener-Policy`) that disables named property access for modern applications. No such mechanism currently exists.
-
----
-
 ## References
 
 - USENIX Security '25: "Detecting and Exploiting DOM Clobbering Gadgets via Concolic Execution with Symbolic DOM" (Hulk)
@@ -521,5 +493,3 @@ A comprehensive defense requires layered controls at multiple levels:
 - domclob.xyz: DOM Clobbering Wiki and Payload Generator
 
 ---
-
-*This document was created for defensive security research and vulnerability understanding purposes.*

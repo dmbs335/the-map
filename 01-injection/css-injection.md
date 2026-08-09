@@ -1,7 +1,6 @@
 # CSS Injection Mutation/Variation Taxonomy
 
 ---
-
 ## Classification Structure
 
 This taxonomy organizes the full attack surface of CSS Injection across three orthogonal axes:
@@ -398,16 +397,6 @@ CSS-only techniques that leak information through indirect channels — timing, 
 
 ---
 
-## Summary: Core Principles
-
-**Why CSS injection matters despite being "scriptless."** CSS injection is commonly dismissed as low-severity because CSS cannot directly execute JavaScript in modern browsers. This assessment fundamentally misunderstands the attack surface. CSS provides three capabilities that, in combination, match or exceed the impact of many XSS variants: (1) **boolean oracles** via attribute selectors, `:has()`, `:valid`, and media queries that leak arbitrary page state; (2) **network request triggers** via `url()`, `@import`, and `@font-face` that exfiltrate oracle results to attacker servers; and (3) **visual control** that enables credential phishing and clickjacking without any script. The addition of modern CSS features — Container Queries, `if()` conditionals, scroll-driven animations, and the `:has()` parent selector — has steadily expanded the attack surface, making CSS injection more powerful in 2025 than at any previous point.
-
-**Why CSS injection bypasses modern defenses.** Content Security Policy's `script-src` directive is the primary defense against XSS, but it does not restrict CSS capabilities. A strict CSP that blocks all script execution still permits CSS attribute selector exfiltration, font-based text leaking, and SVG filter pixel reading — because these operate entirely within the CSS/rendering pipeline without touching the JavaScript engine. Even `style-src` restrictions have limited effect: they prevent external stylesheet loading but do not block the exfiltration capabilities of injected inline styles (if `unsafe-inline` is permitted for styles, which is common). The fundamental issue is that CSS's data-exfiltration capabilities were never designed as an attack vector, so they were never included in the security model that CSP enforces.
-
-**What structural defense looks like.** Defending against CSS injection requires: (1) **output encoding in CSS contexts** — `}`, `{`, `;`, `(`, `)`, `url`, `@import`, and `\` must be escaped or stripped when user input enters CSS; (2) **strict CSP `style-src`** with nonce-per-request for `<style>` blocks and no `unsafe-inline`; (3) **`X-Content-Type-Options: nosniff`** to prevent PRSSI/RPO; (4) **Subresource Integrity** on external stylesheets to prevent supply-chain injection; (5) **CSP `font-src` and `img-src` restrictions** to limit exfiltration channels; and (6) **avoiding sensitive data in HTML attributes** — CSRF tokens delivered via HTTP headers or meta tags with randomized attribute names reduce the attack surface for CSS selector exfiltration. The architectural insight is that CSS injection defense must treat CSS as a full data-exfiltration channel, not merely a cosmetic concern.
-
----
-
 ## References
 
 - [PortSwigger Research. "Blind CSS Exfiltration: exfiltrate unknown web pages."](https://portswigger.net/research/blind-css-exfiltration)
@@ -438,7 +427,3 @@ CSS-only techniques that leak information through indirect channels — timing, 
 - [PortSwigger Research (Gareth Heyes). "Stealing passwords from infosec Mastodon - without bypassing CSP."](https://portswigger.net/research/stealing-passwords-from-infosec-mastodon-without-bypassing-csp)
 - [OWASP. "Testing for CSS Injection."](https://owasp.org/www-project-web-security-testing-guide/v41/4-Web_Application_Security_Testing/11-Client_Side_Testing/05-Testing_for_CSS_Injection)
 - [CSS-Tricks. "CSS Security Vulnerabilities."](https://css-tricks.com/css-security-vulnerabilities/)
-
----
-
-*This document was created for defensive security research and vulnerability understanding purposes.*

@@ -1,7 +1,6 @@
 # LaTeX Injection Mutation/Variation Taxonomy
 
 ---
-
 ## Classification Structure
 
 LaTeX injection exploits the fundamental design of TeX as a **Turing-complete programming language** masquerading as a document typesetting system. Because TeX provides unrestricted file I/O, macro expansion, and — in many configurations — shell command execution, any system that compiles user-controlled LaTeX input inherits the full attack surface of an arbitrary code execution environment.
@@ -471,7 +470,3 @@ The lesson of LaTeX injection is a general one: **Turing-complete document forma
 - Talos Intelligence. TALOS-2024-1992 (Anki LaTeX vulnerability).
 - Exploit Database. EDB-48805 (Tea LaTeX 1.0 RCE).
 - OWASP ASVS Issue #1559: Add LaTeX injection to Formula Injection checks.
-
----
-
-*This document was created for defensive security research and vulnerability understanding purposes.*

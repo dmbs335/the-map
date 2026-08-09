@@ -1,7 +1,6 @@
 # CORS (Cross-Origin Resource Sharing) Mutation/Variation Taxonomy
 
 ---
-
 ## Classification Structure
 
 This taxonomy classifies the entire CORS attack surface along three orthogonal axes derived from systematic analysis of CVEs, bug bounty reports, academic research, and practitioner writeups.
@@ -459,16 +458,6 @@ Protocols adjacent to HTTP that bypass or are not governed by CORS, enabling cro
 
 ---
 
-## Summary: Core Principles
-
-**The fundamental property** that makes the entire CORS mutation space possible is the delegation of access control decisions to the server based on an **attacker-influenced input** — the `Origin` header. Unlike authentication (which verifies the user) or authorization (which verifies permissions), CORS verifies the *calling context* — and this context is trivially spoofable at the HTTP level. The browser is the sole enforcer; any non-browser client ignores CORS entirely. This creates a security model where the server must correctly implement what is essentially an origin-based ACL using string matching against an input the attacker partially controls.
-
-**Incremental patches fail** because the attack surface is combinatorial. A server may fix regex anchoring (§1-2) but remain vulnerable to null origin (§2), or fix both but trust all subdomains (§7-1), or fix everything at the application layer but get undermined by caching (§9) or DNS rebinding (§8-3). Each CORS header (`ACAO`, `ACAC`, `ACAH`, `ACAM`, `ACEH`, `ACMA`) introduces its own mutation surface, and interactions between them multiply the risk. Browser-specific parser differentials (§6) mean that even a "correct" regex can be bypassed in specific browsers. The SameSite cookie evolution, PNA preflight designs, and Chrome's newer Local Network Access permission model are positive developments, but they create transition-period gaps where legacy behavior coexists with new restrictions.
-
-**A structural solution** would require three shifts: (1) **Explicit opt-in** rather than opt-out — origins should be denied by default, with CORS policies defined declaratively (not via dynamic reflection), ideally in a separate security policy file rather than in application code. (2) **Cache-aware design** — CORS responses must always include `Vary: Origin`, and caching infrastructure must respect it. (3) **Defense in depth** — CORS should never be the sole security boundary. Every sensitive endpoint should validate authentication independently, use CSRF tokens for state-changing operations, and implement `SameSite` cookies, `COOP`, and `CORP` headers as layered defenses. Private/Local Network Access represents the right architectural direction — treating network boundary crossing as a distinct browser-mediated security decision, implemented either through explicit preflights or permission prompts depending on browser generation.
-
----
-
 ## References
 
 - [PortSwigger, "Exploiting CORS misconfigurations for Bitcoins and bounties"](https://portswigger.net/research/exploiting-cors-misconfigurations-for-bitcoins-and-bounties)
@@ -486,7 +475,3 @@ Protocols adjacent to HTTP that bypass or are not governed by CORS, enabling cro
 - [Mozilla MDN, "Cross-Origin Resource Sharing (CORS)"](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CORS)
 - [PortSwigger Web Security Academy, "CORS"](https://portswigger.net/web-security/cors)
 - [OWASP, "Testing Cross Origin Resource Sharing"](https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/11-Client-side_Testing/07-Testing_Cross_Origin_Resource_Sharing)
-
----
-
-*This document was created for defensive security research and vulnerability understanding purposes.*

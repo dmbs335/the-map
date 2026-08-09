@@ -1,7 +1,6 @@
 # Web Fuzzing Mutation/Variation Taxonomy
 
 ---
-
 ## Classification Structure
 
 Web fuzzing is the systematic, automated process of generating and sending malformed, unexpected, or semi-valid inputs to web application interfaces to discover vulnerabilities, uncover hidden resources, and identify behavioral anomalies. Unlike fuzzing of binary programs, web fuzzing must contend with highly structured input formats (HTTP requests, JSON, XML, multipart forms), stateful server-side logic (sessions, databases, authentication flows), and multi-layered architectures (WAFs, proxies, CDNs, application frameworks) that each parse and interpret inputs differently.
@@ -591,22 +590,6 @@ Targets WebSocket connections that maintain persistent, bidirectional communicat
 
 ---
 
-## Summary: Core Principles
-
-**What fundamental property of web technology makes this mutation space possible?**
-
-The web fuzzing attack surface exists because web applications are inherently multi-layered interpretation systems. An HTTP request traverses CDNs, load balancers, WAFs, reverse proxies, web servers, application frameworks, template engines, database drivers, and finally the database itself — each layer independently parsing, transforming, and interpreting the same input according to its own rules. This layered architecture, combined with the permissive nature of HTTP (where implementations are expected to be "liberal in what they accept"), creates a vast space of semantic gaps. Every junction between two layers is a potential discrepancy point where an input can mean one thing to the security enforcement layer and something entirely different to the processing layer.
-
-**Why do incremental patches fail to eliminate the threat?**
-
-Incremental patches address specific parsing inconsistencies or payload patterns, but they cannot resolve the fundamental architectural reality that multiple independent parsers interpret the same input. Each new framework, protocol version (HTTP/2, HTTP/3), content format (JSON, YAML, CBOR), and transport mechanism (WebSocket, gRPC) introduces fresh parsing surfaces. WAF rule updates create an arms race: every new rule can be tested against by automated fuzzing tools that systematically explore the gap between what the rule blocks and what the application processes. The WAFFLED research demonstrated this vividly through a large set of bypasses across major WAFs, all exploiting structural parsing discrepancies rather than novel payload patterns. As long as the security enforcement layer and the application layer are separate systems with separate parsers, this discrepancy surface will regenerate with every software update.
-
-**What would a structural solution look like?**
-
-A structural solution requires either (1) unifying the parsing and security enforcement into a single, authoritative parser that both validates and processes input (eliminating the discrepancy by design), or (2) normalizing all inputs into a canonical form before any security inspection occurs — as demonstrated by HTTP-Normalizer, which re-parses and re-serializes requests so that the WAF and backend see identical representations. Additionally, the shift from blacklist-based to specification-strict parsing (rejecting anything not explicitly permitted by the relevant RFC or schema) would collapse the mutation space dramatically. Property-based API testing and coverage-guided web fuzzing should be integrated into CI/CD pipelines as standard practice, treating the fuzzing taxonomy not as an attacker's playbook but as a quality assurance framework for building robust, specification-compliant web applications.
-
----
-
 ## References
 
 - [WAFFLED: Exploiting Parsing Discrepancies to Bypass Web Application Firewalls (ACSAC 2025)](https://arxiv.org/abs/2503.10846)
@@ -631,7 +614,3 @@ A structural solution requires either (1) unifying the parsing and security enfo
 - [Google Leveling Up Fuzzing: Finding More Vulnerabilities with AI (Google Security Blog, 2024)](https://security.googleblog.com/2024/11/leveling-up-fuzzing-finding-more.html)
 - [SecLists: The Security Tester's Companion (GitHub)](https://github.com/danielmiessler/SecLists)
 - [The Fuzzing Book (Interactive, 2023)](https://www.fuzzingbook.org/)
-
----
-
-*This document was created for defensive security research and vulnerability understanding purposes.*

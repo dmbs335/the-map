@@ -442,37 +442,6 @@ When specific characters are filtered (underscores, dots, brackets, quotes, etc.
 
 ---
 
-## Summary: Core Principles
-
-### The Fundamental Problem
-
-Server-Side Template Injection exists because template engines are **designed to be Turing-complete** (or near-complete) — they must support complex logic, iteration, function calls, and object access to fulfill their role in web application rendering. This inherent expressiveness creates an irreconcilable tension between template functionality and security when untrusted input enters the template evaluation pipeline.
-
-The root cause is not a bug in any individual engine but a **category-level design flaw**: the conflation of data and code in template rendering. When user input is concatenated into template source (rather than passed as a safe data parameter), the template engine cannot distinguish between the developer's intended logic and the attacker's injected directives. This is structurally identical to SQL injection and command injection — the same "data as code" confusion that has plagued computing since its inception.
-
-### Why Incremental Fixes Fail
-
-Sandbox approaches — denylists, allowlists, method restrictions — have been repeatedly bypassed across every major template engine (§4). The history demonstrates a consistent pattern: (1) a sandbox is implemented, (2) researchers find bypass via reflection, ClassLoader access, or application-specific object graphs, (3) the bypass is patched, (4) a new bypass is discovered using a different entry point. This arms race continues because sandboxes attempt to restrict a Turing-complete language to a "safe" subset — a problem that is provably undecidable in the general case.
-
-The 2024 survey found that **31 of 34 studied template engines allow or have allowed RCE**, and only **10 of 34 offer any form of protection**. Even among those with protections, bypass research consistently finds new escape paths, particularly when templates operate within rich frameworks (Spring, Express, Laravel) that expose extensive object graphs.
-
-### The Structural Solution
-
-The only reliable defense against SSTI is **never allowing untrusted input to become part of template source code**. This means:
-
-1. **Parameterized templates**: Pass user data exclusively through the template engine's data-binding API (`render_template(template, data=user_input)`), never through string concatenation into template source.
-2. **Logic-less templates** (Mustache, Handlebars in strict mode): Use template engines that deliberately limit expressiveness to prevent code execution — though even these have been bypassed via prototype pollution (§5).
-3. **Immutable template sources**: Ensure templates are loaded only from trusted, developer-controlled files — never constructed from user input at runtime.
-4. **Defense in depth**: Even with correct template usage, apply output encoding, Content Security Policy, and principle of least privilege to limit blast radius if a vulnerability is introduced.
-
-The most important insight from this taxonomy is that **the mutation space is unbounded** — each new template engine, framework integration, and library dependency introduces new exploitation paths. The defender's only sustainable strategy is to eliminate the injection vector entirely, not to enumerate and block individual payloads.
-
----
-
-*This document was created for defensive security research and vulnerability understanding purposes.*
-
----
-
 ## References
 
 - [Kettle, J. (2015). "Server-Side Template Injection: RCE for the Modern Web App." Black Hat USA 2015.](https://portswigger.net/research/server-side-template-injection)

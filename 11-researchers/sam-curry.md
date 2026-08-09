@@ -613,7 +613,6 @@ As applications increasingly rely on microservices, BFF proxies, and third-party
 
 ---
 
-*This taxonomy was created for defensive security research, vulnerability understanding, and security awareness purposes. All cases documented are from public disclosures and responsible vulnerability reporting.*
 
 ---
 

@@ -1,7 +1,6 @@
 # UI Redressing Mutation/Variation Taxonomy
 
 ---
-
 ## Classification Structure
 
 UI Redressing (commonly known as clickjacking) encompasses all attacks that manipulate the visual presentation layer of a user interface to trick users into performing unintended actions. Unlike traditional web vulnerabilities that exploit server-side logic, UI redressing exploits the **trust gap between what the user perceives and what the system registers** as user intent.
@@ -373,34 +372,6 @@ Specialized UI redressing techniques targeting specific platform features and so
 
 ---
 
-## Summary: Core Principles
-
-**The Root Cause: Unverifiable User Intent**
-
-The entire UI redressing attack class exists because **browsers cannot verify that a user's physical action corresponds to their visual intention**. The browser registers a click, keystroke, or touch event and delivers it to whatever element occupies the coordinates — regardless of whether the user can actually see or understand what they're interacting with. This is not a bug in any single implementation; it is a fundamental architectural property of how graphical user interfaces mediate between human perception and system input.
-
-**Why Incremental Defenses Fail**
-
-The history of UI redressing defense is a study in whack-a-mole:
-- **X-Frame-Options** (2009) blocked iframe embedding — but JavaScript-based frame-busters were bypassed by `sandbox` attributes and double-framing (§1-4), and the entire iframe-based defense model was rendered irrelevant by non-iframe attacks (§2, §3).
-- **CSP `frame-ancestors`** refined iframe policy — but DoubleClickjacking, gesture jacking, and extension clickjacking don't use iframes at all.
-- **SameSite cookies** partially mitigated authenticated clickjacking in iframes (cross-site iframes don't receive `Lax`/`Strict` cookies) — but this is a secondary defense, not prevention: it does not cover unauthenticated attacks, `SameSite=None` cookies, or same-site cross-origin scenarios, and cross-window attacks (§2, §3) occur on the legitimate origin with full cookie context.
-- **Android overlay detection** (`FLAG_WINDOW_IS_OBSCURED`, `filterTouchesWhenObscured`) blocked transparent overlays — but TapTrap uses activity animations, not overlays.
-- Each new defense addresses a specific delivery mechanism while leaving the fundamental problem — unverifiable user intent — unsolved.
-
-**The Structural Solution**
-
-True mitigation requires **user intent verification at the platform level**: mechanisms that ensure the user can see, understand, and deliberately interact with the element they activate. Emerging approaches include:
-- **Intersection Observer v2** for detecting iframe occlusion programmatically
-- **User Activation API** with stricter transient activation scoping
-- **Browser-mediated confirmation** for sensitive actions (similar to the Payment Request API model)
-- **Extension isolation** preventing page JavaScript from accessing extension-injected DOM elements
-- **Client-side gesture guards** (disabling sensitive buttons until a deliberate user gesture is detected on the actual element)
-
-Until browsers implement a universal "verified intent" primitive — analogous to how TLS solved transport integrity — the UI redressing mutation space will continue to expand with each new interaction paradigm (VR/AR interfaces, voice+gesture multimodal, ambient computing).
-
----
-
 ## References
 
 - [OWASP Clickjacking Defense Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Clickjacking_Defense_Cheat_Sheet.html)
@@ -417,7 +388,3 @@ Until browsers implement a universal "verified intent" primitive — analogous t
 - [RenwaX23, "PermissionJacking Safari" (August 2025) — Clickjacking Safari TCC permission prompts via unfocused window interaction.](https://github.com/RenwaX23/X/blob/master/safari_bug.md)
 - [Alberto F. de la Rosa, "Permission Hijacking at Scale" (2025) — Third-party support widget compromise for delegated browser permission inheritance at scale.](https://albertofdr.github.io/post/permission-hijacking-2025/)
 - [Gareth Heyes (PortSwigger Research), "Framing without iframes" (2022) — Non-iframe embedding via `<object>`, `<embed>`, and `<portal>` elements that bypass X-Frame-Options.](https://portswigger.net/research/framing-without-iframes)
-
----
-
-*This document was created for defensive security research and vulnerability understanding purposes.*

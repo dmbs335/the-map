@@ -436,26 +436,6 @@ WebLogic application server exposes unique JDBC exploitation chains through its 
 
 ---
 
-## Summary: Core Principles
-
-### The Fundamental Property
-
-JDBC attacks exist because **the JDBC connection URL is not merely an address — it is a configuration language**. Database drivers interpret dozens of properties embedded in the URL that control class loading, script execution, protocol behavior, file I/O, and network operations. This design reflects an era when the connection string was considered trusted infrastructure configuration, not an attack surface. The moment any user-controlled input flows into a JDBC URL — even partially — the entire driver feature set becomes weaponizable.
-
-### Why Incremental Fixes Fail
-
-Each JDBC driver independently implements its own URL parsing, property handling, and feature set. Patching one attack vector (e.g., H2's `RUNSCRIPT`) does not address the underlying pattern — the same driver may still support `CREATE ALIAS` with inline Java, JNDI lookups, or trigger-based script execution. Blacklist-based defenses (filtering `INIT`, `autoDeserialize`, etc.) are structurally fragile: case sensitivity bypasses, encoding tricks, whitespace injection, and new property discoveries continuously erode them. The cross-driver nature of the problem means that securing MySQL connections does not protect against H2 or PostgreSQL attack vectors in the same application.
-
-### Structural Solution
-
-The structural defense requires **treating JDBC URLs as security-critical inputs** with:
-1. **Allowlist-based property filtering** — only explicitly permitted properties should pass through, not blacklist-based keyword blocking.
-2. **Driver-level hardening** — drivers should require explicit opt-in for dangerous features (file I/O, class loading, script execution, JNDI), defaulting to minimal-privilege connections.
-3. **Connection URL construction isolation** — user input should never be concatenated into JDBC URLs; instead, use `DataSource` or connection pool configurations with fixed, pre-validated URLs.
-4. **Classpath minimization** — remove unnecessary gadget libraries and scripting engines from application classpaths to limit exploitation even when a deserialization sink is reached.
-
----
-
 ## Reference
 
 - [su18 — JDBC Connection URL Attack](https://su18.org/post/jdbc-connection-url-attack/)
@@ -476,5 +456,3 @@ The structural defense requires **treating JDBC URLs as security-critical inputs
 - [frohoff — ysoserial](https://github.com/frohoff/ysoserial)
 
 ---
-
-*This document was created for defensive security research and vulnerability understanding purposes.*

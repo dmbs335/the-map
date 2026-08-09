@@ -435,56 +435,6 @@ This table maps mutation categories to real-world attack scenarios.
 
 ---
 
-## Summary: Core Principles
-
-### Root Cause: Layered Parsing with Inconsistent Semantics
-
-Microsoft's web stack inherits decades of backward compatibility, resulting in multiple parsing layers with divergent interpretations of HTTP, URLs, and encodings. The fundamental vulnerability is **semantic ambiguity**: the HTTP and URI RFCs allow sufficient flexibility (or are sufficiently vague) that two RFC-compliant implementations can disagree on how to parse the same input.
-
-Key design decisions that enable this vulnerability class:
-
-1. **Lenient Parsing Philosophy**: IIS historically favored permissive parsing to ensure compatibility with legacy clients, accepting malformed headers, obsolete syntax (line folding), and non-standard encodings. This leniency creates gaps between strict security components (WAFs, authorization filters) and permissive execution components (ASP.NET runtime, filesystem).
-
-2. **Multi-Stage URL Processing**: URLs traverse multiple transformation stages (HTTP parsing → URL decoding → normalization → NTFS resolution), each with different rules. NTFS features like alternate data streams and 8.3 short names were designed for compatibility, not security, creating powerful bypass primitives when exposed via HTTP.
-
-3. **Implicit Trust Between Components**: IIS assumes that if a request passes the HTTP parser, it's structurally valid; authorization layers assume that if a path passes validation, it's safe. This implicit trust chain breaks when an attacker can craft input that satisfies one component's validation but triggers different behavior in another.
-
-4. **State Management Complexity**: ASP.NET's cookieless session feature required embedding state into URLs, but IIS (stateless HTTP server) and ASP.NET (stateful application framework) handle these patterns differently, creating routing and authorization mismatches.
-
-### Why Incremental Patches Fail
-
-Microsoft has patched many specific instances (MS09-020, MS10-065, CVE-2023-36899), but new variants continue to emerge (CVE-2025-55315, CVE-2025-32094) because:
-
-- **Whack-a-Mole Problem**: Fixing one parsing discrepancy (e.g., blocking `:$I30`) doesn't address the underlying semantic ambiguity. Attackers find alternative encodings, different NTFS streams, or new header obfuscation techniques.
-
-- **Backward Compatibility Constraints**: Microsoft cannot enforce strict RFC compliance without breaking legacy applications. Disabling alternate data streams, 8.3 names, or cookieless sessions would disrupt existing deployments.
-
-- **Emergent Complexity**: HTTP/2, HTTP/3, and new features (chunked extensions, Unicode normalization) introduce new parsing surfaces. Each addition creates new potential for discrepancies.
-
-### Structural Solution
-
-Eliminating this vulnerability class requires architectural changes:
-
-1. **Unified Parsing Layer**: Implement a single, canonical HTTP/URL parser shared by IIS, ASP.NET, authorization modules, and WAFs. All components must operate on the same parsed representation (not re-parsing raw input).
-
-2. **Strict Mode by Default**: Reject ambiguous inputs at the earliest layer. If a request contains both CL and TE, return 400 Bad Request. If a URL contains NTFS stream notation, reject unless explicitly required.
-
-3. **Least Privilege Encoding**: Disable legacy features (8.3 names, alternate data streams, cookieless sessions, obsolete line folding) unless explicitly enabled per-application with security warnings.
-
-4. **Differential Testing in CI/CD**: Integrate tools like HTTP Garden and custom differential fuzzers into Microsoft's build pipeline to detect parsing discrepancies before release.
-
-5. **Protocol-Level Mitigation**: Adopt HTTP/2 and HTTP/3 universally, as they enforce stricter framing (binary framing eliminates CL/TE smuggling). However, HTTP/2 introduces its own smuggling risks (demonstrated by Kettle 2021), requiring careful implementation.
-
-**Practical Mitigations (Short-Term)**:
-- Disable WebDAV if not needed
-- Disable 8.3 short name generation: `fsutil behavior set disable8dot3 1`
-- Use cookie-based sessions (`cookieless="UseCookies"`)
-- Deploy WAF with strict HTTP validation (e.g., reject dual CL/TE)
-- Use Content Security Policy (CSP) to limit impact of XSS via encoding bypass
-- Monitor for anomalous HTTP methods (`OPTIONS`, `PROPFIND`) in logs
-
----
-
 ## Research Attribution & Sources
 
 This taxonomy synthesizes findings from multiple researchers and sources. Key contributors to the vulnerability classes documented:
@@ -524,7 +474,6 @@ This taxonomy synthesizes findings from multiple researchers and sources. Key co
 
 ---
 
-*This document was created for defensive security research, penetration testing, and vulnerability understanding purposes. All techniques should only be used in authorized security testing contexts.*
 
 **Document Version**: 1.0
 **Last Updated**: February 2025

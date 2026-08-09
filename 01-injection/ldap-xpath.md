@@ -392,36 +392,6 @@ LDAP and XPath injections frequently serve as initial footholds that are chained
 
 ---
 
-## Summary: Core Principles
-
-### The Root Cause
-
-Both LDAP injection and XPath injection exist because of a single fundamental design choice: **the query language is embedded in-band with data values, and no standard parameterized query interface is universally available**. Unlike SQL — which eventually developed prepared statements and parameterized queries as a standardized defense — LDAP filters (RFC 4515) and XPath expressions have no equivalent standardized parameterization mechanism. LDAP's RFC 4515 defines filter syntax but provides no specification for separating structure from values at the protocol level. XPath's W3C specification defines expression syntax but provides no equivalent to SQL's `?` placeholder. This forces developers to construct queries via string concatenation, which is inherently injection-prone.
-
-### Why Incremental Fixes Fail
-
-Input validation and character escaping are the primary defenses recommended by OWASP and vendor documentation, but they fail incrementally because:
-
-1. **Two escaping contexts in LDAP**: DN escaping (RFC 2253) and search filter escaping (RFC 4515) have different character sets and rules. Developers frequently apply the wrong escaping for the context, leaving metacharacters unescaped.
-2. **XPath version proliferation**: XPath 1.0 has a limited attack surface, but XPath 2.0/3.0/3.1 add `doc()`, `error()`, `if/then/else`, and extension functions that dramatically expand it. Defenses designed for 1.0 are inadequate for 2.0+.
-3. **Implementation-specific parsing**: Different LDAP servers (OpenLDAP, AD, SunOne) and XPath libraries (libxml2, Saxon, commons-jxpath) parse edge cases differently (§8), making universal escaping rules unreliable.
-4. **Unicode normalization**: Server-side Unicode normalization can transform "safe" input back into metacharacters after validation has occurred (§6-1, §6-2).
-5. **Chaining opacity**: The most severe impacts (RCE via JNDI/deserialization, SSRF via doc()) occur through chaining with adjacent attack classes (§9), which are invisible to injection-focused defenses.
-
-### The Structural Solution
-
-The structural solution requires defense at multiple layers:
-
-1. **Parameterized/prepared query APIs** wherever available (e.g., LINQ-to-LDAP for .NET, parameterized XPath APIs in modern XML libraries).
-2. **Strict allowlist validation** — not blocklist escaping — at the input boundary, permitting only short alphanumeric strings in LDAP/XPath parameters.
-3. **Principle of least privilege** on LDAP binding accounts, ensuring that even successful injection cannot access sensitive attributes (`userPassword`, `unicodePwd`) or privileged OUs.
-4. **XPath version restriction** — disabling `doc()`, extension functions, and external document access at the library configuration level when they are not needed.
-5. **WAF rules** as defense-in-depth (not primary defense), aware of both LDAP and XPath metacharacter encoding variants.
-
----
-
-*This document was created for defensive security research and vulnerability understanding purposes.*
-
 ## References
 
 - [OWASP — LDAP Injection](https://owasp.org/www-community/attacks/LDAP_Injection)

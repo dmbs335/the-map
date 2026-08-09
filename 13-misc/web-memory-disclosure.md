@@ -1,7 +1,6 @@
 # Web Memory Disclosure — Mutation & Variation Taxonomy
 
 ---
-
 ## Classification Structure
 
 Web memory disclosure vulnerabilities occur when infrastructure components — CDN edge servers, reverse proxies, web servers, application runtimes, database services, or network middleboxes — expose the contents of their process memory in responses to clients. The leaked data typically includes fragments of other users' requests, session tokens, API keys, TLS key material, PII, and internal configuration. Unlike application-level information disclosure (verbose errors, debug pages), these vulnerabilities operate below the application layer, leaking raw memory that the application never intended to emit.
@@ -235,7 +234,3 @@ The only architectural solution is eliminating the root cause: either memory-saf
 - [Indusface: "Node.js Vulnerabilities Expose Memory (CVE-2025-55131)" (2026)](https://www.indusface.com/blog/cve-2025-55131-uninitialized-memory-vulnerability/)
 - [nastystereo: "Ruby Array Pack Bleed" (2025)](https://nastystereo.com/security/ruby-pack.html)
 - [Nginx Security Advisories](https://nginx.org/en/security_advisories.html)
-
----
-
-*This document was created for defensive security research and vulnerability understanding purposes.*

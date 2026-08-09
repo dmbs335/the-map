@@ -436,7 +436,6 @@ A truly structural solution would require three properties that current OAuth de
 
 ---
 
-*This document was created for defensive security research and vulnerability understanding purposes.*
 
 ---
 

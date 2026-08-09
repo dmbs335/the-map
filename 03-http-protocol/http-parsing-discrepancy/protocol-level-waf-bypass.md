@@ -1,7 +1,6 @@
 # Protocol-Level WAF Bypass — Mutation/Variation Taxonomy
 
 ---
-
 ## Classification Structure
 
 This taxonomy covers **protocol-level WAF bypass techniques** — mutations that exploit how HTTP requests are structured, parsed, framed, routed, and delivered at the transport and protocol layer. These bypasses are **payload-agnostic**: they work regardless of what attack payload (SQLi, XSS, RCE, etc.) is being delivered. The WAF is evaded not because it fails to recognize the malicious content, but because protocol-level discrepancies cause the WAF to see a different request than the backend does, or cause the request to bypass the WAF entirely.
@@ -415,7 +414,3 @@ The fundamental challenge is that WAFs must **parse HTTP messages identically** 
 - [Cloudflare ACME WAF Bypass (fearsoff, 2025)](https://fearsoff.org/research/cloudflare-acme)
 - [2026 WAF Security Test: Key Findings (Check Point)](https://blog.checkpoint.com/securing-the-cloud/waf-security-test-results-2026-why-prevention-first-matters-more-than-ever)
 - [Miggo Research: More than Half of Public Vulnerabilities Bypass Leading WAFs (2025)](https://www.helpnetsecurity.com/2025/12/18/miggo-research-waf-vulnerability-bypass/)
-
----
-
-*This document was created for defensive security research and vulnerability understanding purposes.*

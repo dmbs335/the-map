@@ -540,37 +540,6 @@ Injection caused by **implementation bugs** in the string escape functions thems
 
 ---
 
-## Summary: Core Principles
-
-### Root Cause: Code-Data Conflation
-
-The fundamental reason SQL Injection has persisted for over two decades is that SQL's design **mixes code (commands) and data (values) in the same channel**. When user input is concatenated into a SQL string, the parser cannot distinguish whether it is data or command. This fundamental conflation extends beyond text-based SQL syntax to binary wire protocols (§8-1), ORM abstractions (§8-2), and escape functions (§8-3).
-
-### Why Incremental Patches Fail
-
-Each defensive layer blocks only specific mutation categories while leaving others exposed:
-- **Prepared Statements**: Block most of §1–§6, but cannot defend against §8-1 (protocol smuggling), §8-2 (ORM unsafe APIs), §6-2 (dynamic identifiers)
-- **WAFs**: Block known patterns in §1, but are continuously bypassed by §2 (encoding mutations), §7-2 (JSON SQL), §7-3 (HTTP-level evasion)
-- **ORMs**: Default APIs are safe, but raw query, extra(), and unsafe methods exist, granting developers a **false sense of security**
-- **Input Validation**: Blocklists are bypassed by §2 (encoding); allowlists are difficult to apply across all input paths (§4)
-
-### The Direction of Structural Solutions
-
-The fundamental solution is to **enforce code-data separation at every layer**:
-1. **Query Layer**: Default to Prepared Statements / parameterized queries; apply allowlists for dynamic identifiers
-2. **Protocol Layer**: Strengthen binary protocol message integrity verification (prevent length field overflow)
-3. **Framework Layer**: Remove or require explicit opt-in for ORM unsafe APIs
-4. **Operational Layer**: Principle of least privilege (restrict DB user permissions, disable file access), suppress error messages
-5. **Monitoring Layer**: Defense-in-depth combining WAF + runtime RASP + behavior-based detection
-
-No single defensive measure can cover the entire SQL Injection mutation space — only **Defense-in-Depth** is a realistic solution.
-
----
-
-*This document was created for defensive security research and vulnerability understanding purposes.*
-
----
-
 ## References
 
 ### Foundational Resources

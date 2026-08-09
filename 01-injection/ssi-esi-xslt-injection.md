@@ -1,7 +1,6 @@
 # SSI / ESI / XSLT Injection — Remote Code Execution Mutation Taxonomy
 
 ---
-
 ## Classification Structure
 
 This taxonomy covers three distinct but related server-side injection primitives — **Server-Side Includes (SSI)**, **Edge Side Includes (ESI)**, and **XSLT (Extensible Stylesheet Language Transformations)** — that share a common structural property: they all process **markup directives or transformation logic server-side** before the response reaches the client. When an attacker can inject content into streams processed by these engines, the result ranges from information disclosure to full remote code execution.
@@ -516,7 +515,3 @@ The **structural solution** requires defense-in-depth across three layers: (1) *
 - [CVE-2024-28109: veraPDF XSLT Injection](https://github.com/veraPDF/veraPDF-library/security/advisories/GHSA-qxqf-2mfx-x8jw)
 - [HtmlUnit XSLT RCE](https://github.com/HtmlUnit/htmlunit/security/advisories/GHSA-37vq-hr2f-g7h7)
 - [INE: XSLT Injection Attacks](https://ine.com/blog/xslt-injections-for-dummies)
-
----
-
-*This document was created for defensive security research and vulnerability understanding purposes.*

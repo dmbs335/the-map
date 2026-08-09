@@ -519,38 +519,6 @@ Attacks exploiting Spring's multipart file handling and resource serving mechani
 
 ---
 
-## Summary: Core Principles
-
-### Why the Spring Ecosystem Is a Rich Attack Surface
-
-The Spring Framework's fundamental design philosophy — **"convention over configuration" with extensive automatic behavior** — is simultaneously its greatest productivity advantage and its deepest security liability. Auto-binding of HTTP parameters to Java objects (§3), automatic expression evaluation in templates (§2) and queries (§9-2), runtime bean configuration through Actuator endpoints (§5), and automatic exposure of management functionality all create implicit trust relationships between external input and internal execution.
-
-### Why Incremental Patches Fail
-
-The Spring vulnerability space resists incremental patching for three structural reasons:
-
-1. **Layered parsing creates combinatorial bypass potential.** Every additional component in the request processing chain (WAF → reverse proxy → Spring Security → Spring MVC → template engine) adds a normalization step, and every pair of adjacent components can produce a parser differential (§4). Patching one normalization step often leaves another exploitable.
-
-2. **The classpath is the attack surface.** Many of the most severe Spring vulnerabilities (§5-2, §6-2) are not in Spring itself but in libraries on the classpath — SnakeYAML, XStream, Jackson, H2, Logback, Jolokia. Spring's auto-configuration philosophy means that the mere presence of a library on the classpath activates functionality, and that functionality becomes an attack vector. The Spring application's true attack surface is the transitive closure of its entire dependency tree.
-
-3. **Expression languages are Turing-complete by design.** SpEL (§1) and Thymeleaf expressions (§2) are intentionally powerful — they can access any class, invoke any method, and traverse any object graph. Security is bolted on through denylists of dangerous classes, but the set of "dangerous" classes grows with every library added to the classpath. This is a losing arms race.
-
-### Structural Solution Direction
-
-The fundamental mitigation requires moving from **denylist-based security** (blocking known-bad) to **allowlist-based security** (permitting known-good):
-
-- Use `SimpleEvaluationContext` instead of `StandardEvaluationContext` for all SpEL evaluation with external input (§1)
-- Enforce `@ResponseBody` / `@RestController` as default to prevent view name manipulation (§2)
-- Use explicit `@InitBinder` with `setAllowedFields()` for every binding target (§3)
-- Deploy `StrictServerWebExchangeFirewall` and normalize all paths before security evaluation (§4)
-- Default-deny all Actuator endpoints and explicitly enable only what is needed (§5)
-- Replace Java native serialization with type-safe alternatives (Jackson, Protobuf) everywhere (§6)
-- Prefer `AntPathRequestMatcher` with exact patterns over regex matchers; avoid wildcard patterns (§7)
-- Disable external entity processing in all XML parsers (§9)
-- Use `ExactMatchRedirectResolver` for OAuth2 redirect URIs (§10)
-
----
-
 ## References
 
 ### Sources Consulted
@@ -574,5 +542,3 @@ The fundamental mitigation requires moving from **denylist-based security** (blo
 - Qiyi Zhang et al.: "Be Aware of What You Let Pass: Demystifying URL-based Authentication Bypass Vulnerability in Java Web Applications" (CCS '25) — Systematic study of 13 routing features × 3 auth check patterns across 529 Java applications (Spring + Jersey/JAX-RS), discovering 94 UABVulns (31 CVEs). Also covers Jersey framework, which shares 6 routing features with Spring.
 
 ---
-
-*This document was created for defensive security research and vulnerability understanding purposes.*

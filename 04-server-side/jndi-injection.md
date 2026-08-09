@@ -379,26 +379,6 @@ Beyond code execution, JNDI injection (particularly via Log4Shell) enables data 
 
 ---
 
-## Summary: Core Principles
-
-### Root Cause
-
-The fundamental property that makes JNDI injection possible is Java's **name-to-object resolution design**: JNDI was architected to transparently convert a string name into a fully instantiated Java object, potentially involving remote network communication, class loading, and deserialization — all triggered by a single `lookup()` call. This design collapses the security boundary between "referencing a name" and "executing arbitrary code," creating an implicit trust relationship between the naming service and the application. Any point where attacker-controlled input reaches a `lookup()` call becomes a potential RCE vector.
-
-### Why Incremental Patches Fail
-
-Oracle's progressive restrictions on JNDI (disabling remote codebase in RMI, then LDAP, then restricting deserialization) follow a pattern of closing individual channels while leaving the fundamental mechanism intact. Each patch eliminates one code execution path, but the rich ecosystem of `ObjectFactory` implementations, deserialization gadgets, and JDBC driver features provides an ever-expanding set of alternatives. The `ObjectFactory` interface is particularly problematic: any class implementing this interface that processes attacker-controlled parameters from a `Reference` object becomes a potential gadget, and the Java ecosystem continually introduces new implementations. The Log4Shell family (CVE-2021-44228 → 45046 → 45105 → 44832) demonstrates how even targeted fixes require multiple iterations, as each patch introduces new bypass conditions.
-
-### Structural Solution
-
-A comprehensive defense requires layering: (1) **Eliminate injection surfaces** — never pass user-controlled input to JNDI `lookup()` calls; disable JNDI message lookups in logging frameworks; (2) **Restrict resolution protocols** — allowlist permitted JNDI protocols and destinations at the JVM level; apply global deserialization filters (JEP 290); (3) **Minimize gadget surface** — reduce classpath to only required dependencies; patch or remove known-exploitable `ObjectFactory` implementations (BeanFactory `forceString`, HSQLDB static method calls); (4) **Network-level isolation** — block outbound LDAP/RMI/DNS from application servers to untrusted destinations. The JDK's default-deny posture for `trustURLCodebase` (post-8u191) was the correct architectural direction, but must be complemented by application-level input validation and classpath hygiene to address the remaining ObjectFactory and deserialization vectors.
-
----
-
-*This document was created for defensive security research and vulnerability understanding purposes.*
-
----
-
 ## References
 
 - [Black Hat USA 2016: "A Journey From JNDI/LDAP Manipulation to Remote Code Execution Dream Land"](https://blackhat.com/docs/us-16/materials/us-16-Munoz-A-Journey-From-JNDI-LDAP-Manipulation-To-RCE.pdf)

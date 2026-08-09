@@ -300,54 +300,6 @@ This table maps attack scenarios to the primary mutation categories that enable 
 
 ---
 
-## Summary: Core Principles
-
-### What Makes gRPC/tRPC Mutation Space Possible?
-
-The vulnerability surface stems from **four fundamental properties**:
-
-1. **Multiple Interpretation Boundaries** — gRPC/tRPC stacks involve 5+ components (client, proxy, gateway, service mesh, backend) each parsing HTTP/2, protobuf/JSON, metadata, and types. Any discrepancy in parsing creates exploit opportunities.
-
-2. **Protocol Complexity** — HTTP/2's stream multiplexing, flow control, and frame types (10+ frame types with interdependencies) create state management challenges. Combined with gRPC's metadata-as-headers and protobuf's wire format flexibility, attack surface is vast.
-
-3. **Type System Duality** — gRPC relies on protobuf schemas (enforced at serialization), but backend logic operates on deserialized objects (runtime). tRPC uses TypeScript (compile-time) but JavaScript runtime has no type enforcement. This compile-vs-runtime gap enables type confusion attacks.
-
-4. **Implicit Trust Assumptions** — Many implementations trust client-provided metadata (timeouts, authentication tokens), trust HTTP/2 spec compliance (stream limits, frame ordering), or trust upstream components (service mesh policies). These trust boundaries are systematically violated by mutations.
-
-### Why Incremental Patches Fail
-
-Each CVE fix addresses a specific mutation instance but doesn't close the structural gaps:
-
-- **CVE-2023-44487 (Rapid Reset)** → Vendors added stream creation rate limits. But this doesn't address §1-1 MadeYouReset (server-induced RST_STREAM) or §1-1 gRPC-Go exhaustion (cancellation vs handler launching).
-- **CVE-2025-68926 (Hardcoded Token)** → RustFS removed hardcoded token. But this doesn't prevent §3-1 metadata injection or §5-1 weak JWT replay in other services.
-- **CVE-2025-43855 (tRPC WebSocket)** → tRPC fixed specific validation error handling. But this doesn't address §7-2 type bypass or §5-2 middleware chain gaps.
-
-Incremental fixes play "whack-a-mole" because they address symptoms (specific parser bugs, specific validation gaps) rather than root causes (interpretation boundaries, trust assumptions).
-
-### Structural Solution
-
-A comprehensive defense requires addressing the **five boundaries** simultaneously:
-
-1. **HTTP/2 Framing Boundary** → Strict stream/frame limits independent of protocol operations; rate limit SETTINGS/RST_STREAM frames; enforce frame ordering validation.
-
-2. **Serialization Boundary** → Schema-enforced validation at both serialization (protobuf/JSON) and deserialization; reject unknown fields; limit recursion depth; validate uncompressed sizes.
-
-3. **Metadata Boundary** → Cryptographically verify all authentication/authorization metadata (JWTs with signatures); enforce origin validation; reject client-specified security-relevant metadata (timeouts, permissions).
-
-4. **Type System Boundary** → Runtime validation at RPC entry points (Zod for tRPC, validator libraries for gRPC); treat TypeScript types as documentation, not security; fail closed on type mismatches.
-
-5. **Gateway/Mesh Boundary** → Normalize all paths/headers before authorization checks (case, fragments, encoding); enforce consistent TLS validation; flush session caches on policy updates; parsing differential testing between components.
-
-Additionally:
-
-- **Defense in Depth** — Never rely on a single component (gateway, mesh, application). Each layer must validate independently.
-- **Fail Closed** — On parsing errors, validation failures, or unexpected states, reject the request (don't silently coerce or accept).
-- **Differential Testing** — Continuously test for interpretation differences between client/proxy/gateway/backend using fuzzing tools (ProtoFuzz, Defensics) and property-based testing.
-
-The fundamental insight: **RPC security is a distributed systems problem, not an application security problem**. Every component in the call chain (HTTP/2 implementation, serialization library, service mesh, application code) must enforce the same security invariants. Discrepancies between any two components create exploitable mutations.
-
----
-
 ## References
 
 ### CVE Sources
@@ -391,5 +343,3 @@ The fundamental insight: **RPC security is a distributed systems problem, not an
 - [HTTP/2 Specification - RFC 9113](https://httpwg.org/specs/rfc9113.html)
 
 ---
-
-*This document was created for defensive security research and vulnerability understanding purposes. Version 2025.1 — Last updated: February 2025.*

@@ -436,20 +436,6 @@ Race conditions are timing-adjacent — they exploit the same concurrent-request
 
 ---
 
-## Summary: Core Principles
-
-Web timing attacks exploit a **fundamental tension in computing**: performance optimization creates observable timing variations, and those variations correlate with secret state. Every cache hit, every early-return optimization, every conditional branch that skips unnecessary work creates a potential timing oracle. The attack surface is not a bug to be patched but a **structural property of how computers process information**.
-
-The 2020 introduction of **Timeless Timing Attacks** and the 2023 refinement into the **single-packet attack** represent an inflection point. By eliminating network jitter through protocol-level request synchronization (HTTP/2 multiplexing, TCP packet coalescing), these techniques converted web timing attacks from a theoretical curiosity requiring lab conditions into a **portable, reliable exploitation primitive** effective against remote targets over commodity internet connections. The minimum detectable timing difference dropped from ~30ms (2015) to ~200μs (2024) — a 150x improvement — and no prior configuration or target-specific calibration is required.
-
-Incremental defenses fail because timing leakage emerges at every layer of the stack simultaneously. Constant-time comparison (§1-2) does not protect against processing-path differentials (§1-1). Response-time padding (§1) does not address browser-side cache probing (§3-3). Cache partitioning (§3-3) does not prevent same-site attacks (§3-2). Each defense addresses one signal source while leaving others exposed, and **amplification techniques (§6) can escalate sub-threshold signals past any fixed defense threshold**. A structural solution would require either fully constant-time processing across the entire application stack (impractical) or **architectural isolation** where no timing signal from secret-dependent processing is ever observable by an untrusted party — which is precisely what browser features like Site Isolation, Cache Partitioning, COOP, and CORP attempt, but with significant gaps remaining at same-site boundaries, connection pools, and hardware cache hierarchies.
-
----
-
-*This document was created for defensive security research and vulnerability understanding purposes.*
-
----
-
 ## References
 
 - [PortSwigger Research, "Listen to the whispers: web timing attacks that actually work" (Black Hat USA 2024)](https://portswigger.net/research/listen-to-the-whispers-web-timing-attacks-that-actually-work)

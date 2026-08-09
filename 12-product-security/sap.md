@@ -1,7 +1,6 @@
 # SAP Enterprise Platform — Vulnerability Mutation Taxonomy
 
 ---
-
 ## Classification Structure
 
 SAP's enterprise platform presents one of the most complex attack surfaces in the software industry. Unlike web-only applications, SAP exposes a multi-layered architecture spanning proprietary binary protocols (RFC, Diag, Router), a custom HTTP stack (ICM), application servers in two distinct technology stacks (ABAP and Java), an in-memory database (HANA), and an extensive web frontend layer (Fiori/UI5, OData). Each layer introduces its own class of vulnerability mutations, and many of the most severe exploit chains combine weaknesses across these layers.
@@ -418,41 +417,6 @@ This vulnerability class is uniquely dangerous because it turns SAP's own change
 
 ---
 
-## Summary: Core Principles
-
-### Why SAP Is Uniquely Vulnerable
-
-The fundamental property that makes SAP's attack surface so extensive is **architectural heterogeneity combined with deep internal trust**. A single SAP landscape combines:
-
-1. **Proprietary binary protocols** (RFC, Diag, Router) designed for internal use but frequently exposed to networks
-2. **A custom HTTP stack** (ICM) with unique memory-sharing architecture not found in standard web servers
-3. **Two distinct application server stacks** (ABAP and Java) with different vulnerability profiles
-4. **Dynamic code execution primitives** (ABAP's `INSERT REPORT`, `GENERATE SUBROUTINE POOL`) that are architectural features, not bugs
-5. **A trust-based inter-system model** where Solution Manager connects to all satellites, RFC connections bridge systems, and transport management moves code across environments
-
-Each of these layers trusts the others implicitly. ICM trusts that incoming requests are well-formed. ABAP work processes trust that RFC parameters are sanitized. Solution Manager agents trust commands from the central server. Transport systems trust that released requests haven't been modified.
-
-### Why Incremental Patches Fail
-
-SAP's patch velocity has increased dramatically — but the fundamental vulnerability production rate remains high because:
-
-- **The protocol surface is vast and proprietary**: RFC, Diag, Router, P4, and ICM implement custom binary protocols that receive less scrutiny than open standards. Each protocol parser is a potential memory corruption or deserialization target.
-- **Dynamic code execution is a feature**: ABAP's ability to generate and execute code at runtime is used by legitimate business processes, making it impossible to simply remove the capability. The attack surface is in the *validation*, not the *mechanism*.
-- **Configuration complexity creates systemic exposure**: With hundreds of authorization objects, gateway ACLs, message server ACLs, transport routes, and RFC connections, the permutation space for misconfiguration is enormous. The 10KBLAZE research estimated a high percentage of deployments were affected by permissive ACL configurations, though this figure originates from the researchers' analysis, not SAP official data.
-- **Exploit weaponization timelines are compressing**: RECON (CVE-2020-6287) saw reliable exploits shortly after disclosure. In 2025, CVE-2025-31324 was being exploited by nation-state actors within days of disclosure, with public "turnkey" exploits released by August 2025.
-
-### Structural Solutions
-
-A structural improvement in SAP security requires three paradigm shifts:
-
-1. **Zero-trust between layers**: ICM should not trust work process inputs. RFC modules should not trust caller parameters. Transport imports should be cryptographically signed end-to-end. SAP's October 2025 JVM-wide deserialization filter for Java represents a step in this direction.
-
-2. **Elimination of implicit trust in inter-system communication**: Every RFC connection, SMDAgent communication, and transport request should require mutual authentication with non-replayable tokens — not shared secrets or default credentials.
-
-3. **Reduction of the exposed protocol surface**: The vast majority of SAP systems do not need RFC Gateway, SAProuter, Message Server internal ports, or IGS accessible from any network beyond the immediate application cluster. Network-level segmentation is the single highest-impact defensive measure, yet external exposure scans consistently find significant numbers of Internet-exposed SAP services, demonstrating how rarely proper segmentation is implemented.
-
----
-
 ## References
 
 - [Onapsis Research Labs — SAP vulnerability research and scanner tools](https://onapsis.com/research/)
@@ -482,7 +446,3 @@ A structural improvement in SAP security requires three paradigm shifts:
 - [Airbus SecLab — Security publications and tools](https://airbus-seclab.github.io/)
 - [Pathlock — RFC Callback Attacks: Defending Your SAP System](https://pathlock.com/rfc-callback-attacks-defending-your-sap-system-with-pathlock/)
 - [Layer Seven Security — SAP Zero-Day Vulnerability CVE-2025-31324](https://www.layersevensecurity.com/sap-zero-day-vulnerability-cve-2025-31324/)
-
----
-
-*This document was created for defensive security research and vulnerability understanding purposes.*

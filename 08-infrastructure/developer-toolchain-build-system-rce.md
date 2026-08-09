@@ -1,6 +1,6 @@
 # Developer Toolchain & Build System RCE Mutation Taxonomy
 
-**A Comprehensive Classification of Code Execution Attack Vectors Across Developer Tools, Build Systems, Compilers, IDE Extensions, and AI Coding Assistants**
+**Code-Execution Attack Vectors in Developer Tools and Build Systems**
 
 ---
 
@@ -411,48 +411,6 @@ Real-world exploitation chains mutations across multiple toolchain components.
 
 ---
 
-## Summary: Core Principles
-
-### The Fundamental Problem
-
-Developer toolchains are built on a design axiom that **configuration is code**. A `webpack.config.js` is a JavaScript program. A `build.gradle` is a Groovy program. A `setup.py` is a Python program. A `Makefile` is a shell script generator. This means that every interaction with a developer tool — cloning a repository, installing dependencies, opening a project, running a build, formatting code, executing tests — is potentially an **arbitrary code execution event**.
-
-This is not a bug; it is the fundamental architecture. Build tools need code execution to be flexible. Package managers need lifecycle hooks to compile native extensions. Compilers need plugins to extend functionality. The code execution capability is the feature. The attack surface is inherent.
-
-### Why Incremental Fixes Fail
-
-Organizations applying point solutions face recurring compromises because:
-
-1. **The execution surface is everywhere**: There is no single "install" or "build" phase to secure. Code executes at clone time (git hooks), install time (npm scripts), build time (build.rs, setup.py), edit time (IDE extensions), lint time (.eslintrc.js), test time (conftest.py), and provision time (Terraform providers). Securing one phase leaves others exposed.
-
-2. **Trust is implicit and pervasive**: When a developer runs `npm install`, they implicitly trust every package's `postinstall` script. When they open a project in an IDE, they trust every auto-loaded configuration file. When they run `cargo build`, they trust every dependency's `build.rs`. This implicit trust model cannot be patched with per-tool fixes.
-
-3. **AI tools amplify the attack surface**: AI coding assistants create a new class of attack where **reading untrusted data becomes code execution**. Prompt injection in a GitHub issue, a rules file, or an MCP tool description can cause an AI agent to execute arbitrary commands with developer-level permissions. This collapses the boundary between "data" and "code" even further.
-
-4. **Self-propagation is now weaponized**: The Shai-Hulud campaign demonstrated that compromised developer tools can steal credentials and use them to propagate the compromise to other packages, creating a worm-like effect. Each compromised developer becomes a vector for compromising others.
-
-5. **Security tools themselves are attack surfaces**: Checkov (CVE-2025-2180), the MCP Inspector (CVE-2025-49596), and ESLint-related scanning tools have all been shown to introduce code execution when processing malicious input. The tools developers use to check security become vectors for compromise.
-
-### The Structural Solution
-
-Effective defense against developer toolchain RCE requires **architectural changes** to the trust model:
-
-1. **Sandboxed Build Execution**: Build tools, package install scripts, and compiler plugins should execute in sandboxed environments with no network access, restricted filesystem access, and no access to credentials. The Rust community's discussion of sandboxing `build.rs` points in the right direction — but no ecosystem has implemented this at scale.
-
-2. **Declarative Over Imperative Configuration**: Where possible, replace executable configuration files with declarative formats. `package.json` scripts → explicit allowlists. `webpack.config.js` → structured YAML/JSON configs with plugin hash pinning. This reduces the configuration-as-code attack surface.
-
-3. **Explicit Capability Grants**: Instead of tools having implicit access to everything, tools should require explicit capability grants: network access, filesystem access beyond the project directory, process spawning. Similar to mobile app permissions, but for build tools.
-
-4. **AI Agent Isolation**: AI coding assistants must operate in sandboxed environments where their code execution capabilities are mediated by explicit user approval. Indirect prompt injection should not be able to trigger shell commands, file modifications, or configuration changes.
-
-5. **Reproducible & Verifiable Builds**: SLSA framework adoption, artifact signing, and reproducible build verification should become standard. The XZ Utils backdoor was only possible because distribution tarballs differed from Git source — reproducible builds would have flagged this.
-
-6. **Zero-Trust Tool Updates**: Extension and plugin updates should require explicit approval with change diffs, not auto-install. The VSCode Marketplace, Chrome Web Store, and JetBrains Marketplace all demonstrate that auto-update + compromised publisher = mass compromise.
-
-The 2024-2025 attack wave demonstrates a clear trend: **the developer's local environment is now a primary target**. As CI/CD pipelines harden, attackers are shifting focus upstream to the developer workstation — where trust is highest, sandboxing is minimal, and a single compromise can propagate exponentially through the software supply chain.
-
----
-
 ## References
 
 ### Academic & Conference Research
@@ -506,7 +464,6 @@ The 2024-2025 attack wave demonstrates a clear trend: **the developer's local en
 
 ---
 
-*This document was created for defensive security research, vulnerability understanding, and secure development environment architecture design purposes. The techniques described are documented to enable defenders to understand the threat landscape and implement appropriate controls.*
 
 **Last Updated**: February 2026
 **Coverage Period**: Primarily 2023–2025 incidents and research, with emerging 2026 vectors

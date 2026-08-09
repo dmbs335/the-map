@@ -361,5 +361,3 @@ Misrouting through misconfigured proxy rules — the routing logic itself is the
 - Positive Technologies: "Jetty Features for Hacking Web Apps" (2022) — Systematic catalog of Jetty-specific attack surface: path parameter confusion, cookie parser differentials, request smuggling vectors
 
 ---
-
-*This document was created for defensive security research and vulnerability understanding purposes.*

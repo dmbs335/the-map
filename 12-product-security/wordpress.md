@@ -510,28 +510,6 @@ WordPress Multisite introduces additional attack surfaces through shared infrast
 
 ---
 
-## Summary: Core Principles
-
-### Why WordPress Is Uniquely Vulnerable
-
-The WordPress vulnerability surface is fundamentally a **complexity/trust boundary problem**. WordPress core is relatively well-secured compared with the broader ecosystem. The overwhelming attack surface resides in the **plugin and theme ecosystem**, where tens of thousands of independent developers implement security-critical operations (authentication, database queries, file handling, input sanitization) with varying levels of competence. WordPress's architecture grants plugins deep access to core functionality through hooks, filters, and direct database access via `$wpdb`, creating a situation where a single poorly-written plugin can compromise an otherwise hardened installation.
-
-### Why Incremental Fixes Fail
-
-The WordPress ecosystem suffers from three structural challenges that prevent incremental patches from eliminating the threat:
-
-1. **Fragmented responsibility**: WordPress core provides secure APIs (`$wpdb->prepare()`, `wp_kses()`, `check_ajax_referer()`, `current_user_can()`), but plugins are not required to use them. There is no compile-time or runtime enforcement of secure coding patterns, meaning every plugin independently implements (or fails to implement) the same security patterns.
-
-2. **Update lag**: Even when patches are released, adoption is slow. Many WordPress installations run outdated plugins, and the supply chain attacks of 2024-2025 demonstrate that even the update mechanism itself can be weaponized.
-
-3. **Architectural trust**: Plugins share the same PHP execution context, database, and filesystem as WordPress core. There is no sandboxing, capability isolation, or resource restriction for plugins. A vulnerability in any active plugin has full access to the entire WordPress installation.
-
-### What a Structural Solution Requires
-
-A meaningful reduction in the WordPress attack surface would require: (a) **mandatory security enforcement** at the API level — making it impossible to construct SQL queries without parameterization, output HTML without escaping, or register endpoints without capability checks; (b) **plugin sandboxing** — isolating plugin execution so that a compromised plugin cannot access the broader filesystem, other plugins' data, or core WordPress tables beyond its declared scope; and (c) **automated supply chain verification** — cryptographic signing of plugin releases with multi-party validation, preventing single-point-of-failure account compromises from propagating malicious updates to millions of sites.
-
----
-
 ## References
 
 - [Wordfence Threat Intelligence — WordPress Vulnerability Database](https://www.wordfence.com/threat-intel/vulnerabilities)
@@ -578,5 +556,3 @@ A meaningful reduction in the WordPress attack surface would require: (a) **mand
 - [CyberPress — W3 Total Cache RCE PoC (CVE-2025-9501)](https://cyberpress.org/poc-released-for-w3-total-cache-rce-vulnerability-exposing-1-million-websites/)
 
 ---
-
-*This document was created for defensive security research and vulnerability understanding purposes.*

@@ -400,20 +400,6 @@ Race conditions are not confined to server-side processing. The browser environm
 
 ---
 
-## Summary: Core Principles
-
-**The fundamental property** that makes web race conditions possible is the **non-atomic composition of check-then-act operations across every layer of the web stack**. From JavaScript's single-threaded-but-async event loop, through multi-threaded application servers, to database engines with permissive default isolation levels, each layer independently handles concurrency — but the end-to-end composition of these layers creates emergent race windows that no single layer prevents. A request that appears atomic from the HTTP perspective (single endpoint, single response) may internally traverse multiple non-serialized steps: read a database value, make a business decision, write the result, send an email, update a cache, and publish an event — each step an opportunity for concurrent interference.
-
-**Incremental patches fail** because race conditions are not point vulnerabilities in specific code; they are **structural properties of how state transitions are composed**. Fixing a coupon-redemption race by adding a uniqueness constraint addresses §1-2 but leaves §5-1 (database isolation) untouched. Setting the database to Serializable isolation eliminates §5-1 but has no effect on §6 (filesystem races), §8 (distributed races), or §4 (data routing races). Each fix addresses one intersection point in the mutation matrix while leaving dozens of others unprotected. Furthermore, modern architectural trends — microservices, serverless, event-driven systems, CDN caching — **expand** the race surface by introducing more asynchronous boundaries, more eventually-consistent state replicas, and more independent processing units that must be coordinated.
-
-**A structural solution** requires defense-in-depth across all layers: (1) **atomic state transitions** at the database level using Serializable isolation or explicit `SELECT ... FOR UPDATE` locking for all business-critical operations; (2) **idempotency enforcement** at the API level through idempotency keys that prevent duplicate processing regardless of concurrent delivery; (3) **invariant enforcement via database constraints** (uniqueness, check constraints, foreign keys) as the ultimate backstop, independent of application logic; (4) **synchronization-aware architecture** where distributed systems use distributed locks, saga patterns with proper isolation, and exactly-once event processing. The single-packet attack and its successors (first-sequence sync, HTTP/3 last-frame sync) have made remote race conditions as reliable as local ones — the era of "this is too hard to exploit in practice" is definitively over.
-
----
-
-*This document was created for defensive security research and vulnerability understanding purposes.*
-
----
-
 ## References
 
 ### Research Papers & Conference Presentations

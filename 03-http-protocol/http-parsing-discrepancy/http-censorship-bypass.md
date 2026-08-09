@@ -1,7 +1,6 @@
 # HTTP Censorship Bypass — Mutation/Variation Taxonomy
 
 ---
-
 ## Classification Structure
 
 This taxonomy classifies censorship bypass techniques along three orthogonal axes, derived from systematic analysis of academic literature (USENIX Security, NDSS, CCS, FOCI/PETS), practitioner tools, and real-world deployment data across China, Russia, Iran, and Kazakhstan.
@@ -543,34 +542,6 @@ Counter protocol-level and behavior-level fingerprinting used by ML classifiers.
 
 ---
 
-## Summary: Core Principles
-
-### The Fundamental Property
-
-Internet censorship bypass is possible because **censorship middleboxes operate under fundamentally different constraints than endpoints**. DPI systems must process traffic at line speed for millions of concurrent connections, forcing them to implement simplified, incomplete protocol stacks. Every simplification — skipping reassembly, ignoring edge cases, accepting invalid packets, omitting state tracking — creates an exploitable gap between the DPI's interpretation of traffic and the endpoint's interpretation. This is the same "parser differential" that underlies web security vulnerabilities like HTTP Request Smuggling, but elevated to a nation-state-vs-protocol-complexity scale.
-
-### Why Incremental Fixes Fail
-
-The arms race is structurally asymmetric, but not always in the same direction:
-
-1. **At the packet/protocol level**, defenders (circumvention tools) have the advantage: the space of valid-but-unusual TCP, TLS, and HTTP constructions is vast, and each new mutation requires the censor to update its parser. Tools like Geneva can automatically discover new evasion strategies faster than censors can patch them.
-
-2. **At the traffic analysis level**, censors are gaining ground: ML-based classifiers, cross-layer RTT fingerprinting, and TLS-in-TLS detection threaten protocol mimicry approaches. The GFW's 2023 deployment of entropy-based fully-encrypted-traffic detection invalidated an entire generation of "look-like-nothing" tools.
-
-3. **At the infrastructure level**, the "collateral freedom" strategy remains powerful but is eroding: major CDN providers have disabled domain fronting, and censors have shown willingness to accept significant collateral damage (Russia blocking OONI Explorer; Iran's protocol whitelist).
-
-### The Structural Solution
-
-No single technique provides durable censorship resistance. The most resilient approaches combine multiple layers:
-
-- **Short-term**: TCP/TLS fragmentation (§1-1, §2-1) provides immediate, low-overhead evasion against passive DPI
-- **Medium-term**: Protocol mimicry with active-probe resistance (§6-1, §2-4) defeats stateful DPI and active probing
-- **Long-term**: Infrastructure-level approaches (§7-2 refraction networking, §7-3 collateral freedom) change the economics of censorship
-
-The ultimate structural solution is **raising the cost of censorship above the censor's willingness to pay** — whether through collateral damage (blocking essential services), computational cost (requiring full protocol implementation at line speed), or architectural impossibility (traffic indistinguishable from essential communication at every layer of analysis).
-
----
-
 ## References
 
 The following sources informed this taxonomy. Consistent with the document's methodology, findings have been dissolved into generalized categories rather than organized by source.
@@ -613,7 +584,3 @@ The following sources informed this taxonomy. Consistent with the document's met
 - [net4people/bbs](https://github.com/net4people/bbs)
 - [Tor Project Forum — Censorship Circumvention](https://forum.torproject.org)
 - [Open Technology Fund](https://www.opentech.fund/)
-
----
-
-*This document was created for defensive security research, censorship measurement, and internet freedom purposes. The techniques described are documented to support the development of censorship-resistant communication tools and to inform policy discussions about internet freedom.*

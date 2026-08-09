@@ -1,9 +1,8 @@
 # Web Application Denial of Service (DoS) — Mutation/Variation Taxonomy
 
-*Comprehensive classification of application-layer Denial of Service attack surfaces targeting web applications, APIs, and web infrastructure. This document focuses on DoS vectors that exploit application logic, protocol design, parsing behavior, and algorithmic complexity — not volumetric/network-layer DDoS. XXE entity expansion (Billion Laughs, Quadratic Blowup) and archive decompression bombs (zip bombs) are covered in dedicated the-map taxonomy documents (`xxe.md` §7-1 and `zip-archive.md` §4 respectively) and intentionally excluded here.*
+*Application-layer denial-of-service patterns affecting web applications, APIs, and supporting infrastructure. Volumetric DDoS, XXE entity expansion, and archive decompression bombs are outside this document's scope.*
 
 ---
-
 ## Classification Structure
 
 Application-layer Denial of Service is fundamentally an asymmetry problem: the attacker invests minimal resources to force the server into disproportionately expensive computation, memory allocation, connection holding, or I/O. Unlike volumetric DDoS that overwhelms network bandwidth, application-layer DoS exploits the inherent cost asymmetry in parsing, computation, protocol handling, and caching — often requiring only a single malicious request to render a service unavailable.
@@ -427,38 +426,6 @@ TLS handshakes and cryptographic operations are deliberately expensive. Attacker
 
 ---
 
-## Summary: Core Principles
-
-### Why Application-Layer DoS Persists
-
-Application-layer DoS is rooted in a fundamental asymmetry inherent to web architecture: **servers must perform work before they can determine whether a request is legitimate**. A regex must be evaluated before it can be determined to backtrack catastrophically. A JSON document must be parsed before its depth is known. An HTTP/2 stream must be allocated before the client cancels it. A hash table must insert elements before discovering they all collide. This *process-before-validate* pattern is not a bug in any individual system — it is a structural consequence of accepting arbitrary input from untrusted clients.
-
-This asymmetry is amplified by three design tensions:
-
-1. **Flexibility versus safety.** GraphQL exists because clients need flexible queries. WebSockets exist because applications need real-time communication. Regex exists because applications need pattern matching. Each of these features gives the client control over server-side computation cost, and each creates a DoS surface proportional to the flexibility granted.
-
-2. **Caching as a single point of failure.** CDN caching transforms a single malicious request into a global outage. Cache-Poisoned DoS demonstrates that the same infrastructure designed to absorb volumetric attacks becomes the amplification vector when poisoned — one request at one edge location propagates error responses worldwide.
-
-3. **Protocol complexity creates implementation divergence.** HTTP/2's CONTINUATION frames, SETTINGS handling, and stream lifecycle were designed for performance but create DoS surfaces when implementations handle edge cases differently. The progression from Rapid Reset (2023) to CONTINUATION Flood (2024) to MadeYouReset (2025) shows that each protocol feature is a potential DoS vector, and mitigations for one attack create new surfaces for the next.
-
-### Why Incremental Fixes Are Insufficient
-
-The patch-bypass cycle in application DoS follows a predictable pattern: limit → bypass → deeper limit → deeper bypass. HTTP/2 `MAX_CONCURRENT_STREAMS` was added to prevent stream exhaustion → Rapid Reset bypassed it via create-cancel → rate limiting on client RST_STREAM was added → MadeYouReset bypassed it via server-initiated resets. Hash randomization was added to prevent HashDoS → V8's rapidhash accidentally reintroduced deterministic hashing. JSON depth limits were added → attackers switched to width attacks (thousands of keys). Each fix addresses one exploitation path while leaving the fundamental asymmetry intact.
-
-### What Structural Solutions Require
-
-Lasting DoS defenses share a common architecture: **cost accounting before execution**:
-
-- **Query cost analysis** before GraphQL resolution — reject queries exceeding a complexity budget before any resolver runs
-- **Input budget enforcement** at the parser level — depth limits, breadth limits, total allocation limits, and expansion limits before parsing begins
-- **Protocol-level resource accounting** — track resources consumed per-stream (not just per-connection) and enforce hard limits on total server-side work per client
-- **Regex engine replacement** — RE2, Rust regex, and other Thompson NFA engines guarantee linear-time matching, eliminating the entire ReDoS vector class at the engine level
-- **Adaptive rate limiting** — cost-aware rate limiting that charges clients based on actual server-side resource consumption (CPU time, memory, I/O) rather than request count
-
-The fundamental challenge is that cost estimation must be cheaper than the operation being estimated. Measuring regex complexity is itself an NP-hard problem. Estimating GraphQL query cost requires schema analysis. Predicting JSON parse depth requires parsing the JSON. The art of DoS defense is finding approximations good enough to reject catastrophic inputs without adding prohibitive overhead to legitimate requests.
-
----
-
 ## References
 
 - [Cloudflare: "HTTP/2 Rapid Reset: Deconstructing the Record-Breaking Attack"](https://blog.cloudflare.com/technical-breakdown-http2-rapid-reset-ddos-attack/)
@@ -486,7 +453,3 @@ The fundamental challenge is that cost estimation must be cheaper than the opera
 - [Akamai: "DDoS Attack Trends in 2024 Signify That Sophistication Overshadows Size"](https://www.akamai.com/blog/security/ddos-attack-trends-2024-signify-sophistication-overshadows-size)
 - Orange Tsai: "Let's Dance in the Cache — Destabilizing Hash Table on Microsoft IIS" (Black Hat USA 2022) — Hash table collision attacks weaponized against IIS output cache for cache poisoning
 - Cyber Kunlun Lab: "Diving into Windows HTTP: Unveiling Hidden Preauth Vulnerabilities in Windows HTTP Services" (Black Hat USA) — Systematic analysis of httpapi.dll/HTTP.sys attack surface across IIS, KDC Proxy, BranchCache, UPnP Host revealing pre-auth DoS via receive/response stage logic flaws and ISAPI_CONTEXT lifecycle issues
-
----
-
-*This document was created for defensive security research and vulnerability understanding purposes.*

@@ -335,34 +335,6 @@ After successful substitution, the attacker needs their malicious code to execut
 
 ---
 
-## Summary: Core Principles
-
-### The Fundamental Property
-
-Dependency confusion exists because **package identity in most ecosystems is based solely on name strings, not cryptographic identity**. A package named `internal-auth-lib` on a private registry and one with the same name on PyPI or npm are treated as the same logical entity by the resolution algorithm. This nominal equivalence — combined with resolution strategies that prefer higher versions or fall back to public sources — creates a structural confusion window that cannot be eliminated without fundamental changes to how packages are identified and trusted.
-
-### Why Incremental Fixes Fail
-
-Each ecosystem has responded with point solutions: npm added scopes, NuGet added Package Source Mapping, Maven relies on GroupId domain verification, Go uses checksums. Yet dependency confusion attacks continue because:
-
-1. **Defenses are opt-in**: Scopes, prefix reservations, and source mappings must be actively configured. Default configurations remain vulnerable.
-2. **The attack surface expands faster than defenses**: Slopsquatting, MavenGate, manifest confusion, and container registry confusion represent new vectors that existing defenses don't address.
-3. **Legacy configurations persist**: Organizations with years of build infrastructure cannot easily migrate all dependencies to scoped/namespaced configurations.
-4. **Reconnaissance is trivially easy**: Internal package names leak through JavaScript bundles, CI/CD configurations, error messages, and now LLM-generated code at massive scale.
-5. **Human factors dominate**: Developers add dependencies without verifying sources; lockfiles are regenerated without auditing changes; VPN disconnections create silent fallback windows.
-
-### Structural Solutions
-
-A complete solution requires three architectural changes:
-
-1. **Cryptographic package identity**: Packages should be identified by publisher signatures and content hashes, not by name strings. The package name becomes a human-readable label over a cryptographic identity, similar to how TLS certificates work for domains.
-2. **Explicit source pinning by default**: Package managers should refuse to install packages from sources not explicitly declared in the project configuration. The fallback-to-public-registry pattern should be eliminated from default configurations.
-3. **Registry-side namespace enforcement**: Public registries should implement mandatory namespace/scope ownership verification before allowing package publication, preventing name squatting of any kind.
-
-Until these structural changes are adopted, dependency confusion will remain a persistent, high-impact supply chain attack vector.
-
----
-
 ## References
 
 - Birsan, A. (2021). "Dependency Confusion: How I Hacked Into Apple, Microsoft and Dozens of Other Companies." Medium.
@@ -381,5 +353,3 @@ Until these structural changes are adopted, dependency confusion will remain a p
 - Phylum Research (2024). "Q2 2024 Evolution of Software Supply Chain Security Report."
 
 ---
-
-*This document was created for defensive security research and vulnerability understanding purposes.*

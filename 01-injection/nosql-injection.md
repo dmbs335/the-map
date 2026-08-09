@@ -1,7 +1,6 @@
 # NoSQL Injection Mutation/Variation Taxonomy
 
 ---
-
 ## Classification Structure
 
 This taxonomy organizes the entire NoSQL injection attack surface along three orthogonal axes. **Axis 1 (Mutation Target)** defines *what structural component* of the database interaction is being manipulated — this is the primary axis and structures the main body of the document. **Axis 2 (Exploitation Mechanism)** describes *how* the mutation achieves its effect — the nature of the mismatch, confusion, or bypass that makes the injection work. **Axis 3 (Attack Outcome)** maps *where* each technique is weaponized — the real-world impact scenario.
@@ -441,16 +440,6 @@ NoSQL injection payloads may not execute immediately upon injection but instead 
 
 ---
 
-## Summary: Core Principles
-
-**The Fundamental Property**: NoSQL injection exists because NoSQL databases accept *structured query objects* — not just strings — as query parameters. In MongoDB, a query parameter can be either a scalar value (`"admin"`) or an operator expression (`{"$ne":""}`), and the database interprets them differently based on structure. This design, where the query language is embedded in the data format (JSON), means that any unvalidated user input that reaches a query can carry query logic with it. Unlike SQL, where the injection boundary is always a string parse (breaking out of quotes), NoSQL injection exploits a *type boundary* (scalar vs. object) that is invisible at the string level.
-
-**Why Incremental Fixes Fail**: The NoSQL injection attack surface resists incremental patching for three structural reasons. First, the fragmentation across database engines means each fix is engine-specific — sanitizing MongoDB operators does nothing for Cypher injection or Redis command injection. Second, new injection surfaces emerge at every abstraction layer: the database query API, the aggregation framework, the ODM, the middleware, the HTTP parameter parser. A fix at one layer (e.g., `express-mongo-sanitize`) can be bypassed by exploiting a different layer (e.g., Content-Type switching, prototype pollution, ODM-level populate().match()). Third, operator nesting creates recursive bypass opportunities — as demonstrated by CVE-2025-23061, where a sanitizer checking only top-level keys was bypassed by nesting `$where` inside `$or`. Each "fix" that addresses a specific nesting pattern creates a new race between defenders adding depth checks and attackers finding new nesting paths.
-
-**The Structural Solution**: The only reliable defense is to enforce a strict type boundary between user input and query structure. This means: (1) never passing user-controlled objects directly into queries — always extract scalar values and construct query objects server-side; (2) validating input types at the API boundary using schema validation (Joi, Ajv, JSON Schema) that rejects objects/arrays where scalars are expected; (3) using parameterized queries or query builders that structurally separate user values from query operators; and (4) disabling unnecessary capabilities (server-side JavaScript via `--noscripting`, CURL in N1QL, Groovy scripting in Elasticsearch). The defense must operate at the *type system level*, not the *string pattern level* — stripping `$` characters is a band-aid; ensuring user input can never be interpreted as a query operator is the structural fix.
-
----
-
 ## References
 
 - [PortSwigger Web Security Academy — NoSQL Injection](https://portswigger.net/web-security/nosql-injection)
@@ -472,7 +461,3 @@ NoSQL injection payloads may not execute immediately upon injection but instead 
 - [PMC/ScienceDirect — The MongoDB Injection Dataset (2024)](https://pmc.ncbi.nlm.nih.gov/articles/PMC10997947/)
 - [Rocket.Chat HackerOne Report #1130874](https://hackerone.com/reports/1130874)
 - [OWASP NoSQL Security Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/NoSQL_Security_Cheat_Sheet.html)
-
----
-
-*This document was created for defensive security research and vulnerability understanding purposes.*

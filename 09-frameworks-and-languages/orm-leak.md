@@ -1,7 +1,6 @@
 # ORM Leak Mutation/Variation Taxonomy
 
 ---
-
 ## Classification Structure
 
 ORM (Object-Relational Mapping) Leak vulnerabilities arise when the abstraction layer between application code and the database is improperly exposed to user-controlled input, enabling attackers to query, filter, or extract data that the application never intended to reveal. Unlike traditional SQL injection—which targets raw SQL string construction—ORM Leak exploits the **semantic features** of the ORM itself: its query-building DSL, relational traversal syntax, operator vocabulary, and automatic data binding mechanisms.
@@ -498,16 +497,6 @@ Legacy or misconfigured operator alias systems allow injecting query operators t
 
 ---
 
-## Summary: Core Principles
-
-**The fundamental enabler** of ORM Leak vulnerabilities is the design tension at the heart of every ORM: the framework must translate a rich, expressive query DSL into SQL, but this expressiveness — relational traversal, flexible operators, dynamic filter construction — becomes an attack surface when user input reaches the DSL without mediation. The ORM's query builder is, by design, a general-purpose data extraction engine. When developers treat it as a safe black box and pass user input directly into its methods, they inadvertently grant users the same query power as the application itself.
-
-**Incremental patches fail** because the mutation space is combinatorially large. Deny-listing specific fields (like `password`) is bypassed through relational traversal (§2) and expression parser bugs (§8). Restricting specific operators (like `regex`) is bypassed through comparison operators (§3-2) or timing oracles (§3-1). Fixing one endpoint leaves other endpoints with the same `filter(**kwargs)` pattern vulnerable. The three-patch bypass sequence in Harbor's CVE-2025-30086 is a canonical example: each deny-list patch was defeated by a different traversal or operator path to the same sensitive data.
-
-**The structural solution** requires inverting the trust model: instead of denying known-dangerous patterns (deny-list), applications must **explicitly allowlist** the fields, operators, and relational paths that users are permitted to use. This means: (1) every user-facing filter endpoint must declare a strict allowlist of `{field, operator}` pairs, validated before any ORM method is called; (2) serialization must use explicit field lists (`only` / `fields`), never `__all__` or default-include patterns; (3) mass assignment protections (Strong Parameters, `@InitBinder`, view models) must be mandatory, not opt-in; and (4) error messages in production must never expose ORM internals, field names, or SQL fragments. Row-level security at the database layer (PostgreSQL RLS, tenant-scoped views) provides defense-in-depth against relational traversal escaping application-level filters.
-
----
-
 ## References
 
 - [elttam, "ORM Leaking More Than You Joined For" (2024)](https://www.elttam.com/blog/leaking-more-than-you-joined-for/)
@@ -531,7 +520,3 @@ Legacy or misconfigured operator alias systems allow injecting query operators t
 - [CVE-2025-64748 (Directus)](https://github.com/advisories/GHSA-8jpw-gpr4-8cmh)
 - [CVE-2025-23061 (Mongoose)](https://github.com/advisories/GHSA-vg7j-7cwx-8wgw)
 - [elttam, "plormber" tool](https://github.com/elttam/plormber)
-
----
-
-*This document was created for defensive security research and vulnerability understanding purposes.*

@@ -1,9 +1,8 @@
 # Container & Orchestration Infrastructure RCE — Mutation/Variation Taxonomy
 
-*Comprehensive classification of Remote Code Execution attack surfaces across container runtimes, orchestration platforms, container build systems, image supply chains, and cloud-managed Kubernetes environments. This taxonomy covers the full lifecycle — from image build through registry distribution, runtime execution, orchestration, and cloud-provider integration — organizing every mutation by the structural component being exploited.*
+*Recurring remote-code-execution attack surfaces across container runtimes, build systems, registries, orchestrators, and managed Kubernetes environments.*
 
 ---
-
 ## Classification Structure
 
 Container and orchestration infrastructure creates a layered security boundary between workloads and the host system. At the lowest level, Linux kernel primitives (namespaces, cgroups, seccomp, LSMs) isolate processes. Container runtimes (runc, containerd, CRI-O) manage these primitives. Orchestration platforms (Kubernetes) layer RBAC, admission control, and network policy atop the runtime. Cloud providers (EKS, AKS, GKE) add managed control planes and identity services. Each layer introduces its own RCE surfaces — a vulnerability at any layer can cascade upward or downward, and attack chains routinely span multiple layers.
@@ -371,34 +370,6 @@ In multi-tenant Kubernetes deployments, tenants share nodes and often share cont
 
 ---
 
-## Summary: Core Principles
-
-### 1. The Shared Kernel Is the Root Cause
-
-The fundamental property that makes container escape a persistent threat class is the shared kernel architecture. Unlike virtual machines — which isolate workloads at the hypervisor level with separate kernel instances — containers share a single Linux kernel with the host and all other containers. Every kernel vulnerability is a potential container escape. The eBPF subsystem, cgroup mechanisms, namespace implementation bugs, and filesystem handlers all provide escape primitives that no amount of runtime hardening can fully eliminate. This architectural reality means that container security is inherently probabilistic: it depends on the absence of exploitable kernel bugs, which history demonstrates is an unreliable assumption.
-
-### 2. The Initialization Boundary Is Structurally Fragile
-
-A disproportionate number of container escape vulnerabilities (the runc mount races, FD leaks, OCI hook exploitation) occur during container initialization — the brief period when the runtime transitions from host-context setup to container-context execution. This boundary is structurally fragile because the runtime must perform privileged operations (mounting filesystems, setting up devices, executing hooks) while simultaneously constraining the environment for the container process. Race conditions, leaked handles, and inherited environment variables at this boundary have produced critical vulnerabilities repeatedly across multiple runtimes and toolkits, and the pattern shows no sign of being solved within the current OCI runtime architecture.
-
-### 3. Orchestration Amplifies Individual Escapes Into Systemic Compromise
-
-Kubernetes transforms a single container compromise into a cluster-wide threat through three mechanisms: (a) default network connectivity between all pods, (b) auto-mounted service account tokens with frequently overpermissioned RBAC, and (c) admission controllers and extension points that process untrusted input with elevated privileges. The IngressNightmare vulnerability chain demonstrates this perfectly — a single annotation injection achieves unauthenticated RCE in a pod that happens to have cluster-wide secret access, instantly escalating from a configuration parsing flaw to full cluster takeover. The `nodes/proxy GET` permission being "working as intended" while providing silent RCE in any pod illustrates that the Kubernetes authorization model has design-level gaps that cannot be addressed through patching alone.
-
-### 4. Structural Solutions Require Architectural Changes
-
-Incremental fixes (patching individual runc races, fixing individual NGINX annotation parsers) address symptoms but not root causes. Structural solutions include:
-
-- **Hardware-isolated containers** (Kata Containers, Firecracker, gVisor): Replace the shared kernel with per-workload kernels or system call interception, eliminating the kernel-level escape surface at the cost of performance and compatibility.
-- **Capability-based authorization**: Replace broad Linux capabilities and Kubernetes RBAC verbs with fine-grained, non-composable permission tokens that cannot be combined into escalation paths.
-- **Immutable admission policies**: Move security-critical admission decisions from in-cluster webhooks (that can be crashed, bypassed, or injected into) to external, tamper-proof policy engines.
-- **Zero-trust pod networking**: Default-deny network policies with identity-based (not IP-based) authentication, eliminating the default-open lateral movement surface.
-- **Ambient mesh architectures**: Istio Ambient Mesh removes sidecar containers from the trust boundary, running mTLS termination in a node-level ztunnel agent that is not co-located with (and therefore not exploitable from) application containers.
-
-The fundamental tension is that each structural solution imposes operational friction: hardware isolation reduces density and increases cost; fine-grained authorization increases configuration complexity; default-deny networking breaks applications that rely on service discovery. The art of container defense is selecting the isolation model appropriate to the threat model — not treating all containers as equally trustworthy.
-
----
-
 ## References
 
 - [Sysdig: "New runc Vulnerabilities Allow Container Escape: CVE-2025-31133, CVE-2025-52565, CVE-2025-52881"](https://www.sysdig.com/blog/runc-container-escape-vulnerabilities)
@@ -425,7 +396,3 @@ The fundamental tension is that each structural solution imposes operational fri
 - [Kubernetes: "CVE-2024-10220: Arbitrary Command Execution through gitRepo Volume"](https://discuss.kubernetes.io/t/security-advisory-cve-2024-10220-arbitrary-command-execution-through-gitrepo-volume/30571)
 - [Microsoft: "Understanding the Threat Landscape for Kubernetes and Containerized Assets"](https://www.microsoft.com/en-us/security/blog/2025/04/23/understanding-the-threat-landscape-for-kubernetes-and-containerized-assets/)
 - [USENIX: "Exploring and Exploiting the Resource Isolation Attack Surface of WebAssembly Containers"](https://arxiv.org/html/2509.11242)
-
----
-
-*This document was created for defensive security research and vulnerability understanding purposes.*

@@ -482,5 +482,3 @@ A defense-in-depth approach must layer multiple controls:
 - [OWASP Web Security Testing Guide v4.2 — API Testing: GraphQL](https://owasp.org/www-project-web-security-testing-guide/v42/4-Web_Application_Security_Testing/12-API_Testing/01-Testing_GraphQL)
 
 ---
-
-*This document was created for defensive security research and vulnerability understanding purposes.*

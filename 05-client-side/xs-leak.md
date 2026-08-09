@@ -499,5 +499,3 @@ The research community's shift from finding individual leaks to **systematic dis
 - [HackerOne: Imgur De-anonymization Attack #723175](https://hackerone.com/reports/723175)
 
 ---
-
-*This document was created for defensive security research and vulnerability understanding purposes. All techniques described are documented for educational use and improving web platform security.*

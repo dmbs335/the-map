@@ -1,9 +1,8 @@
 # Protocol-Level Injection — Mutation/Variation Taxonomy
 
-*Comprehensive classification of command/data injection attacks targeting non-HTTP service protocols (Redis, Memcached, database wire protocols, FastCGI, FTP, etc.) through delimiter injection, message framing corruption, cross-protocol confusion, and client library flaws.*
+*Command/data injection patterns in non-HTTP service protocols, including delimiter injection, framing corruption, cross-protocol confusion, and client-library flaws.*
 
 ---
-
 ## Scope & Boundary Delineation
 
 This taxonomy covers the **injection mechanism into service-layer protocols** — the structural techniques by which an attacker injects commands, corrupts message boundaries, or manipulates data within non-HTTP network service protocols. It is explicitly scoped to avoid overlap with the following existing the-map taxonomies:
@@ -393,43 +392,6 @@ Service protocol authentication mechanisms can be exploited through timing attac
 
 ---
 
-## Summary: Core Principles
-
-### Why Protocol-Level Injection Persists
-
-Protocol-level injection persists because of a fundamental **mismatch between the trust assumptions of service protocols and the reality of their deployment contexts**:
-
-1. **Delimiter simplicity as an injection surface.** Text-based service protocols (Redis RESP, Memcached, FTP, SMTP) use CRLF as both a command terminator and a data delimiter. This simplicity — a feature for human-readable debugging and interoperability — becomes a vulnerability when untrusted data shares the same channel as commands. Unlike HTTP, which has evolved complex framing mechanisms (Content-Length, Transfer-Encoding, HTTP/2 frames) specifically to distinguish headers from body, service protocols rely on out-of-band guarantees (trusted networks, authenticated clients) that don't hold in modern cloud architectures where services are reachable via SSRF, shared networks, or client library bugs.
-
-2. **Binary protocols trust their own framing.** Binary protocols (PostgreSQL wire protocol, MongoDB wire protocol, FastCGI) use length-prefixed messages that should be immune to delimiter injection. However, they trust the framing metadata (size fields, compression headers) provided by the sender. When a client library computes these fields with integer arithmetic that can overflow (32-bit size fields with >4GB payloads), or when a compression layer accepts declared sizes without validation (MongoBleed), the framing itself becomes the injection vector — and the consequences are severe because the protocol has no secondary validation mechanism.
-
-3. **Tolerant parsing enables cross-protocol attacks.** Services designed for trusted environments parse input permissively — accepting what they can understand and discarding what they can't. Redis's line-by-line processing, Memcached's per-command error handling, and similar behaviors mean that a malformed request (HTTP POST to Redis, DNS rebinding payload) is not rejected wholesale. Instead, the valid commands embedded within the noise are extracted and executed. This tolerance, while user-friendly for debugging, transforms every protocol into a potential cross-protocol injection target.
-
-### Why Incremental Fixes Fail
-
-Each protocol injection class has seen a characteristic patch-bypass cycle:
-
-- **Redis added POST/Host: → QUIT aliasing** (3.2.7) to block HTTP cross-protocol attacks — bypassed by using non-HTTP vectors (WebSocket, DNS rebinding, DICT scheme) or by crafting HTTP requests that don't start with POST/Host:
-- **Python patched urllib CRLF** (CVE-2019-9740) — similar bugs recurred in Node.js, Go, Netty (CVE-2025-67735), and Refit (CVE-2024-51501) because each library independently implemented HTTP message construction
-- **pgx added request size validation** for the wire protocol overflow — bypassable via WebSocket connections, HTTP compression, and alternative endpoints
-- **Memcached introduced SASL authentication** — optional, rarely deployed, and doesn't protect against injection through authenticated application connections
-
-The pattern is consistent: **defenses applied at the protocol boundary are circumvented by finding new paths to the boundary** (new client libraries, new delivery mechanisms, new protocol features).
-
-### What Structural Solutions Look Like
-
-Effective defenses share a common architecture: **separating the command channel from the data channel**:
-
-- **RESP3 binary-safe protocol**: Redis's RESP3 protocol uses length-prefixed binary strings for all data, eliminating inline command parsing. Applications using RESP3 exclusively are immune to CRLF-based command injection — but only if client libraries consistently use RESP3 and never fall back to inline mode
-- **Prepared statements at the protocol level**: PostgreSQL's extended query protocol separates SQL from parameters in distinct protocol messages. The DEF CON 32 research demonstrates that drivers using the simple query protocol (which mixes SQL and parameters in a single message) reintroduce injection — the structural fix is protocol-enforced separation
-- **Authentication + ACL as defense-in-depth**: Redis 6.0+ ACLs restrict which commands each user can execute. Even when injection occurs through the application's connection, ACLs can prevent dangerous commands (CONFIG, MODULE, DEBUG, SLAVEOF) — reducing the blast radius from RCE to data manipulation
-- **Network isolation**: The most effective defense against cross-protocol attacks is ensuring that service protocols are never reachable from untrusted contexts — no binding to 0.0.0.0, no exposure to SSRF-reachable networks, no reliance on application-level filtering. Unix domain sockets eliminate the TCP attack surface entirely
-- **Client library hardening**: Systematic CRLF validation at the protocol message construction layer (not at the application input layer) prevents injection regardless of the delivery mechanism. The Netty CVE-2025-67735 fix (adding `HttpUtil.validateRequestLineTokens`) is a model for this approach
-
-The fundamental tension is that protocol simplicity enables injection: Redis's inline command mode exists for debugging convenience, Memcached's text protocol exists for human readability, and binary protocols trust client-computed framing for performance. Structural solutions require sacrificing this simplicity — enforcing binary framing, mandatory authentication, and strict input validation at every protocol boundary.
-
----
-
 ## References
 
 - [Paul Gerste (SonarSource): "SQL Injection Isn't Dead: Smuggling Queries at the Protocol Level" — DEF CON 32, 2024](https://media.defcon.org/DEF%20CON%2032/DEF%20CON%2032%20presentations/DEF%20CON%2032%20-%20Paul%20Gerste%20-%20SQL%20Injection%20Isn't%20Dead%20Smuggling%20Queries%20at%20the%20Protocol%20Level.pdf)
@@ -463,7 +425,3 @@ The fundamental tension is that protocol simplicity enables injection: Redis's i
 - [Code Intelligence: "New Vulnerability in MySQL JDBC Driver: RCE and Unauthorized DB Access"](https://www.code-intelligence.com/blog/cve-jdbc-mysql-driver-rce-unauthorized-read-write-access)
 - SonarSource: "Zimbra Email — Stealing Clear-Text Credentials via Memcache injection" (2022) — Memcache CRLF injection in Zimbra enabling credential theft
 - Doyhenard: "Exploiting Inter-Process Communication in SAP's HTTP Server" (Black Hat USA 2022) — SAP ICM shared memory IPC exploitation
-
----
-
-*This document was created for defensive security research and vulnerability understanding purposes.*

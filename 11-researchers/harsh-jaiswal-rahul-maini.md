@@ -7,7 +7,6 @@
 **Primary Affiliations**: ProjectDiscovery Research, Hacktron AI, Electrovolt
 
 ---
-
 ## Classification Structure
 
 Jaiswal and Maini's research reveals a consistent exploitation philosophy: identifying **pre-authentication attack surfaces** in enterprise software and chaining multiple primitives — deserialization, template injection, authentication bypass, command injection — into full remote code execution. Their work emphasizes **source code review and patch diffing** as primary discovery methods, consistently targeting high-value enterprise products (Atlassian, Adobe, Apple, GitHub, VMware, Ivanti, BeyondTrust).
@@ -397,17 +396,3 @@ Presented at Ekoparty, Hackitivity, and NoNameCon 2020 with Rajanish Pathak. Cov
 | **ILSpy / dotPeek / dnSpyEx** | .NET decompilation | .NET assembly analysis for patch diffing |
 | **GDB** | Binary analysis | Dynamic analysis of C binaries (e.g., Zimbra `postjournal`) |
 | **Hacktron AI** | Cross-codebase variant analysis | AI-enabled pattern matching for bug class discovery |
-
----
-
-## Summary: Core Principles
-
-The fundamental pattern across Jaiswal and Maini's research is the exploitation of **enterprise software's complexity surface** — the gap between what developers intend security controls to cover and what actually reaches dangerous operations. In ColdFusion, XML parsing reaches Java reflection. In Confluence, Velocity templates reach OGNL evaluation. In Ivanti, bean validation reaches Expression Language evaluation before authorization checks execute. In every case, **user input travels through a longer path than developers anticipate**, crossing trust boundaries that were never explicitly defended.
-
-Their patch bypass work (ColdFusion CVE-2023-38203/38204, Confluence CVE-2023-22518 variants) demonstrates that **incremental fixes consistently fail** when the root cause is architectural — blacklists are bypassed through format confusion, namespace restrictions are circumvented through alternative routing, and sandbox constraints are broken through context escalation. Structural solutions require eliminating the dangerous evaluation surface entirely (replacing `popen()` with `execvp()`, removing expression evaluation from error messages, enforcing signature verification order), not adding filters to the input path.
-
-Their evolution from manual source code review (2019–2023) to AI-enabled variant analysis (2024–2026) represents a shift toward **systematic vulnerability discovery** — identifying bug classes once, then searching programmatically across the entire software ecosystem for the same pattern.
-
----
-
-*This document was created for defensive security research and vulnerability understanding purposes.*

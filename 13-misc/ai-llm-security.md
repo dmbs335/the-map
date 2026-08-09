@@ -1,7 +1,6 @@
 # AI/LLM Security Mutation/Variation Taxonomy
 
 ---
-
 ## Classification Structure
 
 This taxonomy organizes the full attack surface of AI and Large Language Model (LLM) systems under three orthogonal axes that describe **what is targeted**, **what effect the attack creates**, and **where in the AI lifecycle the attack is weaponized**.
@@ -473,16 +472,6 @@ Attacks that degrade the availability or dramatically increase the operational c
 
 ---
 
-## Summary: Core Principles
-
-**The fundamental property that makes the AI/LLM attack surface possible is the collapse of the instruction-data boundary.** Traditional computing maintains a strict separation between code (instructions) and data — von Neumann architecture notwithstanding, modern systems use privilege rings, sandboxing, and type systems to enforce this boundary. LLMs fundamentally violate this principle: instructions (system prompts) and data (user input, retrieved documents, tool output) exist in the same token stream, processed by the same attention mechanism, with no architectural enforcement of privilege levels. Every attack category in this taxonomy — from prompt injection (§1) through tool poisoning (§6) to output handling (§7) — ultimately exploits this single architectural reality.
-
-**Incremental patches fail because the attack surface grows faster than defenses can cover it.** Each new capability added to LLM systems — tool use, code execution, file access, web browsing, multimodal processing, persistent memory, MCP server integration — introduces multiplicative attack vectors that combine with existing vulnerabilities. Guardrails operating on input text cannot protect against adversarial images (§9), poisoned retrieval documents (§5), or malicious tool descriptions (§6-1). Per-turn safety evaluation cannot defend against multi-turn escalation (§2-2). Content-based filters cannot detect near-constant-sample data poisoning (§4-1) or quantization-phase backdoors (§2-4). The result is a perpetual game of whack-a-mole where each defense creates new evasion opportunities.
-
-**A structural solution requires architectural separation of concerns.** Just as web security evolved from "sanitize everything" to Content Security Policy, CORS, and sandboxed iframes, AI security must move toward architecturally enforced boundaries: cryptographic attestation of instruction provenance (distinguishing system prompts from user input at the token level), capability-based access control for tool use (least-privilege by default, explicit per-action authorization), formal verification of safety properties that survive fine-tuning, and end-to-end integrity verification for the model supply chain from training data through deployment. Until these structural guarantees exist, the taxonomy documented here will continue to expand with each new LLM capability.
-
----
-
 ## References
 
 - [OWASP Top 10 for LLM Applications 2025](https://genai.owasp.org/llm-top-10/)
@@ -499,7 +488,3 @@ Attacks that degrade the availability or dramatically increase the operational c
 - LLM Fine-Tuning Safety — 10-example Jailbreak via OpenAI API — GitHub/LLM-Tuning-Safety
 - Anthropic — Disrupting AI-Orchestrated Cyber Espionage Campaign, September 2025
 - ACL 2024 Tutorial: Vulnerabilities of Large Language Models to Adversarial Attacks
-
----
-
-*This document was created for defensive security research and vulnerability understanding purposes.*

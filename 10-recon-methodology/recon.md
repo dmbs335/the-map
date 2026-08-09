@@ -302,26 +302,6 @@ Discovering hidden parameters through indirect observation — timing difference
 
 ---
 
-## Summary: Core Principles
-
-### Root Cause: Obscurity as Access Control
-
-The fundamental property that makes hidden parameter discovery possible is the **conflation of obscurity with security**. Web applications universally process more parameters than they document — debug flags left from development, administrative fields protected only by their absence from the UI, framework-level automatic binding that accepts any matching field name. The application's "visible" interface (HTML forms, API documentation, client-side code) represents only a subset of its actual input surface. Every undocumented parameter processed server-side is a potential attack vector that bypasses all client-side validation and UI-level access controls.
-
-### Why Incremental Fixes Fail
-
-Removing individual hidden parameters is a game of whack-a-mole. New parameters are continuously introduced through framework upgrades (adding new config parameters), developer debugging (adding temporary debug flags), feature development (adding parameters gated by feature flags), and third-party integrations (adding callback/webhook parameters). Each new code deployment potentially introduces new hidden parameters. WAF-based detection cannot solve this because the attack is not in the parameter *value* but in the parameter's *existence* — WAFs are designed to detect malicious values, not to enforce parameter allowlists.
-
-### Structural Solutions
-
-The structural solution requires **positive security models**: explicit parameter allowlisting at every processing layer. This means strict parameter schemas at the API gateway (rejecting any parameter not in the OpenAPI spec), framework-level strong parameter patterns (Rails `permit`, Django explicit `fields`), disabled debug/introspection/reflection in production deployments, source map exclusion from production builds, and treating parameter names as part of the access control surface — not just their values. The shift from "block known bad" to "allow known good" is the only approach that scales against the continuously expanding parameter surface.
-
----
-
-*This document was created for defensive security research and vulnerability understanding purposes.*
-
----
-
 ## References
 
 - OWASP Web Security Testing Guide — Testing for HTTP Parameter Pollution

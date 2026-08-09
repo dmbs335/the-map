@@ -382,22 +382,6 @@ Attacks targeting security mechanisms that rely on DNS records for authenticatio
 
 ---
 
-## Summary: Core Principles
-
-### The Fundamental Property
-
-DNS was designed in the 1980s as a distributed, hierarchical naming system with no inherent authentication, integrity protection, or confidentiality guarantees. Every mutation in this taxonomy exploits one or more consequences of this foundational design choice: **DNS responses are implicitly trusted by the systems that consume them**. Browsers trust DNS to enforce same-origin boundaries. SSRF validators trust DNS to accurately represent network topology. Certificate authorities trust DNS to prove domain ownership. Email systems trust DNS to authenticate sender identity. When any of these trust assumptions can be violated — through cache poisoning, rebinding, dangling records, or infrastructure hijacking — the security of the entire dependent system collapses.
-
-### Why Incremental Fixes Fail
-
-Each generation of DNS security fixes addresses specific attack vectors while leaving the structural problem intact. DNSSEC prevents cache poisoning but introduces algorithmic complexity attacks (KeyTrap). DoH prevents eavesdropping but eliminates network-level security monitoring. DNS pinning prevents rebinding but breaks legitimate dynamic DNS use cases. RPKI prevents BGP hijacking of DNS traffic but adoption remains uneven. The fundamental issue is that DNS occupies a **trust-critical position** in the web security architecture while remaining a **best-effort, eventually-consistent** system. No single incremental fix can bridge this gap because the mutations exploit different facets of the same structural weakness.
-
-### The Structural Solution
-
-A comprehensive solution would require: (1) **universal cryptographic authentication** of DNS responses (DNSSEC with bounded validation cost), (2) **IP-level binding** of DNS resolutions throughout the entire request lifecycle (eliminating TOCTOU gaps), (3) **continuous lifecycle management** of DNS records tied to resource provisioning systems (eliminating dangling records by construction), (4) **multi-vantage-point validation** for all security-critical DNS-dependent operations (certificate issuance, email authentication), and (5) **DNS-aware application security models** that treat DNS resolution as an untrusted input rather than a ground-truth oracle. Until these structural changes are universally adopted, the mutation space documented in this taxonomy will continue to expand.
-
----
-
 ## References
 
 - USENIX Security 2024: "A Flushing Attack on the DNS Cache" — DNS CacheFlush attack research
@@ -423,5 +407,3 @@ A comprehensive solution would require: (1) **universal cryptographic authentica
 - SEC Consult: "Melting the DNS Iceberg: Taking over your infrastructure Kaminsky style" (2022) — Revisiting Kaminsky attacks against modern DNS implementations with novel mitigation bypass
 
 ---
-
-*This document was created for defensive security research and vulnerability understanding purposes.*

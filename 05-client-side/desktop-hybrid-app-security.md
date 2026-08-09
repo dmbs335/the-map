@@ -1,12 +1,11 @@
 # Desktop Hybrid App Security — Mutation/Variation Taxonomy
 
 ---
-
 ## Classification Structure
 
 Desktop hybrid applications embed a web rendering engine (Chromium, system WebView) alongside a native runtime (Node.js, Rust, C++) to deliver cross-platform desktop experiences built with web technologies. This architectural duality — a **privileged native layer** coexisting with an **unprivileged web layer** inside a single process tree — creates a unique and expansive attack surface that neither pure-web nor pure-native applications exhibit.
 
-The taxonomy below classifies every known mutation by **what structural component is targeted** (Axis 1), cross-referenced against the **type of security boundary violated** (Axis 2) and the **weaponization scenario** (Axis 3).
+The taxonomy below groups recurring mutation patterns by **targeted structural component** (Axis 1), **violated security boundary** (Axis 2), and **weaponization scenario** (Axis 3).
 
 ### Axis 1 — Mutation Target (Primary Structure)
 
@@ -389,34 +388,6 @@ Platform impact varies: macOS and Ubuntu are fully vulnerable because their file
 
 ---
 
-## Summary: Core Principles
-
-### The Fundamental Architectural Tension
-
-Desktop hybrid app security is defined by a single architectural contradiction: **a privilege-rich native runtime must safely coexist with an untrusted web rendering context within the same process tree**. Every vulnerability in this taxonomy traces back to a failure at this fundamental boundary — whether through direct privilege escalation (IPC abuse, preload exposure), indirect boundary erosion (V8 exploits, sandbox escape), or integrity violations (ASAR tampering, update hijacking).
-
-### Why Incremental Fixes Fail
-
-The hybrid architecture creates a **compound attack surface** that cannot be addressed by fixing any single layer:
-
-1. **Web vulnerabilities gain native impact**: An XSS that would be session-scoped in a browser becomes OS-level RCE in an Electron app with weak isolation.
-2. **Patch coordination failure**: Security depends on three independent update cycles — the framework (Electron/Tauri), the embedded engine (Chromium), and the application itself. A patch in any one layer is useless until all three converge.
-3. **Permission inheritance**: OS-granted permissions (TCC, entitlements, filesystem access) are attached to the process, not to the code executing within it. Injected code inherits every permission the legitimate application was granted.
-4. **Supply chain amplification**: A single compromised npm package can propagate through the dependency tree into thousands of desktop applications, each granting the malicious code full native access.
-
-### Structural Solutions
-
-True mitigation requires **defense in depth across all layers simultaneously**:
-
-- **Minimal privilege surface**: Disable all unnecessary Electron fuses, use Tauri's capability system at maximum granularity, never expose raw IPC or Node.js APIs through the bridge.
-- **Aggressive patching**: Automated CI/CD pipelines that rebuild applications within hours of upstream Chromium security releases, not weeks or months.
-- **Integrity validation**: ASAR integrity checking, code signing with proper scope, and signed updates with certificate pinning and version monotonicity.
-- **Architecture evolution**: Tauri's model (Rust backend, system WebView, compile-time capabilities) represents a structural improvement over Electron's model (bundled Node.js, bundled Chromium, runtime configuration) — but introduces its own trust boundary challenges as the ecosystem matures.
-
-The most dangerous misconception in desktop hybrid app security is that **desktop equals trusted**. Users and developers alike assume that desktop applications operate in a higher-trust environment than web applications. In reality, the hybrid architecture combines the attack surface of the web with the privilege level of native code — creating a threat model that demands vigilance at every layer of the stack.
-
----
-
 ## References
 
 - [Electron Security Documentation](https://www.electronjs.org/docs/latest/tutorial/security)
@@ -444,7 +415,3 @@ The most dangerous misconception in desktop hybrid app security is that **deskto
 - [Microsoft — Develop Secure WebView2 Apps](https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/security)
 - "ElectroVolt — Pwning Popular Desktop Apps" (2022) — Systematic Electron exploitation techniques demonstrated against popular desktop applications
 - [Gareth Heyes (PortSwigger Research) — "Drag and Pwnd: Leverage ASCII characters to exploit VS Code" (2025)](https://portswigger.net/research/drag-and-pwnd-leverage-ascii-characters-to-exploit-vs-code)
-
----
-
-*This document was created for defensive security research and vulnerability understanding purposes.*

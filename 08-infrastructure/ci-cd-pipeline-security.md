@@ -1,6 +1,6 @@
 # CI/CD Pipeline Security Mutation Taxonomy
 
-**A Comprehensive Classification of Attack Vectors Across the Continuous Integration and Continuous Deployment Lifecycle**
+**Attack Vectors Across the Continuous Integration and Deployment Lifecycle**
 
 ---
 
@@ -414,52 +414,6 @@ Real-world incidents demonstrating taxonomy categories.
 
 ---
 
-## Summary: Core Principles
-
-### The Fundamental Problem
-
-CI/CD pipelines sit at the intersection of **trust, automation, and access**. They are inherently privileged — holding secrets, deploying to production, and executing untrusted code from pull requests. This creates a structural vulnerability: *any mechanism that allows external input to influence pipeline behavior becomes an attack vector*.
-
-The core issue is the **collapsing of trust boundaries**. Modern development workflows prioritize velocity over security, leading to:
-
-1. **Configuration as Code** → Attackers can modify execution logic via pull requests
-2. **Automated Trust** → Pipelines trust repository content, dependencies, and third-party actions by default
-3. **Credential Proliferation** → Secrets must be accessible to automation, creating exposure risk
-4. **Shared Infrastructure** → Runners, caches, and registries used across repositories create lateral movement opportunities
-
-### Why Incremental Fixes Fail
-
-Organizations applying point solutions face recurring compromises because:
-
-- **Secret scanning** doesn't prevent runtime exfiltration or memory scraping
-- **Branch protection** is bypassed via GitHub Actions tokens or PPE
-- **Dependency scanning** misses supply chain attacks (dependency confusion, malicious updates to clean packages)
-- **SBOM generation** occurs too late or from compromised build environments
-- **Access controls** are circumvented via privilege escalation (OIDC, token abuse)
-
-Each defensive control operates in isolation, while attackers chain mutations across **multiple layers** (§1 configuration + §3 secrets + §7 runner = full compromise).
-
-### The Structural Solution
-
-Effective CI/CD security requires **defense in depth** with **least privilege** and **zero trust** principles:
-
-1. **Immutable Infrastructure**: Ephemeral runners destroyed after each job (preventing §7-1 persistence)
-2. **Pipeline Isolation**: Separate pipelines for untrusted code (forks, PRs) from production deployments
-3. **Just-In-Time Secrets**: OIDC federation with short-lived tokens, never long-lived credentials (mitigates §3-1, §3-3)
-4. **Artifact Signing & Verification**: Cryptographic verification at every stage (defeats §6-1, §6-2)
-5. **Dependency Pinning**: Lock files with hash verification, vendored dependencies (blocks §4-1, §4-2)
-6. **Configuration Review**: All workflow changes require human approval from CODEOWNERS (prevents §1-1, §1-3)
-7. **Network Segmentation**: Egress filtering on runners, monitor outbound connections (detects §3-1, §7-3)
-8. **Expression Sandboxing**: Never interpolate untrusted data into shell or expression contexts (eliminates §8-2)
-9. **OWASP CICD-SEC Alignment**: Systematically address all 10 OWASP CI/CD security risks
-10. **Supply Chain Transparency**: SBOM generation from trusted build systems, provenance attestation (SLSA framework)
-
-**The only sustainable defense is architectural**: treating CI/CD as a security-critical system with the same rigor applied to production infrastructure. Incremental tooling is necessary but insufficient — systemic change requires rethinking how code flows from commit to deployment.
-
-The 2024-2025 attack wave (Shai-Hulud, tj-actions, Ultralytics) demonstrates that **CI/CD is now the primary target** for supply chain compromise. Organizations that fail to adopt zero-trust CI/CD architectures will face repeated, escalating attacks.
-
----
-
 ## References
 
 ### Academic & Conference Research
@@ -500,7 +454,6 @@ The 2024-2025 attack wave (Shai-Hulud, tj-actions, Ultralytics) demonstrates tha
 
 ---
 
-*This document was created for defensive security research, vulnerability understanding, and secure CI/CD architecture design purposes. The techniques described are documented to enable defenders to understand the threat landscape and implement appropriate controls.*
 
 **Last Updated**: February 2026
 **Coverage Period**: Primarily 2024-2025 incidents and research

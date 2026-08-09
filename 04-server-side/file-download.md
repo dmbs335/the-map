@@ -321,18 +321,6 @@ HTTP Range headers enable partial content retrieval, which can be abused in spec
 
 ---
 
-## Summary: Core Principles
-
-The fundamental property enabling file download vulnerabilities is the **mismatch between the file delivery system's trust model and actual access boundaries**. Applications must serve files to authorized users, which requires binding every file reference to a verified identity and permission scope. When this binding is absent, weak, or inconsistent across layers (application, infrastructure, cloud delegation), attackers gain unauthorized file access.
-
-Incremental fixes fail because file download systems involve **multiple architectural layers** that each independently make access decisions: the application validates parameters, the web server resolves file paths, the CDN caches responses, and the cloud storage enforces bucket policies. A fix at one layer often leaves gaps at another. For instance, securing the application-layer file parameter doesn't prevent Nginx alias misconfiguration from exposing the same files, and rotating application credentials doesn't invalidate pre-signed URLs generated with long-lived cloud IAM roles.
-
-A structural solution requires **defense in depth across all layers**: application-level authorization bound to every file reference (not just the UI), infrastructure-level deny rules for sensitive file patterns (`.git`, `.env`, backup extensions), cloud-level least-privilege signing with short TTLs and audit logging, and response-level headers (`X-Content-Type-Options`, `Content-Disposition` sanitization) that prevent client-side exploitation. The file delivery system should treat the filename, path, and identifier as **untrusted input at every layer**, applying the principle of least privilege not just to who can download, but to what each layer can serve.
-
----
-
-*This document was created for defensive security research and vulnerability understanding purposes.*
-
 ## References
 
 - OWASP Web Security Testing Guide v4.2: Test for File Download (OTG-BUSLOGIC)

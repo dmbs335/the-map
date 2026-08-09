@@ -389,26 +389,6 @@ Attacks exploiting the gap between URL validation time and URL fetch time, parti
 
 ---
 
-## Summary: Core Principles
-
-### Why URL Confusion Exists
-
-The fundamental root cause is **specification fragmentation**. There is no single, universally-adopted URL specification. RFC 3986 (2005) defines URI syntax but leaves many edge cases implementation-defined. The WHATWG URL Standard (living document, browser-focused) deliberately deviates from RFC 3986 in ways designed for browser compatibility but that create security-relevant discrepancies with server-side parsers. Meanwhile, each programming language, framework, and HTTP server implements its own parser with its own quirks, bugs, and legacy behavior. The result: for any non-trivial URL, different components in a request pipeline will disagree about its meaning.
-
-### Why Incremental Patches Fail
-
-Each CVE patching a specific parsing quirk addresses one leaf of the mutation tree while leaving the structural problem intact. There are at least **5 layers where parsing can differ** (client, CDN/cache, WAF, reverse proxy, application framework), each with multiple implementations, and the combinatorial space of discrepancies grows multiplicatively. Furthermore, new frameworks and parsers are continuously introduced, and existing parsers update their behavior, creating new differentials. The attack surface is not a fixed set of bugs — it is an emergent property of compositional systems.
-
-### Structural Solutions
-
-True mitigation requires: (1) **parsing canonicalization** — using a single URL parser at the outermost edge and passing only the parsed, canonicalized components downstream; (2) **resolution-based validation** — validating the resolved IP address after DNS lookup, immediately before the connection, not the hostname string; (3) **architectural alignment** — ensuring that cache/proxy/WAF/origin all use the same URL normalization rules, or explicitly accepting that they don't and restricting cached content accordingly; and (4) **defense in depth at the network layer** — blocking private IP ranges at the network/firewall level rather than relying on application-level URL validation.
-
----
-
-*This document was created for defensive security research and vulnerability understanding purposes.*
-
----
-
 ## References
 
 ### Specifications
