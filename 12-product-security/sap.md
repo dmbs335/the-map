@@ -5,7 +5,6 @@
 
 SAP's enterprise platform presents one of the most complex attack surfaces in the software industry. Unlike web-only applications, SAP exposes a multi-layered architecture spanning proprietary binary protocols (RFC, Diag, Router), a custom HTTP stack (ICM), application servers in two distinct technology stacks (ABAP and Java), an in-memory database (HANA), and an extensive web frontend layer (Fiori/UI5, OData). Each layer introduces its own class of vulnerability mutations, and many of the most severe exploit chains combine weaknesses across these layers.
 
-This taxonomy classifies SAP vulnerability mutations along three axes:
 
 - **Axis 1 — Mutation Target (Primary)**: The structural component or protocol being attacked. This axis organizes the main body of the document into ten top-level categories (§1–§10), each targeting a different architectural surface of the SAP platform.
 

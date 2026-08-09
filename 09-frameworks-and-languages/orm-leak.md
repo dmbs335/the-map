@@ -5,7 +5,6 @@
 
 ORM (Object-Relational Mapping) Leak vulnerabilities arise when the abstraction layer between application code and the database is improperly exposed to user-controlled input, enabling attackers to query, filter, or extract data that the application never intended to reveal. Unlike traditional SQL injection—which targets raw SQL string construction—ORM Leak exploits the **semantic features** of the ORM itself: its query-building DSL, relational traversal syntax, operator vocabulary, and automatic data binding mechanisms.
 
-This taxonomy organizes ORM Leak mutations across three axes:
 
 - **Axis 1 (Mutation Target)**: The structural component of the ORM interaction being abused — what part of the ORM's interface is manipulated by the attacker. This is the primary axis and structures the main body of the document (§1–§8).
 

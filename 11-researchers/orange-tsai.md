@@ -8,7 +8,7 @@
 
 ## Classification Structure
 
-Orange Tsai's research reveals a **unified exploitation philosophy**: finding and exploiting **inconsistencies** across system boundaries—where Component A and Component B interpret the same input differently. These discrepancies emerge from parser differentials, semantic ambiguities, encoding mismatches, and execution context boundaries.
+Orange Tsai's work repeatedly targets disagreements between components that parse or interpret the same input, including URL, path, encoding, and execution-context differences.
 
 ### Three-Axis Classification Framework
 
@@ -539,7 +539,7 @@ Affected: MobileIron Core ≤ 10.6, Connector ≤ 10.6, Sentry ≤ 9.8
 Recognition: PortSwigger Top 10 Web Hacking Techniques 2020 nominee
 ```
 
-**Significance**: Demonstrates that enterprise perimeter security appliances (VPN, MDM, gateway) share a common architectural weakness — pre-authentication attack surface with high-privilege execution context. The same chaining pattern (path traversal → auth bypass → deserialization) recurs across MobileIron, Citrix, and similar enterprise products.
+**Pattern**: Enterprise VPN, MDM, and gateway products can expose pre-authentication code paths in privileged processes. The disclosed chains combine primitives such as path traversal, authentication bypass, and deserialization.
 
 ---
 

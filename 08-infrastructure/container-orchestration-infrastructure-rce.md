@@ -7,7 +7,6 @@
 
 Container and orchestration infrastructure creates a layered security boundary between workloads and the host system. At the lowest level, Linux kernel primitives (namespaces, cgroups, seccomp, LSMs) isolate processes. Container runtimes (runc, containerd, CRI-O) manage these primitives. Orchestration platforms (Kubernetes) layer RBAC, admission control, and network policy atop the runtime. Cloud providers (EKS, AKS, GKE) add managed control planes and identity services. Each layer introduces its own RCE surfaces — a vulnerability at any layer can cascade upward or downward, and attack chains routinely span multiple layers.
 
-This taxonomy organizes the attack surface along three axes:
 
 **Axis 1 — Structural Target (Primary, §1–§9):** The infrastructure component being exploited to achieve code execution. This axis structures the main body of the document: container runtime internals, kernel interfaces, privileged configurations, orchestration control plane, admission/extension points, build systems, image supply chain, network/service mesh fabric, and cloud-provider integration.
 

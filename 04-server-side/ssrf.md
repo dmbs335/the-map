@@ -6,7 +6,6 @@
 
 ## Classification Structure
 
-This taxonomy classifies SSRF mutations along three orthogonal axes:
 
 **Axis 1 — Mutation Target (Primary Structure):** The structural component of the URL, request, or resolution process being manipulated. This axis organizes the main body of the document into eight top-level categories (§1–§8), each targeting a distinct component of the request lifecycle — from IP representation through DNS resolution to protocol handlers.
 
@@ -25,7 +24,7 @@ This taxonomy classifies SSRF mutations along three orthogonal axes:
 
 ### Fundamental Mechanism
 
-SSRF exploits a trust boundary violation: the server-side application acts as a *proxy* for attacker-controlled input, making requests with the server's network identity and privileges. Every mutation in this taxonomy targets the gap between **what the validator sees** and **what the requester fetches**.
+SSRF occurs when a server makes requests from attacker-influenced input using the server's network identity and privileges. Validation and request execution may disagree about the final scheme, host, address, or redirect destination.
 
 ---
 
@@ -479,8 +478,6 @@ Effective SSRF mitigation requires defense-in-depth across multiple layers:
 - **Cloud metadata hardening:** Enforce IMDSv2 (AWS), require custom headers (Azure/GCP), and disable metadata service access where not needed.
 - **Protocol restriction:** Strip non-HTTP(S) schemes before any request. Disable gopher://, file://, dict://, and other protocols at the library level.
 - **Redirect control:** Do not follow redirects, or re-validate the destination after each redirect hop.
-
-The reported increase in SSRF attacks observed in 2024 (SonicWall, "2025 Cyber Threat Report", Feb 2025) — driven partly by AI-automated reconnaissance — underscores that this vulnerability class is accelerating, not diminishing. As applications increasingly integrate URL-accepting features (webhooks, AI agents, cloud APIs), the SSRF attack surface will continue to expand.
 
 ---
 

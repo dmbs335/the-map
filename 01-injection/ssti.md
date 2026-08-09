@@ -7,7 +7,6 @@
 
 ## Classification Structure
 
-This taxonomy organizes the SSTI attack surface along three orthogonal axes:
 
 **Axis 1 — Exploitation Mechanism** (Primary axis, structures the document): The fundamental technique by which an attacker escalates from template syntax injection to code execution. This axis answers *how* the template engine's design or host language is leveraged to execute arbitrary code. Categories range from direct host-language execution to complex multi-step chains involving object introspection, sandbox escapes, and compilation-phase pollution.
 

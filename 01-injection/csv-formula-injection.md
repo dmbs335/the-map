@@ -3,7 +3,7 @@
 ---
 ## Classification Structure
 
-CSV/Formula Injection exploits a fundamental design flaw in spreadsheet file formats: **the absence of separation between data and executable code**. When an application exports user-controlled input into a CSV, TSV, or spreadsheet file (XLSX, ODS) without neutralization, and that file is subsequently opened in a spreadsheet application, any cell beginning with certain trigger characters is interpreted as a formula rather than a literal string. This taxonomy organizes the entire attack surface into seven structural categories based on **what component of the injection chain is being mutated**.
+CSV/Formula Injection occurs when exported user input is interpreted as a spreadsheet formula instead of a literal cell value. The document groups variants by the stage at which input becomes executable: export, file format, formula syntax, application behavior, and delivery.
 
 **Axis 1 (Primary — Mutation Target)** structures the document by the specific element being exploited: trigger syntax, exfiltration channel, resource access method, obfuscation technique, application-specific behavior, server-side evaluation context, or document-level structure.
 

@@ -3,7 +3,6 @@
 ---
 ## Classification Structure
 
-This taxonomy organizes the entire attack surface of numeric and boundary logic vulnerabilities under three orthogonal axes. Every technique is classified by **what numeric property is mutated** (Axis 1), **what discrepancy the mutation creates** (Axis 2), and **in what deployment scenario the mutation becomes exploitable** (Axis 3).
 
 **Axis 1 (Mutation Target)** structures the main body of this document. It identifies the specific numeric property or operation being abused: integer arithmetic bounds, type representation, floating-point behavior, string-to-number parsing, boundary conditions, allocation sizing, business logic numerics, and concurrency windows on numeric state.
 

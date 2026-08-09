@@ -5,7 +5,6 @@
 
 UI Redressing (commonly known as clickjacking) encompasses all attacks that manipulate the visual presentation layer of a user interface to trick users into performing unintended actions. Unlike traditional web vulnerabilities that exploit server-side logic, UI redressing exploits the **trust gap between what the user perceives and what the system registers** as user intent.
 
-This taxonomy organizes the attack surface along three axes:
 
 - **Axis 1 — Interaction Vector (Primary):** The type of user interaction or perception being hijacked. This is the structural backbone of the document, as each category represents a fundamentally different mechanism for deceiving the user.
 - **Axis 2 — Defense Bypass Mechanism (Cross-cutting):** How the technique circumvents existing protections. This explains *why* each variant remains exploitable even as defenses evolve.

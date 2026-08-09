@@ -5,7 +5,6 @@
 
 Arbitrary Object Instantiation (AOI) is a vulnerability class in which an attacker controls — directly or indirectly — *which class is instantiated* and/or *what arguments are passed to its constructor*. The fundamental danger is not in any single "bad" class but in the meta-capability of selecting an arbitrary type at runtime, then leveraging the side-effects of its construction or subsequent method calls to achieve attacker-desired outcomes.
 
-This taxonomy organizes the entire attack surface along three orthogonal axes:
 
 | Axis | Question Answered | Role in Taxonomy |
 |------|-------------------|------------------|

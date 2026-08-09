@@ -3,7 +3,6 @@
 ---
 ## Classification Structure
 
-This taxonomy classifies the entire CORS attack surface along three orthogonal axes derived from systematic analysis of CVEs, bug bounty reports, academic research, and practitioner writeups.
 
 **Axis 1 — Mutation Target (Primary Axis):** The structural component of the CORS mechanism being misconfigured or exploited. This axis organizes the main body of the document into ten categories: Origin Validation Logic, Null Origin Handling, Wildcard & Credential Interaction, CORS Header Semantics, Preflight Mechanism, Browser Parser Differentials, Trust Boundary Escalation, Network Boundary & DNS, Cache Interaction, and Adjacent Protocol Exploitation.
 
@@ -22,7 +21,7 @@ This taxonomy classifies the entire CORS attack surface along three orthogonal a
 
 ### Fundamental Mechanism
 
-CORS operates as a **relaxation** of the Same-Origin Policy (SOP). The browser sends an `Origin` header; the server responds with `Access-Control-Allow-Origin` (ACAO) and optionally `Access-Control-Allow-Credentials` (ACAC). The browser enforces the policy client-side. This creates a fundamental tension: the **server decides** who can read its responses, but does so by parsing an attacker-influenced input (`Origin`). Every mutation in this taxonomy exploits some aspect of this trust delegation.
+CORS relaxes the Same-Origin Policy for approved origins. The browser sends an `Origin` header, the server returns `Access-Control-Allow-Origin` and optionally `Access-Control-Allow-Credentials`, and the browser decides whether script can read the response. Misconfigurations arise when the server validates or reflects the supplied origin too broadly.
 
 ---
 

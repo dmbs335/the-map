@@ -5,7 +5,6 @@
 
 LaTeX injection exploits the fundamental design of TeX as a **Turing-complete programming language** masquerading as a document typesetting system. Because TeX provides unrestricted file I/O, macro expansion, and — in many configurations — shell command execution, any system that compiles user-controlled LaTeX input inherits the full attack surface of an arbitrary code execution environment.
 
-This taxonomy organizes the mutation space along three axes:
 
 **Axis 1 — Mutation Target (Primary):** The structural primitive or engine feature being exploited. This determines *what mechanism* the attacker leverages. Categories include command execution primitives, file I/O operations, engine-specific features (LuaTeX, XeTeX), filter/sandbox evasion mechanisms, resource consumption vectors, and output channel manipulation.
 
@@ -23,7 +22,7 @@ This taxonomy organizes the mutation space along three axes:
 
 ### Foundational Mechanism
 
-TeX's security model was designed in 1978 for a single-user, local-compilation context. Three properties make the entire mutation space possible:
+TeX was designed for local document compilation. Three properties are relevant to injection:
 
 1. **Turing completeness**: TeX supports loops, conditionals, recursion, and macro expansion — sufficient to implement any algorithm, including exploit logic.
 2. **Unrestricted file I/O by default**: `\openin`, `\openout`, `\read`, `\write` operate on the host filesystem with the privileges of the compilation process.
@@ -438,7 +437,7 @@ The fundamental problem is that **TeX's Turing completeness makes any subset res
 
 ### The Structural Solution
 
-The only reliable defense is **defense in depth through isolation**:
+Effective isolation combines:
 
 1. **Container sandboxing**: Compile every document in an ephemeral, network-isolated container with minimal filesystem access. This is the approach used by well-secured services like Overleaf (Docker) and Papeeria (per-compilation containers).
 2. **Resource limits**: Enforce CPU time, memory, and disk quotas to mitigate denial of service.

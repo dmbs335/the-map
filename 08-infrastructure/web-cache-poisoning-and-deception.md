@@ -14,7 +14,6 @@ WCD is not limited to authenticated pages or personal information. Public, unaut
 
 ### Axis 1 — Mutation Target (Primary Structure)
 
-The taxonomy is organized by **what structural component of the HTTP request the attacker manipulates** to create the cache discrepancy. There are ten top-level categories:
 
 | § | Mutation Target | Core Mechanism |
 |---|----------------|----------------|

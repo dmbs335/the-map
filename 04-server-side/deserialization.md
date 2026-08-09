@@ -6,7 +6,6 @@
 
 Deserialization vulnerabilities arise when an application reconstructs objects from serialized data without adequate validation, allowing attackers to inject malicious objects, trigger unintended code paths, or corrupt application state. The attack surface is vast because serialization is a fundamental mechanism across virtually every programming language and framework — from Java's `ObjectInputStream` to Python's `pickle`, PHP's `unserialize()`, .NET's `BinaryFormatter`, Ruby's `Marshal`, and modern formats like React's Flight protocol.
 
-This taxonomy organizes the entire deserialization attack surface along three axes:
 
 - **Axis 1 (Mutation Target):** *What structural component of the serialized data or deserialization process is being manipulated?* This is the primary organizational axis — it defines the top-level sections (§1–§9).
 - **Axis 2 (Exploitation Effect):** *What security-relevant outcome does the mutation produce?* Cross-cutting effects include: **Remote Code Execution (RCE)**, **Type Confusion**, **Property/Prototype Injection**, **Authentication Bypass**, **Denial of Service (DoS)**, **Information Disclosure**, and **Privilege Escalation**.

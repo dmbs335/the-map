@@ -6,7 +6,6 @@
 
 Node.js is a server-side JavaScript runtime built on V8 with an event-driven, non-blocking I/O model. Its founding design principle — "make server-side JavaScript as easy as client-side JavaScript" — systematically creates security gaps across every core module. Defaults optimize for developer convenience over safety, deprecated insecure APIs persist indefinitely for backward compatibility, and the developer must opt into security rather than opt out of danger. The single-threaded event loop, the implicit full-trust module system, and the npm supply chain compound these structural issues into an attack surface far larger than any single vulnerability class.
 
-This taxonomy organizes the complete Node.js security surface under **Axis 1: Mutation Target** — the structural component being attacked. Eleven top-level categories correspond to the principal attack surfaces: sandbox escape, command execution, URL parsing, path traversal, file system, HTTP protocol, cryptography, memory, module/supply chain, event loop, and the permission model.
 
 **Axis 2: Design Pattern** provides the cross-cutting explanation for *why* each mutation works. The following meta-patterns recur throughout the taxonomy:
 

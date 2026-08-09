@@ -5,7 +5,6 @@
 
 Mutation XSS (mXSS) is a class of cross-site scripting that exploits **discrepancies between how HTML sanitizers parse markup and how browsers reconstruct the DOM**. Unlike traditional XSS where the payload is directly malicious, mXSS payloads appear benign during sanitization but become dangerous after the browser's HTML parser mutates the DOM structure during rendering. The fundamental principle underlying all mXSS is **parser non-idempotency**: `P(P(D)) != P(D)` — parsing an HTML string, serializing the result, and re-parsing does not guarantee the same DOM tree.
 
-This taxonomy organizes the mXSS attack surface across three orthogonal axes:
 
 **Axis 1 — Mutation Mechanism (Primary Axis):** The structural HTML parsing behavior that causes the DOM to differ between sanitization and rendering. This determines *how* the mutation occurs and is the single most important factor in understanding and discovering mXSS variants.
 

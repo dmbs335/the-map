@@ -4,7 +4,7 @@
 
 ## Classification Structure
 
-Expression Language (EL) Injection occurs when user-controlled data flows into an expression interpreter without adequate sanitization, enabling attackers to manipulate the intended execution flow. This taxonomy organizes EL injection mutations across three orthogonal axes:
+Expression Language (EL) Injection occurs when user-controlled data reaches an expression interpreter as executable syntax rather than data.
 
 **Axis 1: Injection Vector** — The structural component or language feature being exploited (§1-§8)
 **Axis 2: Bypass Mechanism** — The defensive evasion technique employed

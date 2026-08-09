@@ -6,9 +6,8 @@
 
 ## Classification Structure
 
-URL Confusion encompasses all attacks that exploit **discrepancies in how different components parse, interpret, or normalize URLs**. The fundamental insight is that there is no single "URL parser" — browsers, proxies, caches, WAFs, application frameworks, and standard libraries each implement their own parsing logic, often referencing different specifications (RFC 3986, WHATWG URL Standard, or ad-hoc behavior). When two components in a request pipeline disagree about the meaning of a URL, a security boundary is violated.
+URL confusion exploits discrepancies in how components parse, interpret, or normalize URLs. Browsers, proxies, caches, WAFs, frameworks, and standard libraries may follow RFC 3986, the WHATWG URL Standard, or implementation-specific behavior. A security issue arises when a validation or routing decision uses a different interpretation from the component that later consumes the URL.
 
-This taxonomy is organized along three axes:
 
 **Axis 1 — Mutation Target (Primary Structure):** The structural component of the URL being manipulated. This is the main organizing principle — each top-level section (§1–§9) targets a different URL component.
 

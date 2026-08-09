@@ -4,7 +4,6 @@
 
 ## Classification Structure
 
-This document classifies the entire SQL Injection attack surface along **three orthogonal axes**. Every technique can be precisely located as a combination of these three axes.
 
 ### Axis 1: Mutation Target — WHAT is mutated
 Which **structural component** of the SQL message/request is modified to achieve injection. This is the **primary axis** of this document, organized into 8 top-level categories (§1–§8).

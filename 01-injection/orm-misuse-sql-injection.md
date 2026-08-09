@@ -5,7 +5,6 @@
 
 Object-Relational Mapping (ORM) frameworks — Django ORM, SQLAlchemy, ActiveRecord (Rails), Hibernate/JPA, Sequelize, TypeORM, Prisma, Entity Framework, Eloquent (Laravel), Doctrine (PHP), GORM (Go), and others — promise to abstract SQL and eliminate injection. In practice, every major ORM ships functions, methods, or API surface that, when fed attacker-controlled input, collapses back into exploitable SQL injection. The vulnerability is never "the ORM is broken" but rather "the ORM exposes unsafe surface that developers assume is safe."
 
-This taxonomy classifies the full mutation space of ORM-mediated SQL injection along three orthogonal axes:
 
 **Axis 1 — Injection Surface (WHAT is the entry point):** The specific ORM API, method, or structural feature through which attacker-controlled input enters the query pipeline. This is the primary axis and structures the body of this document.
 

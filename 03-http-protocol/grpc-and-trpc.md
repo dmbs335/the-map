@@ -8,7 +8,6 @@
 
 ## Classification Structure
 
-This taxonomy organizes gRPC and tRPC attack vectors across three axes:
 
 **Axis 1 (Mutation Target)** — The structural component being modified: HTTP/2 protocol layer, Protobuf serialization, metadata/headers, service discovery, authentication/authorization, transport/connection, type system/validation, and gateway/service mesh layer. This axis structures the main body of the document (§1-§8).
 

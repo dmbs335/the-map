@@ -4,7 +4,7 @@
 
 ## Classification Structure
 
-Browser extensions operate in a unique security boundary between web applications and the browser platform itself, with elevated privileges that enable both legitimate functionality and sophisticated attacks. This taxonomy organizes extension security vulnerabilities along three fundamental axes:
+Browser extensions bridge web content and browser APIs. Their permissions, execution contexts, and message-passing boundaries determine the available attack paths.
 
 **Axis 1 (Primary Structure)** categorizes attacks by the **architectural component being exploited** — permission models, content scripts, extension APIs, communication channels, lifecycle processes, data channels, user interfaces, and native integrations. Each category represents a distinct attack surface within the extension architecture.
 

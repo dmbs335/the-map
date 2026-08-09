@@ -6,7 +6,6 @@
 
 ## Classification Structure
 
-This taxonomy organizes CI/CD security vulnerabilities across **three orthogonal axes**:
 
 **Axis 1 (Primary): Attack Surface Component** — The structural layer of the CI/CD pipeline being targeted. This forms the main organizational structure of the document (§1–§8).
 

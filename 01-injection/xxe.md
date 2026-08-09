@@ -5,9 +5,8 @@
 
 XXE vulnerabilities arise from the fundamental design of XML: the language specification permits documents to reference external resources via entity declarations in Document Type Definitions (DTDs). When an XML parser processes untrusted input with entity resolution enabled, attackers can leverage this mechanism to read local files, perform server-side request forgery, exfiltrate data, or cause denial of service.
 
-This taxonomy organizes the XXE attack surface along three axes. **Axis 1 (Mutation Target)** classifies techniques by the structural component of XML being exploited — entity types, DTD loading mechanisms, protocol handlers, carrier formats, encoding layers, parser-specific behaviors, and entity expansion structures. **Axis 2 (Exploitation Channel)** describes how the attacker retrieves data or achieves impact — direct in-band response, out-of-band exfiltration, error-based leakage, SSRF pivoting, or resource exhaustion. **Axis 3 (Attack Scenario)** maps techniques to real-world impact contexts.
 
-The root cause is singular: XML parsers that resolve entities by default, combined with the specification's allowance of external resource references. Every mutation in this taxonomy exploits a variation of this fundamental mechanism.
+XXE requires an XML processing path that accepts entity declarations and resolves attacker-controlled external references. Parser defaults and supported protocols determine the resulting file, network, or denial-of-service impact.
 
 ### Axis 2 Summary: Exploitation Channels
 
@@ -124,7 +123,7 @@ When outbound connections are blocked, attackers can repurpose DTD files already
 
 ## §3. Protocol Handler & URI Scheme Mutations
 
-The URI scheme in `SYSTEM` identifiers determines what resources the parser can access. Different XML parsers support different protocols, creating a rich attack surface beyond simple `file://` reads.
+The URI scheme in `SYSTEM` identifiers determines what resources the parser can access. Supported schemes vary by parser and can include protocol handlers beyond `file://` reads.
 
 ### §3-1. File System Protocols
 

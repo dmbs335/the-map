@@ -6,7 +6,6 @@
 
 Business logic vulnerabilities arise not from implementation-level coding errors (like SQL injection or XSS) but from **design flaws in how applications model, enforce, and transition through business rules**. They exploit the gap between what a system *technically allows* and what it *intends to permit*. Because these flaws operate within the application's legitimate processing flow, they are invisible to traditional scanners (SAST, DAST, WAF) and require semantic understanding of the business domain to detect.
 
-This taxonomy organizes the entire attack surface of business logic vulnerabilities across three axes:
 
 - **Axis 1 — Mutation Target (Primary)**: The structural component of the application's business logic being manipulated. This axis forms the main body of the document, with 10 top-level categories covering every class of business logic abuse.
 - **Axis 2 — Exploitation Mechanism (Cross-Cutting)**: The fundamental *how* — the type of assumption violation or trust boundary breach that makes the mutation work. These mechanisms recur across multiple target categories.

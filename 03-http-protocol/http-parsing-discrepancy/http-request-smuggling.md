@@ -10,7 +10,7 @@
 
 
 
-HTTP Request Smuggling (HRS) exploits parsing discrepancies between two or more HTTP agents (proxy, CDN, WAF, origin server) to inject hidden requests into a shared connection. This taxonomy classifies the entire mutation space along three axes.
+HTTP Request Smuggling (HRS) exploits parsing discrepancies between two or more HTTP agents (proxy, CDN, WAF, origin server) to inject hidden requests into a shared connection.
 
 - **Axis 1 — Mutation Target** (primary): *What structural component of the HTTP message is mutated?* This axis organizes the main body of the document (§1–§8).
 - **Axis 2 — Discrepancy Type** (cross-cutting): *What kind of interpretation mismatch does the mutation create?* Every mutation must produce at least one discrepancy type.
@@ -639,7 +639,7 @@ A specification-driven approach: using NLP to extract MUST/SHOULD/MAY rules from
 | **Prioritization gap** | When conflicting information exists (duplicate headers, CL+TE), implementations apply different priority rules | First-wins vs last-wins for duplicate CL; TE-takes-precedence vs CL-takes-precedence |
 | **Tolerance gap** | Implementations differ on whether to accept, normalize, or reject malformed input | Obsolete line folding accepted by some, rejected by others; bare LF/CR handling; empty CL header values |
 
-The key insight: RFC language ambiguity (SHOULD vs MUST, undefined edge cases, silent on certain malformation behaviors) is itself a *systematic source* of parser divergence. Every SHOULD that lacks a clear fallback behavior, and every edge case the RFC is silent on, creates a potential divergence point across implementations.
+Parser divergence often appears where an RFC permits multiple behaviors or leaves malformed input unspecified. Implementations can make different choices for `SHOULD` requirements, fallback handling, and undefined edge cases.
 
 
 

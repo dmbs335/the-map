@@ -3,7 +3,6 @@
 ---
 ## Classification Structure
 
-This taxonomy classifies censorship bypass techniques along three orthogonal axes, derived from systematic analysis of academic literature (USENIX Security, NDSS, CCS, FOCI/PETS), practitioner tools, and real-world deployment data across China, Russia, Iran, and Kazakhstan.
 
 ### Axis 1 — Mutation Target (Primary Axis)
 
@@ -199,7 +198,7 @@ The HTTP `Host` header is the primary target for HTTP-layer censors. Mutations a
 
 ### §3-2. HTTP Request Smuggling for Censorship Evasion
 
-Repurposing the web security vulnerability of HTTP Request Smuggling (HRS) as a censorship circumvention technique. The key insight: construct ambiguously defined HTTP requests that split differently between the censor's parser and the endpoint.
+HTTP Request Smuggling techniques can also evade censorship when the censor and endpoint split an ambiguous request at different boundaries.
 
 | Subtype | Mechanism | Key Condition | Discrepancy |
 |---------|-----------|---------------|-------------|

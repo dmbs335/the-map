@@ -5,7 +5,6 @@
 
 Email smuggling and parser abuse encompass a broad family of attacks that exploit **parsing differentials** across the email delivery and rendering pipeline. An email traverses multiple independent components — SMTP MTAs, authentication engines (SPF/DKIM/DMARC), MIME parsers, security gateways, and Mail User Agents (MUAs) — each of which implements its own parser for addresses, headers, bodies, and protocol commands. When any two adjacent components disagree on how to interpret the same byte sequence, an attacker can smuggle content, spoof identity, evade detection, or bypass access controls.
 
-This taxonomy is organized along three orthogonal axes:
 
 **Axis 1 — Mutation Target (Primary):** The structural component of the email ecosystem being mutated. This axis forms the main body of the document, with eight top-level categories spanning SMTP protocol framing, email address syntax, authentication header semantics, MIME structure, message header fields, encoding layers, email client rendering, and cryptographic envelope integrity.
 
@@ -51,7 +50,7 @@ The core RFCs governing email are numerous and sometimes contradictory:
 - **RFC 2047** (Encoded-words in headers)
 - **RFC 7208** (SPF), **RFC 6376** (DKIM), **RFC 7489** (DMARC), **RFC 8617** (ARC)
 
-The sheer complexity and overlap of these specifications guarantees implementation divergence — the fundamental property that makes the entire mutation space possible.
+Overlapping email specifications leave implementations with different parsing and normalization behavior.
 
 ---
 

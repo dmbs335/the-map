@@ -23,7 +23,6 @@ This taxonomy covers the **injection mechanism into service-layer protocols** �
 
 ## Classification Structure
 
-This taxonomy organizes protocol-level injection along three axes:
 
 **Axis 1 — Injection Mechanism (Primary, §1–§6):** The structural technique by which commands or data are injected into the target protocol. This axis structures the main body of the document.
 

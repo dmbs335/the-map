@@ -5,7 +5,6 @@
 
 Web fuzzing is the systematic, automated process of generating and sending malformed, unexpected, or semi-valid inputs to web application interfaces to discover vulnerabilities, uncover hidden resources, and identify behavioral anomalies. Unlike fuzzing of binary programs, web fuzzing must contend with highly structured input formats (HTTP requests, JSON, XML, multipart forms), stateful server-side logic (sessions, databases, authentication flows), and multi-layered architectures (WAFs, proxies, CDNs, application frameworks) that each parse and interpret inputs differently.
 
-This taxonomy organizes the web fuzzing attack surface along three orthogonal axes:
 
 **Axis 1 — Fuzzing Target Surface (Primary Axis):** What structural component of the web application or HTTP transaction is being fuzzed. This determines the main body of the document and contains 10 top-level categories covering every layer from path discovery through protocol-level fuzzing.
 

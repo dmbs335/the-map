@@ -6,7 +6,6 @@
 
 WordPress powers a large share of the web, making it the single most targeted CMS platform. Its vulnerability surface is not monolithic — it spans core application logic, a vast plugin/theme ecosystem, REST/XML-RPC API layers, authentication/authorization subsystems, database interaction patterns, file system operations, and the supply chain itself. Recent vulnerability disclosures are dominated by plugin/theme issues, especially XSS, broken access control, and CSRF.
 
-This taxonomy classifies the WordPress attack surface along three orthogonal axes:
 
 - **Axis 1 — Mutation Target (WHAT is attacked)**: The structural component of the WordPress architecture being targeted — input handling, authentication logic, API endpoints, database queries, file operations, template rendering, cron/scheduling, caching layers, and the supply chain.
 - **Axis 2 — Exploitation Mechanism (HOW it's exploited)**: The fundamental technique class — injection (XSS, SQLi, SSTI, PHP Object Injection), access control bypass (missing capability checks, nonce bypass, IDOR), logic flaws (race conditions, TOCTOU, parameter tampering), and configuration/information disclosure.

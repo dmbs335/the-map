@@ -6,7 +6,6 @@ A comprehensive, generalized taxonomy of attack vectors, vulnerability classes, 
 
 ## Classification Structure
 
-This taxonomy organizes the Spring attack surface along three orthogonal axes:
 
 **Axis 1 — Attack Surface (Structural Target):** The specific Spring component, mechanism, or architectural layer being targeted. This is the primary organizational axis, defining the 11 top-level categories (§1–§11) of the document. Each category represents a distinct structural aspect of the Spring ecosystem that can be mutated or abused.
 

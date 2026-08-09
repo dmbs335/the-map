@@ -6,7 +6,6 @@
 
 Prototype Pollution is a vulnerability class rooted in JavaScript's prototype-based inheritance model, where an attacker injects arbitrary properties into an object's root prototype (`Object.prototype`) at runtime. Because all JavaScript objects inherit from `Object.prototype`, a single successful pollution contaminates every object in the application, enabling attacks from Denial of Service to Remote Code Execution.
 
-This taxonomy organizes the full mutation space along three axes:
 
 **Axis 1 — Pollution Vector (HOW the prototype is polluted):** The structural mechanism through which attacker-controlled data reaches the prototype chain. This is the primary axis and structures the main body of the document.
 

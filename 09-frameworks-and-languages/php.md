@@ -3,9 +3,7 @@
 ---
 ## Classification Structure
 
-This taxonomy catalogs vulnerabilities **intrinsic to the PHP language**, its runtime, standard library, and interpreter — as opposed to generic web application vulnerabilities (SQLi, XSS) that merely happen to be written in PHP. The focus is on weaknesses that arise from PHP's design decisions, type system, built-in functions, configuration model, and C-level implementation.
 
-The taxonomy is organized along three orthogonal axes:
 
 **Axis 1 — Mutation Target (Primary Structure)**: The structural component of the PHP ecosystem being exploited. This axis defines the ten top-level sections (§1–§10) and determines where each technique lives in the document. Categories include the type system, serialization engine, stream wrappers, dynamic evaluation surface, configuration/runtime sandbox, variable scope mechanics, input validation functions, interpreter memory safety, randomness/cryptography primitives, and XML processing.
 
@@ -486,9 +484,9 @@ libxml2 >= 2.9.0 (shipped with PHP 8.0+) disables external entity loading by def
 
 ### The Root Cause
 
-PHP's vulnerability surface is exceptionally broad because of a fundamental architectural tension: **PHP was designed for maximum developer convenience in a dynamically-typed, request-response web context, but this convenience systematically trades away security guarantees.** The loose type system (§1), automatic serialization/deserialization (§2), promiscuous stream wrapper architecture (§3), string-to-code evaluation (§4), and ini-file-based configuration model (§5) each independently create large attack surfaces. When combined — as they routinely are in real exploits — they produce chains of devastating effectiveness.
+PHP applications combine loose comparisons (§1), serialization (§2), stream wrappers (§3), dynamic evaluation (§4), and runtime configuration (§5). Security behavior therefore depends on both application code and enabled language features, and exploit chains often cross more than one of these areas.
 
-The type juggling problem (§1) illustrates this perfectly: PHP's `==` operator was designed so that `"42" == 42` would be `true`, saving developers from explicit casting. But this same design means `"0e123" == "0e456"` is also `true` (both are `0` in scientific notation), breaking hash comparisons. The convenience-security tradeoff is structural, not accidental.
+For example, PHP's `==` operator coerces `"42"` and `42` to equal values. It can also treat strings such as `"0e123"` and `"0e456"` as numeric zero, so loose comparison is unsafe for hashes and authentication tokens.
 
 ### Why Incremental Fixes Fail
 

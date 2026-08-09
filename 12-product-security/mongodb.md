@@ -3,7 +3,6 @@
 ---
 ## Classification Structure
 
-This taxonomy classifies the full attack surface of MongoDB-targeting injection and exploitation techniques under three orthogonal axes:
 
 **Axis 1 — Mutation Target (Primary):** *What structural component of the MongoDB query, protocol, or ecosystem is being manipulated?* This axis organizes the main body of the document into eight top-level categories, each targeting a distinct structural surface: query operators, server-side JavaScript execution contexts, aggregation pipeline stages, input delivery mechanisms, data extraction channels, wire protocol / BSON layer, ORM/ODM library layer, and identifier predictability.
 
@@ -391,9 +390,9 @@ An ObjectId's 24 hex characters encode:
 
 ## §12. Summary: Core Principles
 
-**The fundamental property that makes MongoDB injection possible is type confusion at the input boundary.** MongoDB queries are structured BSON documents with a rich operator vocabulary (`$ne`, `$gt`, `$regex`, `$where`, `$or`, etc.). When web applications accept user input as structured data (JSON bodies, URL-encoded bracket notation) and embed it directly into query documents without enforcing scalar types, every MongoDB query operator becomes an injection primitive. The injection surface is not string concatenation — it is uncontrolled type promotion from string to object.
+MongoDB injection commonly starts when an application expects a scalar but accepts an object from JSON or URL-encoded bracket notation. Embedding that object directly in a BSON query lets operators such as `$ne`, `$gt`, `$regex`, `$where`, or `$or` change query semantics.
 
-**Incremental fixes repeatedly fail because sanitization is structurally incomplete.** The Mongoose CVE-2024-53900 → CVE-2025-23061 chain illustrates this perfectly: the initial patch stripped `$where` from top-level properties, but nesting it inside `$or` bypassed the check entirely. Operator-stripping approaches face a combinatorial explosion — every new MongoDB operator or logical combinator creates a potential bypass path. Allowlist-based type enforcement (wrapping all user input in `$eq`, using typed schema validation) is structurally more robust than operator blacklisting.
+The initial Mongoose fix for CVE-2024-53900 removed top-level `$where`, but CVE-2025-23061 bypassed it by nesting `$where` inside `$or`. Enforcing expected scalar types or wrapping values in `$eq` avoids dependence on an operator blocklist.
 
 **The architectural solution requires three layers of defense.** First, enforce scalar types at the application boundary: never pass raw JSON objects from user input into query positions — wrap values in `$eq` or validate with schema libraries (Joi, Zod). Second, disable unnecessary attack surface: set `--noscripting` (note: `security.javascriptEnabled` defaults to `true` per official MongoDB docs — `--noscripting` must be explicitly configured), avoid `$where`/`mapReduce`/`$function`, restrict aggregation pipeline stages available to user-facing endpoints. Third, apply least privilege: MongoDB roles should prevent application accounts from accessing collections beyond their intended scope, and network access to port 27017 should be restricted to prevent protocol-level attacks like MongoBleed.
 

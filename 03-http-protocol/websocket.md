@@ -3,9 +3,8 @@
 ---
 ## Classification Structure
 
-This taxonomy classifies the entire WebSocket attack surface along three orthogonal axes. **Axis 1 (Mutation Target)** identifies the structural component of the WebSocket lifecycle being exploited — from the initial HTTP Upgrade handshake, through protocol framing, message payloads, connection state, proxy intermediaries, transport security, higher-level sub-protocols, and concurrent state management. This axis structures the main body of the document. **Axis 2 (Discrepancy Type)** captures the nature of the security violation each mutation creates: origin bypass, authentication bypass, parser differential, input validation failure, state desynchronization, or resource exhaustion. **Axis 3 (Attack Scenario)** maps each technique to the real-world impact context in which it becomes weaponizable.
 
-WebSocket's fundamental security characteristic is its **protocol duality**: it begins as HTTP (the handshake) and then transitions into a persistent, full-duplex, message-oriented TCP channel. This transition point — and the assumptions each layer makes about the other — is the root cause of the entire mutation space. HTTP security mechanisms (CORS, CSRF tokens, Content-Type enforcement) do not carry over to post-handshake WebSocket communication, while the WebSocket protocol itself (RFC 6455) delegates authentication and authorization entirely to the application layer. Every category in this taxonomy exploits some consequence of this fundamental design.
+A WebSocket connection begins with an HTTP handshake and then switches to a persistent message channel. CORS and HTTP content-type checks do not govern post-handshake messages, while RFC 6455 leaves authentication and authorization to the application. Security checks therefore need to cover both the upgrade request and each message operation.
 
 ### Axis 2: Cross-Cutting Discrepancy Types
 

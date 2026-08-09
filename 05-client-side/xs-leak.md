@@ -464,7 +464,7 @@ The ultimate solution requires **rethinking cross-origin interaction defaults**.
 
 XS-Leaks exploit **composition of innocuous features** (e.g., 431 errors + History API + ETag headers = §4-1 ETag-length leak). Defenders must secure every potential observable; attackers need only find one exploitable combination. As AutoLeak and The Leaky Web demonstrate, exhaustive enumeration reveals thousands of vectors even in hardened browsers.
 
-The research community's shift from finding individual leaks to **systematic discovery methodologies** (differential fuzzing, formal models, automated test generation) reveals the true scale: XS-Leaks are not a finite set of vulnerabilities to patch, but a **fundamental property of the web platform's composability**. Effective defense requires architectural change, not just incremental fixes.
+Differential fuzzing, formal models, and generated tests continue to find XS-Leaks because browsers expose many cross-origin observables. Defenses should reduce those observables and isolate sensitive resources instead of relying only on per-vector blocklists.
 
 ---
 

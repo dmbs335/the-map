@@ -5,7 +5,6 @@
 
 Command injection (CWE-77/CWE-78) exploits the boundary between data and executable instructions within operating system shell interpreters. The fundamental vulnerability arises when an application constructs OS commands by concatenating user-controlled input with command strings, then passes the result to a shell for interpretation. The shell's rich syntax—metacharacters, expansion mechanisms, quoting rules, and environment variable interpolation—provides an enormous mutation surface that attackers exploit to escape data context and enter command context.
 
-This taxonomy organizes the entire command injection attack surface along three axes:
 
 **Axis 1 — Injection Vector (Primary axis):** The structural component of the shell interaction being targeted. This determines the *mechanism* of injection—whether the attacker is exploiting command separators, shell expansion features, argument parsing, encoding transformations, language-specific API behaviors, or deployment pipeline contexts.
 

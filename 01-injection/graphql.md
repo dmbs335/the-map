@@ -4,9 +4,8 @@
 
 ## Classification Structure
 
-This taxonomy organizes the entire GraphQL security attack surface under three orthogonal axes derived from systematic analysis of CVEs, bug bounty reports, academic research, practitioner writeups, and offensive tooling.
 
-**Axis 1 — Attack Surface Target (Primary Axis):** The structural component of the GraphQL ecosystem being targeted. This forms the main body of the document, organizing techniques by *what* is attacked — from schema discovery mechanisms to transport-layer protocols. Ten top-level categories cover the full mutation space.
+**Axis 1 — Attack Surface Target (Primary Axis):** The structural component of the GraphQL ecosystem being targeted. Ten top-level categories cover schema discovery, resolver behavior, transport protocols, batching, authorization, and related targets.
 
 **Axis 2 — Exploitation Mechanism (Cross-Cutting Axis):** The nature of the exploitation technique that makes each attack work. A single attack surface target may be exploitable through multiple mechanisms, and a single mechanism may apply across multiple targets.
 

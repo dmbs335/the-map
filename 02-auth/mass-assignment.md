@@ -6,9 +6,8 @@
 
 Mass assignment is a class of vulnerabilities that arises when an application automatically binds user-controlled input to internal object properties without adequate restriction. The term originates from web frameworks that map HTTP parameters directly to model attributes — but the underlying problem is far more general. Wherever a system accepts structured input and uses it to populate an object graph, the risk of over-binding exists: the attacker supplies properties the developer never intended to be externally settable.
 
-This taxonomy organizes the full mutation space along three axes. **Axis 1 (Binding Target)** classifies techniques by *what structural component* of the object graph the attacker reaches. This is the primary organizational axis. **Axis 2 (Bypass Mechanism)** describes *how* the attacker circumvents existing protections — denylist gaps, allowlist misconfigurations, property chain traversals, format differentials. **Axis 3 (Impact Scenario)** maps techniques to the *consequences* achieved: privilege escalation, remote code execution, data tampering, or authentication bypass.
 
-The critical insight that connects "classical" mass assignment (overwriting `isAdmin`) to catastrophic outcomes like RCE is **nested property traversal**. When binding mechanisms follow object graphs recursively, a request parameter like `class.module.classLoader.resources.context.parent.pipeline.first.pattern` does not merely set a flat field — it navigates deep into the runtime's internal object structure. This realization, central to research on data binding insecurity in frameworks like Spring, Grails, and Struts, reframes mass assignment not as a simple input validation bug but as an **object graph navigation primitive** with a severity spectrum from attribute tampering to full system compromise.
+Recursive data binding can traverse nested object properties, so mass assignment is not limited to fields such as `isAdmin`. A parameter like `class.module.classLoader.resources.context.parent.pipeline.first.pattern` may reach framework or runtime objects; the reachable property graph determines whether the result is attribute tampering, denial of service, or code execution.
 
 ### Axis 2 Summary: Bypass Mechanism Types
 
@@ -153,7 +152,7 @@ Spring's `DataBinder` and `BeanWrapperImpl` use Java Bean introspection (`java.b
 | **WebDataBinder type coercion** | Spring's type conversion system (ConversionService) transforms string parameters into complex types, expanding the reachable type graph | Custom converters registered; enum/type parameters trigger object instantiation |
 | **Multipart binding expansion** | File upload parameters (`MultipartFile`) bound alongside regular parameters; metadata fields (`originalFilename`, `contentType`) may overwrite model attributes | Multipart request handler binding all parameters to a single model |
 
-The Spring fix for CVE-2022-22965 fundamentally changed `CachedIntrospectionResults` to use an allowlist approach: property descriptors on `Class` objects are now restricted to `name` and `customBooleanEditor` only, regardless of the actual accessor methods available. This architectural shift from "block known-bad" to "allow known-good" represents the framework's acknowledgment that the denylist strategy was structurally unsound. However, the fix is **framework-level** — custom `PropertyEditor` registrations or `ConversionService` configurations that create new property paths are not covered by the core fix.
+The Spring fix for CVE-2022-22965 changed `CachedIntrospectionResults` to allow only the `name` and `customBooleanEditor` descriptors on `Class` objects. Custom `PropertyEditor` or `ConversionService` configurations can still expose property paths that the core restriction does not cover.
 
 ### §3-2. Grails Data Binding
 
@@ -227,7 +226,7 @@ ASP.NET calls mass assignment "over-posting." The Model Binding system maps requ
 | **`[FromBody]` JSON binding differential** | `[FromBody]` uses `System.Text.Json` or `Newtonsoft.Json` deserializer, which binds all properties matching the JSON keys — ignoring `[Bind]` attribute restrictions that only apply to form/query binding | Action accepts JSON body; developer assumes `[Bind]` attribute applies uniformly across all content types |
 | **Missing ViewModel pattern** | Controller binds directly to EF Core entity instead of a dedicated ViewModel/DTO, exposing navigation properties, foreign keys, and computed fields | Entity model used as both persistence and binding target |
 
-The primary defense in ASP.NET is the **ViewModel pattern**: define a separate class containing only the properties that should be externally writable, bind to that, and map to the domain model explicitly. The `[BindNever]` attribute on model properties and `[Bind(Include = "...")]` on action parameters provide supplementary protection but are brittle — they must be maintained across every action that binds the model. Notably, `[FromBody]` JSON deserialization ignores `[Bind]` restrictions entirely, making the ViewModel pattern the only reliable defense for JSON API endpoints.
+For ASP.NET JSON APIs, bind to a dedicated ViewModel containing only externally writable fields and map it to the domain model explicitly. `[BindNever]` and `[Bind(Include = "...")]` can supplement model binding, but `[Bind]` restrictions do not apply to `[FromBody]` JSON deserialization.
 
 ### §3-8. Go Web Framework Struct Tag Binding
 

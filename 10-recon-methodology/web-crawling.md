@@ -4,7 +4,6 @@
 
 ## Classification Structure
 
-This taxonomy structures **crawling techniques for exhaustive attack surface discovery** of web applications. The primary axis is **discovery technique** (§1–§7), with the type of target each technique uncovers as a cross-cutting axis.
 
 | Discovery Target | Description |
 |---|---|
@@ -14,7 +13,7 @@ This taxonomy structures **crawling techniques for exhaustive attack surface dis
 | **Secrets** | API keys, tokens, credentials, internal URLs |
 | **Tech Stack** | Frameworks, versions, middleware, servers |
 
-Fundamental principle of crawling: an application always has **more surface area** than what it intentionally exposes. Deployment artifacts, legacy endpoints, debug interfaces, paths hardcoded in client code — each discovery technique reveals a different region of this hidden surface.
+Crawling should include deployment artifacts, legacy endpoints, debug interfaces, and paths embedded in client code, not only linked application pages.
 
 ---
 

@@ -6,7 +6,6 @@
 
 LDAP injection and XPath injection belong to a shared vulnerability family: **structured query language injection against hierarchical data stores**. LDAP filters query tree-structured directory services (Active Directory, OpenLDAP, eDirectory), while XPath expressions query tree-structured XML documents. Both languages lack the access control mechanisms found in SQL databases — a successful injection against LDAP can expose the entire directory, and a successful XPath injection can expose the entire XML document. This fundamental absence of query-level authorization makes both injection families uniquely dangerous compared to SQL injection.
 
-This taxonomy organizes the attack surface along three axes:
 
 - **Axis 1 (Primary — Mutation Target)**: What structural component of the query is being manipulated. This forms the main body of the document, organized into 9 top-level categories (§1–§9).
 - **Axis 2 (Cross-cutting — Impact Type)**: What effect the mutation achieves — authentication bypass, data disclosure, RCE, privilege escalation, DoS, or SSRF. Each subtype is tagged with its primary impact.

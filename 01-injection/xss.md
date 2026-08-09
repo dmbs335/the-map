@@ -3,7 +3,6 @@
 ---
 ## Classification Structure
 
-This taxonomy organizes the full attack surface of Cross-Site Scripting (XSS) across three orthogonal axes:
 
 **Axis 1 — Injection Context (Primary Axis):** The structural location within the document where attacker-controlled input is rendered or interpreted. This determines which parsing rules apply and which payload forms are viable. The injection context is the single most important factor governing what an attacker can and cannot do — identical payloads succeed or fail depending entirely on where they land.
 

@@ -5,9 +5,8 @@
 ---
 ## Classification Structure
 
-Security Assertion Markup Language (SAML) is an XML-based open standard for exchanging authentication and authorization data between identity providers (IdPs) and service providers (SPs). Its reliance on XML as a transport format — combined with a complex trust model involving cryptographic signatures, multi-party message passing, and diverse library ecosystems — creates an exceptionally broad mutation surface. Vulnerabilities in SAML do not stem from a single flaw but from the fundamental tension between XML's structural flexibility and the rigid guarantees that digital signatures are supposed to provide.
+Security Assertion Markup Language (SAML) carries authentication and authorization assertions between identity providers (IdPs) and service providers (SPs) in XML. Security failures commonly occur when parsing, canonicalization, signature reference resolution, and assertion consumption do not operate on the same element or tree representation.
 
-This taxonomy organizes the entire SAML attack surface along three axes. **Axis 1 (Mutation Target)** defines *what structural component* of the SAML protocol is being attacked — this is the primary organizational axis. **Axis 2 (Discrepancy Type)** describes *what kind of mismatch or gap* enables the attack — this cross-cutting axis explains why each mutation works. **Axis 3 (Attack Scenario)** maps *where and how* the mutation is weaponized in real-world deployments.
 
 ### Axis 1: Mutation Target Summary
 

@@ -6,7 +6,6 @@
 
 Browser security boundaries are defined by origin checks, policy enforcement, transport state, process isolation, parser behavior, and credential APIs. This document focuses on those browser-level mechanisms; topics with dedicated taxonomies are linked rather than duplicated.
 
-This taxonomy organizes browser security bypasses along three axes:
 
 **Axis 1 (Primary): Security Mechanism Target** — Seven browser-level boundaries: Same-Origin Policy, Content Security Policy, transport security, cross-origin isolation, parser/encoding behavior, cross-origin communication metadata, and credential APIs.
 

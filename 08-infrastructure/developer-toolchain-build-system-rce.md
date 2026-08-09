@@ -16,7 +16,6 @@ This document covers **code execution vulnerabilities inherent in developer tool
 
 ## Classification Structure
 
-This taxonomy organizes developer toolchain RCE vulnerabilities across **three orthogonal axes**:
 
 **Axis 1 (Primary): Toolchain Component** — The structural layer of the developer toolchain being exploited for code execution. This forms the main organizational structure (§1–§8).
 

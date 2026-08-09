@@ -5,7 +5,6 @@
 
 Registration & Account Takeover (Reg/ATO) is a vulnerability class spanning the entire account lifecycle — from account creation, authentication, and session maintenance to recovery. It is not a single vulnerability but a complex attack surface arising at various transition points of the **authentication state machine**.
 
-This taxonomy is structured along three axes:
 
 - **Axis 1 — Mutation Target**: Which component of the account lifecycle is being manipulated. This forms the primary structure of the document.
 - **Axis 2 — Discrepancy Type**: What kind of verification failure or state inconsistency enables the attack. This is the cross-cutting axis that applies across all categories.

@@ -3,7 +3,6 @@
 ---
 ## Classification Structure
 
-This taxonomy organizes the full attack surface of AI and Large Language Model (LLM) systems under three orthogonal axes that describe **what is targeted**, **what effect the attack creates**, and **where in the AI lifecycle the attack is weaponized**.
 
 **Axis 1 — Attack Surface (WHAT is targeted):** The structural component of the AI system being manipulated. This is the primary organizational axis. Categories range from direct input manipulation (prompt injection) through model internals (weights, embeddings) to the surrounding infrastructure (inference servers, supply chain, agent tooling).
 

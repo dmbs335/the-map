@@ -6,7 +6,6 @@
 
 Dependency confusion is a class of software supply chain attacks in which an attacker causes a build system, package manager, or developer environment to resolve a malicious package from an unintended source instead of the legitimate internal or private dependency. The fundamental exploit primitive is the **resolution ambiguity** inherent in how package managers select between multiple sources for a given package identifier. Since the original disclosure in February 2021 — which compromised build pipelines at Apple, Microsoft, Tesla, Uber, and PayPal — the attack surface has expanded dramatically across ecosystems, deployment architectures, and reconnaissance methods.
 
-This taxonomy organizes the entire dependency confusion attack surface along three orthogonal axes:
 
 - **Axis 1 — Substitution Mechanism (HOW):** The structural method by which a malicious package replaces a legitimate one. This is the primary axis and structures the main body of this document.
 - **Axis 2 — Reconnaissance Vector (WHERE names are found):** How the attacker discovers internal/private package names eligible for confusion. This is a cross-cutting axis that enables all substitution mechanisms.

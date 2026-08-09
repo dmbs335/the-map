@@ -3,7 +3,6 @@
 ---
 ## Classification Structure
 
-This taxonomy organizes Ben Sadeghipour's documented vulnerability discovery techniques across three analytical dimensions:
 
 **Axis 1: Attack Surface Component** — The structural target of reconnaissance or exploitation. This primary axis divides techniques by what system component is being analyzed or manipulated (recon infrastructure, PDF/document processors, authentication, ad platforms, etc.).
 

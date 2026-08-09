@@ -5,7 +5,6 @@
 
 Cross-Site Request Forgery (CSRF) exploits the trust that a web application places in the user's browser. When a browser sends a request to a server, it automatically includes credentials (cookies, HTTP authentication) associated with that origin. CSRF attacks leverage this behavior by tricking the victim's browser into issuing state-changing requests to a target application where the victim is already authenticated.
 
-The taxonomy below organizes the entire CSRF mutation space along three orthogonal axes:
 
 - **Axis 1 — Defense Bypass Target** (primary axis): The specific defense mechanism or architectural assumption being subverted. This structures the main body of the document into 8 top-level categories.
 - **Axis 2 — Discrepancy Type** (cross-cutting axis): The nature of the mismatch or gap that enables the bypass. Each technique exploits one or more of the discrepancy types listed below.

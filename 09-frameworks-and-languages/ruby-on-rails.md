@@ -4,7 +4,6 @@
 
 ## Classification Structure
 
-This taxonomy organizes the entire attack surface of Ruby on Rails applications under three orthogonal axes. **Axis 1 (Mutation Target)** defines *what structural component* of the Rails stack is being mutated — this is the primary organizational axis that structures the document body. **Axis 2 (Exploitation Mechanism)** captures *how the mutation achieves its effect* — the nature of the trust violation, parser mismatch, or unsafe default that makes the attack possible. **Axis 3 (Impact Scenario)** maps *where the mutation is weaponized* — the concrete attack outcome in a production deployment.
 
 Ruby on Rails is a full-stack web framework that provides a deeply integrated pipeline from HTTP request parsing (Rack/Action Dispatch) through routing, controller processing (Action Controller), ORM operations (Active Record), template rendering (Action View), file handling (Active Storage), real-time communication (Action Cable), background processing (Active Job), and session/authentication management. Each layer introduces its own class of mutation targets, and the tight coupling between layers creates unique **cross-layer exploit chains** not found in more loosely-coupled architectures.
 

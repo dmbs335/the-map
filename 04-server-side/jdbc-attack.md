@@ -6,7 +6,6 @@
 
 JDBC (Java Database Connectivity) attacks exploit the trust boundary between application code and database driver initialization. Unlike traditional SQL injection that targets query execution, JDBC attacks target the **connection establishment phase** — the moment when a driver interprets a connection URL, instantiates classes, negotiates protocols, or processes server responses. The attack surface spans multiple database drivers (MySQL, PostgreSQL, H2, Derby, DB2, SQLite, MSSQL, Oracle), each with unique properties, protocol features, and class-loading behaviors.
 
-This taxonomy organizes JDBC attack mutations along three axes:
 
 - **Axis 1 (Mutation Target)**: The structural component of the JDBC connection or driver being exploited — connection URL parameters, protocol-level features, class instantiation, script execution engines, or server-initiated operations.
 - **Axis 2 (Root Cause)**: The underlying reason why the attack succeeds — unsafe deserialization, unvalidated class loading, JNDI lookup with attacker input, protocol-level data exfiltration, parser differentials, or script execution by design.

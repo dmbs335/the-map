@@ -7,7 +7,6 @@
 
 Type confusion and coercion vulnerabilities share a single root cause: **a value is interpreted as a type different from its actual type**, and this misinterpretation creates security-relevant behavioral divergence. This class is uniquely cross-cutting — it manifests in native memory (C/C++), JIT compilers (V8/JSC/SpiderMonkey), scripting language operators (PHP/JS/Python), serialization formats (JSON/Pickle/YAML/Protobuf), databases (SQL/NoSQL), and API boundaries (GraphQL/gRPC).
 
-The taxonomy is organized along three axes:
 
 **Axis 1 — Mutation Target (Primary):** The structural component where type confusion or coercion occurs. This axis defines the main body of the document (§1–§10).
 

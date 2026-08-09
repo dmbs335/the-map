@@ -7,7 +7,6 @@
 
 Secondary Context Attacks exploit a fundamental architectural pattern: **a trusted intermediary forwards user input to a downstream system under different semantic rules than those under which the input was originally validated**. The intermediary (proxy, BFF, API gateway, GraphQL layer, cloud service) creates a "secondary context" — a second processing environment where the input is reinterpreted, re-parsed, or re-routed.
 
-Three orthogonal axes classify the full mutation space:
 
 ### Axis 1 — Injection Vector (WHAT user-controlled element is weaponized)
 

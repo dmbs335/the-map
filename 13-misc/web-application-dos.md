@@ -7,7 +7,6 @@
 
 Application-layer Denial of Service is fundamentally an asymmetry problem: the attacker invests minimal resources to force the server into disproportionately expensive computation, memory allocation, connection holding, or I/O. Unlike volumetric DDoS that overwhelms network bandwidth, application-layer DoS exploits the inherent cost asymmetry in parsing, computation, protocol handling, and caching — often requiring only a single malicious request to render a service unavailable.
 
-This taxonomy organizes application-layer DoS vectors along three axes:
 
 **Axis 1 — DoS Vector Class (Primary, §1–§9):** The structural category of the system component whose cost asymmetry is exploited. This axis structures the main body of the document.
 

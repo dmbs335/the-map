@@ -6,7 +6,6 @@
 
 Web timing attacks exploit measurable differences in how long a system takes to process, transport, or render requests and responses. Unlike traditional vulnerabilities that rely on direct data leakage, timing attacks extract information through a **temporal side-channel** — the attacker never reads the secret directly but infers it from microsecond-to-millisecond variations in system behavior.
 
-This taxonomy organizes the attack surface along three axes:
 
 - **Axis 1 — Timing Signal Source (Primary):** The structural component generating the measurable timing difference. This is the main organizational axis, ranging from server-side processing logic to browser execution internals to hardware cache hierarchies.
 - **Axis 2 — Measurement Technique (Cross-cutting):** How the attacker observes and quantifies the timing difference. This axis captures the evolution from naive sequential measurement to sophisticated concurrent-comparison and order-based inference methods.

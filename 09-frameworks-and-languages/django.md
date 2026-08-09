@@ -4,7 +4,6 @@
 
 ## Classification Structure
 
-This taxonomy organizes Django framework vulnerabilities by **structural mutation target** — the specific architectural component being exploited. Django's layered architecture (ORM → Template Engine → URL Router → Middleware → Auth System → File Handling → Serialization → Configuration) creates distinct attack surfaces at each layer, and vulnerabilities cluster predictably around these boundaries.
 
 **Axis 1 (Primary — Mutation Target):** The Django architectural component whose input processing or trust boundary is violated. This axis structures the main body of the document into 9 top-level categories (§1–§9).
 

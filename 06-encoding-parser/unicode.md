@@ -6,9 +6,8 @@ Attack techniques that exploit Unicode processing, normalization, encoding, and 
 
 ## Classification Structure
 
-Unicode vulnerabilities arise from a fundamental tension: Unicode is a rich, complex system designed for universal text representation, but security controls — filters, validators, comparators, renderers — must make decisions based on simplified interpretations of that text. Every mutation in this taxonomy exploits a **discrepancy** between how two or more components interpret the same Unicode input.
+Unicode vulnerabilities arise when filters, validators, comparators, and renderers interpret the same text differently. Normalization, case mapping, encoding, and display behavior are common sources of disagreement.
 
-The taxonomy is organized along three axes:
 
 **Axis 1 — Mutation Target (Primary Structure):** The specific Unicode processing mechanism being exploited — encoding, normalization, visual rendering, character properties, invisible characters, or width/mapping transformations. This axis structures the main body of the document (§1–§8).
 

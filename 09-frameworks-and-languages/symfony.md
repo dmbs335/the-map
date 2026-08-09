@@ -6,7 +6,6 @@ A comprehensive, generalized taxonomy of attack vectors, vulnerability classes, 
 
 ## Classification Structure
 
-This taxonomy organizes the Symfony attack surface along three orthogonal axes:
 
 **Axis 1 — Attack Surface (Structural Target):** The specific Symfony component, mechanism, or architectural layer being targeted. This is the primary organizational axis, defining the 14 top-level categories (§1–§14) of the document. Each category represents a distinct structural aspect of the Symfony ecosystem that can be mutated or abused.
 

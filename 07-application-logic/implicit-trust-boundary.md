@@ -6,7 +6,6 @@
 
 An **Implicit Trust Boundary** violation occurs when a system component assumes—without explicit verification—that data, identity, or context received from another component is trustworthy. Unlike explicit access control failures (missing authentication, broken authorization), these vulnerabilities arise from **architectural assumptions** embedded in the system's design: that internal traffic is safe, that headers injected by proxies are authentic, that the browser's same-origin model is sufficient, or that serialized data from a "trusted" peer hasn't been tampered with.
 
-The taxonomy is organized along three orthogonal axes:
 
 - **Axis 1 — Trust Boundary Location** (Primary axis): The architectural seam where implicit trust exists. This is *where* in the system stack the assumption is made. Ten top-level categories cover the full spectrum from network infrastructure to supply chain.
 - **Axis 2 — Trust Assumption Type** (Cross-cutting axis): *What* is being implicitly trusted — identity/source, data integrity, prior authorization, isolation guarantees, or default configuration safety.

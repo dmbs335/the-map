@@ -3,9 +3,8 @@
 ---
 ## Classification Structure
 
-Open redirect vulnerabilities occur when a web application accepts user-controlled input to determine a redirect destination without sufficient validation. While historically dismissed as low-severity, recent research demonstrates that open redirects remain common on popular sites and that a meaningful subset can escalate to critical vulnerabilities including XSS, CSRF, and information leakage. This taxonomy classifies the full mutation space of open redirect techniques.
+Open redirects accept user-controlled navigation targets without sufficient validation. They can be chained with XSS, CSRF, OAuth credential leakage, or phishing when another component trusts the redirect.
 
-The taxonomy is organized around three axes. **Axis 1 (Mutation Target)** defines *what structural component of the URL or redirect mechanism* is manipulated — this forms the primary structure of the document. **Axis 2 (Bypass Type)** describes *what validation mechanism is defeated* — this is the cross-cutting dimension explaining why each mutation works. **Axis 3 (Attack Scenario)** identifies *where the redirect is weaponized* — this maps techniques to real-world impact chains.
 
 ### Axis 2: Bypass Type Summary
 

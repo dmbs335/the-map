@@ -22,7 +22,6 @@ Where a protocol-specific document mentions a cryptographic primitive (e.g., ECD
 
 ## Classification Structure
 
-The taxonomy is organized along three axes:
 
 ### Axis 1 — Mutation Target (Primary Structure)
 

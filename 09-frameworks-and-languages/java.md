@@ -11,7 +11,6 @@ Java's security surface is shaped by three foundational design philosophies that
 2. **Backward Compatibility Preservation**: Insecure APIs and behaviors are maintained indefinitely to avoid breaking the vast Java ecosystem
 3. **Low-Level Primitives Without High-Level Safe Abstractions**: The JDK provides powerful building blocks (cryptographic ciphers, process execution, XML parsing) but rarely provides "do the right thing by default" wrapper APIs
 
-This taxonomy organizes the Java attack surface along three axes:
 
 **Axis 1 — Mutation Target (Primary Structure):** The JDK package, class, or mechanism being attacked. This is the primary organizational axis, defining the 13 top-level categories (§1–§13).
 

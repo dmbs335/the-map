@@ -6,7 +6,7 @@
 ---
 ## Classification Structure
 
-Path traversal vulnerabilities exploit discrepancies in how different system components interpret file paths and URLs. This taxonomy organizes attack vectors along three axes:
+Path traversal vulnerabilities exploit discrepancies in how different system components interpret file paths and URLs.
 
 **Axis 1 (Primary)**: **Mutation Target** — the structural component of the path being manipulated (encoding, separators, normalization, filesystem semantics, archives, extensions, protocols).
 

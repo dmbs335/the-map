@@ -4,7 +4,6 @@
 
 ## Classification Structure
 
-This taxonomy catalogs the full attack surface of the ASP.NET ecosystem — spanning ASP.NET Framework (Web Forms, MVC), ASP.NET Core (MVC, Razor Pages, Blazor, SignalR), and the underlying infrastructure layer (IIS, Kestrel, HTTP.sys). Every technique is classified along three orthogonal axes.
 
 **Axis 1 — Mutation Target (Primary Structure):** The structural component of the ASP.NET stack being manipulated. This axis organizes the main body of the document into twelve top-level categories (§1–§12), each targeting a distinct architectural surface.
 
@@ -28,7 +27,7 @@ This taxonomy catalogs the full attack surface of the ASP.NET ecosystem — span
 
 ### Foundational Architecture
 
-The ASP.NET ecosystem creates a uniquely rich attack surface due to its layered architecture:
+ASP.NET spans Web Forms, MVC, Razor, Blazor, SignalR, IIS, Kestrel, and HTTP.sys, so security behavior crosses framework and hosting layers:
 
 ```
 [Client] → [Reverse Proxy (IIS/Nginx/Apache)] → [Kestrel / HTTP.sys] → [ASP.NET Middleware Pipeline] → [MVC/Razor/Blazor/SignalR]
@@ -504,29 +503,27 @@ While XSS is a generic web vulnerability, ASP.NET has framework-specific pattern
 
 ## §16. Summary: Core Principles
 
-### The Fundamental Property
+### Recurring Risk Areas
 
-ASP.NET's attack surface is uniquely expansive because of three intersecting design characteristics:
+Three design characteristics recur across the cases above:
 
-1. **Deep Object Serialization**: The .NET Framework was designed around rich object serialization — ViewState, BinaryFormatter, SOAP, .NET Remoting — where type metadata travels with the data. Every serialization surface is a potential code execution surface, because .NET formatters instantiate arbitrary types as part of deserialization. The `ysoserial.net` project demonstrates that dozens of standard library classes can be chained into RCE gadgets. This is not a bug in any single formatter — it is an architectural consequence of .NET's type-aware serialization design.
+1. **Deep Object Serialization**: ViewState, BinaryFormatter, SOAP, and .NET Remoting can carry type metadata. Type-aware formatters instantiate types during deserialization, and `ysoserial.net` catalogs standard-library gadget chains. The risk applies when untrusted data reaches these formatters.
 
 2. **Multi-Layer URL Processing**: The IIS → Kestrel → ASP.NET middleware → routing pipeline performs URL decoding, normalization, rewriting, and routing at multiple independent stages. Each stage makes assumptions about what the previous stage has already normalized. Legacy features like cookieless sessions, 8.3 short filenames, and backslash-to-slash normalization create a combinatorial space of path manipulation techniques that bypass security controls operating at the wrong stage.
 
 3. **Framework Trust Boundaries**: ASP.NET's model binder, View Engine, Data Protection API, and middleware pipeline all operate with implicit trust assumptions. The model binder trusts that HTTP requests only contain expected properties. The View Engine trusts that files in search paths are benign. The middleware pipeline trusts that registration order correctly reflects security requirements. Each trust assumption is a potential bypass vector.
 
-### Why Incremental Fixes Fail
+### Limits of Point Fixes
 
 Microsoft's response to vulnerabilities in this space follows a pattern: patch the specific parsing differential (CVE-2025-55315), deprecate the dangerous formatter (BinaryFormatter), or document the misconfiguration risk (machine key exposure). However, the underlying architecture persists. Cookieless sessions, while patchable, represent a URL processing paradigm that introduces path manipulation regardless of specific bugs. The SOAPwn vulnerability (CVE-2025-34392) exemplifies this — Microsoft declined to fix the framework behavior, classifying it as an application responsibility.
 
-### Structural Solution
+### Mitigations
 
-A truly structural solution would require:
+Mitigation priorities are:
 - **Eliminating type-aware deserialization** from all untrusted input boundaries (substantially achieved with BinaryFormatter deprecation in .NET 8+, but ViewState remains in legacy deployments)
 - **Single-pass URL normalization** where security decisions operate on the final, fully-normalized path — not intermediate representations
 - **Deny-by-default authorization** where every endpoint, hub method, and resource requires explicit authorization rather than relying on middleware ordering or attribute presence
 - **Separation of compilation and rendering** in template engines, ensuring user-controlled data never enters the compilation pipeline (Razor's default encoding achieves this, but `Html.Raw()`, `MarkupString`, and dynamic compilation break the boundary)
-
-Until legacy ASP.NET Framework deployments are fully retired and applications consistently adopt ASP.NET Core's security defaults, the attack surface cataloged in this taxonomy will remain exploitable.
 
 ---
 

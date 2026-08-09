@@ -3,7 +3,6 @@
 ---
 ## Classification Structure
 
-This taxonomy organizes Service Worker security vulnerabilities along three orthogonal axes derived from systematic analysis of academic research, real-world exploitation, and defensive tooling.
 
 **Axis 1 (Mutation Target)** identifies the specific Service Worker component or API being manipulated: registration mechanisms, script loading, fetch interception, storage, communication channels, lifecycle management, background APIs, or navigation control. This forms the primary organizational structure.
 

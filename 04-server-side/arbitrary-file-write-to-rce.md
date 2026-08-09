@@ -7,7 +7,6 @@
 ---
 ## Classification Structure
 
-This taxonomy is organized along three axes:
 
 **Axis 1 — Write Target (Primary Structure)**: The structural category of the filesystem target being written to. This determines *what* the attacker overwrites or creates. The main body of this document is structured by this axis.
 

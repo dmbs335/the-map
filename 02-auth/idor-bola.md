@@ -3,7 +3,6 @@
 ---
 ## Classification Structure
 
-This taxonomy organizes the entire attack surface of IDOR/BOLA vulnerabilities across three orthogonal axes. **Axis 1 (Identifier Mutation Target)** is the primary structural axis — it classifies techniques by *what component of the object reference or authorization flow is being manipulated*. **Axis 2 (Authorization Gap Type)** is the cross-cutting axis — it explains *what kind of authorization deficiency* makes each mutation exploitable. **Axis 3 (Impact Scenario)** maps techniques to *real-world exploitation outcomes*.
 
 IDOR/BOLA is fundamentally a **missing or flawed authorization check on user-supplied object identifiers**. Unlike injection or parsing-differential vulnerabilities, the root cause is not a technical parsing flaw but a *logical absence* — the application authenticates the user but never verifies whether the authenticated identity is authorized to access the referenced object. This makes IDOR/BOLA uniquely persistent: it cannot be eliminated by a single library, framework feature, or protocol change, but requires per-endpoint authorization enforcement.
 

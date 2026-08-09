@@ -19,7 +19,6 @@ Where another document mentions a TLS-specific attack vector (e.g., Heartbleed i
 
 ## Classification Structure
 
-The taxonomy is organized along three axes:
 
 ### Axis 1 — Mutation Target (Primary Structure)
 

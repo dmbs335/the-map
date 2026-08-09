@@ -3,7 +3,6 @@
 ---
 ## Classification Structure
 
-This taxonomy organizes the entire NoSQL injection attack surface along three orthogonal axes. **Axis 1 (Mutation Target)** defines *what structural component* of the database interaction is being manipulated — this is the primary axis and structures the main body of the document. **Axis 2 (Exploitation Mechanism)** describes *how* the mutation achieves its effect — the nature of the mismatch, confusion, or bypass that makes the injection work. **Axis 3 (Attack Outcome)** maps *where* each technique is weaponized — the real-world impact scenario.
 
 NoSQL injection differs fundamentally from classical SQL injection in that there is no single query language to target. Instead, the attack surface fragments across multiple database engines (MongoDB, CouchDB, Couchbase, Neo4j, Redis, Elasticsearch, DynamoDB), multiple query interfaces (document-based operators, server-side JavaScript, aggregation pipelines, SQL-like query languages, graph query languages, key-value commands), and multiple input delivery channels (JSON bodies, URL-encoded parameters, HTTP headers, GraphQL resolvers). This fragmentation means that "NoSQL injection" is not a single vulnerability class but a *family* of injection primitives unified by their target: non-relational data stores.
 

@@ -5,9 +5,8 @@
 ---
 ## Classification Structure
 
-Server-side processing of documents, images, fonts, and media files is ubiquitous — from thumbnail generation to format conversion, metadata extraction, document rendering, and content delivery. Each processing library implements complex parsers for binary formats, compression algorithms, scripting engines, and protocol handlers in memory-unsafe languages, creating a vast attack surface where malformed input triggers memory corruption, command injection, sandbox escape, or logic abuse. The critical insight is that the **file itself is the attack vector** — no injection point in a web form is needed, only the ability to upload or reference a file that will be processed.
+Document and media services parse attacker-supplied binary formats during thumbnail generation, conversion, metadata extraction, and rendering. A malicious upload or remote file reference can reach memory-corruption, command-execution, sandbox-escape, or parser-logic flaws without a separate text injection point.
 
-This taxonomy organizes Document & Media Processing Library RCE vectors along three axes:
 
 **Axis 1 — Processing Target (Primary, §1–§9):** The structural category of the processing library or engine being exploited. This axis structures the main body of the document.
 

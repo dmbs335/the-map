@@ -4,9 +4,8 @@
 
 ## Classification Structure
 
-This taxonomy organizes the entire attack surface of DNS-related web security vulnerabilities along three orthogonal axes. **Axis 1 (Mutation Target)** identifies *which structural component of the DNS ecosystem* is being manipulated — this is the primary organizational axis that structures the document. **Axis 2 (Discrepancy Type)** explains *what kind of mismatch or inconsistency* the mutation exploits between two or more components. **Axis 3 (Attack Scenario)** maps each technique to *the real-world impact context* in which it is weaponized.
 
-DNS operates as a foundational trust layer for the web: browsers use it to resolve hostnames, servers use it to validate origins, email systems use it to authenticate senders, and certificate authorities use it to verify domain ownership. Every mutation in this taxonomy exploits the gap between **what DNS promises** (a consistent, authoritative name-to-address mapping) and **what DNS actually delivers** (a distributed, cached, eventually-consistent system with no inherent authentication).
+Browsers use DNS to resolve hostnames, servers use DNS data in network checks, email systems publish authentication records through DNS, and certificate authorities may use DNS records to verify domain control. Answers can vary with delegation, caching, resolver behavior, rebinding, and whether DNSSEC validation is used.
 
 ### Axis 2 Summary: Cross-Cutting Discrepancy Types
 

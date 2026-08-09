@@ -9,7 +9,7 @@
 ---
 ## Classification Structure
 
-Jaiswal and Maini's research reveals a consistent exploitation philosophy: identifying **pre-authentication attack surfaces** in enterprise software and chaining multiple primitives — deserialization, template injection, authentication bypass, command injection — into full remote code execution. Their work emphasizes **source code review and patch diffing** as primary discovery methods, consistently targeting high-value enterprise products (Atlassian, Adobe, Apple, GitHub, VMware, Ivanti, BeyondTrust).
+Jaiswal and Maini commonly use source review and patch diffing to find pre-authentication paths in enterprise software, then chain deserialization, template injection, authentication bypass, or command injection into remote code execution. Their published targets include Atlassian, Adobe, Apple, GitHub, VMware, Ivanti, and BeyondTrust products.
 
 ### Three-Axis Classification Framework
 

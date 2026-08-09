@@ -4,7 +4,6 @@
 
 ## Classification Structure
 
-This taxonomy organizes Sam Curry's documented vulnerability discovery techniques across three analytical dimensions:
 
 **Axis 1: Attack Surface Component** — The structural target of reconnaissance or exploitation. This primary axis divides techniques by what system component is being analyzed or manipulated (infrastructure, authentication, APIs, caching layers, etc.).
 

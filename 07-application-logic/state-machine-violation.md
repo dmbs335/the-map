@@ -6,7 +6,6 @@
 
 Every stateful system — whether a protocol handshake, a multi-step web workflow, or a smart contract execution — relies on an implicit or explicit **state machine**: a set of states, transitions, and guards that constrain the sequence of operations. A **State Machine Violation** occurs when an attacker forces the system into a state, transition, or timing window that the designers assumed impossible, thereby breaking security invariants such as authentication, authorization, data integrity, or atomicity.
 
-This taxonomy classifies the full attack surface along three orthogonal axes:
 
 ### Axis 1 — Violation Target (WHAT is violated)
 The structural component of the state machine being subverted. This is the **primary axis** organizing the document body:

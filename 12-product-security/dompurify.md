@@ -5,13 +5,12 @@
 
 DOMPurify is the most widely-deployed DOM-only HTML sanitizer. Its architecture—parse untrusted HTML into a DOM tree, walk the tree removing dangerous nodes/attributes, then serialize back—creates a fundamental attack surface: **any discrepancy between how DOMPurify interprets HTML during sanitization and how the browser interprets the serialized output during rendering** can yield Cross-Site Scripting.
 
-This taxonomy organizes all known bypass/evasion techniques along three axes:
 
 - **Axis 1 — Mutation Target (WHAT is mutated):** The structural component of the HTML/DOM being exploited—namespace, nesting depth, node type, attribute, configuration option, encoding, or post-sanitization context.
 - **Axis 2 — Discrepancy Type (WHY it works):** The nature of the parsing/interpretation mismatch—serialize-parse roundtrip mutation, namespace confusion, property clobbering, regex deficiency, configuration logic error, or context differential.
 - **Axis 3 — Attack Scenario (WHERE it's weaponized):** Default-config mXSS bypass, non-default-config bypass, misconfiguration exploitation, post-sanitization gadget chain, or server-side rendering bypass.
 
-The fundamental property that makes this entire mutation space possible is **non-idempotent HTML parsing**: `P(serialize(P(input))) ≠ P(input)`. The serialize-parse roundtrip that occurs when DOMPurify's string output is assigned to `innerHTML` is not guaranteed to reproduce the original DOM tree. Every bypass category below exploits a specific instance of this property.
+mXSS bypasses rely on non-idempotent parsing: `P(serialize(P(input))) ≠ P(input)`. Assigning sanitized string output to `innerHTML` can produce a different DOM tree after the serialize-parse round trip.
 
 ### Discrepancy Type Summary (Axis 2)
 

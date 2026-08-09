@@ -4,9 +4,8 @@
 
 ## Classification Structure
 
-HTTP header-based vulnerabilities arise from a fundamental architectural property: **HTTP headers are plaintext key-value pairs whose semantics depend entirely on which component interprets them**. Because modern web architectures involve multiple processing layers — browsers, CDNs, reverse proxies, load balancers, application servers, logging systems, and downstream microservices — each header value may be parsed, trusted, transformed, or reflected by different components with different assumptions. This discrepancy space is the root of the entire attack surface.
+HTTP header semantics depend on the component interpreting them. Browsers, CDNs, reverse proxies, load balancers, application servers, loggers, and downstream services may parse, normalize, trust, or reflect the same field differently.
 
-This taxonomy organizes HTTP header mutations along three orthogonal axes:
 
 - **Axis 1 — Mutation Target (WHAT header/mechanism is manipulated)**: The structural component of the HTTP message being attacked — the Host header, proxy-forwarding headers, correlation/tracing headers, CRLF injection points, security-policy headers, or content-semantic headers.
 

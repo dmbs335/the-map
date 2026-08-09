@@ -4,7 +4,6 @@
 
 ## Classification Structure
 
-This taxonomy organizes the entire OAuth/OIDC attack surface along three orthogonal axes derived from systematic analysis of CVEs, academic research (USENIX, IEEE, BlackHat/DEF CON), practitioner writeups, and bug bounty disclosures through 2025.
 
 **Axis 1 — Mutation Target (Primary):** The structural component of the OAuth protocol being mutated or exploited. This axis structures the main body of the document across 10 top-level categories covering redirect flow, authorization codes/tokens, client identity, user identity, consent/scope, session/state, token lifecycle, protocol flow selection, server-side infrastructure, and cross-protocol/integration architecture.
 
@@ -354,7 +353,7 @@ OAuth/OIDC authorization flows create a chain of cross-origin navigations (RP �
 | **IdP login page as context bridge** | The attacker crafts an OAuth authorization URL that forces the victim through the IdP login flow. After the victim authenticates at the IdP, the authorization response redirects to the RP callback endpoint. If the callback page (or a page reachable from it) contains a self-XSS triggered by attacker-controlled state (e.g., stored profile data, query parameters passed through the flow), the XSS executes in the victim's post-authentication context | Self-XSS reachable from OAuth callback; IdP permits prompt=login or session is expired; attacker-controlled data persists across the OAuth round-trip | D2, D4 |
 | **Token endpoint response as XSS trigger** | In implicit or hybrid flows, the authorization response (containing tokens or codes in URL fragments/parameters) is processed by client-side JavaScript on the RP. If this processing logic has an injection flaw, the attacker crafts an authorization response URL with malicious values in the state, code, or error parameters that trigger XSS when the RP's callback handler processes them | Client-side OAuth callback processing with insufficient sanitization of response parameters; implicit or hybrid flow | D1, D3 |
 
-The key insight is that OAuth/OIDC flows are inherently **cross-origin navigation chains that carry attacker-influenceable state** (via `state`, `redirect_uri`, `login_hint`, `prompt`, and other parameters). Unlike login CSRF (§7-1 in `csrf.md`) which requires forcing authentication as the attacker, SSO gadget chains exploit the victim's own authentication — the attacker merely controls the navigation path and the context in which post-authentication pages render.
+OAuth/OIDC flows use cross-origin redirects carrying parameters such as `state`, `redirect_uri`, `login_hint`, and `prompt`. SSO gadget chains manipulate that navigation context while the victim completes authentication with their own account; login CSRF instead attempts to bind the victim to the attacker's authenticated session.
 
 ---
 
@@ -418,21 +417,21 @@ The key insight is that OAuth/OIDC flows are inherently **cross-origin navigatio
 
 ## §14. Summary: Core Principles
 
-### The Fundamental Property
+### Trust Boundaries
 
-OAuth's entire mutation space emerges from a single architectural reality: **OAuth is a delegation protocol that separates the party that authenticates (the user) from the party that consumes the authorization (the client), mediated by bearer credentials that traverse the browser**. This three-party architecture — with the browser as an untrusted transport layer — creates inherent trust boundaries that every attack in this taxonomy exploits in some form.
+OAuth separates user authentication, client authorization, and browser-mediated credential delivery. The attacks in this section target trust boundaries between those roles or the handling of bearer credentials.
 
-The authorization code, access token, and refresh token are all bearer credentials: whoever possesses them can use them. Unlike passwords (which prove knowledge) or certificates (which prove possession of a private key), OAuth tokens carry no intrinsic binding to their intended holder. PKCE, DPoP, and sender-constrained tokens are mitigations for this fundamental design property, not solutions to it.
+Access tokens are commonly bearer credentials unless sender constrained. Authorization codes are exchanged under redirect URI, client-authentication, and PKCE checks where applicable; refresh-token use can also be limited by client authentication, rotation, or sender constraint. The security properties therefore depend on the grant and token profile rather than possession alone.
 
-### Why Incremental Fixes Fail
+### Limits of Individual Mitigations
 
-Each generation of OAuth security improvements addresses specific attack vectors while the underlying attack surface shifts. PKCE prevented code interception but didn't stop code injection via open redirects. Deprecating implicit flow addressed token exposure in fragments but didn't eliminate token leakage via XSS or postMessage. Strict redirect URI validation prevented trivial redirects but opened the door to increasingly creative chaining attacks through open redirectors, Referer leakage, and proxy pages.
+OAuth mitigations cover different failure modes. PKCE protects authorization codes when verifier binding is enforced; exact redirect URI matching reduces code diversion; issuer checking addresses mix-up; and sender-constrained tokens limit use of stolen tokens. These controls do not replace XSS prevention, safe `postMessage` handling, or validation of application redirects.
 
-The 2024-2025 wave of device code phishing attacks illustrates this perfectly: the attack exploits no software vulnerability — it leverages the protocol's designed behavior where user authentication is intentionally separated from the requesting device. Similarly, the 2025 audience injection attacks demonstrate that even signature-based client authentication (the strongest client authentication method) carries fundamental ambiguity when clients interact with multiple authorization servers.
+Device-code phishing uses the protocol's separation between the user and requesting device rather than a software flaw. Audience-injection issues arise when a client talks to multiple authorization servers without binding authentication data to the intended audience.
 
-### The Structural Solution
+### Combined Mitigations
 
-A truly structural solution would require three properties that current OAuth deployments largely lack: **(1) sender-constrained tokens** (DPoP, mTLS-bound tokens) that cryptographically bind tokens to their intended holder, **(2) PKCE for authorization code grants** (mandated in the OAuth 2.1 Internet-Draft (draft-ietf-oauth-v2-1-15; not yet a final RFC as of 2026-04); does not apply to client_credentials or refresh_token grants) **+ issuer verification** (separately standardized in RFC 9207) that together prevent code interception and mix-up attacks, and **(3) continuous authorization evaluation** that moves beyond one-time consent to real-time policy enforcement over token usage, scope consumption, and behavioral anomalies. Until all three are ubiquitous, the taxonomy above will continue to grow.
+Relevant controls include **(1) sender-constrained tokens** such as DPoP or mTLS-bound tokens, **(2) PKCE for authorization-code grants plus issuer verification under RFC 9207**, and **(3) continuous evaluation of token use, scopes, and anomalous behavior.** PKCE is specified for authorization-code grants in the OAuth 2.1 Internet-Draft (draft-ietf-oauth-v2-1-15 as of 2026-08); it does not apply to `client_credentials` or `refresh_token` grants.
 
 ---
 

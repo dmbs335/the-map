@@ -6,7 +6,6 @@
 
 DOM Clobbering is a class of **code-reuse, scriptless injection attacks** in which an attacker inserts non-script HTML markup into a web page to shadow or replace JavaScript variables, object properties, and browser APIs through the browser's legacy **Named Property Access** mechanism. Unlike conventional XSS, DOM Clobbering does not require injecting executable script tags — it leverages the HTML specification's guarantee that certain elements with `id` or `name` attributes are automatically exposed as properties on the `window` and `document` objects.
 
-This taxonomy organizes the DOM Clobbering attack surface along three orthogonal axes:
 
 - **Axis 1 — Clobbering Target (Primary)**: The structural component of the DOM/JavaScript runtime being overwritten. This is the main organizational axis of the document (§1–§8).
 - **Axis 2 — Exploitation Mechanism (Cross-cutting)**: How the clobbered value is weaponized — the technique that transforms a DOM node reference into an attacker-controlled value (string coercion, property chain traversal, type confusion, etc.).

@@ -6,7 +6,6 @@
 
 JNDI (Java Naming and Directory Interface) Injection is a vulnerability class that exploits Java's name-to-object resolution mechanism. When attacker-controlled input reaches a `javax.naming.Context.lookup()` call — directly or through intermediary components like Log4j's message lookup — the attacker can redirect resolution to a malicious naming/directory service and ultimately achieve code execution on the target.
 
-The mutation space of JNDI injection is organized along three orthogonal axes:
 
 **Axis 1 — Code Execution Mechanism (Primary):** What technique achieves code execution *after* a JNDI lookup resolves to an attacker-controlled server. This is the primary structural axis because Java's security patches progressively closed execution vectors, forcing attackers to discover new mechanisms. The evolution from remote codebase loading (pre-2017) to ObjectFactory abuse (2018–2019) to deserialization gadgets and JDBC exploitation (2020–present) defines the core mutation trajectory.
 

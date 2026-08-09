@@ -5,7 +5,6 @@
 
 Web memory disclosure vulnerabilities occur when infrastructure components — CDN edge servers, reverse proxies, web servers, application runtimes, database services, or network middleboxes — expose the contents of their process memory in responses to clients. The leaked data typically includes fragments of other users' requests, session tokens, API keys, TLS key material, PII, and internal configuration. Unlike application-level information disclosure (verbose errors, debug pages), these vulnerabilities operate below the application layer, leaking raw memory that the application never intended to emit.
 
-The taxonomy is organized along three orthogonal axes:
 
 **Axis 1 — Memory Exposure Primitive (Primary Axis)**: The specific memory safety violation that causes data to escape process boundaries. This axis structures the main body of the document.
 

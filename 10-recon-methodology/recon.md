@@ -6,7 +6,6 @@
 
 Hidden Parameter Discovery encompasses all techniques used to identify **undocumented, unlisted, or obfuscated parameters** that a web application or API processes but does not expose through normal user interfaces, documentation, or client-side code. These parameters — whether query strings, body fields, headers, cookies, or path segments — often lack adequate validation precisely because developers rely on obscurity rather than access control.
 
-This taxonomy is organized along three axes:
 
 - **Axis 1 — Discovery Vector**: *How* the hidden parameter is found. This is the primary organizational axis, covering static analysis, dynamic probing, traffic archaeology, protocol-layer manipulation, schema enumeration, and inference techniques.
 - **Axis 2 — Parameter Location**: *Where* the parameter resides in the HTTP transaction (query string, body, header, cookie, path, fragment). This is a cross-cutting dimension; most discovery vectors apply to multiple locations.

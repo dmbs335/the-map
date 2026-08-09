@@ -234,7 +234,7 @@ Each row in each taxonomy table is simultaneously a **test case** (offensive), a
 - **Taxonomy & Classification** — A unified structural framework for organizing vulnerability research that goes beyond surface-level categorization (e.g., OWASP Top 10) into mutation-level granularity.
 - **Fuzzer Seed Generation** — Mutation catalogs provide systematic seed corpora for fuzzers. Instead of random mutations, fuzzers can target specific structural variations documented in each taxonomy.
 - **Security Research** — A reference framework for researchers to identify gaps in existing coverage, discover unexplored mutation combinations, and build on prior work systematically.
-- **Novel Variant Discovery** — Because the taxonomy is organized by mutation axes rather than known payloads, it enables reasoning about **unexplored combinations** — mutations that should theoretically work but haven't been documented yet.
+- **Variant Discovery** — Mutation axes make it easier to identify combinations that are not yet represented by known payloads.
 
 ## How it was built
 

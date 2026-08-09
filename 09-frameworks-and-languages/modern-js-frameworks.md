@@ -5,7 +5,6 @@
 
 Modern JavaScript frameworks (React, Next.js, Vue, Nuxt.js, Angular, Svelte, SvelteKit, Astro, Remix) have converged on a shared architectural pattern: server-side rendering (SSR) with client-side hydration, file-based routing with middleware layers, server-originated data fetching (server components, server actions, loaders), and aggressive caching for performance. Each of these architectural layers introduces a distinct trust boundary, and the security of the entire stack depends on the correct enforcement of those boundaries.
 
-This taxonomy organizes the complete attack surface of modern JS frameworks under **Axis 1: Mutation Target** — the structural component being attacked. Nine top-level categories correspond to the nine principal attack surfaces. Within each category, subtypes are organized by the specific mechanism exploited.
 
 **Axis 2: Discrepancy Type** provides the cross-cutting explanation for *why* each mutation works. The following discrepancy types recur throughout the taxonomy:
 
@@ -333,7 +332,7 @@ Content Security Policy is designed to prevent XSS, but framework-specific featu
 | **Trusted Types Bypass** | Implementation errors in Trusted Types policies, combined with framework features like dynamic template compilation, can create bypass opportunities | Trusted Types with incomplete policy coverage |
 | **Framework Middleware CSP Removal** | Middleware bypass (§2-1) allows removal of CSP headers entirely, disabling all CSP protections for affected pages | CVE-2025-29927 + CSP set via middleware |
 
-The transitive AngularJS inclusion vector is particularly insidious because the vulnerable library is invisible to the site operator. A site may have no direct AngularJS dependency, enforce a strict CSP, and pass automated security audits — yet remain fully exploitable because a third-party analytics script (in the documented case, Piwik PRO) silently bundles AngularJS 1.x. The AngularJS library functions as a "script gadget": CSP permits the analytics script, the analytics script loads AngularJS, and AngularJS evaluates attacker-controlled template expressions outside CSP's enforcement scope. This elevates any HTML injection primitive to full JavaScript execution and highlights the need for auditing transitive JavaScript dependencies loaded by third-party tags.
+In the documented Piwik PRO case, a third-party analytics script bundled AngularJS 1.x even though the site had no direct AngularJS dependency. CSP allowed the analytics script, after which AngularJS acted as a script gadget for attacker-controlled template expressions. Sites should therefore inventory transitive code loaded by third-party tags.
 
 ### §9-3. CSRF in Modern SPAs
 

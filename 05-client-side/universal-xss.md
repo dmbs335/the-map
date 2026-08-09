@@ -6,7 +6,6 @@
 
 Universal XSS (UXSS) is fundamentally distinct from application-level XSS. While traditional XSS exploits flaws in a specific web application's input handling, UXSS exploits flaws in the **browser itself** — its rendering engine, navigation logic, extension system, or embedded contexts — to execute attacker-controlled script in the context of **any** origin. The victim website need not have any vulnerability; the browser's failure to enforce the Same-Origin Policy (SOP) is the sole root cause.
 
-This taxonomy organizes the UXSS attack surface along three axes:
 
 - **Axis 1 (Primary): Vulnerability Location** — the structural component of the browser where the flaw resides. This forms the main body of the document (§1–§8).
 - **Axis 2 (Cross-cutting): Root Cause Mechanism** — the specific way the Same-Origin Policy is violated. Each subtype references its applicable mechanism.

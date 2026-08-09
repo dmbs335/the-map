@@ -5,7 +5,6 @@ A comprehensive, generalized classification of all known mutation and variation 
 ---
 ## Classification Structure
 
-This taxonomy is organized along three orthogonal axes:
 
 **Axis 1 — Mutation Target (Primary Structure):** The structural component of the ZIP file or extraction process being manipulated. This axis defines the eight top-level categories (§1–§8) and represents *what* the attacker modifies.
 

@@ -5,7 +5,6 @@
 
 Management interfaces — admin panels, control planes, out-of-band management channels, API gateways, orchestration dashboards, and hardware management controllers — are the highest-value targets in any infrastructure. A single compromise of a management interface typically grants an attacker the same power as the legitimate administrator: full configuration control, credential access, and the ability to persist undetected.
 
-This taxonomy classifies **Insecure Management Interface** vulnerabilities along three axes:
 
 | Axis | Question | Role |
 |------|----------|------|
@@ -27,7 +26,7 @@ This taxonomy classifies **Insecure Management Interface** vulnerabilities along
 
 ### Fundamental Principle
 
-Management interfaces exist at a **trust boundary asymmetry**: they are designed to grant maximum control to a verified operator but, by their nature, must be reachable over some network path. Every mutation in this taxonomy exploits the gap between the *assumed* restricted reachability/authentication of the interface and its *actual* exposure, authentication strength, or access enforcement.
+Management interfaces grant broad control to authenticated operators and remain reachable over some network path. Risk depends on their actual exposure, authentication strength, and authorization enforcement rather than assumed network isolation.
 
 ---
 

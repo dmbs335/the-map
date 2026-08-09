@@ -6,7 +6,6 @@
 
 Web race conditions arise when an application processes concurrent requests against shared state without adequate synchronization, creating a window between a **check** (reading state) and a **use** (modifying state) — the classic Time-of-Check to Time-of-Use (TOCTOU) pattern. Unlike traditional concurrency bugs that manifest as crashes or corruption, web race conditions are **weaponizable**: attackers deliberately engineer collisions to violate business logic invariants, bypass security controls, or escalate privileges.
 
-This taxonomy organizes the full mutation space along three axes:
 
 - **Axis 1 — Mutation Target (Primary)**: The structural component of application state being raced. This determines *what* is attacked — resource counters, authentication state, object construction pipelines, data routing bindings, database transactions, filesystem operations, temporal tokens, or distributed/asynchronous processing. Each top-level section (§1–§8) corresponds to one target category.
 

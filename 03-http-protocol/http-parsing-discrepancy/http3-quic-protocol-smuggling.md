@@ -10,7 +10,7 @@
 
 
 
-HTTP/3 (RFC 9114) replaces HTTP/2's TCP+TLS transport with QUIC (RFC 9000), a UDP-based multiplexed transport with built-in encryption. While HTTP/3 inherits the binary framing model of HTTP/2, the QUIC transport layer introduces entirely new attack surfaces absent from both HTTP/1.1 and HTTP/2: UDP-based connection semantics, QPACK header compression, 0-RTT early data, connection migration, and QUIC-native stream multiplexing. This taxonomy classifies the mutation space specific to HTTP/3 and QUIC that extends beyond the HTTP/1.1 and HTTP/2 smuggling techniques documented in the companion HTTP Request Smuggling taxonomy.
+HTTP/3 (RFC 9114) carries HTTP semantics over QUIC (RFC 9000), a UDP-based multiplexed transport with built-in encryption. HTTP/3-specific behavior includes QPACK header compression, 0-RTT early data, connection migration, and QUIC stream handling; HTTP/1.1 and HTTP/2 smuggling techniques are covered in the companion HTTP Request Smuggling document.
 
 - **Axis 1 — Mutation Target** (primary): *What structural component of the HTTP/3 or QUIC message is mutated?* This axis organizes the main body of the document (§1–§5).
 - **Axis 2 — Discrepancy Type** (cross-cutting): *What kind of interpretation mismatch does the mutation create?* Every mutation must produce at least one discrepancy type.

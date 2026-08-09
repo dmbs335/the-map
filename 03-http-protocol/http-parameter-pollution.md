@@ -4,9 +4,8 @@
 
 ## Classification Structure
 
-HTTP Parameter Pollution (HPP) exploits the fundamental absence of a standardized specification for how HTTP parameters with duplicate names should be handled. RFC 3986 defines URI syntax and RFC 9110–9112 (formerly RFC 7230–7235) define HTTP message semantics, but **neither prescribes behavior when multiple parameters share the same name**. This specification gap means every web technology — servers, frameworks, proxies, WAFs — implements its own parsing logic, creating a rich attack surface wherever two or more components process the same request.
+HTTP Parameter Pollution (HPP) exploits differences in duplicate-parameter handling. RFC 3986 defines URI syntax and RFC 9110–9112 define HTTP message semantics, but they do not prescribe which value an application must select when a parameter name occurs more than once. A proxy, framework, WAF, and application can therefore derive different values from the same request.
 
-This taxonomy organizes the entire HPP mutation space along three axes:
 
 - **Axis 1 — Mutation Target (Primary):** The structural component or transport layer through which parameter pollution is introduced. This is the organizing principle of the document body (§1–§8).
 - **Axis 2 — Mutation Mechanism (Cross-cutting):** The specific technique used to create a parsing discrepancy between components. A single mutation target may be exploited through multiple mechanisms.

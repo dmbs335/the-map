@@ -9,7 +9,6 @@
 
 ## Classification Structure
 
-This taxonomy organizes authentication bypass and SSO vulnerabilities along three orthogonal axes:
 
 **Axis 1 — Authentication Layer Targeted (Primary Axis):** The structural component of the authentication system being attacked. This document covers five layers: credential validation logic (§1), protocol-level mechanisms (§2), SSO trust architecture (§5), modern passwordless systems (§6), and framework/middleware enforcement (§7). MFA bypass (§3), session lifecycle (§4), password recovery (§8), and credential acquisition (§9) are cross-referenced to [account-takeover.md](account-takeover.md) to avoid duplication.
 

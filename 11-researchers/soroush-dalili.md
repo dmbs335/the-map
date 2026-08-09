@@ -6,7 +6,6 @@
 
 ## Classification Structure
 
-This taxonomy organizes parser differential vulnerabilities in Microsoft's IIS and ASP.NET stack according to three orthogonal axes:
 
 **Axis 1: Mutation Target** — The structural component being modified (HTTP framing, URL/path, headers, session state, object serialization). This forms the primary organizational structure (§1–§5).
 

@@ -3,7 +3,6 @@
 ---
 ## Classification Structure
 
-This taxonomy organizes the full attack surface of CSS Injection across three orthogonal axes:
 
 **Axis 1 — Exploitation Primitive (Primary Axis):** The fundamental attack capability achieved through injected CSS. CSS lacks direct code execution in modern browsers, so its attack surface centers on data exfiltration, UI manipulation, and side-channel leakage — capabilities that bypass script-focused defenses like CSP. The exploitation primitive determines what an attacker can extract or manipulate.
 
@@ -263,7 +262,7 @@ CSS capabilities that identify users, track behavior, and fingerprint environmen
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
-| **Form spoofing via CSS class reuse (Mastodon)** | On the Infosec Mastodon instance, an HTML filter bypass in the `title` attribute allowed injection of hidden `<input>` fields. Rather than CSS attribute selector exfiltration, the attack reused existing Mastodon CSS classes (e.g., `react-toggle-track-check` with `opacity:0`) to visually conceal injected username and password fields — requiring no inline CSS and no CSP bypass. Chrome's password autofill automatically populated the hidden fields without user interaction. A spoofed toolbar with legitimate-looking buttons surrounded the invisible inputs; clicking any button submitted the form with captured credentials to an attacker-controlled server via HTTP POST. Demonstrates that existing CSS classes can serve as concealment primitives for form-spoofing attacks, extending CSS injection impact beyond data exfiltration | HTML injection possible (even limited); application has CSS classes producing `opacity:0` or equivalent concealment; browser autofill enabled; no `form-action` CSP directive |
+| **Form spoofing via CSS class reuse (Mastodon)** | On the Infosec Mastodon instance, an HTML filter bypass in the `title` attribute allowed injection of hidden `<input>` fields. The attack reused existing Mastodon CSS classes (e.g., `react-toggle-track-check` with `opacity:0`) to conceal injected username and password fields without inline CSS. Chrome's password autofill populated the hidden fields, and a click on the spoofed toolbar submitted the captured credentials to an attacker-controlled server. The case used existing CSS classes as concealment primitives rather than CSS-based exfiltration. | HTML injection possible (even limited); application has CSS classes producing `opacity:0` or equivalent concealment; browser autofill enabled; no `form-action` CSP directive |
 
 ---
 

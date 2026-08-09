@@ -6,7 +6,6 @@
 
 Adobe Experience Manager is a Java-based enterprise CMS built on a layered architecture: **Apache Sling** (request routing) → **JCR** (Java Content Repository for storage) → **OSGi** (modular runtime) → **Dispatcher** (Apache-based caching/security proxy). Each layer introduces distinct attack surfaces, and the *differential interpretation* between layers — particularly between the Dispatcher proxy and the Sling resolution engine — is the root cause of the most impactful AEM-specific vulnerability class.
 
-This taxonomy organizes AEM vulnerabilities by **what architectural component is targeted** (Axis 1), cross-referenced with **what type of security bypass or discrepancy is exploited** (Axis 2), and mapped to **real-world attack scenarios** (Axis 3).
 
 ### Axis 2: Bypass/Discrepancy Types (Cross-cutting)
 

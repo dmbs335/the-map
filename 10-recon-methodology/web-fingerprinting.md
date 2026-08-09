@@ -6,7 +6,6 @@
 
 Web fingerprinting encompasses all techniques that extract identifying information from web clients, servers, network traffic, or application stacks to distinguish, track, or profile targets. Unlike a single vulnerability class, fingerprinting is a **meta-attack surface**: every protocol layer, rendering engine quirk, and hardware difference is a potential entropy source.
 
-This taxonomy is organized along three axes:
 
 **Axis 1 — Signal Source (Primary Structure):** The protocol layer, API surface, or system component from which identifying information is extracted. This determines the main body of the document — ten top-level categories covering the full stack from network protocols to behavioral biometrics.
 

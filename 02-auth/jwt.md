@@ -4,7 +4,6 @@
 
 ## Classification Structure
 
-This taxonomy organizes the entire JWT attack surface along three orthogonal axes derived from systematic analysis of CVEs, academic research, bug bounty reports, and practitioner writeups through 2026.
 
 **Axis 1 — Mutation Target (Primary):** The structural component of the JWT being manipulated. JWT consists of three segments (Header, Payload, Signature) plus the ecosystem of key management, transport, and lifecycle mechanisms. Each top-level category targets a distinct structural component — the algorithm field, header parameters for key resolution, the cryptographic signature itself, payload claims, the key management infrastructure, token transport/storage, or the protocol-level lifecycle.
 
@@ -25,7 +24,7 @@ This taxonomy organizes the entire JWT attack surface along three orthogonal axe
 
 ### Foundational Mechanism
 
-A JWT is a compact, URL-safe token format defined in RFC 7519. When the JWT is a JWS (signed), it consists of three Base64URL-encoded segments separated by dots: `Header.Payload.Signature`. When the JWT is a JWE (encrypted), it consists of five segments: `Header.EncryptedKey.IV.Ciphertext.AuthenticationTag`. The Header declares the algorithm (`alg`) and optional parameters (`kid`, `jku`, `jwk`, `x5u`, `x5c`, `enc` for JWE). The Payload contains claims (issuer, subject, audience, expiration, custom data). For JWS, the Signature is computed over `Base64URL(Header).Base64URL(Payload)` using the algorithm and key specified. Verification requires the receiver to: (1) parse the header, (2) resolve the correct key, (3) verify the signature (JWS) or decrypt (JWE), and (4) validate claims. Every mutation in this taxonomy exploits a failure in one or more of these steps.
+A JWT is a compact, URL-safe token format defined in RFC 7519. A JWS compact serialization has three Base64URL-encoded segments: `Header.Payload.Signature`; a JWE compact serialization has five: `Header.EncryptedKey.IV.Ciphertext.AuthenticationTag`. Processing includes parsing the header, selecting an allowed algorithm and key, verifying or decrypting the token, and validating claims such as issuer, audience, and expiration.
 
 ---
 
@@ -322,7 +321,7 @@ Attacks exploiting fundamental properties of the JWT/JOSE specification or its i
 
 ### §7-1. JWS/JWE Confusion
 
-JWS (signed) and JWE (encrypted) share the same compact serialization format — dot-separated Base64URL segments — and RFC 7519 explicitly allows JWTs to be either signed or encrypted. Libraries that provide a unified `decode()` interface handling both formats without enforcing which type is expected create a rich attack surface where the boundary between signing and encryption operations collapses.
+JWS and JWE both use compact dot-separated Base64URL forms. A unified `decode()` interface that does not require the expected token type can confuse signing and encryption flows.
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|

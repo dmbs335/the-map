@@ -4,9 +4,8 @@
 
 ## Classification Structure
 
-Reverse proxy misrouting encompasses all attacks that exploit discrepancies between how a reverse proxy (or load balancer, CDN, service mesh sidecar) interprets, transforms, and routes an HTTP request versus how the backend/origin server processes that same request. The fundamental precondition is a **multi-component architecture** where at least two systems parse the same request independently, and where differences in parsing, normalization, or routing logic create exploitable gaps.
+Reverse proxy misrouting occurs when a proxy, load balancer, CDN, or service-mesh sidecar routes a request differently from how the backend processes it. It requires at least two components to parse or normalize the same request independently.
 
-This taxonomy organizes the attack surface along three axes:
 
 **Axis 1 — Mutation Target (Primary Structure):** The structural component of the request being manipulated to induce misrouting. This axis defines the main body of the document: path normalization, host/authority, HTTP/2 pseudo-headers, URL encoding, routing headers, TLS/SNI layer, proxy configuration rules, and connection/protocol semantics.
 
