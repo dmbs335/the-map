@@ -413,7 +413,7 @@ Running Django with `DEBUG=True` in production transforms every error into a rec
 | **Local variable exposure** | Stack traces expose local variables at each frame, potentially containing session data, passwords, and tokens | DEBUG=True; newer Django versions |
 | **Route enumeration** | 404 pages list all URL patterns registered in the application | DEBUG=True in production |
 | **SQL query exposure** | Debug toolbar and error pages display raw SQL queries including parameter values | DEBUG=True or django-debug-toolbar in production |
-| **DNS rebinding via DEBUG** | With `DEBUG=True`, `ALLOWED_HOSTS` defaults to `['localhost', '127.0.0.1', '[::1]']`, but DNS rebinding can bypass this | DEBUG=True accessible from network |
+| **DNS rebinding via DEBUG** | When `DEBUG=True` *and* `ALLOWED_HOSTS` is empty, Django validates the Host against `['.localhost', '127.0.0.1', '[::1]']` (note: `.localhost` has a leading dot — it matches `localhost` and any subdomain of it). DNS rebinding to a localhost-resolving name can still satisfy this gate | `DEBUG=True` with empty `ALLOWED_HOSTS`, accessible from network |
 
 ### §8-2. SECRET_KEY Exposure
 
@@ -596,36 +596,6 @@ Django's built-in validators use regular expressions susceptible to catastrophic
 
 ---
 
-## Summary: Core Principles
-
-### The Root Cause: Trust Boundary Erosion Through Convenience APIs
-
-Django's fundamental vulnerability pattern stems from the tension between **developer convenience** and **security isolation**. The framework provides powerful APIs — dictionary expansion into ORM methods, template auto-escaping opt-outs, flexible serializer backends — that create implicit trust boundaries. When user-controlled data crosses these boundaries via `**kwargs` expansion, `|safe` marking, or configuration-dependent serialization, the framework's layered defenses collapse.
-
-The recurring SQL injection pattern (17+ CVEs) reveals a structural issue: Django's ORM generates different SQL across backends (PostgreSQL, Oracle, MySQL, SQLite), and each backend has unique parameterization gaps. Fixing a vulnerability on one backend doesn't protect others. The `**kwargs` expansion pattern (`filter(**request.GET.dict())`) is particularly insidious because it feels Pythonic and natural, yet it bridges the trust boundary between HTTP parameters and ORM internal control parameters (`_connector`, `_negated`).
-
-### Why Incremental Patches Fail
-
-Django's security team has demonstrated exceptional responsiveness (150+ CVEs fixed across 15+ years), but the patch pattern reveals structural limitations:
-
-1. **Utility function DoS is whack-a-mole**: `strip_tags()`, `urlize()`, `Truncator`, `floatformat`, `intcomma` — each accepts unbounded input and exhibits super-linear behavior. Fixing one function doesn't prevent the same pattern in the next.
-
-2. **Backend-specific SQL generation creates combinatorial explosion**: Each new ORM feature (FilteredRelation, JSONField lookups, GIS functions) must be audited across all supported databases. Oracle, PostgreSQL, and MySQL each require different escaping strategies.
-
-3. **Dictionary expansion is inherent to Python**: The `**kwargs` pattern is fundamental to Python's design. Banning it in ORM calls requires either runtime enforcement (added in recent patches) or static analysis adoption.
-
-### Structural Solutions
-
-A comprehensive defense requires:
-
-- **Explicit allowlisting** at every trust boundary: `Meta.fields = [...]` (not `'__all__'`), validated choices for ORM function arguments, explicit parameter allowlists for dict expansion
-- **Input length bounds** before regex/HTML processing: Maximum length enforcement before passing to validators and template filters
-- **Backend-agnostic parameterization audits**: Every ORM feature must be tested for SQL injection across all supported database backends
-- **`manage.py check --deploy`** as CI gate: Built-in security checks should be mandatory in deployment pipelines, not optional
-- **SECRET_KEY rotation and isolation**: Secrets management via environment variables with periodic rotation, combined with migration away from PickleSerializer
-
----
-
 ## References
 
 - [Django Official Security Archive](https://docs.djangoproject.com/en/6.0/releases/security/)
@@ -647,5 +617,3 @@ A comprehensive defense requires:
 - [SonarSource — Disclosing Information with a Side-Channel in Django (2022)](https://www.sonarsource.com/blog/disclosing-information-with-a-side-channel-in-django/)
 
 ---
-
-*This document was created for defensive security research and vulnerability understanding purposes.*

@@ -449,7 +449,7 @@ The attacker manipulates the cryptographic keys or parameters established during
 | §2-2 (Mass Assignment) | CVE-2025-57760 (Langflow) | Privilege escalation to superadmin via `is_superuser` field injection (note: CVE-2024-13275 is Drupal Security Kit HTTP DoS, unrelated) |
 | §3-1 (Limit Overrun) | Multiple GitLab / HackerOne bounties | Discount/coupon multi-redemption, vote manipulation via single-packet attack |
 | §3-1 (Limit Overrun) + §2-3 (Guard Timing) | Azure AuthQuake (2024) | MFA brute-force via session parallelization + absent rate limiting + excessive OTP validity window, reported by Oasis Security |
-| §1-1 (Auth Skip) | CVE-2024-28080 (Gitblit) | SSH authentication bypass via public key state machine flaw in Gitblit's MINA SSHD integration/Authenticator (not a MINA SSHD core vulnerability) |
+| §1-1 (Auth Skip) | Gitblit release-note identifier CVE-2024-28080 (no public CVE Program API record found as of 2026-08-09) | SSH authentication bypass in Gitblit's integration/authenticator (not a MINA SSHD core vulnerability); fixed in Gitblit 1.10.0 |
 | §5-2 (FTP Bounce) | Historical (RFC 2577) | Port scanning, SMTP relay, firewall bypass via FTP PORT command abuse |
 | §3-4 (Distributed TOCTOU) | AWS DynamoDB DNS Outage (2025) | Major US-EAST-1 outage from latent race condition in internal DNS automation — operational incident, not a security vulnerability or CVE (included as state-machine anti-pattern example) |
 | §2-3 (Kernel TOCTOU) | CVE-2024-30088 (Windows Kernel) | Local privilege escalation via kernel-level TOCTOU race condition |
@@ -478,22 +478,6 @@ The attacker manipulates the cryptographic keys or parameters established during
 
 ---
 
-## Summary: Core Principles
-
-### The Root Cause: Implicit State Machines
-
-The fundamental property that makes this entire mutation space possible is that **most systems implement state machines implicitly** — through scattered conditional checks, database flags, session variables, and middleware ordering — rather than as explicit, formally verifiable state machine definitions. When the state machine exists only in the developer's mental model, every implementation gap becomes a potential violation vector. Protocol implementations embed state machines in complex code paths where message handling functions may not rigorously validate the current state before processing; web applications distribute state across cookies, databases, session stores, and in-memory variables without a single authoritative state representation; smart contracts update state after external calls rather than before.
-
-### Why Incremental Patches Fail
-
-State machine violations are resistant to incremental patching because each fix addresses a **specific transition or guard** while leaving the underlying implicit architecture unchanged. Patching the CCS injection in OpenSSL does not prevent the next unexpected-message-ordering vulnerability. Adding a check for one MFA bypass path does not cover the alternative endpoint discovered next month. The attack surface is not a list of bugs — it is a structural property of how the system represents and enforces state. Every new endpoint, protocol extension, or microservice interaction adds new transitions that must be validated against the complete state machine, and implicit machines make complete validation impossible.
-
-### The Structural Solution
-
-The structural solution is **explicit state machine enforcement**: defining allowed states, transitions, and guards as first-class data structures (or formal specifications) that are the single source of truth for what transitions are permitted. At the protocol level, this means state-aware message dispatchers that reject any message not expected in the current state. At the application level, this means workflow engines or state machine libraries that centralize transition logic rather than distributing it across endpoints. At the concurrency level, this means atomic state transitions via serializable database transactions, optimistic locking, or CRDTs rather than check-then-act patterns. At the cryptographic level, this means fixed algorithm enforcement and transcript binding that makes negotiation tampering detectable. The gap between current practice and this ideal — the gap between implicit and explicit state machines — is the territory this taxonomy maps.
-
----
-
 ## References
 
 - PortSwigger Research, "Smashing the state machine: the true potential of web race conditions" (Black Hat USA 2023 / DEF CON 31)
@@ -510,7 +494,6 @@ The structural solution is **explicit state machine enforcement**: defining allo
 - Antonioli et al., "Key Negotiation Downgrade Attacks on Bluetooth and Bluetooth Low Energy" (ACM TOPS 2020)
 - Cloudflare, "HTTP/2 Rapid Reset: deconstructing the record-breaking attack" (2023)
 - Imperva, "MadeYouReset: Turning HTTP/2 Server Against Itself" (2024)
+- [Gitblit 1.10.0 release notes — SSH authentication bypass fix labeled CVE-2024-28080](https://www.gitblit.com/releasenotes.html)
 
 ---
-
-*This document was created for defensive security research and vulnerability understanding purposes.*

@@ -9,7 +9,7 @@ A structured, comprehensive vulnerability mutation taxonomy collection for secur
 
 ## What is this?
 
-**The Map** is a **security knowledge base** that systematically classifies 108+ web vulnerability classes across 12 categories (plus 7 researcher profiles). Unlike conventional cheatsheets or CVE lists, each topic is organized by **structural mutation criteria** — what is mutated, what discrepancy it creates, and where it is weaponized.
+**The Map** is a **security knowledge base** that systematically classifies 107 web vulnerability classes across 12 categories (plus 7 researcher profiles). Unlike conventional cheatsheets or CVE lists, each topic is organized by **structural mutation criteria** — what is mutated, what discrepancy it creates, and where it is weaponized.
 
 Each topic is a deeply structured Markdown reference document covering the full attack surface of a vulnerability class through a three-axis taxonomy (Mutation Target, Discrepancy/Bypass Type, Attack Scenario).
 
@@ -69,7 +69,6 @@ Each topic is a deeply structured Markdown reference document covering the full 
 |---|---|
 | [**SSRF**](04-server-side/ssrf.md) | Server-Side Request Forgery bypass taxonomy and cloud metadata exploitation |
 | [**Path Traversal**](04-server-side/path-traversal.md) | Directory traversal, path normalization bypass, and file access attacks |
-| [**File Upload**](04-server-side/file-upload.md) | File upload restriction bypass mutations and content-type confusion |
 | [**Deserialization**](04-server-side/deserialization.md) | Deserialization gadget chains, format-specific attacks, and bypass taxonomy |
 | [**JNDI Injection**](04-server-side/jndi-injection.md) | JNDI lookup exploitation (Log4Shell class) and remote class loading |
 | [**JDBC Attack**](04-server-side/jdbc-attack.md) | JDBC connection string injection and driver-specific exploitation |
@@ -249,7 +248,7 @@ the-map/
   ├── 02-auth/                   # Authentication & Authorization (9 topics)
   ├── 03-http-protocol/          # HTTP & Protocol Layer attacks (10 topics)
   │   └── http-parsing-discrepancy/  # HTTP parsing differential sub-category
-  ├── 04-server-side/            # Server-side vulnerabilities (12 topics)
+  ├── 04-server-side/            # Server-side vulnerabilities (11 topics)
   ├── 05-client-side/            # Client-side & Browser attacks (12 topics)
   ├── 06-encoding-parser/        # Encoding & Parser differentials (4 topics)
   ├── 07-application-logic/      # Business logic vulnerabilities (6 topics)

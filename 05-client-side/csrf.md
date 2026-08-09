@@ -1,7 +1,6 @@
 # Cross-Site Request Forgery (CSRF) Mutation/Variation Taxonomy
 
 ---
-
 ## Classification Structure
 
 Cross-Site Request Forgery (CSRF) exploits the trust that a web application places in the user's browser. When a browser sends a request to a server, it automatically includes credentials (cookies, HTTP authentication) associated with that origin. CSRF attacks leverage this behavior by tricking the victim's browser into issuing state-changing requests to a target application where the victim is already authenticated.
@@ -181,7 +180,7 @@ Modern browser APIs can interact with SameSite policies in unexpected ways.
 | Subtype | Mechanism | Discrepancy | Key Condition |
 |---------|-----------|-------------|---------------|
 | **Service Worker FetchEvent Bypass** | In certain browser implementations (notably Firefox, pre-patch), requests intercepted and re-issued by a Service Worker's `FetchEvent` handler bypass SameSite restrictions. The browser sends protected cookies even on cross-site requests when the request passes through a Service Worker. | D6 + D7 | Target application registers a Service Worker with a `FetchEvent` handler; victim uses a vulnerable browser version |
-| **Fetch API Credential Modes** | Using `fetch()` with `credentials: 'include'` in combination with permissive CORS headers (`Access-Control-Allow-Credentials: true`) enables cross-origin requests with cookies. While this is not a SameSite bypass per se, it circumvents the intended cross-origin isolation when CORS is misconfigured. | D6 | Permissive CORS configuration with wildcard or reflected origins |
+| **Fetch API Credential Modes** | `fetch(url, {credentials: 'include'})` opts a cross-origin fetch into sending credentials that are otherwise eligible; it does not override SameSite. CORS controls whether the script may read the response. An exact or reflected attacker origin plus `Access-Control-Allow-Credentials: true` can expose a credentialed response, but literal `Access-Control-Allow-Origin: *` cannot. | D5 + D6 | Cookies eligible under SameSite (typically `SameSite=None; Secure` for cross-site use); exact/reflected ACAO; ACAC enabled |
 
 ---
 
@@ -237,7 +236,7 @@ SPAs that use JSON APIs with Bearer token authentication (tokens stored in `loca
 |---------|-----------|-------------|---------------|
 | **Cookie fallback in hybrid auth** | SPA uses Bearer tokens for API calls but falls back to cookie-based session authentication for specific endpoints (file uploads, SSO callbacks, legacy routes). The cookie-based endpoints lack CSRF tokens because the development team assumes "we use JWT, not cookies" | D1 + D6 | Mixed auth strategy: some endpoints use cookies, others use Bearer tokens; cookie endpoints lack CSRF protection |
 | **Token-in-cookie SPA pattern** | SPA stores the access token in an `HttpOnly` cookie (for XSS protection) instead of `localStorage`. This reintroduces automatic credential attachment — the cookie is sent on every request including cross-origin, making the API susceptible to standard CSRF | D6 | Access token in `HttpOnly` cookie with `SameSite=None` (for cross-origin API calls); no CSRF token layer |
-| **CORS misconfiguration + token theft** | SPA API has permissive CORS (`Access-Control-Allow-Origin: *` or reflected origin with credentials). Attacker reads the API response cross-origin, extracts the Bearer token or CSRF token from the response body, and uses it in subsequent forged requests | D5 + D6 | CORS allows cross-origin credential-bearing reads; token exposed in API response |
+| **CORS misconfiguration + token theft** | SPA API reflects or explicitly allowlists the attacker origin and enables credentials. The attacker reads the API response cross-origin, extracts a bearer or CSRF token from the response body, and uses it in subsequent forged requests | D5 + D6 | Exact/reflected ACAO and ACAC permit the credentialed read; token exposed in API response |
 | **SPA framework auto-CSRF gap** | Some SPA frameworks lack built-in CSRF protection for programmatic API calls. React and Vue have **no built-in CSRF mechanism** — developers must manually attach tokens to `fetch()`/`XMLHttpRequest` calls. Angular is an exception: its `HttpClient` includes a built-in XSRF interceptor (reads `XSRF-TOKEN` cookie, sends `X-XSRF-TOKEN` header) enabled by default on all mutating requests (POST, PUT, DELETE, PATCH) to same-origin URLs. The gap primarily affects React/Vue SPAs where developers assume CSRF is handled globally but programmatic API calls bypass any form-level token injection | D1 | React/Vue: no built-in CSRF for JS requests; Angular: built-in but only for same-origin mutating HttpClient calls; developers unaware of framework-specific coverage |
 | **Pre-rendered / SSR hydration CSRF** | Server-Side Rendered (SSR) SPAs (Next.js, Nuxt, SvelteKit) generate HTML with embedded CSRF tokens during server rendering. After hydration, client-side routing bypasses the server-rendered form, and subsequent state-changing requests omit the CSRF token because the SPA router doesn't refetch it | D1 + D8 | SSR framework embeds CSRF token in initial HTML; client-side navigation after hydration doesn't refresh the token |
 
@@ -485,38 +484,6 @@ This pattern only generalizes to platforms where customer applications and manag
 
 ---
 
-## Summary: Core Principles
-
-### The Root Cause
-
-CSRF exists because of a fundamental design property of the web: **ambient authority**. Browsers automatically attach credentials (cookies, HTTP authentication, client certificates) to every request sent to a domain, regardless of what initiated that request. This means that any page on the internet can cause a user's browser to make an authenticated request to any other site the user is logged into. The request is indistinguishable from a legitimate user-initiated one at the network level.
-
-### Why Incremental Fixes Fail
-
-The history of CSRF defense is a history of partial mitigations that each leave gaps:
-
-- **CSRF tokens** are the most robust defense but require correct implementation — tokens must be unpredictable, session-bound, and validated on every state-changing request. In practice, tokens are frequently omitted on some endpoints (§1-1), decoupled from sessions (§1-2), or extractable via XSS (§8-1).
-- **SameSite cookies** were intended as a browser-level silver bullet, but the `Lax` default still permits GET-based attacks (§2-1), and the same-site/cross-origin distinction creates an entire class of sibling-domain bypasses (§2-2). The 2-minute Lax+POST grace period further weakens the defense (§2-1).
-- **Origin/Referer validation** is inherently fragile because headers can be suppressed (§4-1) and validation logic is prone to substring/suffix matching errors (§4-2).
-- **CORS** only prevents response *reading*, not request *sending* — the state-changing side effect occurs regardless (§5-2).
-
-Each defense addresses one aspect of the CSRF problem while leaving others exposed. Modern applications layer multiple defenses (defense in depth), but the interaction between layers (e.g., SameSite + CORS + Content-Type) creates combinatorial complexity where any single misconfiguration opens an attack path.
-
-### Structural Solutions
-
-A truly robust CSRF defense requires addressing ambient authority at its source:
-
-1. **Mandatory CSRF tokens with HMAC signing** bound to sessions, validated on all state-changing endpoints, and rotated periodically
-2. **SameSite=Strict** cookies where cross-site functionality is not required, with `Lax` as a minimum baseline
-3. **Fetch Metadata headers** (`Sec-Fetch-Site`, `Sec-Fetch-Mode`) for server-side request context verification — this is the most promising modern defense as the header value is set by the browser and cannot be forged by JavaScript
-4. **Custom request headers** (e.g., `X-Requested-With`) as a simple but effective CORS preflight trigger
-5. **Session regeneration** on authentication state changes to prevent fixation chains
-6. **Origin validation with strict parsing** — exact scheme + host + port comparison, never substring matching
-
-The ultimate architectural evolution is toward **token-bound sessions** and **origin-based isolation** (as embodied by Fetch Metadata), where the browser provides cryptographic or unforgeable context about every request, eliminating the need for application-layer token management entirely.
-
----
-
 ## References
 
 - [OWASP Cross-Site Request Forgery Prevention Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html)
@@ -534,12 +501,10 @@ The ultimate architectural evolution is toward **token-bound sessions** and **or
 - [Cobalt CSRF & Bypasses](https://www.cobalt.io/learning-center/csrf-bypasses)
 - [CWE-352: Cross-Site Request Forgery](https://cwe.mitre.org/data/definitions/352.html)
 - [MDN: Cross-site request forgery (CSRF)](https://developer.mozilla.org/en-US/docs/Web/Security/Attacks/CSRF)
+- [MDN: Using the Fetch API — including credentials](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch#including_credentials)
+- [MDN: Cross-Origin Resource Sharing (CORS)](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CORS)
 - [Auth0: Prevent CSRF Attacks in OAuth 2.0](https://auth0.com/blog/prevent-csrf-attacks-in-oauth-2-implementations/)
 - [CVE-2024-48962 (Apache OFBiz SameSite Bypass)](https://seclists.org/oss-sec/2024/q4/95)
 - [CVE-2025-34291 (Langflow CSRF to ATO+RCE)](https://www.obsidiansecurity.com/blog/cve-2025-34291-critical-account-takeover-and-rce-vulnerability-in-the-langflow-ai-agent-workflow-platform)
 - [XSRFProbe](https://github.com/0xInfection/XSRFProbe)
 - [Bolt CSRF Scanner](https://github.com/s0md3v/Bolt)
-
----
-
-*This document was created for defensive security research and vulnerability understanding purposes.*

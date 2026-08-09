@@ -730,7 +730,7 @@
 | [deserialization](../04-server-side/deserialization.md) | **RC6** | RC1 (nested injection) | RC6.T01–RC6.T08 |
 | [ssrf](../04-server-side/ssrf.md) | **RC7** | RC2 (URL parsing), RC8 (trust) | RC7.T01 |
 | [open-redirect](../05-client-side/open-redirect.md) | **RC7** | RC3 (token theft) | RC7.T02 |
-| [file-upload](../04-server-side/file-upload.md) | **RC7** (path), **RC2** (MIME) | RC5 (race), RC1 (XSS) | RC7.T03, RC2.T09 |
+| file-upload *(standalone document retired)* | **RC7** (path), **RC2** (MIME) | RC5 (race), RC1 (XSS) | RC7.T03, RC2.T09 |
 | [rmi](../99-deprecated/rmi.md) | **RC7** | RC6 (deserialization) | RC7.T04 |
 | [jdbc-attack](../04-server-side/jdbc-attack.md) | **RC7** | — | RC7.T05 |
 | [zip](../06-encoding-parser/zip-archive.md) | **RC7** (path), **RC2** (structure) | CC4 (validation) | RC7.T03, RC2.T08 |

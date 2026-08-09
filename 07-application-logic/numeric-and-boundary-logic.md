@@ -1,7 +1,6 @@
 # Numeric and Boundary Logic — Mutation/Variation Taxonomy
 
 ---
-
 ## Classification Structure
 
 This taxonomy organizes the entire attack surface of numeric and boundary logic vulnerabilities under three orthogonal axes. Every technique is classified by **what numeric property is mutated** (Axis 1), **what discrepancy the mutation creates** (Axis 2), and **in what deployment scenario the mutation becomes exploitable** (Axis 3).
@@ -362,10 +361,8 @@ These vulnerabilities exploit the window between checking a numeric value and us
 | §1-2 (subtraction underflow) | CVE-2024-47606 (GStreamer) | Code execution via integer underflow in qtdemux parser |
 | §1-2 (integer underflow) | CVE-2024-0808 (Chrome WebUI) | Integer underflow in WebUI leading to heap corruption |
 | §2-2 (truncation) | CVE-2025-49679 (Windows Shell) | Local privilege escalation to SYSTEM (CVSS 7.8) |
-| §3-1 (rounding direction) | Balancer V2 (Nov 2025) | Large cross-chain loss via rounding inconsistency (primary source verification needed) |
+| §3-1 (rounding direction) | Balancer V2 (Nov 2025) | Balancer's post-mortem attributes the Composable Stable Pool exploit to incorrect rounding in the exact-output swap path; Balancer-deployed pools lost an estimated $94.8 million |
 | §3-1 (precision loss) | OnyxProtocol (Nov 2023) | Precision loss in share calculation |
-| §3-1 (precision loss) | Cetus DEX (May 2025) | Large loss from missed overflow check in exchange calculation (primary source verification needed) |
-| §1-1 (unchecked overflow) | Truebit (Jan 2026) | Value drained via uint256 overflow in Solidity 0.6.10 contract (primary source verification needed) |
 | §2-3 (PHP type juggling) | CVE-2023-53894 (phpfm 1.7.9) | Authentication bypass via 0e magic hash type juggling (CVE-2023-43154 is Macs Framework CMS 1.1.4f) |
 | §2-1 (signedness) | CVE-2020-4032 (FreeRDP) | OOB read via signed-to-unsigned conversion of negative diff |
 | §3-3 (FP architectural) | CVE-2021-0086 (FPVI) | Transient execution attack via NaN-boxed values (CVSS 6.5) |
@@ -395,22 +392,6 @@ These vulnerabilities exploit the window between checking a numeric value and us
 
 ---
 
-## Summary: Core Principles
-
-### The Root Cause
-
-All numeric and boundary logic vulnerabilities ultimately stem from a single architectural reality: **computers operate on finite, typed representations of numbers, while developers reason about infinite, exact mathematical quantities**. Every programming language makes compromises — wraparound semantics, implicit coercion, floating-point approximation, or silent truncation — and each compromise creates an exploitable gap between developer intent and machine behavior.
-
-### Why Incremental Fixes Fail
-
-Patching individual numeric bugs is a losing strategy because the vulnerability class is not a defect in any particular operation but a property of the computational model itself. Adding bounds checks for one arithmetic operation leaves adjacent operations unprotected. Migrating to checked arithmetic (Solidity ≥0.8, Rust's default mode) addresses wraparound but does nothing for precision loss, type coercion, or business logic manipulation. Memory-safe languages eliminate the integer-overflow-to-buffer-overflow chain but preserve all higher-level numeric logic errors. Each defensive layer addresses a slice of the taxonomy while leaving other slices untouched.
-
-### Toward Structural Solutions
-
-A comprehensive defense requires defense-in-depth across all taxonomy categories: (1) **Type-level enforcement** — use checked arithmetic by default, strict comparison operators, and explicit numeric types that match the domain (e.g., fixed-point for financial calculations, unsigned for sizes); (2) **Validation at boundaries** — validate all numeric inputs at system entry points for range, type, sign, and special values (NaN, Infinity); (3) **Atomic operations for numeric state** — use database-level constraints (CHECK, serializable transactions) and atomic compare-and-swap for all numeric state mutations; (4) **Formal verification for high-value targets** — smart contracts and cryptographic implementations warrant mathematical proofs of numeric correctness; (5) **Continuous fuzzing** — boundary-value analysis with automated generation of edge cases (0, -1, MAX, MIN, NaN, INT_MIN/-1) as a standard part of CI/CD.
-
----
-
 ## References
 
 - [CWE-189: Numeric Errors](https://cwe.mitre.org/data/definitions/189.html)
@@ -425,7 +406,5 @@ A comprehensive defense requires defense-in-depth across all taxonomy categories
 - [OWASP Smart Contract Top 10 (2025): SC08 Integer Overflow/Underflow](https://github.com/OWASP/www-project-smart-contract-top-10/blob/main/2025/en/src/SC08-integer-overflow-underflow.md)
 - IEEE 754-2019: Standard for Floating-Point Arithmetic
 - [2024 CWE Top 25 Most Dangerous Software Weaknesses](https://cwe.mitre.org/top25/archive/2024/2024_cwe_top25.html)
-
----
-
-*This document was created for defensive security research and vulnerability understanding purposes.*
+- [Intel — Floating Point Value Injection / CVE-2021-0086 / INTEL-SA-00516](https://www.intel.com/content/www/us/en/developer/articles/technical/software-security-guidance/advisory-guidance/floating-point-value-injection.html)
+- [Balancer — November 3, 2025 exploit post-mortem](https://medium.com/balancer-protocol/nov-3-exploit-post-mortem-51dcbeb6b020)

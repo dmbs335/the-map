@@ -26,13 +26,7 @@ These mechanisms apply across all §1–§10 categories and explain *why* each m
 | **M6** | Trust Boundary Violation | Exploiting misplaced trust between client/server, inter-service, or inter-component boundaries |
 | **M7** | Semantic Gap Exploitation | Leveraging differences between how two components interpret the same data or rule |
 
-### Foundational Principle: The Turing Machine Model
-
-The OWASP Business Logic Abuse Top 10 (2025) models business-logic vulnerabilities using Turing machine primitives, providing a universal framework: any business rule can be expressed as a Turing machine (tape = data/memory, head = data access, states = workflow positions, transitions = logic rules). This guarantees that the taxonomy below can represent every possible logic flaw. Each category in this taxonomy maps to one or more of these primitives being abused.
-
----
-
-## §1. Data Integrity and Input Validation Abuse (Tape Manipulation)
+## §1. Data Integrity and Input Validation Abuse
 
 When applications fail to enforce server-side validation of business-critical parameters — prices, quantities, currencies, user-supplied identifiers — attackers can directly manipulate the data that drives business decisions. This is the most fundamental class of business logic vulnerability: the application *trusts data it should verify*.
 
@@ -85,7 +79,7 @@ API endpoints bind request payloads directly to server-side objects without filt
 
 ---
 
-## §2. State Machine and Workflow Violations (Transition Abuse)
+## §2. State Machine and Workflow Violations
 
 Applications implement multi-step processes (checkout, registration, approval) as implicit state machines. When transition validation is incomplete — steps can be skipped, repeated, or reordered — attackers bypass mandatory business logic.
 
@@ -138,7 +132,7 @@ Application objects (tokens, sessions, temporary resources) persist beyond their
 
 ---
 
-## §3. Access Control and Authorization Bypass (Permission Boundary Abuse)
+## §3. Access Control and Authorization Bypass
 
 When implementations omit, misapply, or inconsistently enforce role and permission checks, attackers manipulate role identifiers, escalate privileges, or access unauthorized operations.
 
@@ -176,7 +170,7 @@ Authorization that is correct in one context but exploitable in another.
 
 ---
 
-## §4. Concurrency and Timing Exploitation (Temporal Window Abuse)
+## §4. Concurrency and Timing Exploitation
 
 Race conditions in business logic create temporal windows between check and use, allowing operations that should be mutually exclusive to execute in parallel.
 
@@ -214,7 +208,7 @@ Response timing differences leak information about business logic state.
 
 ---
 
-## §5. Resource and Quota Management Violations (Boundary Exhaustion)
+## §5. Resource and Quota Management Violations
 
 Applications expose endpoints that consume computational, financial, or operational resources. When systems fail to enforce proper limits, attackers exhaust resources, exceed quotas, or abuse usage-based billing.
 
@@ -253,7 +247,7 @@ Abuse legitimate business operations to cause resource exhaustion.
 
 ---
 
-## §6. Authentication and Session Logic Abuse (Identity Boundary Violation)
+## §6. Authentication and Session Logic Abuse
 
 Flaws in the authentication and session management *logic* — distinct from cryptographic weaknesses — that allow attackers to bypass identity verification, hijack sessions, or impersonate users.
 
@@ -293,7 +287,7 @@ Exploit logical flaws in single sign-on and federated identity systems.
 
 ---
 
-## §7. Information Disclosure and Data Oracle Abuse (Internal State Leakage)
+## §7. Information Disclosure and Data Oracle Abuse
 
 Applications inadvertently reveal internal state, business rules, or sensitive data through their business logic responses, enabling attackers to derive information they shouldn't possess.
 
@@ -332,7 +326,7 @@ Non-obvious channels reveal business-sensitive information.
 
 ---
 
-## §8. Numeric and Type Boundary Abuse (Data Representation Exploitation)
+## §8. Numeric and Type Boundary Abuse
 
 Exploiting how the application handles data types, numeric boundaries, and type coercion to achieve unintended business logic outcomes.
 
@@ -364,7 +358,7 @@ Exploiting how the application handles data types, numeric boundaries, and type 
 
 ---
 
-## §9. API and Interface Abuse (Contract Violation)
+## §9. API and Interface Abuse
 
 Exploiting assumptions about how APIs and interfaces will be consumed, including hidden endpoints, undocumented features, and interface contract violations.
 
@@ -396,7 +390,7 @@ Exploiting assumptions about how APIs and interfaces will be consumed, including
 
 ---
 
-## §10. Domain-Specific Business Logic Abuse (Vertical Attack Surfaces)
+## §10. Domain-Specific Business Logic Abuse
 
 Business logic vulnerabilities that are specific to particular industry verticals and business domains, exploiting the unique rules and workflows of each domain.
 
@@ -447,81 +441,26 @@ Business logic vulnerabilities that are specific to particular industry vertical
 
 ---
 
-## Attack Scenario Mapping (Axis 3: Impact Domain)
-
-| Impact Domain | Architecture/Context | Primary Mutation Categories |
-|---|---|---|
-| **Financial Fraud** | E-commerce, fintech, payment processing | §1 + §4 + §10-1 + §10-2 |
-| **Unauthorized Access** | Multi-tenant SaaS, enterprise applications | §3 + §6 + §9 |
-| **Data Exfiltration** | API-driven applications, microservices | §7 + §3-2 + §9-1 |
-| **Service Disruption** | High-availability platforms, booking systems | §5 + §4 + §10-4 |
-| **Privilege Escalation** | Role-based access control systems | §3-1 + §1-4 + §6-1 |
-| **Regulatory/Compliance Violation** | Financial services, healthcare, data privacy | §7 + §3 + §6-3 |
-| **Inventory/Resource Manipulation** | E-commerce, ticketing, resource allocation | §5-3 + §10-4 + §4-1 |
-| **Reputation Damage** | Social platforms, review/voting systems | §10-5 + §5-3 |
-
----
-
 ## CVE / Bounty Mapping (2023–2025)
 
 | Mutation Combination | CVE / Case | Impact / Bounty |
 |---|---|---|
 | §2-1 + §6-1 | CVE-2025-29927 (Next.js) — `x-middleware-subrequest` header bypass skipped authentication middleware entirely | Critical. Allowed complete auth bypass on middleware-protected routes that lacked independent downstream authorization checks |
-| §1-4 + §3-1 | Mass assignment in various platforms (HackerOne aggregate) | Business logic errors account for a large share of web3/crypto bounty impact compared with cross-industry programs |
 | §4-1 | Coupon race condition (HackerOne report) — Turbo Intruder used for parallel coupon redemptions | Unauthorized fee-free transactions through coupon race |
-| §10-2 | DeFi smart contract logic exploits (2024 aggregate) — re-entrancy, oracle manipulation, bridge logic flaws | Major aggregate losses across incidents in 2024 |
 | §7-3 | O2 UK location data exposure — call metadata revealed user location (Data Oracle + Missing Permissions) | Regulatory investigation; privacy violation |
 | §6-3 | HashiCorp Vault / CyberArk Conjur logic flaws — authentication bypass, identity impersonation, policy enforcement circumvention (BlackHat 2024) | Secret exfiltration, identity impersonation, arbitrary code execution |
 | §9-1 | Open GraphQL introspection + shadow signup endpoint bypassing email validation | Account creation without verification; unauthorized access |
 | §2-3 | Unlimited discount redemption (HackerOne) — single coupon applied multiple times via replay | Significant financial impact on merchant |
-| §10-2 | DMM Bitcoin hack (2024) — cryptocurrency theft attributed to Bluenoroff group via logic and social engineering | One of the largest single crypto hacks of 2024 |
 | §1-2 + §8-1 | PortSwigger Low-Level Logic Flaw lab — integer overflow in shopping cart total | Cart total wraps negative, attacker receives credit |
 
 ---
+## Defensive Takeaways
 
-## Detection Tools
-
-| Tool | Target Scope | Core Technique |
-|---|---|---|
-| **Burp Suite + Extensions** (Manual) | Full web application business logic | Proxy interception, Turbo Intruder for race conditions, Repeater for state manipulation |
-| **BOLABuster** (Research) | BOLA/IDOR vulnerabilities in APIs | LLM-powered endpoint dependency analysis and automated BOLA test case generation |
-| **ZeroPath** (Automated) | Business logic, auth bypass, authz flaws | AI-native code analysis combining LLM with program analysis for semantic understanding |
-| **Escape** (Automated API) | API business logic testing | Agentic testing engine that adapts paths based on discovered API structure |
-| **Terra** (Automated) | Application-level business logic | AI agent swarm that probes and reasons through application flows like human pentesters |
-| **Pynt** (API Security) | API business logic, OWASP API Top 10 | Automated API testing with business logic abuse detection |
-| **OWASP ZAP** (Semi-automated) | Web application testing baseline | Active/passive scanning with manual business logic test augmentation |
-| **Nuclei** (Template-based) | Known vulnerability patterns | Community-maintained templates for common business logic patterns |
-| **Custom Abuse Case Frameworks** (Manual) | Domain-specific business logic | Threat modeling with abuse case development per OWASP methodology |
-| **Imperva / AWS WAF Advanced** (Runtime) | Runtime business logic abuse detection | Behavioral baselining and stateful inspection to detect logic abuse patterns |
-| **ANOTA** (Research, Python) | CWE Top 40 business logic vulnerabilities (27/40 entries) | Human-in-the-loop annotation-based sanitization — developer defines intended behavior via four annotation types (SYSCALL, TAINT, WATCH, EXECUTION); runtime policy monitor enforces policies during fuzzing via eBPF syscall tracing + modified CPython taint propagation; detected 22 zero-days (17 CVEs) in projects including Home Assistant, Apache Airflow, Apache Superset (NDSS 2026) |
-
----
-
-## Summary: Core Principles
-
-### The Root Cause: Implicit Trust and Incomplete State Modeling
-
-The entire spectrum of business logic vulnerabilities stems from a single fundamental property: **applications are state machines that incompletely model and enforce their own rules**. Every business application is, in formal terms, a Turing machine — with data (tape), access patterns (head), states (workflow positions), and transitions (business rules). Vulnerabilities emerge whenever the *implemented* state machine diverges from the *intended* state machine. This divergence manifests in three ways: (1) trusting input that should be verified (§1, §8, §9), (2) allowing transitions that should be forbidden (§2, §3, §6), and (3) failing to serialize operations that should be atomic (§4, §5).
-
-### Why Incremental Patches Fail
-
-Business logic vulnerabilities resist systematic elimination because they are **semantically defined** — you cannot identify them without understanding what the application is *supposed* to do, which no automated tool can fully capture. Each fix addresses a specific assumption violation, but the assumption space is combinatorially vast. Fixing a coupon race condition doesn't prevent a cart manipulation bug; patching a price tampering issue doesn't address a workflow bypass. Moreover, new features continually introduce new state transitions and business rules, each with their own assumption surface. Reported growth in API business logic attacks reflects this expanding attack surface as applications grow in complexity.
-
-A systematic analysis of fuzzing sanitizers against the CWE Top 40 (ANOTA, NDSS 2026) quantifies this blind spot: **27 of the 40 most dangerous software weaknesses require business logic context** for detection. These fall into two categories: *Unaddressed Weaknesses* — where no sanitizer exists at all (e.g., CWE-862 Missing Authorization, CWE-287 Improper Authentication, CWE-269 Improper Privilege Management) — and *Narrowly-Addressed Weaknesses* — where existing sanitizers rely on language-specific heuristics with limited generalizability (e.g., Atropos for PHP-only file uploads, ODDFuzz for Java-only deserialization, EDEFuzz requiring a rendered GUI). Standard fuzzers with traditional crash-based oracles detect **zero** business logic bugs even when supplied with vulnerability-triggering inputs, confirming that the sanitizer — not the input generator — is the bottleneck.
-
-### The Structural Solution
-
-A principled defense requires operating at the **design level**, not the implementation level:
-
-1. **Explicit State Machine Modeling**: Define all valid states and transitions formally, then enforce them through a centralized state management layer. Every endpoint verifies not just "is this user authenticated?" but "is this a valid transition from the current state?"
-
-2. **Server-Side Authority for All Business Rules**: Never trust client-supplied values for prices, quantities, permissions, or state transitions. The server must be the single source of truth for all business-critical calculations and decisions.
-
-3. **Atomic Operations with Serialization**: All check-then-act patterns must be atomic. Use database-level locking, optimistic concurrency control, or serializable transactions for any operation involving shared mutable state.
-
-4. **Abuse Case Threat Modeling**: For every user story ("User can apply a coupon"), develop a corresponding abuse case ("Attacker applies the same coupon 1000 times simultaneously"). Integrate this into the development lifecycle, not as a post-hoc security review.
-
-5. **Behavioral Monitoring**: Since logic flaws operate within legitimate application flows, detection requires understanding *normal* usage patterns and flagging statistical anomalies (e.g., 30 identical requests in 100ms, purchases at $0.01, workflow steps accessed out of order).
+- Recompute prices, permissions, quotas, and state transitions on the server.
+- Define valid workflow transitions and reject requests that skip, repeat, or reorder them.
+- Make check-then-act operations atomic when they affect shared state.
+- Derive abuse cases from application-specific invariants; generic scanners cannot infer intended business behavior.
+- Monitor for impossible values, invalid transition sequences, and abnormal repetition rates.
 
 ---
 
@@ -537,7 +476,3 @@ A principled defense requires operating at the **design level**, not the impleme
 - [Anota: Identifying Business Logic Vulnerabilities via Annotation-Based Sanitization (NDSS 2026)](https://dx.doi.org/10.14722/ndss.2026.240938)
 - [SlowMist 2024 Blockchain Security Report](https://www.slowmist.com/report/2024-Blockchain-Security-and-AML-Annual-Report(EN).pdf)
 - [PayloadsAllTheThings: Business Logic Errors](https://swisskyrepo.github.io/PayloadsAllTheThings/Business%20Logic%20Errors/)
-
----
-
-*This document was created for defensive security research and vulnerability understanding purposes.*

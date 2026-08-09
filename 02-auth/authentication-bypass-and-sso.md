@@ -266,12 +266,12 @@ Reaching authenticated functionality through alternative entry points that lack 
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **WebSocket Channel Bypass** | Accessing functionality through WebSocket endpoints that have different (weaker) authentication than the corresponding HTTP endpoints. The authentication on the WebSocket channel may only check for token *presence* without validating authenticity | WebSocket endpoints exposed alongside HTTP; authentication logic not shared (CVE-2024-55591, FortiOS, CVSS 9.8) |
+| **WebSocket Channel Bypass** | Accessing functionality through WebSocket endpoints that have different (weaker) authentication than the corresponding HTTP endpoints. The authentication on the WebSocket channel may only check for token *presence* without validating authenticity | WebSocket endpoints exposed alongside HTTP; authentication logic not shared (CVE-2024-55591; 9.8 in the CVE/NVD record, 9.6 on the FortiGuard advisory page) |
 | **API Version Mismatch** | Older API versions still accessible that have weaker or no authentication, while newer versions have been hardened | Deprecated API versions not decommissioned; authentication added only to new versions |
 | **Debug / Management Interface Exposure** | Administrative or diagnostic interfaces accessible without authentication when exposed to unintended networks | Management interface bound to all interfaces instead of localhost; no separate authentication for management (CVE-2024-0012, Palo Alto PAN-OS) |
 | **Path Traversal to Unprotected Endpoints** | Using directory traversal sequences to navigate from an authenticated path to an unauthenticated one while maintaining the appearance of authorized access | Path normalization inconsistency between reverse proxy and application; encoded traversal sequences not decoded uniformly |
 
-The FortiOS CVE-2024-55591 (CVSS 9.8) exemplifies WebSocket channel bypass: the Node.js WebSocket module only verified the *presence* of a `local_access_token` parameter without validating its authenticity or session binding, allowing unauthenticated attackers to obtain super-admin privileges. Nearly 50,000 vulnerable instances were exposed on the Internet.
+FortiOS CVE-2024-55591 (CVSS 9.8 in the CVE/NVD record; 9.6 on the FortiGuard advisory page) exemplifies WebSocket channel bypass: the Node.js WebSocket module only verified the *presence* of a `local_access_token` parameter without validating its authenticity or session binding, allowing unauthenticated attackers to obtain super-admin privileges. Nearly 50,000 vulnerable instances were exposed on the Internet.
 
 ### §7-3. HTTP Verb and Method Tampering
 
@@ -337,7 +337,7 @@ Exploiting differences in how proxy/WAF and application normalize URL paths, all
 | §6-1 (FIDO Credential Confusion) | CVE-2025-26788 | StrongKey FIDO Server 4.10–4.15 | Account takeover via discoverable/non-discoverable credential confusion |
 | §6-3 (BLE Proximity Hijack) | CVE-2024-9956 | Google Chrome Android | WebAuthn BLE proximity attack → credential capture |
 | §7-1 (Middleware Header) | CVE-2025-29927 | Next.js 11.1.4–12.3.4, 13.0.0–13.5.8, 14.0.0–14.2.24, 15.0.0–15.2.2 | Complete auth middleware bypass; CVSS 9.1 |
-| §7-2 (WebSocket Bypass) | CVE-2024-55591 | FortiOS 7.0.x / FortiProxy | Super-admin via WebSocket; CVSS 9.8; zero-day exploited since Nov 2024 |
+| §7-2 (WebSocket Bypass) | CVE-2024-55591 | FortiOS 7.0.x / FortiProxy | Super-admin via WebSocket; CVSS 9.8 in the CVE/NVD record and 9.6 on the FortiGuard advisory page; zero-day exploited since Nov 2024 |
 | §7-2 (Mgmt Interface) | CVE-2024-0012 | Palo Alto PAN-OS | Unauthenticated admin access to management web interface |
 | §7-2 (Mgmt Interface) | CVE-2025-0108 | Palo Alto PAN-OS | Auth bypass in management web interface |
 | §2-1 (Kerberos Cert Auth) | CVE-2025-26647 | Windows Kerberos | Certificate-based auth bypass when cert issuer not in NTAuth store |
@@ -380,38 +380,6 @@ Exploiting differences in how proxy/WAF and application normalize URL paths, all
 
 ---
 
-## Summary: Core Principles
-
-### The Root Cause: Trust Materialization Gap
-
-The entire authentication bypass attack surface exists because of a fundamental architectural problem: **authentication is a point-in-time event whose result must be materialized into a persistent, transferable artifact** (session token, Kerberos ticket, cookie, assertion) that subsequent systems trust without re-verifying. Every technique in this taxonomy ultimately exploits the gap between the authentication *event* and the ongoing *trust* in its materialized artifact.
-
-Kerberos tickets can be forged because trust is materialized in a signed data structure, and the signing key is a recoverable secret. Session cookies can be replayed because trust is materialized in a portable browser artifact. MFA can be bypassed through AitM because the attacker intercepts the materialization point. Recovery flows create alternative materialization paths with weaker verification. Even the Golden dMSA attack exploits a flaw in how managed-service-account password *derivation* was materialized as a 1,024-possibility brute-force problem.
-
-### Why Incremental Patches Fail
-
-1. **Defense-in-depth layers are independently attackable**: Each authentication layer (credential verification, MFA, session management, SSO trust) can be bypassed independently. Strengthening one layer does not protect against bypass of another. The 2024–2025 trend of AitM + infostealer chains demonstrates that even "phishing-resistant" MFA is bypassed by attacking the session layer that sits *above* it.
-
-2. **Protocol ossification**: Protocols like Kerberos (designed before modern threat models) and legacy authentication mechanisms cannot be fundamentally redesigned without breaking compatibility with millions of deployed systems.
-
-3. **The fallback problem**: Every authentication system maintains weaker alternatives for disaster recovery, accessibility, or compatibility. The authentication downgrade attacks of 2025 prove that the *effective* security of any system is equal to its weakest maintained fallback method.
-
-4. **Trust boundary proliferation**: The explosion of SSO, federation, cloud synchronization, and hybrid architectures means that authentication trust boundaries are multiplying faster than they can be secured. Each trust relationship (AD ↔ Azure, IdP ↔ SP, LDAP client ↔ server) is an independent attack surface.
-
-### Structural Solutions
-
-The only comprehensive mitigations are those that address the trust materialization gap directly:
-
-- **Device-bound session credentials (DBSC)**: Cryptographically binding session tokens to specific devices prevents replay even if cookies are stolen, addressing §4 entirely.
-- **Continuous authentication**: Re-verifying identity throughout a session rather than trusting a single point-in-time authentication event, addressing §4 and reducing the value of §3 bypasses.
-- **Zero-fallback MFA policies**: Eliminating all phishable fallback methods, accepting the usability/accessibility trade-off, which is the only defense against §3-3 downgrade attacks.
-- **Protocol modernization**: Enforcing AES encryption for all Kerberos operations, mandating modern authentication protocols over legacy mechanisms, and requiring cryptographic channel binding.
-- **Credential-less architectures**: Moving toward systems where there is no extractable secret at rest (hardware-bound passkeys without synchronization, certificate-based auth with non-exportable keys), which structurally eliminates §9 credential acquisition attacks.
-
-The trajectory is clear: authentication security must evolve from "verify once, trust forever" to "verify continuously, trust nothing." Until that transition is complete, the techniques documented in this taxonomy will continue to evolve faster than point defenses can contain them.
-
----
-
 ## References
 
 - Semperis, "Golden dMSA: What Is dMSA Authentication Bypass?," July 2025
@@ -435,5 +403,3 @@ The trajectory is clear: authentication security must evolve from "verify once, 
 - Datadog Security Labs, "Understanding CVE-2025-29927: The Next.js Middleware Authorization Bypass," 2025
 
 ---
-
-*This document was created for defensive security research and vulnerability understanding purposes.*

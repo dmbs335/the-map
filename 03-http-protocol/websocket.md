@@ -1,7 +1,6 @@
 # WebSocket Security Mutation/Variation Taxonomy
 
 ---
-
 ## Classification Structure
 
 This taxonomy classifies the entire WebSocket attack surface along three orthogonal axes. **Axis 1 (Mutation Target)** identifies the structural component of the WebSocket lifecycle being exploited — from the initial HTTP Upgrade handshake, through protocol framing, message payloads, connection state, proxy intermediaries, transport security, higher-level sub-protocols, and concurrent state management. This axis structures the main body of the document. **Axis 2 (Discrepancy Type)** captures the nature of the security violation each mutation creates: origin bypass, authentication bypass, parser differential, input validation failure, state desynchronization, or resource exhaustion. **Axis 3 (Attack Scenario)** maps each technique to the real-world impact context in which it becomes weaponizable.
@@ -344,7 +343,7 @@ WebSocket's persistent, asynchronous nature creates timing-sensitive state manag
 | §2-1 + §1-1 (Unauthenticated local WS + port brute-force) | CVE-2025-52882 (Claude Code MCP Server) | CVSS 8.8 — IDE/file path exposure and arbitrary file read through unauthenticated localhost WebSocket; code execution is limited to specific VS Code/Jupyter + user-prompt conditions |
 | §7-1 (STOMP unauthorized messages) | CVE-2025-41254 (Spring Framework) | CVSS 4.3. Spring official advisory describes this as "unauthorized messages" bypassing CSRF protection — characterizing the root cause as STOMP frame smuggling or pre-CONNECT injection goes beyond the official description. Affects 5.3.0–5.3.45, 6.0.x–6.0.29, 6.1.0–6.1.23, 6.2.0–6.2.11. Fixed in 5.3.46, 6.1.24, 6.2.12 |
 | §3-2 (Predictable masking key) | CVE-2025-10148 (curl) | Static WebSocket masking key reused across entire connection. Per curl advisory, cache poisoning risk requires a flawed proxy that misinterprets WebSocket traffic as HTTP — not exploitable against spec-compliant intermediaries |
-| §2-1 + §1-2 (Auth bypass via Node.js WS module) | CVE-2024-55591 (FortiOS/FortiProxy) | CVSS 9.6 — Super-admin privilege gain via crafted WebSocket requests; actively exploited in the wild |
+| §2-1 + §1-2 (Auth bypass via Node.js WS module) | CVE-2024-55591 (FortiOS/FortiProxy) | CVSS 9.8 in the CVE/NVD record; 9.6 on the FortiGuard advisory page. Super-admin privilege gain via crafted WebSocket requests; actively exploited in the wild |
 | §1-1 (CSWSH, missing Origin validation) | CVE-2024-26135 (MeshCentral) | Cross-site WebSocket hijacking enables unauthorized management operations |
 | §1-1 (CSWSH, localhost WS) | CVE-2024-11045 (AUTOMATIC1111/stable-diffusion-webui) | CSWSH on localhost WebSocket queue/join endpoint — attacker page hijacks local SD WebUI session |
 | §7-2 (Socket.IO event name type confusion) | CVE-2023-32695 (socket.io-parser) | DoS — Server crash via crafted event name object that overrides `toString()`. Affects socket.io-parser < 3.3.4, 3.4.0–3.4.2, 4.0.4–4.2.2 |
@@ -373,24 +372,6 @@ WebSocket's persistent, asynchronous nature creates timing-sensitive state manag
 
 ---
 
-## Summary: Core Principles
-
-### The Root Cause: Protocol Duality Without Security Continuity
-
-WebSocket's entire mutation space stems from a single architectural reality: the protocol is born as HTTP and reborn as a raw TCP channel, yet no security context automatically crosses this boundary. HTTP's decades of security tooling — CORS, CSRF tokens, Content-Type enforcement, WAF signatures, cookie policies — are designed for stateless request-response exchanges and largely cease to function once the connection upgrades to WebSocket. Simultaneously, RFC 6455 provides no authentication, no authorization, and no input validation at the protocol level, explicitly delegating all security to the application.
-
-This creates a fundamental mismatch: developers and security tools assume HTTP-level protections apply, while the WebSocket runtime operates in a security vacuum. Cross-Site WebSocket Hijacking exists because CSRF tokens don't carry over. Injection attacks succeed because WAFs don't inspect WebSocket frames. Authorization bypass works because per-request access controls become meaningless in a persistent connection. The handshake is HTTP; everything after is not. This discontinuity is the genesis of every category in this taxonomy.
-
-### Why Incremental Fixes Fail
-
-Patching individual WebSocket vulnerabilities produces a perpetual game of catch-up for three reasons. First, the attack surface multiplies with every higher-level protocol layered on top: STOMP, Socket.IO, GraphQL, and JSON-RPC each introduce their own framing, routing, and state management — and their own security gaps. Second, the intermediary ecosystem (proxies, load balancers, CDNs) was designed for HTTP and bolted on WebSocket support as an afterthought, creating parser differentials that smuggling attacks exploit. Third, browser-level mitigations (SameSite cookies, Total Cookie Protection, and Chrome's Local Network Access permission model) each address a narrow slice of the problem while leaving other vectors open — SameSite doesn't protect `SameSite=None` cookies required by cross-origin auth; LNA coverage varies by request type, browser version, and granted-permission state; Firefox reduces CSWSH mainly via cookie partitioning/tracking protections rather than a Release-channel Lax-by-default cookie assumption.
-
-### The Structural Solution
-
-A comprehensive defense requires treating WebSocket as a first-class security boundary with its own defense stack: (1) per-message authentication and authorization that is independent of the HTTP handshake; (2) server-side Origin validation as a mandatory configuration, not opt-in; (3) input validation and output encoding on every message as if it were an untrusted HTTP request; (4) WebSocket-aware WAFs and monitoring that inspect post-upgrade traffic; (5) strict proxy validation of the complete upgrade lifecycle (request headers, response status, response headers); and (6) rate limiting, message size limits, and connection limits applied at the WebSocket protocol layer, not the HTTP layer. Until the ecosystem treats the WebSocket channel with the same security rigor as HTTP, the mutation space documented here will continue to expand.
-
----
-
 ## References
 
 - [RFC 6455: The WebSocket Protocol](https://www.rfc-editor.org/rfc/rfc6455)
@@ -412,7 +393,3 @@ A comprehensive defense requires treating WebSocket as a first-class security bo
 - [HackTricks: WebSocket Attacks](https://book.hacktricks.xyz/pentesting-web/websocket-attacks)
 - [Black Hills InfoSec: CSWSH Analysis](https://www.blackhillsinfosec.com/cant-stop-wont-stop-hijacking-websockets/)
 - [DeepStrike: Mastering WebSockets Vulnerabilities](https://deepstrike.io/blog/mastering-websockets-vulnerabilities)
-
----
-
-*This document was created for defensive security research and vulnerability understanding purposes.*

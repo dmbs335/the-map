@@ -1,7 +1,6 @@
 # Service Worker Security Mutation/Variation Taxonomy
 
 ---
-
 ## Classification Structure
 
 This taxonomy organizes Service Worker security vulnerabilities along three orthogonal axes derived from systematic analysis of academic research, real-world exploitation, and defensive tooling.
@@ -313,7 +312,7 @@ Service Workers cannot bypass SOP but can manipulate cross-origin requests.
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **CORS Credential Exposure** | SW intercepts cross-origin requests with credentials, logging/exfiltrating them even though response is opaque to page | `fetch(url, {mode: 'cors', credentials: 'include'})` |
+| **Credentialed Cross-Origin Request Mediation** | A compromised SW can observe and reissue a controlled client's cross-origin request metadata and request that eligible browser-managed credentials be included. It cannot read the `Cookie` header itself. A `no-cors` response remains opaque, while `mode: 'cors'` fails if the CORS check fails rather than returning an opaque response | Compromised SW controls the requesting client; cookies remain eligible under SameSite; the target explicitly permits CORS if response contents must be read |
 | **Opaque Response Confusion** | Application receives opaque response from SW but doesn't properly handle the restricted access, leading to logic errors | Application doesn't check response.type |
 
 **Key Limitation**: SW script URL must be same-origin as registering page; cross-origin SW registration is blocked.
@@ -362,69 +361,40 @@ Service Workers cannot bypass SOP but can manipulate cross-origin requests.
 
 ---
 
-## Summary: Core Principles
-
-Service Worker vulnerabilities stem from a **fundamental architectural tension**: the API grants persistent, origin-level network proxy capabilities to JavaScript code that is often under-updated, inadequately secured, and trusted implicitly by both browsers and applications.
-
-Three structural properties create the attack surface:
-
-1. **Persistent Interception Authority**: Once installed, a SW controls all HTTP traffic within its scope until explicitly replaced. The average 40-day update cycle transforms temporary compromises (XSS, script injection) into long-lived persistent attacks. Unlike traditional XSS which ends when the page closes, SW-based XSS survives browser restarts and tab closures.
-
-2. **Policy Scope Mismatch**: `importScripts()` is governed by the SW script's own CSP (from its response headers), not the page's CSP. If the SW response lacks a CSP header, imports are unrestricted regardless of the page's policy. This creates a "script within a script" security model that standard web defenses don't anticipate.
-
-3. **Shared Storage & Lifecycle**: Service Workers access origin-level async storage (Cache API, IndexedDB — but not localStorage/sessionStorage) and communicate via postMessage without per-page isolation. Combined with background APIs (Push, Sync), this enables privacy leakage (history sniffing, location tracking), resource abuse (cryptomining, botnets), and persistent state corruption attacks.
-
-**Why Incremental Patches Fail**: Individual fixes (e.g., patching one importScripts vulnerability, updating one stale SW) don't address the structural issue that SWs are rarely updated (40-day average) and have excessive privilege once installed. A single XSS vulnerability combined with file upload capability grants persistent origin control. Cache poisoning transforms self-XSS into stored XSS. Push notification permission becomes a tracking vector.
-
-**Structural Solutions**:
-
-- **Kill-Switch Mechanisms**: Rapidly deployable SW deactivation (via header or API call) to respond to active exploitation
-- **Reduced TTL**: Shorter SW script cache lifetime (currently 24 hours) to force more frequent update checks
-- **Import Freshness Checks**: Include imported scripts in byte-wise comparison for updates (currently only main SW is checked)
-- **Scope Isolation**: Per-page SW instances instead of origin-level sharing to limit blast radius
-- **User-Visible Indicators**: Browser UI showing active SW and permissions (push, background sync) to surface hidden background activity
-- **SW Response CSP**: Serve strict `Content-Security-Policy` on SW script responses (e.g., `script-src 'self'`) to restrict `importScripts()` sources
-
-The Service Worker security model assumes benign installation and trusts the SW implicitly. The mutation space documented here demonstrates that this trust is structurally unwarranted—adversarial SWs are not an edge case but an expected outcome of the privilege model intersecting with standard web vulnerabilities (XSS, injection, weak validation).
-
----
-
 ## References
 
 ### Academic Papers
-- [Soroush Karami, Panagiotis Ilia, Jason Polakis. "Awakening the Web's Sleeper Agents: Misusing Service Workers for Privacy Leakage." NDSS Symposium, 2021. [](https://www.ndss-symposium.org/ndss-paper/awakening-the-webs-sleeper-agents-misusing-service-workers-for-privacy-leakage/](https://www.ndss-symposium.org/ndss-paper/awakening-the-webs-sleeper-agents-misusing-service-workers-for-privacy-leakage/))
+- [Soroush Karami, Panagiotis Ilia, Jason Polakis. "Awakening the Web's Sleeper Agents: Misusing Service Workers for Privacy Leakage." NDSS Symposium, 2021.](https://www.ndss-symposium.org/ndss-paper/awakening-the-webs-sleeper-agents-misusing-service-workers-for-privacy-leakage/)
 
-- [Karthika Subramani, Jordan Jueckstock, Alexandros Kapravelos, Roberto Perdisci. "SoK: Workerounds - Categorizing Service Worker Attacks and Mitigations." IEEE European Symposium on Security and Privacy (EuroS&P), 2022. [](https://oaklandsok.github.io/papers/subramani2022.pdf](https://oaklandsok.github.io/papers/subramani2022.pdf))
+- [Karthika Subramani, Jordan Jueckstock, Alexandros Kapravelos, Roberto Perdisci. "SoK: Workerounds - Categorizing Service Worker Attacks and Mitigations." IEEE European Symposium on Security and Privacy (EuroS&P), 2022.](https://oaklandsok.github.io/papers/subramani2022.pdf)
 
-- ["The Service Worker Hiding in Your Browser: The Next Web Attack Target?" ACM RAID 2021. [](https://dl.acm.org/doi/fullHtml/10.1145/3471621.3471845](https://dl.acm.org/doi/fullHtml/10.1145/3471621.3471845))
+- ["The Service Worker Hiding in Your Browser: The Next Web Attack Target?" ACM RAID 2021.](https://dl.acm.org/doi/fullHtml/10.1145/3471621.3471845)
 
-- ["Security Study of Service Worker Cross-Site Scripting." ACM. [](https://dl.acm.org/doi/fullHtml/10.1145/3427228.3427290](https://dl.acm.org/doi/fullHtml/10.1145/3427228.3427290))
+- ["Security Study of Service Worker Cross-Site Scripting." ACM.](https://dl.acm.org/doi/fullHtml/10.1145/3427228.3427290)
 
 ### Industry Research & Practitioner Resources
-- [PortSwigger Research. "Hijacking service workers via DOM Clobbering." 2024. [](https://portswigger.net/research/hijacking-service-workers-via-dom-clobbering](https://portswigger.net/research/hijacking-service-workers-via-dom-clobbering))
+- [PortSwigger Research. "Hijacking service workers via DOM Clobbering." 2024.](https://portswigger.net/research/hijacking-service-workers-via-dom-clobbering)
 
-- [HackTricks. "Abusing Service Workers." [](https://book.hacktricks.xyz/pentesting-web/xss-cross-site-scripting/abusing-service-workers](https://book.hacktricks.xyz/pentesting-web/xss-cross-site-scripting/abusing-service-workers))
+- [HackTricks. "Abusing Service Workers."](https://book.hacktricks.xyz/pentesting-web/xss-cross-site-scripting/abusing-service-workers)
 
-- [TrustedSec. "Persistence Through Service Workers—Part 1." [](https://trustedsec.com/blog/persistence-through-service-workers-part-1-introduction-and-target-application-setup](https://trustedsec.com/blog/persistence-through-service-workers-part-1-introduction-and-target-application-setup))
+- [TrustedSec. "Persistence Through Service Workers—Part 1."](https://trustedsec.com/blog/persistence-through-service-workers-part-1-introduction-and-target-application-setup)
 
-- [Akamai. "Abusing the Service Workers API." [](https://www.akamai.com/blog/security/abusing-the-service-workers-api](https://www.akamai.com/blog/security/abusing-the-service-workers-api))
+- [Akamai. "Abusing the Service Workers API."](https://www.akamai.com/blog/security/abusing-the-service-workers-api)
 
-- [NVISO Labs. "Deep dive into the security of Progressive Web Apps." 2020. [](https://blog.nviso.eu/2020/01/16/deep-dive-into-the-security-of-progressive-web-apps/](https://blog.nviso.eu/2020/01/16/deep-dive-into-the-security-of-progressive-web-apps/))
+- [NVISO Labs. "Deep dive into the security of Progressive Web Apps." 2020.](https://blog.nviso.eu/2020/01/16/deep-dive-into-the-security-of-progressive-web-apps/)
 
 ### Tools & Frameworks
-- [Shadow Workers (GitHub). Open-source C2 and proxy for SW exploitation. [](https://github.com/shadow-workers/shadow-workers](https://github.com/shadow-workers/shadow-workers))
+- [Shadow Workers (GitHub). Open-source C2 and proxy for SW exploitation.](https://github.com/shadow-workers/shadow-workers)
 
-- [Google Service Worker Detector (GitHub). [](https://github.com/google/service-worker-detector](https://github.com/google/service-worker-detector))
+- [Google Service Worker Detector (GitHub).](https://github.com/google/service-worker-detector)
 
 ### Standards & Specifications
-- [W3C Service Worker Specification. [](https://github.com/w3c/ServiceWorker](https://github.com/w3c/ServiceWorker))
+- [W3C Service Worker Specification.](https://github.com/w3c/ServiceWorker)
+- [Fetch Standard: credentials and CORS](https://fetch.spec.whatwg.org/)
+- [MDN: Forbidden request headers (`Cookie`)](https://developer.mozilla.org/en-US/docs/Glossary/Forbidden_request_header)
 
 
 ### Security Best Practices
-- ["Service Worker Security Best Practices - 2024 Guide." [](https://www.zeepalm.com/blog/service-worker-security-best-practices-2024-guide](https://www.zeepalm.com/blog/service-worker-security-best-practices-2024-guide))
+- ["Service Worker Security Best Practices - 2024 Guide."](https://www.zeepalm.com/blog/service-worker-security-best-practices-2024-guide)
 
-- [MDN Web Docs. "Using Service Workers." [](https://developer.mozilla.org/en-US/docs/Web/API/Service_Worker_API/Using_Service_Workers](https://developer.mozilla.org/en-US/docs/Web/API/Service_Worker_API/Using_Service_Workers))
-
----
-
-*This document was created for defensive security research and vulnerability understanding purposes. All attack techniques are documented to support security testing, vulnerability assessment, and defensive architecture design within authorized contexts.*
+- [MDN Web Docs. "Using Service Workers."](https://developer.mozilla.org/en-US/docs/Web/API/Service_Worker_API/Using_Service_Workers)

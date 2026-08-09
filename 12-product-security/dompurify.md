@@ -1,7 +1,6 @@
 # DOMPurify Bypass / Sanitizer Evasion Mutation Taxonomy
 
 ---
-
 ## Classification Structure
 
 DOMPurify is the most widely-deployed DOM-only HTML sanitizer. Its architecture—parse untrusted HTML into a DOM tree, walk the tree removing dangerous nodes/attributes, then serialize back—creates a fundamental attack surface: **any discrepancy between how DOMPurify interprets HTML during sanitization and how the browser interprets the serialized output during rendering** can yield Cross-Site Scripting.
@@ -323,7 +322,7 @@ Even when DOMPurify correctly sanitizes all XSS vectors, the remaining "safe" el
 | §2-1 (depth overflow) + §1-2 | CVE-2024-47875 / DOMPurify < 2.5.0 and >= 3.0.0 < 3.1.3 | Full bypass via 512-depth node flattening + caption insertion mode (both 2.x and 3.x branches affected per GitHub Advisory/NVD) |
 | §3-1 (parentNode clobbering) + §2-1 | DOMPurify 3.1.1 | Full bypass via DOM clobbering of depth counter |
 | §3-1 (__depth clobbering) + §2-2 | DOMPurify 3.1.2 | Full bypass via elevator mutation + second-order clobbering |
-| §3-2 (prototype pollution) + §2 | CVE-2024-45801 / DOMPurify < 2.5.4, < 3.1.3 | Depth check weakening via prototype pollution; GitHub Advisory CVSS 8.3 (NVD score may differ) |
+| §3-2 (prototype pollution) + §2 | CVE-2024-45801 / DOMPurify < 2.5.4, < 3.1.3 | Depth check weakening via prototype pollution; NVD CVSS v3.1 7.0; GitHub Advisory CVSS v4.0 8.3 |
 | §3-2 (prototype pollution) | CVE-2024-48910 / DOMPurify < 2.4.2 | Prototype pollution tampering; related but separately assigned from CVE-2024-45801 |
 | §4-1 (template regex) + §1-3 | CVE-2025-26791 / DOMPurify < 3.2.4 | mXSS via incorrect template literal regex; CVSS 4.5 |
 | §4-3 (xmlns prefix) | DOMPurify (pre-fix) | `javascript:` via SVG namespace alias; requires user click |
@@ -351,38 +350,24 @@ Even when DOMPurify correctly sanitizes all XSS vectors, the remaining "safe" el
 
 ---
 
-## Summary: Core Principles
-
-The entire DOMPurify bypass space exists because of a single architectural constraint: **HTML parsing is not idempotent**. When DOMPurify sanitizes input to a string and that string is re-parsed via `innerHTML`, the resulting DOM tree can differ from the one DOMPurify inspected. Every bypass technique in this taxonomy—namespace switching, depth exploitation, DOM clobbering, regex evasion, configuration abuse, and context differentials—is a specific exploitation of this fundamental property.
-
-Incremental fixes fail because each patch addresses a specific mutation vector while the underlying mutation space is combinatorially vast. Namespace confusion alone has dozens of entry points (MathML integration points, SVG foreign objects, HTML integration points, Processing Instructions, CDATA sections) that interact with browser-specific depth limits, insertion modes, foster parenting, and encoding behaviors. The fix-bypass-fix cycle visible in DOMPurify's version history (3.1.0 → 3.1.1 → 3.1.2 → 3.1.3 → 3.2.x → 3.2.4) demonstrates this arms race: each patch closes one path while researchers discover adjacent combinatorial variants.
-
-The structural solution is to **eliminate the serialize-parse roundtrip entirely**. This can be achieved through: (1) using DOMPurify's `RETURN_DOM` or `RETURN_DOM_FRAGMENT` options to receive a sanitized DOM node directly, avoiding re-parsing; (2) adopting the browser-native Sanitizer API (`setHTML()`) which operates directly on the DOM without serialization; or (3) performing sanitization server-side with rendering via `textContent` rather than `innerHTML`. Until the serialize-parse roundtrip is architecturally eliminated, DOMPurify will remain a target for mutation-based bypasses—not because of implementation quality, but because the problem it solves is structurally adversarial.
-
----
-
 ## References
 
-- [PortSwigger Research — "Bypassing DOMPurify again with mutation XSS" (](https://portswigger.net/research/bypassing-dompurify-again-with-mutation-xss))
-- [Securitum — "Write-up of DOMPurify 2.0.0 bypass using mutation XSS" (](https://research.securitum.com/dompurify-bypass-using-mxss/))
-- [Securitum — "Mutation XSS via namespace confusion – DOMPurify < 2.0.17 bypass" (](https://research.securitum.com/mutation-xss-via-mathml-mutation-dompurify-2-0-17-bypass/))
-- [Mizu — "Exploring the DOMPurify library: Bypasses and Fixes (1/2)" (](https://mizu.re/post/exploring-the-dompurify-library-bypasses-and-fixes))
-- [Mizu — "Exploring the DOMPurify library: Hunting for Misconfigurations (2/2)" (](https://mizu.re/post/exploring-the-dompurify-library-hunting-for-misconfigurations))
-- [Mizu — "Playing with DOMPurify's custom elements handling" (](https://mizu.re/post/playing-with-dompurify-ce-handling))
-- [Slonser — "DOM Purify – dirty namespace bypass" (](https://blog.slonser.info/posts/dompurify-dirty-namespace-bypass/))
-- [Slonser — "DOM Purify – untrusted Node bypass" (](https://blog.slonser.info/posts/dompurify-node-type-confusion/))
-- [Flatt Security — "Bypassing DOMPurify with good old XML" (](https://flatt.tech/research/posts/bypassing-dompurify-with-good-old-xml/))
-- [YNizry — "DOMPurify 3.2.1 Bypass (Non-Default Config)" (](https://yaniv-git.github.io/2024/12/08/DOMPurify%203.2.1%20Bypass%20(Non-Default%20Config)/))
-- [ensy — "DOMPurify 3.2.3 Bypass (Non-Default Config)" (](https://ensy.zip/posts/dompurify-323-bypass/))
-- [SonarSource — "mXSS: The Vulnerability Hiding in Your Code" (](https://www.sonarsource.com/blog/mxss-the-vulnerability-hiding-in-your-code/))
-- [SonarSource — "mXSS Cheatsheet" (](https://sonarsource.github.io/mxss-cheatsheet/))
-- [s1r1us — "MXSS Evolution and Timeline: A primer to MXSS" (](https://s1r1us.ninja/posts/mxss-101/))
-- [BeaconRed — "When Purification Fails: Exploiting DOMPurify's Leftovers" (](https://shaheen.beaconred.net/research/2025/05/28/when-purification-fails.html))
-- [GitHub Advisory — CVE-2024-45801: DOMPurify prototype pollution (](https://github.com/advisories/GHSA-mmhx-hmjr-r674))
-- [GitHub Advisory — CVE-2025-26791: DOMPurify template regex mXSS (](https://github.com/advisories/GHSA-vhxf-7vqr-mrjg))
-- [WICG — Sanitizer API Specification (](https://wicg.github.io/sanitizer-api/))
-- [cure53 — DOMPurify GitHub Repository (](https://github.com/cure53/DOMPurify))
-
----
-
-*This document was created for defensive security research and vulnerability understanding purposes.*
+- [PortSwigger Research — "Bypassing DOMPurify again with mutation XSS"](https://portswigger.net/research/bypassing-dompurify-again-with-mutation-xss)
+- [Securitum — "Write-up of DOMPurify 2.0.0 bypass using mutation XSS"](https://research.securitum.com/dompurify-bypass-using-mxss/)
+- [Securitum — "Mutation XSS via namespace confusion – DOMPurify < 2.0.17 bypass"](https://research.securitum.com/mutation-xss-via-mathml-mutation-dompurify-2-0-17-bypass/)
+- [Mizu — "Exploring the DOMPurify library: Bypasses and Fixes (1/2)"](https://mizu.re/post/exploring-the-dompurify-library-bypasses-and-fixes)
+- [Mizu — "Exploring the DOMPurify library: Hunting for Misconfigurations (2/2)"](https://mizu.re/post/exploring-the-dompurify-library-hunting-for-misconfigurations)
+- [Mizu — "Playing with DOMPurify's custom elements handling"](https://mizu.re/post/playing-with-dompurify-ce-handling)
+- [Slonser — "DOM Purify – dirty namespace bypass"](https://blog.slonser.info/posts/dompurify-dirty-namespace-bypass/)
+- [Slonser — "DOM Purify – untrusted Node bypass"](https://blog.slonser.info/posts/dompurify-node-type-confusion/)
+- [Flatt Security — "Bypassing DOMPurify with good old XML"](https://flatt.tech/research/posts/bypassing-dompurify-with-good-old-xml/)
+- [YNizry — "DOMPurify 3.2.1 Bypass (Non-Default Config)"](https://yaniv-git.github.io/2024/12/08/DOMPurify%203.2.1%20Bypass%20(Non-Default%20Config)/)
+- [ensy — "DOMPurify 3.2.3 Bypass (Non-Default Config)"](https://ensy.zip/posts/dompurify-323-bypass/)
+- [SonarSource — "mXSS: The Vulnerability Hiding in Your Code"](https://www.sonarsource.com/blog/mxss-the-vulnerability-hiding-in-your-code/)
+- [SonarSource — "mXSS Cheatsheet"](https://sonarsource.github.io/mxss-cheatsheet/)
+- [s1r1us — "MXSS Evolution and Timeline: A primer to MXSS"](https://s1r1us.ninja/posts/mxss-101/)
+- [BeaconRed — "When Purification Fails: Exploiting DOMPurify's Leftovers"](https://shaheen.beaconred.net/research/2025/05/28/when-purification-fails.html)
+- [GitHub Advisory — CVE-2024-45801: DOMPurify prototype pollution](https://github.com/advisories/GHSA-mmhx-hmjr-r674)
+- [GitHub Advisory — CVE-2025-26791: DOMPurify template regex mXSS](https://github.com/advisories/GHSA-vhxf-7vqr-mrjg)
+- [WICG — Sanitizer API Specification](https://wicg.github.io/sanitizer-api/)
+- [cure53 — DOMPurify GitHub Repository](https://github.com/cure53/DOMPurify)

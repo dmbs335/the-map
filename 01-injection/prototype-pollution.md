@@ -374,7 +374,7 @@ Defenses against prototype pollution often involve input sanitization, but many 
 | **JSON.parse then merge** | `JSON.parse()` preserves `__proto__` as an own property; subsequent merge pollutes | Two-step processing: parse then merge |
 | **Multiple encoding layers** | URL-encoding, base64, or nested JSON wrapping hides `__proto__` from outer filters | Input passes through multiple decode stages |
 | **Array-to-object coercion** | Arrays with numeric indices coerced to objects during merge; `{0: {__proto__: {x:1}}}` nested in array position | Merge function processes arrays and objects identically |
-| **Prototype method override** | Polluting `String.prototype.includes` to always return `false` bypasses `if (key.includes('__proto__'))` checks | Security check relies on prototype methods (CVE-2024-29016 in `locutus`) |
+| **Prototype method override** | Polluting `String.prototype.includes` to always return `false` bypasses `if (key.includes('__proto__'))` checks | Security check relies on prototype methods (`locutus` CVE-2026-25521; fixed in 2.0.39) |
 
 ### §7-3. Detection Evasion (Server-Side)
 
@@ -432,7 +432,7 @@ Techniques for identifying prototype pollution without causing denial of service
 | §3-3 (tRPC FormData) | CVE-2025-68130 (@trpc/server) | Prototype pollution via `formDataToObject`. Affects tRPC 10.27.0–10.45.2, 11.0.0–11.7.0. Auth bypass, DoS. |
 | §1-1 (lodash) | CVE-2025-13465 (lodash) | Prototype pollution in `_.unset`/`_.omit` functions (property deletion via crafted `__proto__` paths). |
 | §1-3 (dset path setter) | CVE-2024-21529 (dset) | Prototype pollution via `dset()` function, improper input sanitization. |
-| §7-2 (prototype method override) | CVE-2024-29016 (locutus) | `parse_str` security check bypassed by polluting `String.prototype.includes`. |
+| §7-2 (prototype method override) | CVE-2026-25521 (locutus) | `parse_str` security check bypassed through a crafted input using `String.prototype`; affects 2.0.12 through 2.0.38 and is fixed in 2.0.39. |
 | §1-1 (deep-merge) | CVE-2024-38986 (@75lb/deep-merge) | All versions vulnerable due to reliance on vulnerable lodash merge. |
 | §1-1 (web3-utils) | CVE-2024-21505 (web3-utils) | `format()` and `mergeDeep()` functions vulnerable. High severity. |
 | §4 + §5-1 (requirejs) | CVE-2024-38999 (requirejs) | RCE via `s.contexts._.configure`. CVSS 10.0. |
@@ -462,20 +462,6 @@ Techniques for identifying prototype pollution without causing denial of service
 | **CodeQL queries** (GitHub) | Source code repositories | Static analysis queries detecting `prototype-polluting merge call` patterns |
 | **jsfuzz** | NPM packages | Fuzzing-based prototype pollution scanner for Node.js packages |
 | **ESLint `no-prototype-builtins`** | Source code (preventive) | Linting rule that flags `hasOwnProperty` calls on objects (related anti-pattern) |
-
----
-
-## Summary: Core Principles
-
-**The fundamental property** that makes prototype pollution possible is JavaScript's prototype-based inheritance with a mutable shared root. Every ordinary object inherits from `Object.prototype`, and this object is mutable by default. A single write to `Object.prototype` contaminates the entire application's object space. This design choice — mutable shared state at the root of the object hierarchy — is the structural root cause.
-
-**Incremental patches fail** because the attack surface is a product of two independent dimensions: pollution sources (any code that recursively processes user input into objects) and exploitation gadgets (any code that reads undefined properties for security-sensitive operations). Fixing individual merge functions or individual gadgets addresses specific instances but not the combinatorial explosion. A new library with an unsafe merge, or a new code path that reads an undefined property, immediately creates a new exploitable combination. The supply chain amplifies this: a single vulnerable deep-merge function in a transitive dependency can expose thousands of applications.
-
-**A structural solution** requires breaking the fundamental assumption. `Object.freeze(Object.prototype)` prevents mutation of the shared root, eliminating the vulnerability class entirely — but risks breaking code that depends on prototype extensibility. Using `Map` instead of plain objects for key-value data, creating objects with `Object.create(null)` (no prototype chain), schema validation with `additionalProperties: false` (e.g., ajv, Zod), and Node.js `--disable-proto` flag all reduce the attack surface structurally rather than through case-by-case filtering. The 2025 React Server Components issue (CVE-2025-55182, CVSS 10.0) is better treated as unsafe RSC deserialization, not generic prototype pollution; it still shows why deserialization boundaries must be explicit security controls.
-
----
-
-*This document was created for defensive security research and vulnerability understanding purposes.*
 
 ---
 

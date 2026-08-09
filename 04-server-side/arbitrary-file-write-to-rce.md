@@ -1,11 +1,10 @@
 # Arbitrary File Write → RCE Primitives: Cross-Platform Chain Taxonomy
 
-> **Scope**: Given an arbitrary file write (AFW) primitive — the ability to write attacker-controlled content to an attacker-controlled path — what targets on the filesystem lead to code execution? This document catalogs every known AFW→RCE chain across operating systems, language runtimes, web servers, containers, and CI/CD systems.
+> **Scope**: Given an arbitrary file write (AFW) primitive — the ability to write attacker-controlled content to an attacker-controlled path — what targets on the filesystem can lead to code execution? This document is a broad, non-exhaustive catalog of AFW→RCE chains across operating systems, language runtimes, web servers, containers, and CI/CD systems.
 >
 > **Exclusion**: File upload vulnerabilities (the mechanism by which AFW is obtained) are out of scope. This taxonomy begins *after* the write primitive is established.
 
 ---
-
 ## Classification Structure
 
 This taxonomy is organized along three axes:
@@ -245,7 +244,7 @@ x|O:6:"Gadget":1:{s:7:"command";s:15:"id > /tmp/pwned";}
 | Subtype | Target Path | Mechanism | Key Condition |
 |---|---|---|---|
 | **Classpath JAR injection** | Any directory on classpath | Drop JAR with classes that override application classes | Class loading order must favor attacker JAR |
-| **Endorsed/ext directory** | `$JAVA_HOME/jre/lib/ext/` | JVM loads all JARs in ext directory | JVM restart required; rare in modern Java |
+| **Legacy extension directory** | `$JAVA_HOME/jre/lib/ext/` | JDK 8 and earlier automatically load JARs from the extension directory | JVM restart required; the extension mechanism was removed in JDK 9, whose launcher rejects a configured/non-empty `lib/ext` directory |
 | **Service provider config** | `META-INF/services/<interface>` | Java ServiceLoader discovers attacker implementation | Application uses ServiceLoader |
 
 ### §4-6. Cross-Framework Template Write → RCE Comparison
@@ -380,7 +379,7 @@ Targets that exploit hooks and configuration in development tools.
 | **pre-push** | `.git/hooks/pre-push` | Executes before `git push` | Developer must push |
 | **Submodule path symlink** | `.git/modules/<submodule>/hooks/` | Symlink tricks during recursive clone | CVE-2024-32002, CVE-2025-48384 |
 
-Git hooks are executable scripts that Git runs automatically at specific lifecycle points. An AFW to `.git/hooks/` in a developer's repository provides persistent, stealthy code execution on every common git operation.
+Git hooks are executable programs that Git runs at specific documented lifecycle points. An AFW to `.git/hooks/` can provide persistent code execution when a matching event occurs (for example commit, checkout, merge, rebase, or push); ordinary Git commands that have no associated hook do not execute one, and non-executable hook files are ignored.
 
 ### §8-2. Build Tool Configuration (XPLAT)
 
@@ -488,15 +487,15 @@ This technique creates a valid cron file containing SQLite metadata (which cron 
 
 ## §12. Browser & Desktop Application Configuration
 
-Targets that exploit browser or desktop application configuration for indirect code execution.
+Targets that influence browser or desktop application behavior. Several entries provide only browser-context script execution or a launch trigger, not native host RCE by themselves.
 
 ### §12-1. Browser Configuration (XPLAT)
 
 | Subtype | Target | Mechanism | Key Condition |
 |---|---|---|---|
-| **Chrome Preferences** | `~/.config/google-chrome/Default/Preferences` | Modify `session.startup_urls` to load attacker page | Browser restart |
-| **Chrome extension** | Extension directory | Install malicious extension | Extension auto-loads on startup |
-| **Firefox prefs.js** | `~/.mozilla/firefox/<profile>/prefs.js` | Set homepage, proxy, or extension path | Browser restart |
+| **Chrome Preferences** | `~/.config/google-chrome/Default/Preferences` | Attempt to modify `session.startup_urls` to load an attacker page | Browser restart and acceptance of the externally modified preference; this yields web-context script execution/phishing, not native RCE |
+| **Existing unpacked Chrome extension** | Directory of an extension already loaded in Developer mode (or via `--load-extension`) | Replace extension code so it runs with that extension's granted permissions | Arbitrary directory placement alone does not install an extension; the directory must already be registered/loaded, or installation must occur through user/admin policy or tooling |
+| **Firefox `prefs.js`** | `~/.mozilla/firefox/<profile>/prefs.js` | Change homepage or proxy settings | Browser restart and persistence of the external edit; this redirects traffic but is not native RCE. Modern Firefox extension installation separately requires a signed/approved add-on in standard releases |
 | **Widevine .so overwrite** | `_platform_specific/linux_x64/libwidevinecdm.so` | Replace DRM library with malicious .so | Chrome loads on DRM content request |
 
 ### §12-2. Desktop Application Configs (XPLAT)
@@ -566,20 +565,6 @@ Targets that exploit browser or desktop application configuration for indirect c
 
 ---
 
-## Summary: Core Principles
-
-**1. The filesystem IS the execution model.** Modern operating systems, web servers, and language runtimes treat the filesystem as a trusted configuration and code delivery mechanism. Cron reads files from `/etc/cron.d/` and executes them. Python imports whatever `.so` file it finds first. Systemd loads any `.service` file in its unit path. This implicit trust in filesystem contents means that any write primitive — no matter how constrained — is a potential RCE primitive if the attacker can identify an appropriate target.
-
-**2. "Dirty" writes are often sufficient.** Many execution targets tolerate surrounding garbage data. Cron skips malformed lines. SSH `authorized_keys` ignores invalid entries. Shell profiles execute valid commands and error on invalid ones but continue. uWSGI scans entire files for `[uwsgi]` sections. Python `.pth` files need only one valid `import` line. This means even AFW vulnerabilities that prepend/append to existing files — or that mix attacker content with binary data — can achieve RCE.
-
-**3. Restart triggers compound the threat.** The most constrained AFW scenarios (e.g., Docker containers with limited writable directories) are overcome by combining a cached execution target (Bootsnap, opcache, `__pycache__`) with a restart trigger (Puma's `tmp/restart.txt`, Gunicorn worker crash, Werkzeug reloader). The attacker writes the poisoned cache, then writes a second file to trigger process restart, causing the runtime to load the malicious cached code.
-
-**4. The write-to-execution gap is narrowing.** Historical AFW→RCE chains required a separate event (reboot, cron cycle, user login). Modern research has progressively closed this gap: uWSGI `py-auto-reload` fires within seconds, Werkzeug reloaders trigger on any `.py` change, and `/proc/self/mem` provides *immediate* in-process code execution. The trend is toward zero-gap AFW→RCE primitives.
-
-**5. Platform convergence creates universal chains.** Language runtimes (Python, Ruby, Node.js, PHP) provide cross-platform AFW→RCE primitives that work identically on Linux, Windows, macOS, and within containers. A `.pth` file injection works on any platform with Python installed. Git hook poisoning works everywhere Git runs. This makes AFW→RCE chains increasingly platform-independent.
-
----
-
 ## Reference
 
 - [Jorian Woltjer, "Arbitrary File Write," *Practical CTF*](https://book.jorianwoltjer.com/web/server-side/arbitrary-file-write)
@@ -597,7 +582,7 @@ Targets that exploit browser or desktop application configuration for indirect c
 - [OffSec, "CVE-2024-46986 – Arbitrary File Write in Camaleon CMS Leading to RCE,"](https://www.offsec.com/blog/cve-2024-46986/)
 - [Bishop Fox, "Poisoned Pipeline Execution Attacks,"](https://bishopfox.com/blog/poisoned-pipeline-attack-execution-a-look-at-ci-cd-environments)
 - [MITRE ATT&CK, "Poisoned Pipeline Execution, T1677,"](https://attack.mitre.org/techniques/T1677/)
-
----
-
-*This document was created for defensive security research and vulnerability understanding purposes.*
+- [Oracle JDK Migration Guide — Removed Extension Mechanism](https://docs.oracle.com/en/java/javase/15/migrate/)
+- [Git documentation — githooks](https://git-scm.com/docs/githooks)
+- [Chrome Enterprise Help — loading an unpacked extension requires Developer mode and user selection](https://support.google.com/chrome/a/answer/2714278)
+- [Mozilla Support — Firefox add-ons are installed as signed/approved packages](https://support.mozilla.org/en-US/kb/find-and-install-add-ons-add-features-to-firefox)

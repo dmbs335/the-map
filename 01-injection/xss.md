@@ -1,7 +1,6 @@
 # Cross-Site Scripting (XSS) Mutation/Variation Taxonomy
 
 ---
-
 ## Classification Structure
 
 This taxonomy organizes the full attack surface of Cross-Site Scripting (XSS) across three orthogonal axes:
@@ -545,7 +544,7 @@ Blind XSS payloads typically use `import()` or external script loading with out-
 | §9-2 (Markdown to JSX) | CVE-2024-21535 (markdown-to-jsx) | XSS via malicious iframe in markdown `src` property |
 | §2-3 (Stored XSS in PAN-OS) | CVE-2024-5920 (Palo Alto PAN-OS) | Admin impersonation via stored XSS pushed from Panorama |
 | §10-1 (CRLF to XSS) | CVE-2024-52875 (GFI KerioControl) | CRLF injection in `dest` parameter; 1-click RCE chain |
-| §6-1/§6-3 (XSS in Copilot Studio) | CVE-2024-49038 (Microsoft Copilot Studio) | CVSS 9.6 NVD; CWE-79 (Improper Neutralization of Input During Web Page Generation). XSS leading to elevation of privilege over network. Specific delivery vector (postMessage vs direct DOM sink) not documented in NVD/MSRC; do not assume postMessage |
+| §6-1/§6-3 (XSS in Copilot Studio) | CVE-2024-49038 (Microsoft Copilot Studio) | Microsoft CNA CVSS 9.3; NVD 9.6; CWE-79. The NVD record describes XSS/elevation of privilege, while Microsoft's later analysis documents `postMessage`, an overbroad `validDomains` wildcard, and `isFullTrust` as delivery and trust conditions |
 | §9-1 (Vue template XSS) | CVE-2024-6783 (vue-template-compiler) | Prototype pollution enables XSS in Vue 2.x template compiler |
 | §6-3 (postMessage chain) | ZoomInfo Chat (July 2024) | Two-stage: token leakage via `postMessage('*')` + DOM XSS |
 | §6-3 (postMessage ATO) | Meta Conversion API Gateway (Jan 2026, personal blog report) | Account takeover via unvalidated postMessage origin. Source: individual researcher blog post — details not independently confirmed by Meta advisory |
@@ -575,16 +574,6 @@ Blind XSS payloads typically use `import()` or external script loading with out-
 | **CSP Evaluator** (Google) | CSP configuration | Static analysis of Content Security Policy for bypass-prone directives |
 | **RetireJS** (Library Scanner) | Known vulnerable libraries | Detects outdated JS libraries with known XSS vulnerabilities |
 | **Semgrep** (SAST) | Source code XSS patterns | Static analysis rules for `innerHTML`, `eval`, `dangerouslySetInnerHTML`, etc. |
-
----
-
-## Summary: Core Principles
-
-**Why XSS persists.** Cross-site scripting is fundamentally an injection problem arising from the web's core design: HTML, CSS, and JavaScript coexist in a single document parsed by a pipeline of context-dependent interpreters. Every transition between parsing contexts — HTML to attribute, attribute to URL, URL to JavaScript, serialized DOM to live DOM — creates an opportunity for attacker-controlled input to cross a trust boundary. Unlike SQL injection, which can be structurally eliminated through parameterized queries, XSS has no single architectural solution because the injection surface is distributed across every layer of the browser's rendering pipeline.
-
-**Why incremental fixes fail.** Each defense addresses one layer while leaving others exposed. Output encoding prevents §1 and §2 but not §3 (JavaScript context) or §6 (DOM APIs). Content Security Policy blocks inline scripts but can be bypassed via JSONP endpoints (§4), nonce leakage via CSS (`css-injection.md` §5-1), or base tag injection (§1-3). HTML sanitizers like DOMPurify prevent direct injection but are systematically defeated by mutation XSS (§7) — a category that exists precisely because sanitizers and browsers implement different HTML parsing algorithms. WAFs operate on raw HTTP and cannot model the browser's multi-stage parsing pipeline, making them fundamentally unable to distinguish malicious from benign payloads in context (§8). The addition of Trusted Types (§6) and Sanitizer API shows progress, but adoption remains limited, and both require significant application-level integration.
-
-**What structural defense looks like.** True XSS elimination requires defense at every pipeline stage simultaneously: (1) context-aware output encoding at the template level (not manual escaping), (2) strict CSP with nonce-per-request and no `unsafe-inline`, (3) Trusted Types enforcement to eliminate DOM XSS sinks, (4) `X-Content-Type-Options: nosniff` to prevent MIME confusion, (5) `HttpOnly`, `Secure`, `SameSite` cookie attributes to limit post-exploitation impact, and (6) input validation at the semantic level (not pattern matching). Frameworks that implement these by default (auto-escaping templates, Trusted Types integration, built-in CSP) represent the most promising path forward — but even they cannot protect against all categories in this taxonomy, particularly mutation XSS (§7) and prototype pollution gadgets (§6-2), which exploit the gap between what any single component considers "safe" and what the browser ultimately executes.
 
 ---
 
@@ -631,7 +620,3 @@ Blind XSS payloads typically use `import()` or external script loading with out-
 - [OWASP. "DOM Clobbering Prevention Cheat Sheet."](https://cheatsheetseries.owasp.org/cheatsheets/DOM_Clobbering_Prevention_Cheat_Sheet.html)
 - [HackTricks. "Cross Site Scripting (XSS)."](https://book.hacktricks.wiki/pentesting-web/xss-cross-site-scripting)
 - tttang. "A Magic Way of XSS in HTTP/2" (2022) — XSS vectors exploiting HTTP/2 binary framing and header compression characteristics
-
----
-
-*This document was created for defensive security research and vulnerability understanding purposes.*

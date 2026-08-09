@@ -1,7 +1,6 @@
 # JAAS (Java Authentication and Authorization Service) Attack Surface Taxonomy
 
 ---
-
 ## Classification Structure
 
 JAAS is Java's pluggable authentication and authorization framework. Applications interact with authentication through three core components:
@@ -60,8 +59,6 @@ JDBC drivers that support JAAS-based authentication allow configuration injectio
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
 | **Connection property injection** | Some JDBC drivers with Kerberos/SASL support accept properties that influence JAAS configuration (e.g., Hive/Impala `AuthMech` + Kerberos parameters). The exact property names and injection capabilities vary significantly by driver — not all drivers support inline JAAS config specification. | User-controllable JDBC connection URL or properties; driver-specific JAAS integration |
-| **System property propagation** | Some JDBC drivers may propagate connection-level Kerberos/JAAS settings to JVM-level system properties such as `java.security.auth.login.config`, affecting the entire JVM's JAAS configuration — not just the current connection (primary source verification needed for specific driver examples). | Driver propagates connection-level settings to JVM-level system properties |
-| **Config file content injection** | Certain drivers write user-supplied values into a temporary JAAS config file. By injecting newlines and JAAS config syntax into the property value, the attacker can insert additional LoginModule entries (e.g., JndiLoginModule) that execute during authentication (primary source verification needed for specific driver examples). | Driver constructs config file from unsanitized user input |
 
 ---
 
@@ -198,7 +195,3 @@ When cloud data platforms accept user-provided JDBC connection strings, the JAAS
 - [CVE-2014-3612 — ActiveMQ LDAPLoginModule Empty Password](https://www.cvedetails.com/cve/CVE-2014-3612/)
 - [Apache Kafka Disallowed Login Modules](https://kafka.apache.org/community/cve-list/)
 - [JNDI Injection Exploit Kit](https://github.com/pimps/JNDI-Exploit-Kit)
-
----
-
-*This document was created for defensive security research and vulnerability understanding purposes.*

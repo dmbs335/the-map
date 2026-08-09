@@ -1,7 +1,6 @@
 # Registration & Account Takeover — Mutation/Variation Taxonomy
 
 ---
-
 ## Classification Structure
 
 Registration & Account Takeover (Reg/ATO) is a vulnerability class spanning the entire account lifecycle — from account creation, authentication, and session maintenance to recovery. It is not a single vulnerability but a complex attack surface arising at various transition points of the **authentication state machine**.
@@ -191,7 +190,6 @@ MFA is the **last line of defense** against ATO, yet implementation flaws enable
 | **MFA Downgrade (2FA → No FA)** | 2FA deactivation request requires no re-authentication, allowing an attacker to remove MFA after session hijack | 2FA deactivation does not require current 2FA code verification | D4 |
 | **MFA Setup Hijack** | TOTP seed exposed in API response during 2FA setup, or accessible from another session before setup completion | TOTP seed exposure + insufficient session isolation in setup flow | D3, D2 |
 | **Session Binding Mismatch** | MFA verification is not bound to the same session as the first factor — attacker completes first-factor auth in one session and satisfies MFA in a different session they control | Session ID not validated across authentication steps; MFA code accepted for any pending session | D2, D4 |
-| **User Agent Classification Bypass** | MFA enforcement policies exempt certain user agents classified as "unknown" (uncommon browsers, Python scripts, CLI tools) from MFA requirements | SSO policy does not enforce MFA for unrecognized user agents (attributed to Okta, 2024 — no public advisory or CVE confirmed) | D4 |
 | **MFA Service Startup Gap** | Authentication service becomes available before the MFA enforcement service is initialized, allowing an authenticated user to establish a session during the boot-time window before MFA is enforced | Startup ordering / TOCTOU gap between login availability and MFA service readiness (CVE-2025-62004) | D5 |
 | **OpenID Connect MFA Enforcement Gap** | The RP does not verify whether the IdP actually performed MFA during the OIDC flow — ignores `acr`/`amr` claims, or IdP issues high-assurance claims without requiring MFA | RP does not validate `acr`/`amr` claims; or IdP issues claims without requiring MFA | D4, D6 |
 | **Unauthenticated TOTP Rebinding** | TOTP/MFA setup endpoint does not require re-authentication, allowing an attacker with session access to rebind the victim's TOTP secret to an attacker-controlled authenticator | TOTP enrollment/reset endpoint accessible without re-authentication | D4 |
@@ -356,12 +354,10 @@ Passwordless authentication creates a new attack surface.
 | Mutation Combination | CVE / Case | Impact / Bounty |
 |---------------------|-----------|----------------|
 | §5-1 + CSRF→ATO Chain (CORS + CSRF + OAuth) | CVE-2025-34291 (Langflow) | Critical — ATO + RCE. Cross-origin requests enable token refresh |
-| XSS→ATO Chain (Zero-Click XSS) | Meta CAPI Gateway XSS (2026, unverified — no public advisory or CVE) | Full Facebook ATO. CORS whitelist + Stored XSS chain |
 | §3-2 + §4-3 (Session Theft + MFA Bypass) | MITRE Corporation Breach (2024) | Citrix vulnerability → session cookie theft → MFA bypass |
 | §5-2 (Domain Ownership Change) | Google OAuth Domain Takeover | Mass SaaS ATO. Domain ownership change enables access to former employees' accounts |
 | §4-3 (Device Code Phishing) | UNK_SneakyStrike Campaign (2025-01) | Large-scale device-code phishing campaign against cloud accounts |
 | §6-1 (Credential Stuffing) | Snowflake Customer Breach (2024) | Massive data breach. Leaked credentials + MFA not enforced |
-| §2-1 + §2-3 (Predictable Token + Brute-Force) | RubyGems Password Reset (2024, unverified — no public advisory or CVE found) | Package manager ATO possible. MD5(timestamp)-based token |
 | §4-3 (SIM Swap) | T-Mobile Arbitration Ruling (2024) | Single SIM swap leading to cryptocurrency theft and arbitration award |
 | §8-1 (IDOR → Password Change) | HackerOne Bounty Report | IDOR enabling password change for other users |
 | XSS→ATO Chain (Stored XSS + IDOR) | Label Studio GHSA-2mq9 | Full ATO. Stored XSS + IDOR chain via custom_hotkeys field |
@@ -409,28 +405,6 @@ Passwordless authentication creates a new attack surface.
 
 ---
 
-## Summary: Core Principles
-
-### Root Cause: Incompleteness of the Authentication State Machine
-
-The root cause of Registration & Account Takeover vulnerabilities is that the **authentication state machine is inherently incomplete**. A web application's account undergoes dozens of state transitions — creation, verification, authentication, session maintenance, recovery, linking, and deactivation — and at each transition point, the following invariant must hold: *"Is the entity performing this action the legitimate owner of this account?"* If this invariant breaks at even a single transition, ATO occurs.
-
-### Why Incremental Patches Fail
-
-The ATO attack surface is **combinatorial**. Individual features (registration, login, reset, OAuth, MFA) may each be implemented correctly, yet new vulnerabilities emerge from their **interactions** (Classic-Federated Merge, OAuth + Reset chains, XSS + CSRF + Email Change). Furthermore, MFA — the supposed silver bullet — is bypassed via SIM Swap, AiTM proxies, OTP brute-force, and Device Code phishing. Attackers can choose the weakest channel, while defenders must protect all channels.
-
-### Structural Solution
-
-A true structural solution is grounded in three principles:
-
-1. **Phishing-Resistant Authentication**: Passkeys/FIDO2 WebAuthn ensures authentication secrets never leave the device and are bound to the domain, structurally blocking AiTM and phishing.
-2. **Session-Device Binding**: Cryptographically bind session tokens to the issuing device's hardware characteristics, preventing token reuse after theft (Token Binding, DPoP).
-3. **Atomic State Transition Verification**: Re-verify the authentication context at the point of every state change (password reset, email change, OAuth linking, MFA deactivation), and atomically invalidate all related prior tokens/sessions.
-
-Until these three principles are fully applied, Registration & Account Takeover will continue to remain the most frequent and impactful vulnerability class.
-
----
-
 ## References
 
 - Microsoft Security Response Center, "Pre-hijacking Attacks on Web User Accounts" (2022)
@@ -452,7 +426,3 @@ Until these three principles are fully applied, Registration & Account Takeover 
 - AppOmni — "How to Handle Increased Account Takeover Risks from Recent Credential Dumps" (2025)
 - [CVE-2025-61922: PrestaShop Checkout Express Checkout Account Takeover](https://dhakal-ananda.com.np/blogs/cve-2025-61922-analysis/)
 - HackerOne Reports — Various bug bounty disclosures referenced in CVE/Bounty table
-
----
-
-*This document was created for defensive security research and vulnerability understanding purposes.*

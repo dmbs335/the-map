@@ -179,7 +179,7 @@ AEM ships with dozens of built-in Sling servlets and CQ components. Many provide
 | Subtype | Servlet / Endpoint | Capability |
 |---------|-------------------|-----------|
 | **SlingPostServlet (POSTServlet)** | Default POST handler for all Sling resources | Create, modify, delete JCR nodes — enables stored XSS (§7-2) and content injection |
-| **SlingPostServlet :applyTo enumeration** | Failed `:applyTo` operations expose filesystem paths (CVE-2016-0956) | Internal path structure disclosure via error messages |
+| **SlingPostServlet `:applyTo` enumeration** | Crafted Sling POST operations use `:applyTo` to probe JCR/Sling resources (CVE-2016-0956); Adobe describes the issue more generally as information disclosure in Sling Servlets Post ≤2.3.6 | JCR resource/path existence disclosure, not operating-system filesystem enumeration |
 | **GuideInternalSubmitServlet** | AEM Forms internal submission handler | XXE injection (CVE-2019-8086) |
 
 ### §3-3. Authentication Probing Servlets
@@ -323,7 +323,7 @@ AEM ships with well-known default credentials across multiple interfaces.
 
 ## §7. Cross-Site Scripting (XSS)
 
-AEM has been affected by a massive volume of XSS vulnerabilities — the APSB25-115 security bulletin patched 254 flaws, the vast majority of which were XSS (exact count not independently verified against Adobe's primary source; the 225/254 figure circulates in secondary reporting). The attack surface is amplified by Sling's content-driven rendering model and JCR's ability to store arbitrary content.
+AEM has been affected by a large volume of XSS vulnerabilities. Adobe's APSB25-115 vulnerability table contains 117 CVE entries, all categorized as DOM-based or stored XSS. The previously circulated 254-total/225-XSS figures do not match Adobe's final bulletin. The attack surface is amplified by Sling's content-driven rendering model and the range of JCR-backed content rendered by AEM components.
 
 ### §7-1. Reflected XSS
 
@@ -473,11 +473,11 @@ The most critical AEM RCE discovered to date, stemming from Apache Struts2 devel
 | §9-1 (XXE in Forms web services) | CVE-2025-54254 (AEM Forms on JEE) | CVSS 8.6. Arbitrary file read via XXE. Zero-day disclosure. |
 | §8-5 (Deserialization in Forms) | CVE-2025-49533 (AEM Forms on JEE) | Pre-auth RCE via untrusted data deserialization. |
 | §7-3 (Cloud RUM proxy XSS) | CVE-2025-47114, CVE-2025-47115 (AEM Cloud) | Persistent XSS on AEM Cloud sites, with broad impact estimated by Searchlight Cyber but not Adobe-confirmed. Three distinct bypasses found. All cloud customers auto-patched |
-| §1 + §7-1 (Multiple Dispatcher bypass + XSS) | CVE-2025-54251, -54249, -54252, -54250, -54247, -54248, -54246 | Multiple critical/important dispatcher bypass and XSS flaws found by Searchlight Cyber. |
-| §7-1 + §7-2 (Mass XSS) | APSB25-115 / AEM Cloud Release 2025.5 | 254 patched flaws, vast majority XSS (225/254 figure from secondary reporting; not independently verified against Adobe primary source). Affects AEM Cloud and all versions ≤ 6.5.22 |
+| Security-feature bypass set (APSB25-90) | CVE-2025-54246, CVE-2025-54247, CVE-2025-54248, CVE-2025-54249, CVE-2025-54250, CVE-2025-54251, CVE-2025-54252 | Seven distinct issues credited by Adobe to Dylan Pindur and Adam Kues (Assetnote): incorrect authorization (54246), improper input validation (54247, 54248, 54250), SSRF (54249), XML injection (54251), and stored XSS (54252). Adobe rates only CVE-2025-54248 Critical (7.7); the other six are Important. The bulletin does not classify the whole set as Dispatcher bypasses or XSS. |
+| §7-1 + §7-2 (Mass XSS) | APSB25-115 / AEM Cloud Service Release 2025.12 | Adobe's December 2025 bulletin lists 117 XSS CVEs, not 254 flaws or 225 XSS flaws. It fixes AEM Cloud Service via Release 2025.12 and on-premises AEM via 6.5.24 / the 6.5 LTS SP1 hotfix; affected on-premises versions are 6.5.23 and earlier. |
 | §5-3 (SSRF via ReportingServicesServlet) | CVE-2018-12809 | SSRF enabling secret exfiltration and XSS via reporting proxy. |
 | §5-3 (SSRF via SalesforceSecretServlet) | CVE-2018-5006 | SSRF via Salesforce integration endpoint. |
-| §3-2 (SlingPostServlet path disclosure) | CVE-2016-0956 | Internal filesystem path enumeration via `:applyTo` error messages |
+| §3-2 (SlingPostServlet path disclosure) | CVE-2016-0956 | JCR/Sling resource enumeration via `:applyTo`; this should not be described as OS filesystem path enumeration |
 | §7-1 (WCMDebugFilter reflected XSS) | CVE-2016-7882 | Reflected XSS via debug filter. |
 | §1 (Dispatcher bypass — original) | CVE-2016-0957 | Classic Dispatcher bypass still found in modern deployments. |
 | §9-1 (WebDAV XXE) | CVE-2015-1833 (Apache Jackrabbit) | XXE via WebDAV XML processing. |
@@ -518,22 +518,6 @@ Confirming that a target runs AEM before launching specific checks. These URLs p
 
 ---
 
-## Summary: Core Principles
-
-### Why AEM Is Uniquely Vulnerable
-
-The fundamental property that makes AEM's attack surface so rich is its **multi-layer URL interpretation pipeline**. An HTTP request passes through at least three interpretation stages — the Dispatcher (Apache-based), the Sling servlet resolution engine, and the JCR content resolution — and each stage has its own URL parsing semantics. This creates a combinatorial explosion of potential mismatches: what the Dispatcher blocks, Sling may resolve; what Sling renders, the JCR may expose. Unlike simpler web frameworks where routing is defined by the application, AEM's content-driven architecture means *every JCR node is potentially URL-addressable*, and the Dispatcher must explicitly deny access to everything that should not be public.
-
-### Why Incremental Patches Fail
-
-AEM's patch-and-bypass cycle is well-documented: CVE-2016-0957 (the original Dispatcher bypass) uses techniques that conceptually recur in 2025 research. Each patch addresses a specific bypass vector, but the underlying architectural tension — between Sling's intentional URL flexibility and the Dispatcher's pattern-matching defense — ensures that new bypass combinations continue to emerge. The volume of XSS CVEs (225 in a single 2025 bulletin) reflects the content-driven rendering model where any JCR property can potentially influence HTML output.
-
-### Structural Solutions
-
-A defense-in-depth approach is required: (1) **Dispatcher hardening** using full `/url` patterns rather than decomposed particle filters, with explicit deny-all default and narrow allowlists; (2) **JCR access control** enforcing least-privilege on all repository paths, particularly `/home`, `/etc`, `/apps`, and `/var`; (3) **Administrative interface isolation** ensuring OSGi console, CRXDE, Groovy Console, and Package Manager are network-inaccessible from any public-facing interface; (4) **Servlet registration audit** disabling or restricting all non-essential Sling servlets in production; (5) **AEM Cloud migration** which eliminates several on-premise attack classes (direct JCR access, OSGi console) but introduces new ones (CDN proxy trust assumptions, shared infrastructure).
-
----
-
 ## References
 
 - [Searchlight Cyber — Finding Critical Bugs in AEM](https://slcyber.io/research-center/finding-critical-bugs-in-adobe-experience-manager/)
@@ -549,6 +533,10 @@ A defense-in-depth approach is required: (1) **Dispatcher hardening** using full
 - [Perficient — AEM Security: Sling Resolution](https://blogs.perficient.com/2022/10/11/how-good-is-your-aem-security-sling-resolution/)
 - [Perficient — AEM Security: XSS](https://blogs.perficient.com/2022/10/04/how-good-is-your-aem-security-xss/)
 - [Adobe Security Bulletin APSB25-115](https://helpx.adobe.com/security/products/experience-manager/apsb25-115.html)
+- [Adobe Security Bulletin APSB25-90](https://helpx.adobe.com/security/products/experience-manager/apsb25-90.html)
+- [Adobe Security Bulletin APSB16-05](https://helpx.adobe.com/security/products/experience-manager/apsb16-05.html)
+- [Adobe Security Bulletin APSB25-67](https://helpx.adobe.com/security/products/aem-forms/apsb25-67.html)
+- [CVE-2016-0956 researcher advisory — Sling `:applyTo` resource enumeration](https://seclists.org/fulldisclosure/2016/Feb/48)
 - [Adobe Security Bulletin APSB25-82](https://helpx.adobe.com/security/products/aem-forms/apsb25-82.html)
 - [Adobe AEM Security Checklist](https://experienceleague.adobe.com/en/docs/experience-manager-65/content/security/security-checklist)
 - [CVE-2025-54253 — CISA KEV catalog](https://www.cisa.gov/known-exploited-vulnerabilities-catalog?field_cve=CVE-2025-54253)
@@ -562,5 +550,3 @@ A defense-in-depth approach is required: (1) **Dispatcher hardening** using full
 - [HackerOne — U.S. DoD AEM Misconfiguration Report #1939272](https://hackerone.com/reports/1939272)
 
 ---
-
-*This document was created for defensive security research and vulnerability understanding purposes.*

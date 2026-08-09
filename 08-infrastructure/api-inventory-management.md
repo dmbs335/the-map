@@ -317,92 +317,21 @@ Once APIs are discovered and cataloged, various governance operations maintain a
 
 ---
 
-## Detection & Management Tools
+## Defensive Takeaways
 
-### Discovery Tools
-
-| Tool | Discovery Method | Core Technique | License |
-|------|-----------------|----------------|---------|
-| **Akto** | §3-1, §6-1 | Runtime traffic analysis + 100+ security tests; auto-generates OpenAPI specs | Open Source |
-| **APIsec Scan** | §2-1, §6-1 | OpenAPI/Swagger/Postman ingestion + automated attack playbooks; CI/CD integration | Commercial |
-| **Salt Security** | §3-1, §3-3 | Traffic inspection + behavioral analytics to identify shadow/deprecated APIs | Commercial |
-| **Cequence Security** | §3-1, §4-1 | Application traffic analysis + policy enforcement; auto-generates specs for undocumented endpoints | Commercial |
-| **Neosec** | §3-1, §3-3 | Log integration/network sensors + ML baseline + anomaly detection | Commercial |
-| **OWASP ZAP** | §6-1 | Crawler-based discovery + DAST scanning; CI/CD integration | Open Source |
-| **Burp Suite** | §3-2, §6-1 | Manual/automated API enumeration + HTTP traffic analysis | Commercial (CE free) |
-| **Postman** | §2-1, §4-3 | Collection management + workspace collaboration; 25M users (2024) | Freemium |
-
-### Governance & ASPM Tools
-
-| Tool | Management Operations | Core Capability |
-|------|---------------------|-----------------|
-| **Jit** | §7 (All operations) | Developer-focused ASPM; tool consolidation |
-| **Apiiro** | §7 (Risk, Compliance) | Enterprise risk management + code-to-cloud visibility |
-| **Cycode** | §7 (Posture, Lifecycle) | Integrated tool unification + ASPM |
-| **Ox Security** | §7 (Supply chain, Compliance) | Supply chain risk + orchestration-heavy ASPM |
-| **ArmorCode** | §7 (Posture, Compliance) | Tool unification + vulnerability aggregation |
-| **Snyk ASPM** | §7 (Posture, Lifecycle) | Developer workflow integration + security scoring |
-| **Kong Context Mesh** | §4-1, §4-3 | Automatic API discovery + agent tool generation; MCP registry (2025) |
-
-### Specialized Tools
-
-| Tool | Specialization | Target |
-|------|---------------|--------|
-| **oasdiff** | §2-3 (Schema Drift) | OpenAPI specification comparison and breaking change detection |
-| **Orval** | §2-1, §2-3 | OpenAPI to typed code generation; automatic sync |
-| **Fern/Speakeasy/Stainless** | §2-1 (Spec), §7 (Documentation) | Multi-language SDK + docs generation from API definitions |
-| **Apidog** | §2-1, §7 (All) | Unified API lifecycle platform with AI-powered documentation |
-| **Mintlify/ReDoc** | §7 (Documentation) | AI-driven doc generation + auto-updates from OpenAPI |
-| **Amass/subfinder/dnsx** | §5-1 (OSINT) | Subdomain discovery and DNS reconnaissance |
-
+- Reconcile source code, specifications, runtime traffic, gateways, and external discovery into one inventory.
+- Flag endpoints observed at runtime but absent from specifications as shadow APIs.
+- Track deprecation and traffic state so obsolete endpoints can be identified and removed.
+- Continuously compare deployed behavior with the documented contract; no single discovery source provides complete coverage.
 
 ---
 
-## Summary: Core Principles
-
-API inventory management in 2025 faces an unprecedented challenge: organizations are adding publicly accessible services quickly, while AI-accelerated development increases endpoint churn. Traditional periodic inventory audits cannot keep pace with this velocity, making continuous, automated discovery the new baseline.
-
-### The Fundamental Property: Distributed Ownership Without Centralized Visibility
-
-Unlike web applications where pages are centrally managed, modern APIs emerge from decentralized sources: microservices teams independently deploy endpoints, shadow IT provisions SaaS integrations, developers spin up test environments, and third-party libraries introduce external dependencies. Each source operates in isolation, creating an **inventory gap** where security teams lack a complete attack surface map.
-
-Recent incident data confirms this pattern: many API attacks originate from authenticated sessions, exploiting business logic flaws in endpoints that never appeared in any inventory. The most damaging breaches involved **shadow APIs** (undocumented endpoints unknown to security) and **zombie APIs** (deprecated but still active) — both invisible to traditional security controls.
-
-### Why Incremental Fixes Fail
-
-Organizations attempting to solve inventory management through a single mechanism encounter systematic blind spots:
-
-- **Specification-only approaches** (§2) miss shadow APIs and runtime drift
-- **Gateway-only monitoring** (§4) is blind to service-to-service APIs and external dependencies
-- **Code scanning alone** (§1) cannot detect third-party APIs or dynamically registered routes
-- **Traffic analysis in isolation** (§3) struggles with low-volume shadow endpoints and encrypted service mesh traffic
-
-Each method captures a different dimension of the API landscape, but **no single approach provides complete coverage**. Attackers exploit these gaps: the SesameOp backdoor (2025) used a legitimate third-party API (OpenAI) for C2, bypassing perimeter controls because the external dependency was never inventoried.
-
-### The Structural Solution: Continuous Multi-Source Inventory Fabric
-
-A mature API inventory management system in 2025 must integrate **all six discovery methods** (§1-§6) into a continuous, automated fabric that reconciles findings into a single source of truth:
-
-1. **Pre-Production Layer** (§1 Code + §2 Spec): CI/CD integration captures APIs during development; specification-first design ensures documentation exists before deployment
-2. **Runtime Layer** (§3 Traffic + §4 Gateway): Passive traffic analysis and gateway logs discover shadow endpoints and track actual usage patterns
-3. **External Layer** (§5 OSINT + §5-3 Dependencies): OSINT scanning detects leaked credentials and public exposures; dependency analysis catalogs third-party integrations
-4. **Validation Layer** (§2-3 Drift + §6 Testing): Contract testing and schema validation continuously compare spec to reality; fuzzing discovers hidden functionality
-
-The system must maintain **inventory state transitions** (Table 1) in real-time: when a documented API shows zero traffic for 90 days, it becomes a zombie candidate; when traffic analysis detects an endpoint absent from all specs, it triggers a shadow API investigation; when drift detection flags spec-reality divergence, it initiates remediation workflow.
-
-**Compliance drivers** are accelerating adoption: PCI DSS 4.0.1 requires maintaining accurate API inventory (Req 6.3.2), and analyst forecasts increasingly point toward ASPM-style platforms for regulated organizations. The future of API security shifts from perimeter-based defense to **continuous inventory-driven risk management**, where every management operation (§7) starts with the question: *Do we know this API exists?*
-
----
-
-*This document was created for defensive security research and API security management purposes. Research conducted February 2025.*
 
 ## References
 
-### Industry Reports & Standards
+### Standards
 - [OWASP API Security Project](https://owasp.org/www-project-api-security/)
-- [Postman State of API Report 2025](https://blog.postman.com/)
-- [Gartner ASPM Market Analysis 2025](https://www.gartner.com/reviews/market/application-security-posture-management-aspm-tools)
-- [PCI DSS 4.0.1 Compliance Guide](https://blog.qualys.com/product-tech/2025/12/19/pci-dss-4-0-1-compliance-web-application-api-security)
+- [OpenAPI Specification](https://spec.openapis.org/oas/)
 
 ### Security Research & Incidents
 - [SesameOp Novel Backdoor - Microsoft Security Blog](https://www.microsoft.com/en-us/security/blog/2025/11/03/sesameop-novel-backdoor-uses-openai-assistants-api-for-command-and-control/)
@@ -412,22 +341,10 @@ The system must maintain **inventory state transitions** (Table 1) in real-time:
 - [GraphQL Introspection Security - Apollo GraphQL](https://www.apollographql.com/blog/why-you-should-disable-graphql-introspection-in-production)
 - [API Versioning Vulnerabilities - Medium](https://medium.com/@instatunnel/api-versioning-vulnerabilities-the-deprecated-endpoints-still-accepting-requests-3b53631dfad6)
 
-### Technical Resources & Tools
-- [API Discovery Tools 2025 - Pynt](https://www.pynt.io/learning-hub/api-security-guide/api-discovery-tools)
-- [API Security Testing Tools - Wiz Academy](https://www.wiz.io/academy/api-security/top-oss-api-security-tools)
-- [ASPM Tools Comparison - StackHawk](https://www.stackhawk.com/blog/best-aspm-tools/)
-- [OpenAPI Specification](https://spec.openapis.org/oas/)
+### Technical Resources
 - [API Gateway vs Service Mesh - API7.ai](https://api7.ai/blog/api-gateway-and-service-discovery)
 - [Schema Drift Detection - Wiz Academy](https://www.wiz.io/academy/api-drift)
 
-### Academic & Conference Research
-- [Fuzzing Paper Repository - GitHub](https://github.com/wcventure/FuzzingPaper)
-- [Black Hat/DEF CON 2024 Security Research - BankInfoSecurity](https://www.bankinfosecurity.com/black-hatdef-con-2024-latest-insights-on-security-ai-a-26283)
-- [API Security Testing Tooling Overview](https://www.code-intelligence.com/blog/tooling-overview-api-testing)
-
 ### Best Practices & Guidance
-- [API Governance Best Practices - digitalML](https://www.digitalml.com/api-governance-best-practices/)
 - [API Lifecycle Management - Zapier Engineering](https://zapier.com/engineering/api-geriatrics/)
 - [Shadow API Detection Methods - Treblle](https://treblle.com/blog/shadow-apis-explained)
-- [API Discovery Best Practices - TechTarget](https://www.techtarget.com/searchsecurity/tip/API-discovery-best-practices-for-complete-visibility)
-- [API Audit Checklist 2025 - AppSentinels](https://appsentinels.ai/blog/blog-api-audit-checklist-a-comprehensive-guide-for-security-leaders/)

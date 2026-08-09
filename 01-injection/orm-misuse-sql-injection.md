@@ -1,7 +1,6 @@
 # ORM Query Function Misuse → SQL Injection: Mutation/Variation Taxonomy
 
 ---
-
 ## Classification Structure
 
 Object-Relational Mapping (ORM) frameworks — Django ORM, SQLAlchemy, ActiveRecord (Rails), Hibernate/JPA, Sequelize, TypeORM, Prisma, Entity Framework, Eloquent (Laravel), Doctrine (PHP), GORM (Go), and others — promise to abstract SQL and eliminate injection. In practice, every major ORM ships functions, methods, or API surface that, when fed attacker-controlled input, collapses back into exploitable SQL injection. The vulnerability is never "the ORM is broken" but rather "the ORM exposes unsafe surface that developers assume is safe."
@@ -656,39 +655,25 @@ A fundamentally distinct attack class where the injection occurs not in SQL synt
 
 ---
 
-## Summary: Core Principles
-
-**The fundamental property that makes ORM injection possible is the impedance mismatch between two security models.** SQL's security model is based on parameterized values — the query structure is fixed at compile time, and user input fills only value placeholders. ORMs, by design, make query structure dynamic — field names, operators, join paths, sort columns, and logical connectors are all programmatically configurable. When user input reaches any structural parameter of the ORM's query API, the application has effectively given the attacker control over the SQL structure that parameterization was designed to fix.
-
-**Incremental patches fail because the attack surface is inherent to the ORM abstraction.** Each CVE addresses a specific injection sink — `extra()` is deprecated, `_connector` is validated, string operators are replaced with Symbols — but the underlying pattern persists: ORMs must expose structural query parameters to be useful, and developers will pass user input to these parameters. The 2024-2025 CVE trend shows injection points moving from obvious raw SQL methods to increasingly subtle structural parameters (JSON field keys, FilteredRelation aliases, protocol-level message boundaries), demonstrating that the attack surface evolves faster than patch coverage.
-
-**The structural solution requires enforcing the boundary between query structure and query values at the API level.** This means: (1) **Allowlist validation** for all identifiers (column names, table names, sort fields, filter fields) against the model schema — never accept user-controlled strings as identifiers; (2) **Schema validation** for all filter/query parameters against a strict type schema (Zod, Joi, Marshmallow, Strong Parameters) that rejects unexpected object structures; (3) **Explicit opt-in** for queryable fields, relationships, and operators — frameworks like django-filter and Ransack 4.0 that require declaring `filterset_fields` or `ransackable_attributes` represent the right architectural direction; (4) **Input size limits** to defend against protocol-level attacks. The goal is not to make the ORM "injection-proof" but to reduce the API surface that accepts structural parameters from the internet to zero.
-
----
-
 ## References
 
-- [PayloadsAllTheThings — ORM Leak (](https://swisskyrepo.github.io/PayloadsAllTheThings/ORM%20Leak/))
-- ["plORMbing your Django ORM" — elttam (](https://www.elttam.com/blog/plormbing-your-django-orm/))
-- ["ORM Leaking More Than You Joined For" — elttam (](https://www.elttam.com/blog/leaking-more-than-you-joined-for/))
-- ["plORMbing your Prisma ORM with Time-based Attacks" — elttam (](https://www.elttam.com/blog/plorming-your-primsa-orm/))
-- ["Exploiting a Ransack Query Injection" — Vaadata (](https://www.vaadata.com/blog/ransack-query-injection-analysis-and-exploitation-of-an-orm-vulnerability/))
-- ["Ransacking your password reset tokens" — Positive Security (](https://positive.security/blog/ransack-data-exfiltration))
-- ["New Methods for Exploiting ORM Injections in Java Applications" — Egorov & Soldatov, HITB 2016 (](https://insinuator.net/2016/06/new-methods-for-exploiting-orm-injections-in-java-applications-hitb16/))
-- ["Exploiting Hibernate Injections" — SonarSource (](https://www.sonarsource.com/blog/exploiting-hibernate-injections/))
-- ["SQL Injection Isn't Dead: Smuggling Queries at the Protocol Level" — Paul Gerste, DEF CON 32 (](https://media.defcon.org/DEF%20CON%2032/DEF%20CON%2032%20presentations/))
-- ["DQL Injection" — Deteact (](https://blog.deteact.com/dql-injection/))
-- [Rails SQL Injection Examples (](https://rails-sqli.org/))
-- [Django Security Advisories (](https://www.djangoproject.com/weblog/))
-- [Sequelize Security Advisories (](https://github.com/sequelize/sequelize/security))
-- [TypeORM Security Advisories (](https://github.com/typeorm/typeorm/security))
-- ["SQL Injection in ORMs 2025" — Propel (](https://www.propelcode.ai/blog/sql-injection-orm-vulnerabilities-modern-frameworks-2025))
-- ["Preventing SQL Injection in Django" — Jacob Kaplan-Moss (](https://jacobian.org/2020/may/15/preventing-sqli/))
-- [Doctrine ORM Security Documentation (](https://www.doctrine-project.org/projects/doctrine-orm/en/3.2/reference/security.html))
-- [Entity Framework Core SQL Queries Security (](https://learn.microsoft.com/en-us/ef/core/querying/sql-queries))
-- [GORM Security Documentation (](https://gorm.io/docs/security.html))
-- [OWASP Laravel Cheat Sheet (](https://cheatsheetseries.owasp.org/cheatsheets/Laravel_Cheat_Sheet.html))
-
----
-
-*This document was created for defensive security research and vulnerability understanding purposes.*
+- [PayloadsAllTheThings — ORM Leak](https://swisskyrepo.github.io/PayloadsAllTheThings/ORM%20Leak/)
+- ["plORMbing your Django ORM" — elttam](https://www.elttam.com/blog/plormbing-your-django-orm/)
+- ["ORM Leaking More Than You Joined For" — elttam](https://www.elttam.com/blog/leaking-more-than-you-joined-for/)
+- ["plORMbing your Prisma ORM with Time-based Attacks" — elttam](https://www.elttam.com/blog/plorming-your-primsa-orm/)
+- ["Exploiting a Ransack Query Injection" — Vaadata](https://www.vaadata.com/blog/ransack-query-injection-analysis-and-exploitation-of-an-orm-vulnerability/)
+- ["Ransacking your password reset tokens" — Positive Security](https://positive.security/blog/ransack-data-exfiltration)
+- ["New Methods for Exploiting ORM Injections in Java Applications" — Egorov & Soldatov, HITB 2016](https://insinuator.net/2016/06/new-methods-for-exploiting-orm-injections-in-java-applications-hitb16/)
+- ["Exploiting Hibernate Injections" — SonarSource](https://www.sonarsource.com/blog/exploiting-hibernate-injections/)
+- ["SQL Injection Isn't Dead: Smuggling Queries at the Protocol Level" — Paul Gerste, DEF CON 32](https://media.defcon.org/DEF%20CON%2032/DEF%20CON%2032%20presentations/)
+- ["DQL Injection" — Deteact](https://blog.deteact.com/dql-injection/)
+- [Rails SQL Injection Examples](https://rails-sqli.org/)
+- [Django Security Advisories](https://www.djangoproject.com/weblog/)
+- [Sequelize Security Advisories](https://github.com/sequelize/sequelize/security)
+- [TypeORM Security Advisories](https://github.com/typeorm/typeorm/security)
+- ["SQL Injection in ORMs 2025" — Propel](https://www.propelcode.ai/blog/sql-injection-orm-vulnerabilities-modern-frameworks-2025)
+- ["Preventing SQL Injection in Django" — Jacob Kaplan-Moss](https://jacobian.org/2020/may/15/preventing-sqli/)
+- [Doctrine ORM Security Documentation](https://www.doctrine-project.org/projects/doctrine-orm/en/3.2/reference/security.html)
+- [Entity Framework Core SQL Queries Security](https://learn.microsoft.com/en-us/ef/core/querying/sql-queries)
+- [GORM Security Documentation](https://gorm.io/docs/security.html)
+- [OWASP Laravel Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Laravel_Cheat_Sheet.html)

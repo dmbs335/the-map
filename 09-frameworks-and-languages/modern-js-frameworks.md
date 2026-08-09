@@ -1,7 +1,6 @@
 # Modern JavaScript Framework Security — Mutation/Variation Taxonomy
 
 ---
-
 ## Classification Structure
 
 Modern JavaScript frameworks (React, Next.js, Vue, Nuxt.js, Angular, Svelte, SvelteKit, Astro, Remix) have converged on a shared architectural pattern: server-side rendering (SSR) with client-side hydration, file-based routing with middleware layers, server-originated data fetching (server components, server actions, loaders), and aggressive caching for performance. Each of these architectural layers introduces a distinct trust boundary, and the security of the entire stack depends on the correct enforcement of those boundaries.
@@ -429,20 +428,10 @@ Framework development tools run with elevated privileges and may be inadvertentl
 
 ---
 
-## Summary: Core Principles
-
-**The fundamental property** that makes modern JS frameworks vulnerable is the **convergence of server and client execution contexts into a single codebase with implicit trust boundaries**. Unlike traditional web architectures where the server and client were separate applications with a clear HTTP boundary, modern frameworks blur this line: server components and client components coexist in the same file, server actions are invoked through client-side POST requests, and the build pipeline must decide what goes where. Every misclassification — a server secret in a client bundle, a trusted internal header from an external request, a cache key that doesn't distinguish between formats — becomes a vulnerability.
-
-**Incremental patches fail** because the attack surface is architectural, not implementation-specific. Fixing the `x-middleware-subrequest` header validation (CVE-2025-29927) doesn't address the design pattern of trusting internal coordination headers from external sources. Patching the Flight protocol deserializer (CVE-2025-55182) doesn't solve the fundamental problem that server functions are exposed as HTTP endpoints that accept arbitrary payloads. Each fix addresses one manifestation while the underlying pattern — implicit trust across explicit boundaries — persists. The September 2025 npm supply chain incident further demonstrates that even if the framework itself is secure, the ecosystem's dependency model creates a parallel attack surface that cannot be patched at the framework level.
-
-**A structural solution** requires three shifts: (1) **Zero-trust boundary enforcement** where every framework layer independently validates its inputs rather than trusting coordination headers or serialized data from adjacent layers; (2) **Explicit security boundaries** where server-only code is physically separated from client-accessible code at the build level, not just annotated with directives; and (3) **Defense-in-depth caching** where cache keys incorporate content type, authentication state, and response format to prevent poisoning and deception. The React2Shell vulnerability (CVSS 10.0, exploited in hours) should serve as a watershed moment: the RSC Flight protocol's trust model was fundamentally broken, not merely misconfigured.
-
----
-
 ## References
 
 - React Security Blog: Critical Security Vulnerability in React Server Components (December 2025)
-- Next.js Security Advisory: CVE-2025-66478 (December 2025)
+- Next.js security advisory originally published under CVE-2025-66478 (December 2025; identifier later rejected as a duplicate of CVE-2025-55182)
 - Next.js Security Advisory: CVE-2025-29927 Middleware Authorization Bypass (March 2025)
 - ProjectDiscovery: CVE-2025-29927 Technical Analysis
 - Datadog Security Labs: Understanding CVE-2025-29927
@@ -474,7 +463,3 @@ Framework development tools run with elevated privileges and may be inadvertentl
 - Sam Curry: "Exploiting Web3's Hidden Attack Surface: Universal XSS on Netlify's Next.js Library" (2022) — UXSS affecting Web3 applications via Next.js library vulnerability on Netlify
 - [kibty, "how to hack discord, vercel and more with one easy trick" (2025) — Server-side MDX evaluation RCE in Mintlify (CVE-2025-67843). Cross-tenant static asset XSS, path traversal, deployment downgrade.](https://kibty.town/blog/mintlify)
 - [Gareth Heyes (PortSwigger Research), "Ambushed by AngularJS: a hidden CSP bypass in Piwik PRO" (2023) — Transitive AngularJS 1.x inclusion via analytics scripts enables CSP bypass through template injection.](https://portswigger.net/research/ambushed-by-angularjs-a-hidden-csp-bypass-in-piwik-pro)
-
----
-
-*This document was created for defensive security research and vulnerability understanding purposes.*

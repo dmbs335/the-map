@@ -3,7 +3,6 @@
 > **Scope boundary:** This document covers SAML-specific mutation vectors (XML signature wrapping, parser differentials, canonicalization, assertion manipulation). Related: [authentication-bypass-and-sso.md](authentication-bypass-and-sso.md) (SSO trust architecture), [jwt.md](jwt.md) (JWT/OIDC), [cryptographic-implementation-vulnerabilities.md](cryptographic-implementation-vulnerabilities.md) (crypto primitives)
 
 ---
-
 ## Classification Structure
 
 Security Assertion Markup Language (SAML) is an XML-based open standard for exchanging authentication and authorization data between identity providers (IdPs) and service providers (SPs). Its reliance on XML as a transport format — combined with a complex trust model involving cryptographic signatures, multi-party message passing, and diverse library ecosystems — creates an exceptionally broad mutation surface. Vulnerabilities in SAML do not stem from a single flaw but from the fundamental tension between XML's structural flexibility and the rigid guarantees that digital signatures are supposed to provide.
@@ -284,7 +283,7 @@ These attacks target the semantic content of SAML Assertions and the protocol fl
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **Disabled Client Broker Landing** | In brokered SAML setups, a disabled SAML client configured as an IdP-initiated broker landing target can still complete the login flow and establish an SSO session. Once the session is active, the attacker gains access to all other enabled clients in the realm without re-authentication, bypassing client-level access controls entirely. (CVE-2026-3047 — Keycloak) | Keycloak < 26.5.5; disabled SAML client set as IdP-initiated broker landing target; CVSS 8.8 |
+| **Disabled Client Broker Landing** | In brokered SAML setups, a disabled SAML client configured as an IdP-initiated broker landing target can still complete the login flow and establish an SSO session. The resulting session can then provide unauthorized access to other enabled clients without re-authentication; the official record does not claim that every enabled client is necessarily reachable. (CVE-2026-3047 — Keycloak) | Keycloak < 26.5.5; disabled SAML client set as IdP-initiated broker landing target; CVSS 8.8 |
 | **Unsolicited Response Acceptance** | The SP accepts IdP-initiated (unsolicited) SAML Responses without a corresponding AuthnRequest. The attacker submits a forged assertion directly to the ACS endpoint, bypassing request-response correlation checks. | SP configured to accept IdP-initiated SSO; no `InResponseTo` enforcement |
 
 ### S6-6. Logout and Session Attacks
@@ -380,7 +379,7 @@ Beyond parser differentials, individual library implementations contain unique p
 | S5-1 (XXE via SAML) | Oracle Commerce Cloud (2023) | SSRF via XXE in SAML login flow. File read and internal service access |
 | S6-1 (Replay Cache Absence) | CVE-2025-64131 (Jenkins SAML Plugin) | CVSS 7.5. Auth bypass via replay of intercepted SAML authentication flow. Jenkins SAML Plugin < 4.583.585.v22ccc1139f55 |
 | S6-4 (RelayState Open Redirect) | CVE-2026-22032 (Directus) | Open redirect via unvalidated RelayState on SAML callback endpoint. Callback path skips allowlist validation applied during login initiation |
-| S6-5 (IdP-Initiated Broker Bypass) | CVE-2026-3047 (Keycloak) | CVSS 8.8. Disabled SAML client as IdP-initiated broker landing target still completes login, granting SSO access to all enabled clients. Keycloak < 26.5.5 |
+| S6-5 (IdP-Initiated Broker Bypass) | CVE-2026-3047 (Keycloak) | CVSS 8.8. Disabled SAML client as IdP-initiated broker landing target still completes login, allowing unauthorized access to other enabled clients without re-authentication. Keycloak < 26.5.5 |
 | S5-2 (Compressed Response DoS) | CVE-2025-25293 (ruby-saml) | CVSS 7.7. DoS via compressed SAML response bypassing pre-inflation size check. ~1:1000 deflate ratio yields ~250MB inflated payload. ruby-saml < 1.18.0 |
 | S5-2 (Validation Order DoS) | CVE-2025-54572 (ruby-saml) | DoS via large non-Base64 input — regex format validation runs before size check, consuming excessive CPU/memory. ruby-saml < 1.18.1 |
 | S4-1 (Signature Stripping) | Rocket.Chat HackerOne Report #812064 | Admin authentication bypass — SAML responses not checked for signature presence |
@@ -402,18 +401,6 @@ Beyond parser differentials, individual library implementations contain unique p
 | **ADFSDump / ADFSRelay** | Golden SAML key extraction | Extract SAML signing certificates and keys from AD FS servers for Golden SAML detection/testing |
 | **AADInternals** (PowerShell) | Entra ID/Azure AD SAML | Export SAML signing certificates, test Silver SAML scenarios, federation configuration manipulation |
 | **PayloadsAllTheThings** (Repository) | Reference payloads | Curated SAML injection payloads: XSW1-8, XXE, XSLT, comment injection, signature stripping templates |
-
----
-
-## Summary: Core Principles
-
-SAML's mutation surface is fundamentally a consequence of using XML — a format designed for maximum structural flexibility — as the carrier for security-critical authentication assertions. The entire security model depends on a single assumption: that the element verified by the digital signature is *exactly* the element the SP processes for authentication decisions. Every category in this taxonomy represents a different way to violate that assumption — by moving elements (S1), by making parsers disagree about structure (S2), by breaking canonicalization (S3), by skipping verification steps (S4), by attacking the XML layer itself (S5), by exploiting protocol-level gaps (S6), by compromising the trust infrastructure (S7), or by exploiting library-specific bugs (S8).
-
-Incremental patches consistently fail to eliminate SAML threats because each library implements its own XML parsing, canonicalization, XPath evaluation, and signature verification stack. A fix in one library (e.g., ruby-saml) does not protect another (e.g., xml-crypto or samlify), and the same *class* of vulnerability (parser differentials, void canonicalization, comment injection) recurs independently across languages and ecosystems. The 2025 research wave — demonstrating void canonicalization, SAMLStorm comment injection, and parser differential attacks — affected Ruby, PHP, and Node.js ecosystems simultaneously, despite decades of prior research on SAML signature wrapping. (Go ecosystem SAML vulnerabilities such as CVE-2022-41912 in crewjam/saml predate this wave and are not part of the same coordinated disclosure.)
-
-A practical hardening step available today is **enforcing single-assertion responses**: GitHub's post-incident analysis concludes that permitting multiple `<Assertion>` elements within a single `<Response>` multiplies XSW structural ambiguity, and recommends rejecting any response containing more than one Assertion. This eliminates an entire class of wrapping attacks (S1-2 variants, S1-3 Encrypted Assertion Wrapping) by removing the structural flexibility that XSW exploits.
-
-A structural solution would require either (a) abandoning XML in favor of a simpler, unambiguous token format (as OIDC/JWT partially achieves), (b) mandating a single canonical XML parser implementation across all processing stages, or (c) redesigning the signature-to-content binding to be structurally inseparable rather than reference-based. Until then, SAML remains a protocol where every XML parser quirk, every library implementation choice, and every canonicalization edge case is a potential authentication bypass.
 
 ---
 
@@ -443,7 +430,3 @@ A structural solution would require either (a) abandoning XML in favor of a simp
 - [CSO Online, "SAML Authentication Broken Almost Beyond Repair" (2025)](https://www.csoonline.com/article/4105030/saml-authentication-broken-almost-beyond-repair.html)
 - [Google Project Zero: "Exploiting Java's XML Signature Verification" (2022) — XSLT transform abuse, XPath injection, and implementation-specific bugs in JDK's `javax.xml.crypto` API](https://googleprojectzero.blogspot.com/2022/11/gregor-samsa-exploiting-java-xml.html)
 - [Felix Wilhelm (Google Project Zero), "Hacking the Cloud with SAML" (Hexacon 2022) — SAML authentication vulnerabilities in cloud infrastructure exploitation](https://2022.hexacon.fr/slides/Hacking-the-Cloud-With-SAML.pdf)
-
----
-
-*This document was created for defensive security research and vulnerability understanding purposes.*

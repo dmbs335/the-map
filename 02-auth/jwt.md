@@ -187,7 +187,7 @@ JWE supports password-based encryption via PBES2 (RFC 7518 §4.8), where a Conte
 - **josekit-rs** (Rust): fixed in v0.8.5
 - **jwcrypto** (Python): vulnerable before 1.5.1 (CVE-2023-6681)
 - **latchset/jose** (C): vulnerable (CVE-2023-50967)
-- **jjwt** (Java): vulnerable (CVE-2024-39960)
+- **jjwt** (Java): reported vulnerable by the NDSS 2026 *Token Time Bomb* paper (paper-listed CVE-2024-39960; no public CVE Program record found as of 2026-08-09)
 - **nimbus-jose-jwt** (Java): vulnerable (CVE-2023-52428)
 
 ### §3-5. Compression Decompression Abuse (Compression DoS)
@@ -196,7 +196,7 @@ JWE supports payload compression via the `zip` header parameter (RFC 7516 §4.1.
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
-| **Decompression bomb via `zip`** | Craft a JWE with `zip: "DEF"` and a payload that compresses to a small token but expands to gigabytes upon Deflate decompression. The library decompresses after decryption but before returning the payload, consuming server memory proportional to the decompressed size. Describe this as unauthenticated only when the deployment accepts attacker-supplied encrypted tokens that reach the JWE decryption path; unlike PBES2 `p2c` abuse, the decompression step normally depends on successful processing of the JWE ciphertext. | Library supports `zip` parameter and does not enforce a maximum decompressed payload size (CVE-2024-28176, CVE-2024-28180, CVE-2024-29370, CVE-2024-28102, CVE-2024-29371, CVE-2024-27663, CVE-2025-63811, CVE-2024-28122) |
+| **Decompression bomb via `zip`** | Craft a JWE with `zip: "DEF"` and a payload that compresses to a small token but expands to gigabytes upon Deflate decompression. The library decompresses after decryption but before returning the payload, consuming server memory proportional to the decompressed size. Describe this as unauthenticated only when the deployment accepts attacker-supplied encrypted tokens that reach the JWE decryption path; unlike PBES2 `p2c` abuse, the decompression step normally depends on successful processing of the JWE ciphertext. | Library supports `zip` parameter and does not enforce a maximum decompressed payload size (CVE-2024-28176, CVE-2024-28180, CVE-2024-29370, CVE-2024-28102, CVE-2024-29371, paper-listed CVE-2024-27663, CVE-2025-63811, CVE-2024-28122) |
 | **`zip` in JWS (RFC violation)** | The `zip` parameter is defined only for JWE (RFC 7516 §4.1.3), not JWS. However, some libraries accept `zip` in JWS headers and decompress the payload after signature verification. An attacker crafts a JWS with `zip: "DEF"` to trigger decompression in contexts where only JWS is expected — bypassing defenses that restrict JWE-specific attack surface. This is an RFC-violating behavior: the JWT specification (RFC 7515) does not define `zip` for JWS. | Library processes `zip` in JWS despite RFC restriction; no explicit rejection of compression in signed-only tokens |
 
 **Affected libraries and fixes:**
@@ -205,7 +205,7 @@ JWE supports payload compression via the `zip` header parameter (RFC 7516 §4.1.
 - **python-jose** (Python): vulnerable (CVE-2024-29370)
 - **jwcrypto** (Python): fixed in v1.5.6 (CVE-2024-28102)
 - **jose4j** (Java): fixed (CVE-2024-29371)
-- **jose-jwt** (C#): fixed (CVE-2024-27663)
+- **jose-jwt** (C#): reported fixed by the NDSS 2026 *Token Time Bomb* paper (paper-listed CVE-2024-27663; no public CVE Program record found as of 2026-08-09)
 - **jose2go** (Go): vulnerable (CVE-2025-63811)
 - **lestrrat-go/jwx** (Go): fixed (CVE-2024-28122)
 
@@ -393,30 +393,30 @@ RFC 7515 defines two serialization formats for JWS: Compact (three dot-separated
 | §4-1 (Issuer array injection) | CVE-2025-30144 (fast-jwt) | Issuer validation bypass. Arrays accepted for `iss` claim, mixing legitimate and malicious issuers. |
 | §7-3 (Memory exhaustion) | CVE-2025-27144 (Go JOSE) | DoS. Malformed JWTs with excessive periods trigger excessive memory allocation during token splitting/parsing. |
 | §2-3 (Key ID matching) | CVE-2025-24976 (Distribution registry) | Key injection. `kid` matched but actual key material not verified against trusted store. |
-| §7-1 (Sign/encrypt confusion) | CVE-2022-39174 (authlib/Python) | Authentication bypass. Public key used for JWS verification exploited to forge JWE tokens via unified decode() interface. |
-| §7-1 (Sign/encrypt confusion) | CVE-2022-3102 (jwcrypto/Python) | Authentication bypass. Same sign/encrypt confusion vector as CVE-2022-39174. |
+| §7-1 (Sign/encrypt confusion) | Project-documented CVE-2022-39174 (authlib/Python) | Authentication bypass. Public key used for JWS verification exploited to forge JWE tokens via unified decode() interface. Authlib documents the identifier, but no public CVE Program API record was found as of 2026-08-09. |
+| §7-1 (Sign/encrypt confusion) | Project-documented CVE-2022-3102 (jwcrypto/Python) | Authentication bypass. Same sign/encrypt confusion vector as CVE-2022-39174. JWCrypto documents the identifier, but no public CVE Program API record was found as of 2026-08-09. |
 | §7-1 (Sign/encrypt confusion) | CVE-2023-51774 (json-jwt/Ruby) | Identity check bypass. NVD describes sign/encrypt confusion in json-jwt gem 1.16.3. Broader version ranges (1.15.x, 1.16.x) may be affected per gem changelog but are not explicitly stated in the NVD entry. |
 | §3-4 (PBES2 billion hashes) | CVE-2023-51775 (jose4j/Java) | DoS. Unbounded `p2c` parameter allows CPU exhaustion via 2^31 PBKDF2 iterations. Fixed in jose4j 0.9.4. |
 | §3-4 (PBES2 billion hashes) | CVE-2023-49290 (lestrrat-go/jwx) | DoS. Same PBES2 `p2c` exploitation. Fixed in lestrrat-go/jwx v1.2.27 / v2.0.18. |
 | §1-1 (Unknown algorithm empty-signature) | PentesterLab HarbourJwt report (claimed CVE-2026-23993, not present in CVE Program API as of 2026-04-29) | Authentication bypass. `GetSignature()` returns empty string for unrecognized `alg` values; empty-vs-empty comparison passes verification. Requires independent verification before citing as confirmed. |
 | §5-1 / §6-3 (Token leakage) | Grafana Bug Bounty | JWT tokens in query parameters leaked to backend data sources via proxied requests. |
 | §6-3 (Replay / revocation) | HackerOne #3120790 (WakaTime) | Session replay. Logged-out tokens remain valid, enabling persistent access. |
-| §1-2 (Algorithm confusion) | CVE-2024-57453 (libjwt/C) | Authentication bypass. RS256→HS256 confusion allowing token forgery with public key. |
-| §1-2 (Algorithm confusion) | CVE-2024-57454 (cpp-jwt/C++) | Authentication bypass. RS256→HS256 confusion allowing token forgery with public key. |
+| §1-2 (Algorithm confusion) | Paper-listed CVE-2024-57453 (libjwt/C) | Authentication bypass. RS256→HS256 confusion allowing token forgery with public key. Listed by the NDSS 2026 paper, but no public CVE Program record was found as of 2026-08-09. |
+| §1-2 (Algorithm confusion) | Paper-listed CVE-2024-57454 (cpp-jwt/C++) | Authentication bypass. RS256→HS256 confusion allowing token forgery with public key. Listed by the NDSS 2026 paper, but no public CVE Program record was found as of 2026-08-09. |
 | §3-4 (PBES2 billion hashes) | CVE-2023-6681 (jwcrypto/Python) | DoS. Unbounded `p2c` parameter allows CPU exhaustion. |
 | §3-4 (PBES2 billion hashes) | CVE-2023-50967 (latchset/jose/C) | DoS. Unbounded `p2c` parameter allows CPU exhaustion. |
-| §3-4 (PBES2 billion hashes) | CVE-2024-39960 (jjwt/Java) | DoS. Unbounded `p2c` parameter allows CPU exhaustion. |
+| §3-4 (PBES2 billion hashes) | Paper-listed CVE-2024-39960 (jjwt/Java) | DoS. Unbounded `p2c` parameter allows CPU exhaustion. Listed by the NDSS 2026 paper, but no public CVE Program record was found as of 2026-08-09. |
 | §3-4 (PBES2 billion hashes) | CVE-2023-52428 (nimbus-jose-jwt/Java) | DoS. Unbounded `p2c` parameter allows CPU exhaustion. |
 | §3-4 (PBES2 billion hashes) | CVE-2023-50658 (jose2go/Go) | DoS. Unbounded `p2c` parameter allows CPU exhaustion. |
 | §3-5 (Compression DoS) | CVE-2024-29370 (python-jose/Python) | DoS. Decompression bomb via `zip` parameter causes memory exhaustion. |
 | §3-5 (Compression DoS) | CVE-2024-28102 (jwcrypto/Python) | DoS. Decompression bomb via `zip` parameter causes memory exhaustion. |
 | §3-5 (Compression DoS) | CVE-2024-29371 (jose4j/Java) | DoS. Decompression bomb via `zip` parameter causes memory exhaustion. |
 | §3-5 (Compression DoS) | CVE-2024-28176 (jose/JavaScript) | DoS. Decompression bomb via `zip` parameter causes memory exhaustion. |
-| §3-5 (Compression DoS) | CVE-2024-27663 (jose-jwt/C#) | DoS. Decompression bomb via `zip` parameter causes memory exhaustion. |
+| §3-5 (Compression DoS) | Paper-listed CVE-2024-27663 (jose-jwt/C#) | DoS. Decompression bomb via `zip` parameter causes memory exhaustion. Listed by the NDSS 2026 paper, but no public CVE Program record was found as of 2026-08-09. |
 | §3-5 (Compression DoS) | CVE-2025-63811 (jose2go/Go) | DoS. Decompression bomb via `zip` parameter causes memory exhaustion. |
 | §3-5 (Compression DoS) | CVE-2024-28180 (go-jose/Go) | DoS. Decompression bomb via `zip` parameter causes memory exhaustion. Fixed in v3.0.3 / v4.0.1. |
 | §3-5 (Compression DoS) | CVE-2024-28122 (lestrrat-go/jwx) | DoS. Decompression bomb via `zip` parameter causes memory exhaustion. |
-| §7-1 (Sign/encrypt confusion) | CVE-2024-24238 (jose-jwt/C#) | Authentication bypass. JWS public key used to forge JWE tokens via unified decode interface. |
+| §7-1 (Sign/encrypt confusion) | Paper-listed CVE-2024-24238 (jose-jwt/C#) | Authentication bypass. JWS public key used to forge JWE tokens via unified decode interface. Listed by the NDSS 2026 paper, but no public CVE Program record was found as of 2026-08-09. |
 | §7-5 (Format confusion) | CVE-2024-5037 (OpenShift Telemeter) | CVSS 7.5. Authentication bypass via JSON-serialized JWS with spoofed issuer field. go-jose validates signature on real header while application extracts claims from spoofed JSON field. |
 | §7-5 (Format confusion) | Kubernetes bug bounty | Authentication bypass. Same JSON vs. Compact serialization format confusion as CVE-2024-5037; forged issuer accepted by Kubernetes API server. |
 
@@ -476,7 +476,6 @@ Backend-as-a-Service platforms (Supabase, Firebase, Appwrite) expose database ac
 
 ---
 
-*This document was created for defensive security research and vulnerability understanding purposes.*
 
 ---
 
@@ -498,5 +497,7 @@ Backend-as-a-Service platforms (Supabase, Firebase, Appwrite) expose database ac
 - [JFrog: CVE-2022-21449 "Psychic Signatures" Analysis](https://jfrog.com/blog/cve-2022-21449-psychic-signatures-analyzing-the-new-java-crypto-vulnerability/)
 - [Traceable AI: JWTs Under the Microscope](https://www.traceable.ai/blog-post/jwts-under-the-microscope-how-attackers-exploit-authentication-and-authorization-weaknesses)
 - [Tom Tervoort (Secura): Three New Attacks Against JSON Web Tokens (BlackHat US 2023)](https://i.blackhat.com/BH-US-23/Presentations/US-23-Tervoort-Three-New-Attacks-Against-JSON-Web-Tokens.pdf)
+- [Authlib security documentation listing CVE-2022-39174](https://docs.authlib.org/en/v1.3.0/community/security.html)
+- [JWCrypto documentation for the expected-token-type fix associated with CVE-2022-3102](https://jwcrypto.readthedocs.io/en/v1.4.0/jwt.html)
 - [Trail of Bits: Out of the kernel, into the tokens](https://blog.trailofbits.com/2024/03/08/out-of-the-kernel-into-the-tokens/)
 - [Yang et al. (Tsinghua): Token Time Bomb: Evaluating JWT Implementations for Vulnerability Discovery (NDSS 2026)](https://dx.doi.org/10.14722/ndss.2026.240697)

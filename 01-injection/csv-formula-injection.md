@@ -1,7 +1,6 @@
 # CSV / Formula Injection — Mutation & Variation Taxonomy
 
 ---
-
 ## Classification Structure
 
 CSV/Formula Injection exploits a fundamental design flaw in spreadsheet file formats: **the absence of separation between data and executable code**. When an application exports user-controlled input into a CSV, TSV, or spreadsheet file (XLSX, ODS) without neutralization, and that file is subsequently opened in a spreadsheet application, any cell beginning with certain trigger characters is interpreted as a formula rather than a literal string. This taxonomy organizes the entire attack surface into seven structural categories based on **what component of the injection chain is being mutated**.
@@ -232,7 +231,6 @@ No DDE or local file access, but the `IMPORT*` function family provides powerful
 | **IMPORTDATA** | Live-streaming exfiltration (§2-5) | Re-evaluates on cell changes, enabling continuous data monitoring. |
 | **IMPORTRANGE** | Cross-spreadsheet data access (§2-5) | Requires target spreadsheet sharing permission. |
 | **IMAGE** | Silent tracking pixel exfiltration (§2-5) | Image load occurs automatically. |
-| **CSV import bypass** | Google Sheets may apply different sanitization behavior (e.g., apostrophe prefix) for Google Forms responses vs. direct CSV imports, potentially leaving formulas active in CSV imports. (Specific behavior not confirmed via official Google documentation — verification needed.) | Inconsistent sanitization between input channels (if confirmed). |
 
 ---
 
@@ -329,7 +327,6 @@ The file format used to deliver the injected payload affects which techniques ar
 | §1-1 + basic formula | CVE-2025-62417 | Bagisto (Create New Product) | CSV formula injection due to lack of input validation on product attributes |
 | §1-1 + §2-1 | CVE-2024-24337 | Koha Library Management v23.05.05 | DDE injection via Budget and Patrons Member CSV exports |
 | §1-1 + basic formula | CVE-2024-28111 | (Application) | Formula injection in CSV export |
-| §1-1 + §2 (exfiltration) | CVE-2024-29381 | Medplum | CSV/formula injection enabling data exfiltration when admin exports |
 | §6-2 (XXE) | CVE-2024-45293 | PhpSpreadsheet (XLSX reader) | XXE via encoding bypass in XML scanner; server-side file read & SSRF |
 | §1-1 (formula injection) | CVE-2024-45084 | IBM Cognos Controller 11.0.0–11.1.0 | Formula injection (CWE-1236) in enterprise reporting platform — improper validation of file contents enables arbitrary command execution |
 | §1-1 + basic formula | CVE-2025-13133 | WordPress Simple User Import Export ≤1.1.7 | Formula injection in user import/export plugin |
@@ -360,16 +357,6 @@ The file format used to deliver the injected payload affects which techniques ar
 
 ---
 
-## Summary: Core Principles
-
-**The fundamental property** that makes CSV/Formula Injection possible is the CSV format's complete absence of a data-code boundary. Unlike programming languages that distinguish between string literals and executable code through syntax (quotes, keywords, type annotations), CSV treats every cell value as potentially executable based solely on its first character. A single `=` prefix transforms inert data into an active formula with access to network functions, file protocols, and — through DDE — the full operating system command surface. This is not a bug in any specific implementation; it is an architectural property of the data-is-code design inherited from early spreadsheet applications where every cell was expected to contain either a literal value or a formula.
-
-**Incremental patches fail** because the defense burden is fragmented across the entire stack. Web applications must sanitize on export, but the set of trigger characters has expanded over time (tab, carriage return were only recently added to guidance). Prefix-based sanitization (apostrophe, tab) is defeated by the spreadsheet application's own save-and-reopen behavior, which may strip the prefix. DDE has been disabled by default in modern Excel, but WEBSERVICE — which enables auto-executing SSRF and data exfiltration — remains fully functional. Google Sheets blocks DDE but provides `IMPORT*` functions with equivalent exfiltration power. LibreOffice allows `file://` protocol access that neither Excel nor Google Sheets permit. Each application patches its own most egregious vector while leaving others open, and the lack of built-in sanitization in CSV parsing libraries (confirmed by WOOT 2025 research analyzing four libraries) means that every application developer must independently rediscover and implement defense logic.
-
-**A structural solution** would require one or both of: (1) a format-level distinction between data cells and formula cells in CSV (a "safe CSV" specification where formulas are explicitly opt-in rather than opt-out), or (2) spreadsheet applications treating imported CSV data as text-only by default, requiring explicit user action to enable formula evaluation on imported content. Neither exists today. The closest approximation is the combination of output sanitization (prefixing all cells starting with trigger characters), input validation (rejecting or escaping trigger characters at data entry), and user education (recognizing DDE and external content warnings). For server-side scenarios, the only reliable defense is to never evaluate formulas in user-uploaded spreadsheet content — a property that must be enforced at the library configuration level, since most libraries default to evaluation-enabled behavior.
-
----
-
 ## References
 
 - [OWASP Foundation, "CSV Injection,"](https://owasp.org/www-community/attacks/CSV_Injection)
@@ -388,7 +375,3 @@ The file format used to deliver the injected payload affects which techniques ar
 - [Efficiup, "Formula Injection Cheat Sheet,"](https://www.efficiup.com/wp-content/plugins/qd-sharing/share/formula-injection-cheat-sheet.pdf)
 - [SMC Tech Blog, "Beware of formulas: Comma Separated Victims,"](https://techblog.smc.it/en/2021-01-04/beware-of-formula/)
 - [Symfony CVE-2021-41270, "Prevent CSV Injection via formulas,"](https://symfony.com/blog/cve-2021-41270-prevent-csv-injection-via-formulas)
-
----
-
-*This document was created for defensive security research and vulnerability understanding purposes.*

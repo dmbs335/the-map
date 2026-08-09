@@ -333,13 +333,12 @@ Attacks leveraging browser-OS integration points to escalate beyond browser sand
 
 ### §8-2. Protocol Handler Abuse
 
-Extensions can register protocol handlers via `protocol_handlers` in the manifest; the WebExtensions API restricts this to allowlisted schemes or `web+`/`ext+` prefixed custom schemes, using a `uriTemplate` that maps to a web URL handler — not an OS-level custom scheme.
+Firefox extensions can register protocol handlers through the `protocol_handlers` manifest key. Firefox accepts allowlisted standard schemes or lowercase custom schemes prefixed with `web+` or `ext+` (with `ext+` recommended for extensions), and maps the request through a `uriTemplate`; this is not a generic Chromium extension capability or direct OS-level scheme registration.
 
 | Subtype | Mechanism | Key Condition |
 |---------|-----------|---------------|
-| **Custom Scheme Handler Abuse** | Registering `protocol_handlers` for `web+custom` or `ext+custom` schemes; the handler URL receives the full URI as a parameter, which may leak sensitive data embedded in the URI to the extension's web handler page | User clicks a `web+custom://...` link; handler URL receives full URI content. Note: this is a web URL redirect, not direct OS-level scheme invocation |
-| **File:// Protocol Access** | Extensions with `file://` permission read local files when pages link to `file://` URLs | Enables arbitrary local file read if combined with path traversal |
-| **Intent Redirection** | Registering handlers for `intent://` (Android) or `x-apple-data-detectors://` (iOS) | Mobile browsers route actions through extension; enables phishing/data theft |
+| **Custom Scheme Handler Abuse (Firefox)** | Registering an `ext+custom` scheme; the handler URL receives the full URI as a parameter, which may expose sensitive URI content to the extension's handler page | User follows an `ext+custom://...` link and accepts or retains the handler registration |
+| **File-scheme Access** | Reading matching local `file://` URLs after the extension receives the required host and browser permissions | Matching host permission; user enables file-URL access where required; OS permissions still apply |
 
 ### §8-3. Download API Exploitation
 
@@ -407,32 +406,11 @@ This table maps structural vulnerability categories (Axis 1) to real-world explo
 
 ---
 
-## Summary: Core Principles
-
-Browser extensions occupy a **unique threat landscape** at the intersection of web applications and OS-level privileges. Unlike traditional web attacks constrained by same-origin policy, or malware requiring OS-level installation, extensions combine *user-granted permissions* with *persistent background execution* and *cross-site access* — creating an exceptionally powerful attack surface.
-
-The fundamental vulnerability lies in **permission model inadequacy**: extensions require broad permissions for legitimate functionality (e.g., password managers need `<all_urls>` + `cookies`), but these same permissions enable comprehensive surveillance and data theft. The browser cannot distinguish between legitimate and malicious use of authorized APIs. This is compounded by **user inability to assess risk** — permission warnings like "read and change all your data" are simultaneously accurate and meaningless, as users cannot differentiate a password manager's necessary access from a malicious extension's surveillance capabilities.
-
-**Supply chain attacks** have emerged as the dominant threat vector in 2024-2025 because they bypass the hardest problem in extension malware deployment: achieving widespread installation. By compromising developer accounts or purchasing legitimate extensions, attackers inherit existing trust and install base. The **TamperedChef** and **Cyberhaven** campaigns demonstrate that even security-conscious organizations' extensions can be weaponized via developer credential phishing.
-
-**Incremental defenses fail** because they address symptoms rather than architectural flaws. Manifest V3 restrictions, store review improvements, and obfuscation bans reduce *obvious* malicious extensions but don't prevent determined attackers from achieving the same objectives through alternative APIs, delayed activation, or supply chain compromise. Research showing malicious extensions remain functional post-MV3 conversion confirms this.
-
-The **structural solution** requires three fundamental shifts:
-
-1. **Permission Granularity**: Moving from binary permissions (`<all_urls>` vs. nothing) to per-domain, per-action, time-limited grants. Password managers should access `login.bank.com` only when user clicks the extension, not persistently monitor all tabs.
-
-2. **Post-Publication Integrity**: Continuous behavioral monitoring with anomaly detection, not just pre-publication review. Extensions making network requests to new domains, accessing new APIs, or exhibiting statistical anomalies in data access patterns should trigger automated suspension and human review.
-
-3. **Architectural Isolation**: Adopting browser-level isolation (similar to **FistBump**) that enforces privilege separation by design. Content scripts should never invoke privileged APIs without cryptographic authentication of the requesting context, preventing the entire class of cross-context attacks (§2, §4).
-
-Until these structural changes occur, browser extensions will remain the **highest-privilege, least-monitored attack surface** in modern computing — a credential theft and surveillance platform granted willing access by users who lack alternatives.
-
----
-
-*This document was created for defensive security research and vulnerability understanding purposes.*
-
 ## References
 
+- [MDN: `protocol_handlers` WebExtension manifest key](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/manifest.json/protocol_handlers) - Mozilla
+- [MDN: Differences between browser extension API implementations](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/Differences_between_API_implementations) - Mozilla
+- [Declare permissions and file-URL access](https://developer.chrome.com/docs/extensions/develop/concepts/declare-permissions) - Chrome for Developers
 - [Google Chrome Extensions Vulnerabilities](https://www.cmu.edu/iso/news/2025/google-vulnerabilities.html) - Carnegie Mellon University
 - [A Study on Malicious Browser Extensions in 2025](https://arxiv.org/html/2503.04292) - arXiv
 - [Microsoft Edge Bug Could Have Allowed Attackers to Silently Install Malicious Extensions](https://thehackernews.com/2024/03/microsoft-edge-bug-could-have-allowed.html) - The Hacker News

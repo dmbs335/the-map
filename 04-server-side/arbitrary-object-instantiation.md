@@ -1,7 +1,6 @@
 # Arbitrary Object Instantiation — Mutation / Variation Taxonomy
 
 ---
-
 ## Classification Structure
 
 Arbitrary Object Instantiation (AOI) is a vulnerability class in which an attacker controls — directly or indirectly — *which class is instantiated* and/or *what arguments are passed to its constructor*. The fundamental danger is not in any single "bad" class but in the meta-capability of selecting an arbitrary type at runtime, then leveraging the side-effects of its construction or subsequent method calls to achieve attacker-desired outcomes.
@@ -352,7 +351,7 @@ AI frameworks serialize complex object graphs (model pipelines, agent chains, to
 |---------------------|-----------|---------|---------------|
 | §1-3 (config endpoint) + §3-2 | CVE-2024-24824 | Graylog | Arbitrary class instantiation via REST API; `java.io.File` → info leak. CVSS 8.8 |
 | §1-3 (JDBC properties) + §5-1 | CVE-2022-21724 | PostgreSQL JDBC (PgJDBC) | `socketFactory`/`sslFactory` parameters instantiate arbitrary classes. CVSS 9.8 (NVD) |
-| §1-1 (PHP new) + §3-1 (Imagick) | CVE-2022-31084 | LDAP Account Manager | Unauthenticated RCE via Imagick `vid:msl:` technique. CVSS 9.1 |
+| §1-1 (PHP new) + §3-1 (Imagick) | CVE-2022-31084 | LDAP Account Manager | Unauthenticated RCE via Imagick `vid:msl:` technique. GitHub CNA CVSS 9.0; NVD CVSS 8.1 |
 | §1-1 (PHP new) + §3-1 (SimpleXMLElement) | CVE-2017-18357 | Shopware | Object instantiation → SimpleXMLElement → Blind XXE → file disclosure. Metasploit module available |
 | §1-1 (PHP new) + §5-1 | CVE-2024-27098 | GLPI | Authenticated SSRF via arbitrary object instantiation. CVSS 6.4 |
 | §1-1 (PHP new) + §3-1 | CVE-2024-13645 | tagDiv Composer (WordPress) | Unauthenticated PHP object instantiation. CVSS 9.8 |
@@ -389,30 +388,6 @@ AI frameworks serialize complex object graphs (model pipelines, agent chains, to
 
 ---
 
-## Summary: Core Principles
-
-### The Root Cause: Unbounded Type Universes
-
-Arbitrary Object Instantiation exists because most mainstream languages provide mechanisms to instantiate classes by name at runtime — reflection, deserialization, autoloading, JNDI, template engines — and the set of classes reachable through these mechanisms is vastly larger than the set intended by the developer. The vulnerability is not in any individual class having a dangerous constructor; it is in the *combinatorial explosion* of reachable types multiplied by the side-effects their lifecycle methods produce. A PHP application with Imagick installed, a Java application with Spring on its classpath, or a Python service accepting pickled data each expose an attack surface defined not by what they coded, but by what they linked.
-
-### Why Incremental Fixes Fail
-
-Blocklist-based defenses are structurally doomed against AOI. Every new library added to the classpath/autoloader potentially introduces new gadget classes. The Fastjson saga — where over a dozen blocklist bypasses were discovered across multiple years — is the canonical illustration. Similarly, patching individual CVEs (closing one JNDI factory class, blocking one PHP built-in) addresses symptoms while leaving the root cause intact. The next gadget is always waiting in the next dependency update.
-
-### Structural Solutions
-
-The only architecturally sound defense is **inversion of the default**: instead of blocking known-dangerous classes (blocklist), allow only known-safe classes (allowlist). This principle manifests differently across ecosystems:
-
-- **Java**: `ObjectInputFilter` with explicit allowlist; `activateDefaultTyping()` with `PolymorphicTypeValidator` instead of `enableDefaultTyping()`; JNDI `com.sun.jndi.ldap.object.trustURLCodebase=false` (default since Java 8u191)
-- **PHP**: `unserialize()` with `['allowed_classes' => [...]]`; avoid `new $variable()` patterns entirely; validate class names against an explicit allowlist before instantiation
-- **.NET**: Migrate from `BinaryFormatter` to `System.Text.Json` or `DataContractSerializer` with known-type declarations
-- **Python**: Never `pickle.loads()` untrusted data; use `json` for data interchange; `yaml.safe_load()` instead of `yaml.load()`
-- **Frameworks**: Spring `PropertyAccessor` restrictions; LangChain `allowed_objects` parameter; Laravel `allowed_classes` in `unserialize()`
-
-The meta-lesson is that **type selection is a security-critical operation**. Any code path where user-controlled data influences which class is instantiated must be treated with the same rigor as command injection — because in practice, it often leads to the same outcome.
-
----
-
 ## References
 
 - [CWE-470: Use of Externally-Controlled Input to Select Classes or Code ('Unsafe Reflection')](https://cwe.mitre.org/data/definitions/470.html)
@@ -427,7 +402,3 @@ The meta-lesson is that **type selection is a security-critical operation**. Any
 - [Praetorian, "Ruby Unsafe Reflection Vulnerabilities"](https://www.praetorian.com/blog/ruby-unsafe-reflection-vulnerabilities/)
 - [Sprocket Security, "A Primer on Insecure Reflection Practices in Java and C# Applications"](https://www.sprocketsecurity.com/blog/a-primer-on-insecure-reflection-practices-in-java-and-c-applications)
 - [Patchstack, "PHP Object Injection via Insecure Instantiation"](https://patchstack.com/articles/php-object-injection-via-insecure-instantiation/)
-
----
-
-*This document was created for defensive security research and vulnerability understanding purposes.*

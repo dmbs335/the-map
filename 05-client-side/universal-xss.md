@@ -167,7 +167,7 @@ Extension APIs may expose cross-origin data or execution capabilities that, when
 | **debugger API origin bypass** | Extensions using the `chrome.debugger` API can script any page regardless of origin. If a web page can trigger a debugger attachment (via extension vulnerability), it gains universal access. (M7) | A vulnerable extension exposes debugger API functionality to web content. |
 | **webRequest/webNavigation API abuse** | Extensions with broad permissions (e.g., `<all_urls>`) that expose their APIs to web content (intentionally or via bugs) enable cross-origin request interception and script injection. (M8, M7) | Extension's message handler does not validate the sender's origin before performing privileged operations. |
 
-**Example (CVE-2016-5168, Chromium):** Persistent UXSS via SchemaRegistry, where extension API schemas could be intercepted by malicious web pages.
+**Example (Chromium issue 604901, now issue 40084127):** Persistent UXSS via SchemaRegistry, where extension API schemas could be intercepted by malicious web pages. This issue must not be cited as CVE-2016-5168: that CVE covers a separate Skia same-origin-policy information leak.
 
 ### §4-3. Browser Extension UXSS
 
@@ -369,7 +369,7 @@ MHTML (MIME HTML) is a web page archive format that bundles HTML, CSS, images, a
 | §3-1 (domainless blank) | Edge — multiple patches | Full SOP bypass; Microsoft patched with random GUIDs |
 | §3-2 (data: URI reload) | CVE-2017-5466 (Firefox) | Origin confusion when reloading isolated data:text/html |
 | §3-1 + §3-2 (origin inheritance) | IE — CVE-2015-0072 | Full SOP bypass via iframe redirect + origin confusion |
-| §4-2 (SchemaRegistry) | CVE-2016-5168 (Chromium) | Persistent UXSS in all frames and tabs |
+| §4-2 (SchemaRegistry) | Chromium issue 604901 / 40084127 | Persistent UXSS in all frames and tabs; no CVE identifier is asserted here |
 | §4-3 (Adobe plugin) | Acrobat Reader plugin (2007) | UXSS via PDF URL parameter injection; first documented UXSS |
 | §4-3 (extension UXSS) | CVE-2024-49378 (Smartup) | UXSS in Edge/Firefox via extension |
 | §5-1 (bindings check) | 94 Chromium UXSS bugs (2014–2018) | All mitigated by Site Isolation deployment |
@@ -378,7 +378,7 @@ MHTML (MIME HTML) is a web page archive format that bundles HTML, CSS, images, a
 | §7-1 (WebView UXSS) | CVE-2020-6506 (Chrome on Android < 83.0.4103.106) | WebView policy bypass allowing cross-origin iframe script execution; affects apps using vulnerable WebView versions |
 | §7-1 (WebView SOP bypass) | CVE-2014-6041 (Android < 4.4) | SOP bypass in Android default browser |
 | §7-2 (in-app browser) | CVE-2024-5739 (LINE iOS) | UXSS in LINE in-app browser |
-| §7-2 (iOS semi-UXSS) | CVE-2019-17004 (Firefox iOS) | Semi-UXSS affecting Firefox for iOS |
+| §7-2 (iOS semi-UXSS) | Mozilla Bugzilla alias CVE-2019-17004 (no public CVE Program API record found as of 2026-08-09) | Semi-UXSS affecting Firefox for iOS; fixed in Firefox for iOS 20 |
 | §7-3 (Electron) | CVE-2020-16608 (Notable 1.8.4) | RCE via XSS in Notable markdown editor (Electron); attacker-crafted note triggers script execution escalating to Node.js RCE |
 | §8-1 (XSLT) | WebKit XSLT UXSS (EDB-47237) | UXSS via XSLT and nested document replacements |
 | §8-3 (MHTML) | CVE-2014-1747 (Chromium) | UXSS from local MHTML file |
@@ -405,25 +405,12 @@ MHTML (MIME HTML) is a web page archive format that bundles HTML, CSS, images, a
 
 ---
 
-## Summary: Core Principles
-
-### The Root Cause
-
-The entire UXSS mutation space exists because the Same-Origin Policy is a **software-enforced invariant**, not a hardware-enforced boundary. Every document in every frame at every point in the navigation lifecycle must have a correctly computed and correctly checked origin. The browser's origin model interacts with dozens of subsystems — the HTML parser, the navigation state machine, the JavaScript engine bindings, the extension API surface, content processing pipelines, and embedded browser contexts — each of which must independently and correctly implement origin checks. A single missing or incorrect check in any of these subsystems breaks the entire security model for every website the user visits.
-
-### Why Incremental Patches Fail
-
-UXSS bugs are not caused by a single flawed pattern that can be fixed once. They emerge from the **combinatorial complexity** of browser state: navigation can be triggered from unload handlers (§2-1), origins can be inherited through multiple indirection layers (§3), extension APIs can bridge privilege boundaries (§4), and content processing pipelines introduce new execution contexts (§8). Each browser feature that interacts with the origin model introduces new potential for UXSS. This is why the rate of UXSS discoveries remained relatively constant for over a decade despite continuous patching — each fix addressed one specific state combination while leaving the vast majority of the state space unchecked.
-
-### The Structural Solution
-
-The most effective structural mitigation deployed to date is **Site Isolation** (Chrome 67+, hardened in Chrome 77+), which enforces SOP at the **process level**. By placing cross-site documents in separate operating system processes, UXSS bugs in the renderer process are contained — even if script bypasses SOP within the renderer, it cannot access cross-site data because that data exists in a different process's address space. This architectural shift rendered all 94 UXSS bugs reported to Chrome between 2014–2018 ineffective. However, Site Isolation does not protect against: (a) UXSS bugs in the browser process itself (§6), (b) extension-mediated UXSS (§4), (c) embedded browser contexts that don't implement site isolation (§7), or (d) same-site UXSS (where attacker and victim share the same site but different origins). The ultimate direction is toward **per-origin process isolation** — but the memory and performance costs remain prohibitive for full deployment.
-
----
-
 ## References
 
 - Google Research — *Analysis of UXSS Exploits and Mitigations in Chromium* (Moroz & Glazunov, 2019)
+- [Chromium issue 40084127 — Persistent UXSS via SchemaRegistry](https://issues.chromium.org/issues/40084127)
+- [Chrome Stable Channel Update — CVE-2016-5168 is a separate Skia information leak](https://chromereleases.googleblog.com/2016/04/stable-channel-update_28.html)
+- [Mozilla Bug 1588928 — Firefox for iOS semi-UXSS, alias CVE-2019-17004](https://bugzilla.mozilla.org/show_bug.cgi?id=1588928)
 - USENIX Security 2022 — *FuzzOrigin: Detecting UXSS Vulnerabilities in Browsers through Origin Fuzzing* (Kim et al.)
 - USENIX Security 2023 — *Extending a Hand to Attackers: Browser Privilege Escalation Attacks via Extensions* (Kim et al.)
 - Chromium — *Site Isolation Design Document*
@@ -445,5 +432,3 @@ The most effective structural mitigation deployed to date is **Site Isolation** 
 - **Application-Level XSS**: See [`xss.md`](../01-injection/xss.md) for the full XSS taxonomy including §7 (Markup Parser Differential Context) where mXSS is classified within the broader XSS landscape
 
 ---
-
-*This document was created for defensive security research and vulnerability understanding purposes.*

@@ -672,7 +672,7 @@ Chained with: Part 1 Dynamic Routing ACL bypass
 Result: Pre-auth RCE (no Overall/Read permission needed)
 ```
 
-**Entry Points**: `doCheckScriptCompile()`, `toJson()`, and additional endpoints discovered by Mikhail Egorov (CVE-2019-10392)
+**Entry Points**: `doCheckScriptCompile()`, `toJson()`, and additional endpoints discovered by Mikhail Egorov. Do not associate this chain with CVE-2019-10392: Jenkins assigns that CVE to a separate Git Client Plugin `git ls-remote` argument-injection flaw.
 
 **Recognition**: There was no pre-auth RCE in Jenkins since May 2017 until this research (GitHub: awesome-jenkins-rce-2019)
 
@@ -701,7 +701,7 @@ Result: Pre-auth RCE (no Overall/Read permission needed)
 | §8-1 | CVE-2019-1003000, CVE-2019-1003005, CVE-2019-1003029 | Jenkins | Pre-auth RCE via Groovy meta-programming | 2019 |
 | §7-1 | CVE-2019-1579 | Palo Alto GlobalProtect | Pre-auth RCE via format string (Uber case study) | 2019 |
 | §5-2 | CVE-2018-13382 | Fortinet SSL VPN | Pre-auth password reset via magic backdoor (Improper Authorization) | 2019 |
-| §5-3 | CVE-2020-15505 | MobileIron Core/Connector | Pre-auth RCE (official: unspecified vectors; Rapid7 analysis: path traversal + Hessian deserialization). APT-weaponized (CISA AA20-258A) | 2020 |
+| §5-3 | CVE-2020-15505 | MobileIron Core/Connector | Pre-auth RCE (official: unspecified vectors; Rapid7 analysis: Hessian deserialization in `/mifs/services/LogService` reached via `;`-based path-normalization auth bypass — `/mifs/.;/services/LogService`). APT-weaponized (CISA AA20-258A) | 2020 |
 | §5-1 | CVE-2021-26855, CVE-2021-27065 | Microsoft Exchange (ProxyLogon) | Pre-auth RCE • Pwnie Award 2021 Best Server-Side Bug | 2021 |
 | §5-1 | CVE-2021-34473, CVE-2021-34523, CVE-2021-31207 | Microsoft Exchange (ProxyShell) | Pwn2Own Vancouver 2021 Master of Pwn | 2021 |
 | §3-1 | CVE-2024-4577 | PHP-CGI | CVSS 9.8 • RCE via soft hyphen Best-Fit bypass | 2024 |
@@ -747,88 +747,6 @@ Result: Pre-auth RCE (no Overall/Read permission needed)
 
 ---
 
-## Summary: Core Principles & Structural Insights
-
-### The Fundamental Insight
-
-Orange Tsai's research reveals a **meta-pattern**: modern software systems are fundamentally **distributed parsers and interpreters**, and anywhere two components parse or interpret the same data differently, an exploitable inconsistency exists. These aren't isolated bugs—they're **architectural vulnerabilities** inherent to multi-layer systems.
-
-### Three Foundational Truths
-
-**1. Encoding is Transformation**
-
-Every character encoding conversion is a **lossy transformation** that creates new semantic meaning. Windows Best-Fit encoding isn't a bug—it's a feature designed for backward compatibility. But when security boundaries (validation) and execution contexts (command parsing) use different encodings, characters transform across that boundary:
-
-```
-Validation layer (Unicode): "safe＂filename＂.txt"
-Execution layer (ANSI CP 1252): "safe"filename".txt"
-                                       ↑ Transformation creates new quotes
-```
-
-The fundamental problem: **You cannot validate what you cannot predict will be transformed.**
-
-**2. Parser Differentials are Inevitable**
-
-RFC specifications leave room for interpretation. Different implementations prioritize different goals (performance vs strictness, backward compatibility vs security). When Component A validates using Parser X and Component B executes using Parser Y, the gap between their interpretations is the attack surface.
-
-- **URL Parsing**: `getHost()` vs `getAuthority()` in Java—different methods, different results, SSRF
-- **Path Normalization**: Nginx vs Tomcat—different RFC implementations, ACL bypass
-- **Apache Modules**: `r->filename` as path vs URL—different contexts, authentication bypass
-
-**3. Compile-Time ≠ Runtime**
-
-Modern languages offer powerful meta-programming features (Groovy AST, Python import hooks, Ruby `marshal_load`). Security sandboxes focus on **runtime** restrictions, but:
-
-- **Groovy `@Grab`**: Executes during parsing (before Script Security Plugin sees it)
-- **Ruby `Marshal`**: Custom deserialization logic via `marshal_load` hooks
-- **Expression Languages**: Double-evaluation turns validation into execution
-
-The trap: **What you sandbox isn't when the code runs.**
-
-### Why Incremental Patches Fail
-
-1. **Whack-a-Mole Pattern**: Fixing CVE-2024-4577 (soft hyphen) doesn't address fullwidth quotes (CVE-2024-49026) or yen signs—there are **hundreds** of Best-Fit transformation pairs across 20+ code pages.
-
-2. **Layered Defense Illusion**: Adding ModSecurity to Apache "hardens" the server, but ModSecurity's error handling can **overwrite** `r->content_type`, creating new handler confusion bugs. Defense-in-depth becomes attack-in-depth.
-
-3. **Backward Compatibility Chains**: Windows maintains ANSI APIs for 30-year-old software. Apache preserves 1996 handler logic. Every compatibility layer is a semantic ambiguity waiting to be weaponized.
-
-### Structural Solutions
-
-**For Encoding Issues**:
-- **Eliminate transformation boundaries**: Use Unicode (UTF-8/UTF-16) end-to-end; never convert to ANSI
-- **Validate post-transformation**: If conversion is unavoidable, validate **after** the transformation the execution context will perform
-
-**For Parser Differentials**:
-- **Single source of truth**: Use the **same** parser for validation and execution (not just "compatible" parsers)
-- **Fail closed on ambiguity**: When parsers disagree, reject the input entirely
-
-**For Multi-Layer Architectures**:
-- **Eliminate semantic reinterpretation**: Don't use `r->filename` for both filesystem paths and URLs—use separate fields
-- **Explicit context boundaries**: Tag data with its interpretation context; reject if context changes
-
-**For Meta-Programming**:
-- **Disable compile-time execution**: Ban annotations/features that execute during parsing in untrusted contexts
-- **Sandbox the compiler**: If compile-time execution is needed, sandbox the parser process itself
-
-### The Unsolvable Dilemma
-
-The deepest insight: many of these vulnerabilities stem from **fundamental design tensions**:
-
-- **Flexibility vs Security**: Powerful meta-programming (Groovy AST) enables elegant code reuse but creates pre-sandbox execution
-- **Performance vs Strictness**: Fast path normalization (truncate at `;`) enables speed but creates ACL bypass
-- **Compatibility vs Isolation**: ANSI API support (Windows) enables legacy software but creates encoding attacks
-
-You cannot simultaneously maximize flexibility, performance, and compatibility while achieving perfect security. **Every abstraction is a potential confusion boundary.**
-
-Orange Tsai's genius is recognizing that these aren't bugs to be patched—they're **inherent properties of complex systems**. The only true defense is architectural: eliminate ambiguity at the design level, accept reduced flexibility/performance/compatibility, or acknowledge the persistent attack surface.
-
----
-
-*This taxonomy was created for defensive security research and vulnerability understanding purposes. All techniques documented are based on publicly disclosed research by Orange Tsai (DEVCORE) and collaborators, presented at Black Hat, DEF CON, and other security conferences between 2017-2025.*
-
----
-
 ## References & Attribution
 
 ### Primary Researcher
@@ -869,6 +787,7 @@ Orange Tsai's genius is recognizing that these aren't bugs to be patched—they'
 - [PortSwigger Research — Top 10 Web Hacking Techniques 2024](https://portswigger.net/research/top-10-web-hacking-techniques-of-2024)
 - [OWASP SSRF Prevention Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html) — features Orange Tsai's research
 - [Apache HTTP Server Security Vulnerability Database](https://httpd.apache.org/security/vulnerabilities_24.html)
+- [Jenkins Security Advisory 2019-09-12 — CVE-2019-10392 is a Git Client Plugin command-injection flaw](https://www.jenkins.io/security/advisory/2019-09-12/)
 - **Microsoft Security Response Center** - Exchange CVE advisories
 - [Akamai Research — Apache httpd Proactive Collaboration](https://www.akamai.com/blog/security-research/apache-waf-proactive-collaboration-orange-tsai-devcore)
 

@@ -3,7 +3,6 @@
 A comprehensive, generalized taxonomy of security vulnerabilities, design flaws, and exploitation techniques rooted in the Java language and its standard library (JDK). This document covers the JDK's core packages — `java.net`, `java.io`, `java.nio`, `java.lang`, `java.util`, `java.security`, `javax.crypto`, `javax.naming`, `javax.xml` — and the language-level design decisions that create systemic attack surfaces. Spring Framework is excluded (covered in `spring.md`).
 
 ---
-
 ## Classification Structure
 
 Java's security surface is shaped by three foundational design philosophies that recur throughout this taxonomy:
@@ -582,7 +581,7 @@ String s = "\u0022; Runtime.getRuntime().exec(new String[]{\u0022calc\u0022}); /
 | §8-1 (ZipSlip) | CVE-2018-1002200 | 2018 | High — plexus-archiver path traversal |
 | §8-1 (ZipSlip) | CVE-2018-8009 | 2018 | High — Apache Hadoop archive extraction |
 | §8-1 (Commons Compress) | CVE-2023-42503 | 2023 | Medium — Apache Commons Compress traversal |
-| §11-1 (Buffer overflow) | CVE-2020-2803 | 2020 | High (8.3) — java.nio.Buffer boundary check bypass via integer overflow |
+| §12-2 (NIO Buffer race / bounds check) | CVE-2020-2803 | 2020 | High (8.3) — incorrect bounds checks in NIO Buffers; vendor technical notes describe a race that could let untrusted code access or modify native memory outside the Buffer and bypass the Java sandbox. This is not documented as an integer-overflow flaw |
 
 ---
 
@@ -625,44 +624,6 @@ String s = "\u0022; Runtime.getRuntime().exec(new String[]{\u0022calc\u0022}); /
 
 ---
 
-## Summary: Core Principles
-
-### Why the Java Standard Library Is a Rich Attack Surface
-
-Java's security surface is the product of three interacting design forces:
-
-1. **Specification fidelity creates insecure defaults.** Java's XML parsers support external entities because the XML specification requires it. Java's ZIP API accepts `../` in entry names because the ZIP specification allows it. Java's `URL` class performs DNS resolution in `equals()` because the design intended URL equality to be semantic, not syntactic. In each case, following the specification faithfully created an insecure default that developers must explicitly override.
-
-2. **Backward compatibility preserves dangerous APIs.** `ObjectInputStream` cannot be made safe by default because millions of existing applications depend on its current behavior. `Runtime.exec(String)` cannot be removed because existing code uses it. XML parsers cannot disable external entities by default because existing DTD-dependent code would break. The result is a growing collection of APIs that are dangerous by default but cannot be changed.
-
-3. **Low-level primitives without high-level safe abstractions.** Java provides `Cipher.getInstance("AES")` (which defaults to ECB mode) but no `SecureEncrypt.encrypt(key, plaintext)` that does AES-GCM with proper nonce management. Java provides `ProcessBuilder` but no `SafeCommand.run(program, args)` that handles argument escaping. Java provides `ZipInputStream` but no `SafeExtractor.extract(zip, destDir)` that validates entry paths. The developer must compose the safe pattern from low-level primitives every time.
-
-### Why Incremental Patches Fail
-
-1. **The classpath is the attack surface.** Deserialization vulnerabilities (§1) are not in a single library but in the composition of classes on the classpath. Every new library added creates potential new gadget chains. The attack surface grows with every dependency.
-
-2. **Denylist exhaustion.** JNDI restrictions (§2-3), deserialization filters (§1-3), and XSLT function denylists (§4-3) are all defeated by discovering new classes not on the denylist. This is a fundamentally losing strategy against an attacker who can inspect the classpath.
-
-3. **Parser differentials are combinatorial.** URL confusion (§3-1) exists because `URL`, `URI`, `InetAddress`, and `HttpURLConnection` each parse the same input differently. Fixing one parser's behavior shifts the differential to another pair.
-
-### Structural Solution Direction
-
-- Replace `ObjectInputStream` with type-safe formats (Protocol Buffers, Jackson with polymorphism disabled, flat JSON/MessagePack) — §1
-- Eliminate JNDI lookup from all untrusted input paths; set `trustURLCodebase=false` globally; use JDK 17+ filter factories — §2
-- Use `URI` exclusively for URL parsing; resolve DNS once and pin the result; disable redirects or validate each hop — §3
-- Disable DTDs entirely (`disallow-doctype-decl`); disable XSLT extension functions; use `XPathVariableResolver` for parameterized XPath — §4
-- Use `ProcessBuilder` with explicit `String[]` arguments; never invoke a shell; sanitize environment — §5
-- Use `AES/GCM/NoPadding` with random 96-bit nonce; `SecureRandom` only; PBKDF2 ≥ 600,000 iterations; `MessageDigest.isEqual()` for comparison; `char[]` for passwords — §6
-- Use `getCanonicalPath()`/`toRealPath()` with base directory prefix check; `CREATE_NEW` for atomic creation; check for symlinks — §7
-- Validate `ZipEntry.getName()` against canonical destination path; enforce decompressed size, entry count, and ratio limits — §8
-- Minimize `--add-opens` flags; prefer method handles over reflection; restrict `ClassLoader` sources — §9
-- Never expose RMI/JMX without authentication and TLS; apply JEP 290 filters to all RMI endpoints — §10
-- Use `Math.addExact()`/`Math.multiplyExact()` for security-sensitive arithmetic; `.equals()` not `==` for wrapper types — §11
-- Use `ConcurrentHashMap` with atomic compound operations; `DateTimeFormatter` instead of `SimpleDateFormat`; never share mutable state without synchronization — §12
-- Always specify `StandardCharsets.UTF_8`; normalize then validate; `Locale.ROOT` for security comparisons — §13
-
----
-
 ## References
 
 ### Sources Consulted
@@ -683,7 +644,4 @@ Java's security surface is the product of three interacting design forces:
 - OWASP XXE Prevention Cheat Sheet — Parser-specific hardening configurations
 - PortSwigger Research — XXE, SSRF, Deserialization
 - [PortSwigger Research (Gareth Heyes) — "Hiding payloads in Java source code strings" (2024)](https://portswigger.net/research/hiding-payloads-in-java-source-code-strings)
-
----
-
-*This document was created for defensive security research and vulnerability understanding purposes.*
+- [Red Hat RHSA-2020:1512 — CVE-2020-2803 incorrect NIO Buffer bounds checks](https://access.redhat.com/errata/RHSA-2020:1512)

@@ -150,23 +150,23 @@ QPACK's design (RFC 9204 §7.1) explicitly acknowledges this residual risk: "An 
 
 
 
-HTTP/3's connection coalescing rules differ from HTTP/2's in a critical way: the proposed relaxation of the IP address match requirement significantly expands the attack surface for cross-origin connection contamination.
+RFC 9114 §3.3 permits an existing HTTP/3 connection to a server endpoint to be reused for a different URI authority when the certificate presented on that connection is valid for the new origin. Unlike common HTTP/2 coalescing policies, the RFC does not require the new origin's DNS result to match the endpoint IP. This can broaden connection-contamination bugs, but it does not make a shared certificate alone sufficient for reuse.
 
 
 
 ### §3-1. Connection Coalescing Contamination
 
-HTTP/2 allows a browser to reuse a single connection for requests to different hostnames if: (a) the hostnames resolve to the same IP address, and (b) the TLS certificate covers both hostnames. HTTP/3 proposes **removing requirement (a)** — the IP address match — because QUIC connections are identified by Connection IDs rather than IP 4-tuples.
+HTTP/2 clients commonly require both an IP-address relationship and a certificate valid for the second origin. HTTP/3 standardizes reuse of an already established server endpoint based on authority validation: the client must validate the retained certificate for the new origin, and the server can reject an origin it does not serve with `421 Misdirected Request`.
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
-| **First-request routing abuse** | Reverse proxy determines backend routing based on the first request's Host header, then routes all subsequent requests on the same connection to that backend — regardless of their actual Host header | Proxy uses first-request routing (a common optimization). Combined with wildcard/multi-domain TLS certificate and connection coalescing, attacker can route victim requests to attacker-controlled backend |
-| **Cross-origin coalescing without IP match** | HTTP/3 connection coalescing without IP address verification allows connection reuse across origins that share a TLS certificate but have different IP addresses | HTTP/3 client implements relaxed coalescing rules. Wildcard certificate (e.g., `*.example.com`) covers both attacker and target subdomains |
-| **Alt-Svc redirection** | `Alt-Svc` header directs the client to establish an HTTP/3 connection to a different host/port, potentially controlled by the attacker | Client follows Alt-Svc without sufficient origin validation; can redirect HTTP/3 traffic through attacker-controlled QUIC endpoints |
+| **First-request routing abuse** | Reverse proxy determines backend routing from the first request's authority, then incorrectly pins all later requests on the connection to that backend | The endpoint is authoritative for both origins, the certificate validates both, the client reuses the connection, and the proxy fails to route each request by its own authority |
+| **Cross-origin coalescing without DNS-IP match** | An existing HTTP/3 connection can carry a request for another origin even when that origin's fresh DNS result differs from the connected endpoint | The connected endpoint can authenticate the new origin and the client accepts it as authoritative; a wildcard or multi-domain certificate alone is insufficient |
+| **Alt-Svc endpoint substitution** | `Alt-Svc` can move an origin's HTTP/3 traffic to a different host or port | The alternative endpoint must still authenticate the origin. Exploitation requires control of an endpoint that can present a valid certificate, an authority/routing mistake, or a client validation flaw |
 
-**Attack scenario.** An attacker with XSS on `wordpress.example.com` injects JavaScript that forces the victim's browser to make requests to `secure.example.com`. With HTTP/3 connection coalescing and first-request routing, the browser reuses the existing connection (originally established to WordPress), and the reverse proxy routes the `secure.example.com` request to the WordPress backend — exposing credentials and cookies intended for the secure subdomain.
+**Attack scenario.** Assume `wordpress.example.com` and `secure.example.com` terminate at an endpoint whose certificate covers both names, and the reverse proxy incorrectly pins a connection to the first selected backend. An attacker who controls or can observe the WordPress backend causes the victim to establish that connection and then request `secure.example.com`. If the client reuses the connection and the proxy ignores the later request's authority, browser-selected `secure.example.com` cookies can reach the wrong backend. XSS on the WordPress origin by itself is not enough to read those HTTP cookie headers.
 
-**HTTP/3 amplification.** In HTTP/2, this attack requires the target domains to resolve to the same IP address, significantly limiting scope. HTTP/3's proposed removal of this requirement means an attacker only needs a shared TLS certificate (e.g., any two subdomains under a wildcard cert) — no IP address co-location required. This transforms connection contamination from a niche misconfiguration into a broadly applicable attack against multi-tenant infrastructure.
+**HTTP/3 amplification.** Removing a mandatory fresh DNS-IP match can make an existing unsafe endpoint reusable for more origins than under common HTTP/2 client policies. The attack still requires authority over the connected endpoint, certificate validity for the target origin, client reuse, and connection-pinned proxy routing. It is therefore a conditional multi-tenant routing failure, not a general consequence of two origins sharing a certificate.
 
 
 
@@ -339,39 +339,13 @@ Differential fuzzing of QUIC implementations against DPI systems (DPIFuzz) has d
 
 
 
-## Summary: Core Principles
-
-
-
-HTTP/3 and QUIC fundamentally restructure the transport layer beneath HTTP semantics, but this restructuring introduces attack surfaces that **do not exist** in TCP-based HTTP/1.1 or HTTP/2. The three most significant structural shifts are:
-
-**1. UDP as transport eliminates source address validation.** TCP's three-way handshake inherently verifies the client's IP address before any application data is exchanged. QUIC's 0-RTT mechanism intentionally bypasses this verification for performance, creating a window where requests are processed from unverified sources. CVE-2024-39321 demonstrated that this is not theoretical — IP-based access controls can be bypassed with a single spoofed UDP datagram containing a replayed session ticket.
-
-**2. Connection coalescing rules expand cross-origin attack surface.** HTTP/2's connection coalescing already created the risk of cross-origin contamination, but the IP address match requirement significantly limited scope. HTTP/3's proposed relaxation of this requirement — because QUIC uses Connection IDs rather than IP 4-tuples — removes the most significant natural barrier. Any two origins sharing a TLS certificate (including all subdomains under a wildcard cert) become potential contamination targets.
-
-**3. QUIC's pre-handshake packet processing creates unauthenticated attack surface.** Unlike TCP+TLS where the transport handshake completes before any application data is processed, QUIC processes Initial and 0-RTT packets before establishing a fully authenticated connection. CVE-2025-54939 (QUIC-LEAK) demonstrated that vulnerabilities in this pre-handshake processing bypass all standard QUIC protections — connection limits, stream controls, and flow regulation are ineffective against attacks that exploit the packet parsing layer itself.
-
-**The maturity gap.** HTTP/3 and QUIC security tooling lags significantly behind HTTP/1.1 and HTTP/2. As of 2025, major interception proxies (Burp Suite, mitmproxy, ZAP) lack HTTP/3 client support, making testing dependent on specialized tools like QuicDraw. The absence of mature H3-specific differential fuzzers (comparable to HTTP Garden, FRAMESHIFTER, or Gudifu for H1/H2) means the implementation-level parsing discrepancy surface across QUIC libraries (quic-go, LSQUIC, Quiche, ngtcp2, MsQuic) remains largely unexplored. Given that H1/H2 fuzzing has consistently revealed exploitable discrepancies at scale (122 discrepancies across 39 implementations in HTTP Garden alone), the HTTP/3 implementation landscape likely harbors comparable — or greater — divergence.
-
-With HTTP/3 adoption reaching ~40% of websites as of 2025, and browser support exceeding 95%, the protocol-level attack surface documented here will only grow. The fundamental tension is the same as in HTTP/1.1 and HTTP/2 smuggling: **performance optimizations (0-RTT, connection coalescing, connection migration) create security gaps that incremental patches cannot structurally resolve**.
-
-
-
----
-
-
-
-*This document was created for defensive security research and vulnerability understanding purposes.*
-
-
-
 ## References
 
 ### Specifications
 
-- RFC 9000 — *QUIC: A UDP-Based Multiplexed and Secure Transport* (2021). Core QUIC transport protocol. §7.2 (connection ID validation), §9 (connection migration), §19 (frame types).
+- RFC 9000 — *QUIC: A UDP-Based Multiplexed and Secure Transport* (2021). Core QUIC transport protocol. §8 (address validation and anti-amplification), §9 (connection migration and path validation), §19 (frame types).
 - RFC 9001 — *Using TLS to Secure QUIC* (2021). TLS 1.3 integration; 0-RTT early data security considerations (§9.2).
-- RFC 9114 — *HTTP/3* (2022). HTTP semantics over QUIC; §4.2 (HTTP fields, forbidden headers), §4.2.2 (SETTINGS_MAX_FIELD_SECTION_SIZE).
+- RFC 9114 — *HTTP/3* (2022). HTTP semantics over QUIC; §3.3 (connection reuse and `421 Misdirected Request`), §4.2 (HTTP fields and forbidden headers), §4.2.2 (`SETTINGS_MAX_FIELD_SECTION_SIZE`).
 - RFC 7541 — *HPACK: Header Compression for HTTP/2* (2015). Variable-length integer encoding scheme (§5.1) shared with QPACK; integer overflow attack surface.
 - RFC 9204 — *QPACK: Field Compression for HTTP/3* (2022). Header compression; §7 (security considerations, CRIME mitigation, memory exhaustion).
 

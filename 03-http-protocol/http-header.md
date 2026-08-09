@@ -385,51 +385,21 @@ Headers that convey request origin, authentication state, or session context rep
 
 ---
 
-## Summary: Core Principles
-
-### The Root Cause
-
-The entire HTTP header injection attack surface exists because of a single architectural property: **HTTP headers are client-controllable plaintext values that flow through multiple processing layers, each with independent trust assumptions and parsing behaviors.** The HTTP specification treats headers as extensible metadata, but modern web architectures have evolved to grant headers **semantic authority** — over routing (Host), identity (X-Forwarded-For), security policy (CSP, CORS), and operational context (X-Request-ID). The gap between "metadata that describes a request" and "directive that controls behavior" is the root of every vulnerability in this taxonomy.
-
-### Why Incremental Fixes Fail
-
-Each header-based vulnerability is typically patched at the point of exploitation: Host header validation in the password reset function, XFF sanitization in the rate limiter, CRLF stripping in the redirect handler. But these point fixes fail structurally because:
-
-1. **New headers are constantly introduced** — every new proxy, framework, or middleware adds custom headers (`x-middleware-subrequest`, `X-Envoy-External-Address`), each creating fresh attack surface.
-2. **Trust boundaries are implicit** — there is no standard mechanism to distinguish infrastructure-set headers from client-injected ones. The RFC 7239 `Forwarded` header attempted to standardize this but adoption remains partial.
-3. **Multi-layer architectures multiply discrepancies** — adding a CDN, WAF, reverse proxy, or API gateway introduces another parsing layer with its own header priority rules, encoding normalization, and trust model.
-4. **Correlation and tracing headers create lateral propagation** — a single injected value in `X-Request-ID` can reach logging infrastructure, CI/CD pipelines, SIEM systems, and error dashboards across the entire microservice topology.
-
-### The Structural Solution
-
-A robust defense requires treating HTTP headers with the same rigor as any other untrusted input — at every layer, not just at the application boundary:
-
-- **Allowlist, don't blocklist**: Explicitly define which headers are accepted at each layer and strip all others. Infrastructure-set headers (XFF, X-Forwarded-Host) must be overwritten, not appended, by trusted proxies.
-- **Normalize once, validate everywhere**: Encoding normalization (URL-decoding, Unicode NFC, charset conversion) should happen exactly once at the outermost trust boundary, and all downstream consumers should operate on the normalized form.
-- **Break implicit trust chains**: Headers set by infrastructure should be cryptographically signed or conveyed through out-of-band channels (environment variables, mutual TLS metadata) rather than passed as plaintext headers that clients can forge.
-- **Sanitize on write, encode on render**: Every header value written to logs, databases, HTML, JSON, or shell contexts must be sanitized for that specific output context — CRLF for HTTP, HTML-encoding for web rendering, parameterized queries for SQL.
-
----
-
-*This document was created for defensive security research and vulnerability understanding purposes.*
-
----
-
 ## References
 
-- [PortSwigger Web Security Academy — [HTTP Host Header Attacks](](https://portswigger.net/web-security/host-header))
-- [PortSwigger Research — [Making HTTP Header Injection Critical via Response Queue Poisoning](](https://portswigger.net/research/making-http-header-injection-critical-via-response-queue-poisoning))
-- [PortSwigger Research — [Practical Web Cache Poisoning](](https://portswigger.net/research/practical-web-cache-poisoning))
-- [ACM CCS 2024 — [Internet's Invisible Enemy: Detecting and Measuring Web Cache Poisoning in the Wild](](https://dl.acm.org/doi/10.1145/3658644.3690361))
-- [ProjectDiscovery — [CVE-2025-29927: Next.js Middleware Authorization Bypass](](https://projectdiscovery.io/blog/nextjs-middleware-authorization-bypass))
-- [OWASP — [Testing for Host Header Injection](](https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/07-Input_Validation_Testing/17-Testing_for_Host_Header_Injection))
-- [OWASP — [IP Spoofing via HTTP Headers](](https://owasp.org/www-community/pages/attacks/ip_spoofing_via_http_headers))
-- [CWE-113 — [Improper Neutralization of CRLF Sequences in HTTP Headers](](https://cwe.mitre.org/data/definitions/113.html))
-- [YesWeHack — [HTTP Header Hacks: From Basic to Advanced](](https://www.yeswehack.com/learn-bug-bounty/http-header-exploitation))
-- [HackerNotes Ep.86 — [X-Correlation Header Injection Research by Frans Rosen](](https://blog.criticalthinkingpodcast.io/p/hackernotes-ep86-xcorrelation-frans-rce-research-drop))
-- [Compass Security — [Bypassing Web Filters via Host Header Spoofing](](https://blog.compass-security.com/2025/03/bypassing-web-filters-part-2-host-header-spoofing/))
-- [Invicti — [CRLF Injection, HTTP Response Splitting & HTTP Header Injection](](https://www.invicti.com/blog/web-security/crlf-http-header))
-- [Praetorian — [Bypassing Akamai WAF Using Injected Content-Encoding Header](](https://www.praetorian.com/blog/using-crlf-injection-to-bypass-akamai-web-app-firewall/))
-- [SwissKyRepo — [PayloadsAllTheThings: CRLF Injection](](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/CRLF%20Injection))
-- [F5 — [Security Rule Zero: A Warning about X-Forwarded-For](](https://www.f5.com/company/blog/security-rule-zero-a-warning-about-x-forwarded-for))
-- [CTBB Lab — [CRLF Injection: Nested Response Splitting CSP Gadget](](https://lab.ctbb.show/research/crlf-injection-nested-response-splitting-csp-gadget))
+- [PortSwigger Web Security Academy — HTTP Host Header Attacks](https://portswigger.net/web-security/host-header)
+- [PortSwigger Research — Making HTTP Header Injection Critical via Response Queue Poisoning](https://portswigger.net/research/making-http-header-injection-critical-via-response-queue-poisoning)
+- [PortSwigger Research — Practical Web Cache Poisoning](https://portswigger.net/research/practical-web-cache-poisoning)
+- [ACM CCS 2024 — Internet's Invisible Enemy: Detecting and Measuring Web Cache Poisoning in the Wild](https://dl.acm.org/doi/10.1145/3658644.3690361)
+- [ProjectDiscovery — CVE-2025-29927: Next.js Middleware Authorization Bypass](https://projectdiscovery.io/blog/nextjs-middleware-authorization-bypass)
+- [OWASP — Testing for Host Header Injection](https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/07-Input_Validation_Testing/17-Testing_for_Host_Header_Injection)
+- [OWASP — IP Spoofing via HTTP Headers](https://owasp.org/www-community/pages/attacks/ip_spoofing_via_http_headers)
+- [CWE-113 — Improper Neutralization of CRLF Sequences in HTTP Headers](https://cwe.mitre.org/data/definitions/113.html)
+- [YesWeHack — HTTP Header Hacks: From Basic to Advanced](https://www.yeswehack.com/learn-bug-bounty/http-header-exploitation)
+- [HackerNotes Ep.86 — X-Correlation Header Injection Research by Frans Rosen](https://blog.criticalthinkingpodcast.io/p/hackernotes-ep86-xcorrelation-frans-rce-research-drop)
+- [Compass Security — Bypassing Web Filters via Host Header Spoofing](https://blog.compass-security.com/2025/03/bypassing-web-filters-part-2-host-header-spoofing/)
+- [Invicti — CRLF Injection, HTTP Response Splitting & HTTP Header Injection](https://www.invicti.com/blog/web-security/crlf-http-header)
+- [Praetorian — Bypassing Akamai WAF Using Injected Content-Encoding Header](https://www.praetorian.com/blog/using-crlf-injection-to-bypass-akamai-web-app-firewall/)
+- [SwissKyRepo — PayloadsAllTheThings: CRLF Injection](https://github.com/swisskyrepo/PayloadsAllTheThings/tree/master/CRLF%20Injection)
+- [F5 — Security Rule Zero: A Warning about X-Forwarded-For](https://www.f5.com/company/blog/security-rule-zero-a-warning-about-x-forwarded-for)
+- [CTBB Lab — CRLF Injection: Nested Response Splitting CSP Gadget](https://lab.ctbb.show/research/crlf-injection-nested-response-splitting-csp-gadget)

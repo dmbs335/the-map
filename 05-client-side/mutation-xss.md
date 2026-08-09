@@ -1,7 +1,6 @@
 # Mutation XSS (mXSS) Mutation/Variation Taxonomy
 
 ---
-
 ## Classification Structure
 
 Mutation XSS (mXSS) is a class of cross-site scripting that exploits **discrepancies between how HTML sanitizers parse markup and how browsers reconstruct the DOM**. Unlike traditional XSS where the payload is directly malicious, mXSS payloads appear benign during sanitization but become dangerous after the browser's HTML parser mutates the DOM structure during rendering. The fundamental principle underlying all mXSS is **parser non-idempotency**: `P(P(D)) != P(D)` — parsing an HTML string, serializing the result, and re-parsing does not guarantee the same DOM tree.
@@ -388,16 +387,6 @@ Bypasses targeting the browser's built-in Sanitizer API (`setHTML()`), which eli
 
 ---
 
-## Summary: Core Principles
-
-**What makes mXSS possible.** The fundamental property that enables mXSS is **HTML's context-dependent, error-recovering parser combined with the serialize-parse roundtrip**. HTML5 parsing is deterministic but not idempotent — the same string parsed in different contexts (different parent element, different namespace, different scripting flag) produces different DOM trees. Sanitizers must predict what the browser's parser will produce, but they parse in a different environment (different context element, scripting disabled, potentially different parser implementation). This prediction gap is inherently unfixable through sanitizer improvements alone because the sanitizer cannot know the exact context in which its output will be rendered.
-
-**Why incremental patches fail.** Each DOMPurify bypass follows a pattern: a researcher discovers a new mutation vector, the maintainer adds a specific check, and the next researcher finds a mutation the new check doesn't cover. This is not a failure of DOMPurify's engineering — it's a fundamental property of the problem space. The HTML specification defines different parsing rules for three namespaces, multiple text content modes (RAWTEXT, RCDATA, PLAINTEXT), scripting-dependent behavior, and extensive error recovery. The combinatorial space of nesting patterns, namespace transitions, and context interactions is vast enough that no sanitizer can model all possible browser behaviors through blacklisting individual mutation patterns. The approximately 1,500 pages of HTML parsing specification create an attack surface that dwarfs any sanitizer's test coverage.
-
-**What structural defense looks like.** The only architecturally sound defense against mXSS is **eliminating the serialize-parse roundtrip**. This can be achieved through: (1) using `RETURN_DOM` / `RETURN_DOM_FRAGMENT` in DOMPurify to pass DOM nodes directly without serialization, (2) adopting the browser-native **Sanitizer API** (`setHTML()`) which builds the sanitized DOM directly without intermediate string serialization, or (3) using **Trusted Types** to prevent strings from reaching `innerHTML` and similar sinks. The Sanitizer API is architecturally the strongest option — by having the browser itself perform sanitization using its own parser, the parser differential problem is eliminated by definition. However, as of March 2026 `setHTML()` has **limited availability** (MDN): Chrome 146+ and Firefox 148+ support it in stable, but Safari has no support or public commitment, so global usage remains low. Until availability broadens, the combination of `DOMPurify.sanitize(input, {RETURN_DOM_FRAGMENT: true})` plus Trusted Types enforcement represents the most practical cross-browser defense, with `setHTML()` as a progressive enhancement where supported.
-
----
-
 ## Cross-References
 
 - **XSS Taxonomy**: See [`xss.md`](../01-injection/xss.md) §7 (Markup Parser Differential Context) for mXSS in the broader XSS classification structure
@@ -442,7 +431,3 @@ Bypasses targeting the browser's built-in Sanitizer API (`setHTML()`), which eli
 - [CVE-2020-6802. "Bleach mutation XSS in noscript handling."](https://bugzilla.mozilla.org/show_bug.cgi?id=1615315)
 - [CVE-2020-6816. "Bleach mutation XSS with math/SVG and RCDATA tags."](https://bugzilla.mozilla.org/show_bug.cgi?id=1621692)
 - [msrkp. "Awesome MXSS — Curated mXSS resource collection."](https://github.com/msrkp/MXSS)
-
----
-
-*This document was created for defensive security research and vulnerability understanding purposes.*

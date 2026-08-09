@@ -1,7 +1,6 @@
 # XXE (XML External Entity) Mutation/Variation Taxonomy
 
 ---
-
 ## Classification Structure
 
 XXE vulnerabilities arise from the fundamental design of XML: the language specification permits documents to reference external resources via entity declarations in Document Type Definitions (DTDs). When an XML parser processes untrusted input with entity resolution enabled, attackers can leverage this mechanism to read local files, perform server-side request forgery, exfiltrate data, or cause denial of service.
@@ -501,7 +500,7 @@ This section consolidates bypass techniques from across the taxonomy, organized 
 | Mutation Combination | CVE / Case | Impact / Bounty |
 |---------------------|-----------|----------------|
 | §7-5 (nested deserialization → XXE) + §1-2 + §7-2 | CVE-2024-34102 — Adobe Commerce/Magento "CosmicSting" | CVSS 9.8. Unauthenticated XXE via nested deserialization; admin JWT forgery, chainable with CVE-2024-2961 for RCE. Actively exploited in the wild. |
-| §6-3 (.NET parser bypass) + §1-2 + §4-3 | CVE-2024-30043 — Microsoft SharePoint | CVSS 7.5 NVD (6.5 Microsoft CNA — Microsoft requires PR:L). URL parsing confusion bypasses DTD prohibition; file read with Farm Service Account, NTLM relay, SSRF. Affects both on-prem and cloud. |
+| §6-3 (.NET parser bypass) + §1-2 + §4-3 | CVE-2024-30043 — Microsoft SharePoint Server | CVSS 7.5 NVD (6.5 Microsoft CNA — Microsoft requires PR:L). URL parsing confusion bypasses DTD prohibition; file read with Farm Service Account, NTLM relay, SSRF. Microsoft's affected-product list covers SharePoint Server 2016, 2019, and Subscription Edition; ZDI's “cloud” wording refers to cloud-hosted SharePoint Server, not SharePoint Online in Microsoft 365. |
 | §1-1 + §3-2 + §7-2 | CVE-2025-58360 — GeoServer | CVSS High. XXE via GetMap WMS operation; file read, SSRF, DoS. Added to CISA KEV catalog; actively exploited. |
 | §4-1 (PDF/XFA carrier) + §1-1 | CVE-2025-66516 — Apache Tika | CVSS 8.4. XXE via crafted XFA content embedded in PDF files; affects tika-core, tika-pdf-module, tika-parsers. |
 | §1-1 + §6-1 (Java) | CVE-2024-45072 — IBM WebSphere Application Server | Privileged user XXE; sensitive information exposure, memory consumption. |
@@ -537,16 +536,6 @@ This section consolidates bypass techniques from across the taxonomy, organized 
 
 ---
 
-## Summary: Core Principles
-
-**The fundamental property** that makes the entire XXE attack class possible is XML's design decision to allow documents to reference external resources through entity declarations in DTDs. This is a specification-level feature, not a parser bug — the XML 1.0 specification explicitly defines external entities as a core mechanism. The vulnerability arises when this specification feature meets untrusted input: parsers faithfully implement the spec, and applications fail to restrict the parser's capabilities before processing user-controlled XML.
-
-**Incremental patches fail** because the attack surface is distributed across multiple dimensions simultaneously. Blocking `file://` still leaves `http://` SSRF. Blocking external entities still leaves parameter entities in external DTDs. Disabling external DTDs still leaves local DTD repurposing. Blocking DOCTYPE declarations still leaves XInclude. Filtering keywords is defeated by encoding mutations. Each defense addresses one mutation axis while leaving others open. This is why the vulnerability persists decades after its initial discovery — the combinatorial explosion of entity types, DTD sources, protocol handlers, carrier formats, and encoding layers creates a mutation space that point-fixes cannot fully cover.
-
-**The structural solution** is a single, universal principle: **disable DTD processing entirely** at the parser level before processing any untrusted XML. Modern applications should use XSD (XML Schema Definition) for validation instead of DTDs, and XML parsers should be configured to reject DOCTYPE declarations outright. This eliminates the root cause — entity declaration — rather than attempting to filter its infinite variations. Every major language and framework now supports this configuration, and newer parser versions increasingly default to safe behavior (PHP 8.0+, .NET 4.5.2+, lxml 3.x+). The remaining risk concentrates in legacy applications, hidden XML parsing surfaces (document converters, file upload processors, PDF parsers), and misconfigured parser options that re-enable entity processing.
-
----
-
 ## References
 
 - [OWASP XML External Entity Prevention Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/XML_External_Entity_Prevention_Cheat_Sheet.html)
@@ -561,7 +550,3 @@ This section consolidates bypass techniques from across the taxonomy, organized 
 - [Akamai — CVE-2025-66516 Apache Tika XXE](https://www.akamai.com/blog/security-research/cve-2025-66516-detecting-defending-apache-tika-xxe-attack)
 - [HackerOne XXE Complete Guide](https://www.hackerone.com/knowledge-center/xxe-complete-guide-impact-examples-and-prevention)
 - [Sonarsource — How to disable XXE processing](https://www.sonarsource.com/blog/secure-xml-processor/)
-
----
-
-*This document was created for defensive security research and vulnerability understanding purposes.*

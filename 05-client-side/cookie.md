@@ -352,44 +352,26 @@ Systematic approach for identifying exploitable cookie parsing differentials (pe
 
 ---
 
-## Summary: Core Principles
-
-The cookie vulnerability surface exists because the cookie mechanism was designed as a simple key-value state persistence layer but evolved to carry security-critical session state, authentication tokens, and authorization decisions. Three fundamental architectural tensions make this attack surface irreducible through incremental patching:
-
-**1. Parsing Heterogeneity.** Every component in the request chain — browser, CDN, WAF, reverse proxy, application server, framework, and application code — implements its own cookie parser. The RFC lineage (2109 → 2965 → 6265, plus the in-progress 6265bis draft) left behind legacy behaviors that servers still support for compatibility. When any two parsers in the chain disagree on cookie boundaries, names, or values, the resulting differential is exploitable. The 2025 PortSwigger research series (cookie sandwich, phantom $Version, cookie chaos) demonstrates that even the newest browser-side protections (cookie prefixes) can be defeated by server-side parser quirks that date back to RFC 2109.
-
-**2. Scope Model Mismatch.** Cookies scope to domains (registrable domain + subdomains), while security boundaries are drawn at origins (scheme + host + port). This mismatch means that controlling *any* subdomain — even through a dangling DNS record — grants the attacker broad cookie injection and tossing capability for the entire domain (via `Domain=` scoped cookies). However, host-only cookies (set without a `Domain` attribute) and `__Host-`-prefixed cookies are specifically designed to resist this cross-subdomain overwrite, limiting the attacker's reach when these protections are deployed. `SameSite` cookies compound the confusion by introducing a third boundary (site ≠ origin ≠ domain), leading practitioners to assume stronger isolation than actually exists.
-
-**3. Stateless Token, Stateful Assumption.** A session cookie is a bearer token — possession equals authentication. No standard mechanism binds cookies to the device, network, or TLS session that created them. This makes cookie theft universally exploitable: infostealer malware exposed billions of cookies in 2024 (per vendor telemetry), each one a potential MFA-bypass credential. Browser-side encryption (Chrome AppBound) addresses storage-at-rest but was bypassed via padding oracle (C4 Bomb), albeit with practical speed/environment constraints and ongoing partial mitigations. The structural solution — token binding, device-bound session credentials, or continuous access evaluation — requires fundamental protocol changes that the web ecosystem has been slow to adopt.
-
-The only comprehensive defense is defense-in-depth: `__Host-` prefixes for integrity, `SameSite=Strict` where feasible, `HttpOnly` always, server-side session regeneration on privilege changes, short-lived tokens with rotation, device-binding where supported, and continuous monitoring for anomalous session usage patterns.
-
----
-
-*This document was created for defensive security research and vulnerability understanding purposes.*
-
----
-
 ## References
 
-- [PortSwigger Research — [Cookie Chaos: How to bypass __Host and __Secure cookie prefixes](](https://portswigger.net/research/cookie-chaos-how-to-bypass-host-and-secure-cookie-prefixes))
-- [PortSwigger Research — [Stealing HttpOnly cookies with the cookie sandwich technique](](https://portswigger.net/research/stealing-httponly-cookies-with-the-cookie-sandwich-technique))
-- [PortSwigger Research — [Bypassing WAFs with the phantom $Version cookie](](https://portswigger.net/research/bypassing-wafs-with-the-phantom-version-cookie))
-- [PortSwigger — [Bypassing SameSite cookie restrictions](](https://portswigger.net/web-security/csrf/bypassing-samesite-restrictions))
-- [USENIX Security 2023 — [Cookie Crumbles: Breaking and Fixing Web Session Integrity](](https://www.usenix.org/conference/usenixsecurity23/presentation/squarcina))
-- [Varonis — [Cookie-Bite: How Your Digital Crumbs Let Threat Actors Bypass MFA](](https://www.varonis.com/blog/cookie-bite))
-- [CyberArk — [C4 Bomb: Blowing Up Chrome's AppBound Cookie Encryption](](https://www.cyberark.com/resources/threat-research-blog/c4-bomb-blowing-up-chromes-appbound-cookie-encryption))
-- [Snyk Labs — [Hijacking OAuth flows via Cookie Tossing](](https://labs.snyk.io/resources/hijacking-oauth-flows-via-cookie-tossing/))
-- [Thomas Houhou — [Cookie Tossing: Self-XSS Exploitation, Multi-Step Process Hijacking, and Targeted Action Poisoning](](https://www.thomashouhou.com/post/cookie-tossing-attacks/))
-- [Ankur Sundara — [Cookie Bugs: Smuggling & Injection](](https://blog.ankursundara.com/cookie-bugs/))
-- [HackTricks — [Cookies Hacking](](https://book.hacktricks.wiki/en/pentesting-web/hacking-with-cookies/index.html))
-- [HackTricks — [Cookie Bomb](](https://book.hacktricks.xyz/pentesting-web/hacking-with-cookies/cookie-bomb))
-- [HackTricks — [Cookie Jar Overflow](](https://book.hacktricks.xyz/pentesting-web/hacking-with-cookies/cookie-jar-overflow))
-- [GitHub Advisory — [CVE-2024-47764: cookie package out-of-bounds characters](](https://github.com/advisories/GHSA-pxg6-pf52-xh8x))
-- [Cobalt — [Got Cookies? Cookie Based Authentication Vulnerabilities in the Wild](](https://www.cobalt.io/blog/got-cookies-cookie-based-authentication-vulnerabilities-in-wild))
-- [DeepStrike — [Stealer Log Statistics 2025](](https://deepstrike.io/blog/stealer-log-statistics-2025))
-- [HP Wolf Security — [Tracing the Rise of Breaches Involving Session Cookie Theft](](https://threatresearch.ext.hp.com/tracing-the-rise-of-breaches-involving-session-cookie-theft/))
-- [jub0bs.com — [The great SameSite confusion](](https://jub0bs.com/posts/2021-01-29-great-samesite-confusion/))
-- [0xn3va — [Cookie Tossing Cheat Sheet](](https://0xn3va.gitbook.io/cheat-sheets/web-application/cookie-security/cookie-tossing))
-- [OWASP — [Session Fixation](](https://owasp.org/www-community/attacks/Session_fixation))
+- [PortSwigger Research — Cookie Chaos: How to bypass __Host and __Secure cookie prefixes](https://portswigger.net/research/cookie-chaos-how-to-bypass-host-and-secure-cookie-prefixes)
+- [PortSwigger Research — Stealing HttpOnly cookies with the cookie sandwich technique](https://portswigger.net/research/stealing-httponly-cookies-with-the-cookie-sandwich-technique)
+- [PortSwigger Research — Bypassing WAFs with the phantom $Version cookie](https://portswigger.net/research/bypassing-wafs-with-the-phantom-version-cookie)
+- [PortSwigger — Bypassing SameSite cookie restrictions](https://portswigger.net/web-security/csrf/bypassing-samesite-restrictions)
+- [USENIX Security 2023 — Cookie Crumbles: Breaking and Fixing Web Session Integrity](https://www.usenix.org/conference/usenixsecurity23/presentation/squarcina)
+- [Varonis — Cookie-Bite: How Your Digital Crumbs Let Threat Actors Bypass MFA](https://www.varonis.com/blog/cookie-bite)
+- [CyberArk — C4 Bomb: Blowing Up Chrome's AppBound Cookie Encryption](https://www.cyberark.com/resources/threat-research-blog/c4-bomb-blowing-up-chromes-appbound-cookie-encryption)
+- [Snyk Labs — Hijacking OAuth flows via Cookie Tossing](https://labs.snyk.io/resources/hijacking-oauth-flows-via-cookie-tossing/)
+- [Thomas Houhou — Cookie Tossing: Self-XSS Exploitation, Multi-Step Process Hijacking, and Targeted Action Poisoning](https://www.thomashouhou.com/post/cookie-tossing-attacks/)
+- [Ankur Sundara — Cookie Bugs: Smuggling & Injection](https://blog.ankursundara.com/cookie-bugs/)
+- [HackTricks — Cookies Hacking](https://book.hacktricks.wiki/en/pentesting-web/hacking-with-cookies/index.html)
+- [HackTricks — Cookie Bomb](https://book.hacktricks.xyz/pentesting-web/hacking-with-cookies/cookie-bomb)
+- [HackTricks — Cookie Jar Overflow](https://book.hacktricks.xyz/pentesting-web/hacking-with-cookies/cookie-jar-overflow)
+- [GitHub Advisory — CVE-2024-47764: cookie package out-of-bounds characters](https://github.com/advisories/GHSA-pxg6-pf52-xh8x)
+- [Cobalt — Got Cookies? Cookie Based Authentication Vulnerabilities in the Wild](https://www.cobalt.io/blog/got-cookies-cookie-based-authentication-vulnerabilities-in-wild)
+- [DeepStrike — Stealer Log Statistics 2025](https://deepstrike.io/blog/stealer-log-statistics-2025)
+- [HP Wolf Security — Tracing the Rise of Breaches Involving Session Cookie Theft](https://threatresearch.ext.hp.com/tracing-the-rise-of-breaches-involving-session-cookie-theft/)
+- [jub0bs.com — The great SameSite confusion](https://jub0bs.com/posts/2021-01-29-great-samesite-confusion/)
+- [0xn3va — Cookie Tossing Cheat Sheet](https://0xn3va.gitbook.io/cheat-sheets/web-application/cookie-security/cookie-tossing)
+- [OWASP — Session Fixation](https://owasp.org/www-community/attacks/Session_fixation)
 - Zack — Cookie Chaos: Exploiting Cookie Parser Discrepancies (conference talk, 2025) — Octal encoding → Memcached injection, Safari Set-Cookie comma splitting, browser attribute injection, Pylibmc RCE chain, Observe→Encode→Observe→Exploit methodology

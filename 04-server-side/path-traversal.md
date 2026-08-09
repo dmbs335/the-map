@@ -4,7 +4,6 @@
 **Scope**: Server-Side and Client-Side Path Traversal Attacks
 
 ---
-
 ## Classification Structure
 
 Path traversal vulnerabilities exploit discrepancies in how different system components interpret file paths and URLs. This taxonomy organizes attack vectors along three axes:
@@ -498,92 +497,41 @@ Comprehensive tooling landscape for offensive testing and defensive detection.
 
 ---
 
-## Summary: Core Principles
-
-### The Fundamental Vulnerability
-
-Path traversal exists because **filesystems and URLs have multiple syntactically valid representations of the same location**, but **security controls operate on strings** rather than canonical paths. Three structural properties enable the entire mutation space:
-
-1. **Encoding Diversity**: Characters like `.` and `/` can be represented as literals, URL-encoded (`%2e`, `%2f`), Unicode variants (U+FF0E), overlong UTF-8 (`%c0%ae`), or null-terminated (`%00`). Validators and executors decode at different stages or not at all.
-
-2. **Normalization Inconsistency**: Path canonicalization (resolving `..`, `/./`, `//`, symlinks) is not standardized. Caches, proxies, WAFs, and backends each implement their own normalization logic, creating parser differentials. A path deemed "safe" by one component becomes dangerous after another normalizes it differently.
-
-3. **Filesystem Semantics**: Operating systems handle paths in platform-specific ways — Windows accepts both `/` and `\` and strips trailing dots/spaces; Unix follows symlinks; archive formats support absolute paths in filenames. Security controls built for one platform fail on another.
-
-### Why Incremental Patches Fail
-
-Individual CVE fixes (e.g., blocking `../`, rejecting encoded dots) are trivially bypassed because:
-
-- **Mutation depth**: Attackers combine techniques (e.g., double encoding + nested sequences + Unicode normalization) to evade single-layer defenses.
-- **Architectural boundaries**: Path validation at the application layer doesn't prevent exploitation if the web server, reverse proxy, or filesystem layer interprets the path differently post-validation.
-- **Semantic gaps**: String-based blocklists cannot account for all encoding variants, platform-specific behaviors, and normalization edge cases.
-
-### The Structural Solution
-
-Eliminate path traversal at the root cause:
-
-1. **Never pass user input directly to filesystem APIs**. Use indirect references (e.g., database IDs mapped to whitelisted file paths server-side).
-
-2. **Canonicalize paths immediately after input**, then validate the canonical form starts with the expected base directory:
-   ```python
-   base = "/var/www/files/"
-   user_input = "../../etc/passwd"
-   canonical = os.path.realpath(os.path.join(base, user_input))
-   if not canonical.startswith(os.path.realpath(base)):
-       reject()
-   ```
-
-3. **Use platform filesystem APIs** (`realpath()`, `Path.GetFullPath()`) that resolve symlinks, normalize separators, and handle encoding — but apply validation **after** canonicalization, not before.
-
-4. **Enforce scheme allowlists** for URL-based file access (reject `file://`, `jar:`, `data:` unless explicitly required).
-
-5. **Validate archive extraction paths** during unpacking — canonicalize each entry's target path and reject if outside the extraction directory. Reject or safely handle symlinks.
-
-6. **Align normalization across layers** — ensure caches, proxies, WAFs, and backends use identical path canonicalization logic, or accept that parser differentials will be exploited.
-
-The 2025 landscape demonstrates that path traversal remains a critical vulnerability class despite decades of awareness. Modern attack surfaces (client-side JavaScript, containerized applications, cloud metadata endpoints, archive extraction pipelines) have expanded the mutation space. Only architectural solutions that eliminate string-based validation in favor of canonical path enforcement can systematically address this vulnerability class.
-
----
-
 ## References
 
 ### Academic & Conference Research
-- [Kettle, James. "Gotta Cache 'Em All: Bending the Rules of Web Cache Exploitation." PortSwigger Research, 2024-2025. [](https://portswigger.net/research/gotta-cache-em-all](https://portswigger.net/research/gotta-cache-em-all))
-- [Backes, Michael, et al. "Large-Scale Analysis of Style Injection by Relative Path Overwrite." WWW 2018 Conference. [](https://dl.acm.org/doi/10.1145/3178876.3186090](https://dl.acm.org/doi/10.1145/3178876.3186090))
-- [Mirheidari, Seyed Ali, et al. "Cached and Confused: Web Cache Deception in the Wild." USENIX Security Symposium, 2020. [](https://www.usenix.org/conference/usenixsecurity20/presentation/mirheidari](https://www.usenix.org/conference/usenixsecurity20/presentation/mirheidari))
+- [Kettle, James. "Gotta Cache 'Em All: Bending the Rules of Web Cache Exploitation." PortSwigger Research, 2024-2025.](https://portswigger.net/research/gotta-cache-em-all)
+- [Backes, Michael, et al. "Large-Scale Analysis of Style Injection by Relative Path Overwrite." WWW 2018 Conference.](https://dl.acm.org/doi/10.1145/3178876.3186090)
+- [Mirheidari, Seyed Ali, et al. "Cached and Confused: Web Cache Deception in the Wild." USENIX Security Symposium, 2020.](https://www.usenix.org/conference/usenixsecurity20/presentation/mirheidari)
 
 ### CVE Disclosures & Security Advisories
-- [CVE-2024-38819: Spring Framework Path Traversal. [](https://github.com/advisories/GHSA-g5vr-rgqm-vf78](https://github.com/advisories/GHSA-g5vr-rgqm-vf78))
-- [CVE-2024-13059: AnythingLLM Path Traversal RCE. [](https://www.offsec.com/blog/cve-2024-13059/](https://www.offsec.com/blog/cve-2024-13059/))
-- [CVE-2025-68428: jsPDF Critical Path Traversal. [](https://www.endorlabs.com/learn/cve-2025-68428-critical-path-traversal-in-jspdf](https://www.endorlabs.com/learn/cve-2025-68428-critical-path-traversal-in-jspdf))
-- [CVE-2024-43093: Android Unicode Normalization Path Traversal. [](https://stack.watch/vuln/CVE-2024-43093/](https://stack.watch/vuln/CVE-2024-43093/))
-- [CVE-2024-28698: CSLA.NET Null Byte Truncation. [](https://www.intruder.io/research/path-traversal-and-code-execution-in-csla-net-cve-2024-28698](https://www.intruder.io/research/path-traversal-and-code-execution-in-csla-net-cve-2024-28698))
-- [CVE-2024-1019: ModSecurity Path Confusion. [](https://dayzerosec.com/vulns/2024/02/05/modsecurity-path-confusion-and-really-easy-bypass-on-v2-and-v3.html](https://dayzerosec.com/vulns/2024/02/05/modsecurity-path-confusion-and-really-easy-bypass-on-v2-and-v3.html))
-- [CVE-2024-21518: OpenCart Zip Slip Vulnerability. [](https://github.com/advisories/GHSA-m7r8-2r98-vppj](https://github.com/advisories/GHSA-m7r8-2r98-vppj))
-- [CVE-2025-52488: DNN (DotNetNuke) Unicode Normalization Path Traversal. U+FF0E (fullwidth full stop) and U+FF3C (fullwidth reverse solidus) bypass validation → NTLM hash disclosure via UNC path injection. [](https://slcyber.io/research-center/abusing-windows-net-quirks-and-unicode-normalization-to-exploit-dnn-dotnetnuke/](https://slcyber.io/research-center/abusing-windows-net-quirks-and-unicode-normalization-to-exploit-dnn-dotnetnuke/))
+- [CVE-2024-38819: Spring Framework Path Traversal.](https://github.com/advisories/GHSA-g5vr-rgqm-vf78)
+- [CVE-2024-13059: AnythingLLM Path Traversal RCE.](https://www.offsec.com/blog/cve-2024-13059/)
+- [CVE-2025-68428: jsPDF Critical Path Traversal.](https://www.endorlabs.com/learn/cve-2025-68428-critical-path-traversal-in-jspdf)
+- [CVE-2024-43093: Android Unicode Normalization Path Traversal.](https://stack.watch/vuln/CVE-2024-43093/)
+- [CVE-2024-28698: CSLA.NET Null Byte Truncation.](https://www.intruder.io/research/path-traversal-and-code-execution-in-csla-net-cve-2024-28698)
+- [CVE-2024-1019: ModSecurity Path Confusion.](https://dayzerosec.com/vulns/2024/02/05/modsecurity-path-confusion-and-really-easy-bypass-on-v2-and-v3.html)
+- [CVE-2024-21518: OpenCart Zip Slip Vulnerability.](https://github.com/advisories/GHSA-m7r8-2r98-vppj)
+- [CVE-2025-52488: DNN (DotNetNuke) Unicode Normalization Path Traversal. U+FF0E (fullwidth full stop) and U+FF3C (fullwidth reverse solidus) bypass validation → NTLM hash disclosure via UNC path injection.](https://slcyber.io/research-center/abusing-windows-net-quirks-and-unicode-normalization-to-exploit-dnn-dotnetnuke/)
 - [SOC Prime — CVE-2025-64446 Fortinet FortiWeb authentication bypass](https://socprime.com/active-threats/cve-2025-64446/)
 
 ### Practitioner Resources & Writeups
-- [PortSwigger Web Security Academy: Path Traversal. [](https://portswigger.net/web-security/file-path-traversal](https://portswigger.net/web-security/file-path-traversal))
-- [PayloadsAllTheThings: Directory Traversal. [](https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Directory%20Traversal/README.md](https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Directory%20Traversal/README.md))
-- [PayloadsAllTheThings: Client-Side Path Traversal. [](https://swisskyrepo.github.io/PayloadsAllTheThings/Client%20Side%20Path%20Traversal/](https://swisskyrepo.github.io/PayloadsAllTheThings/Client%20Side%20Path%20Traversal/))
-- [OWASP: Path Traversal. [](https://owasp.org/www-community/attacks/Path_Traversal](https://owasp.org/www-community/attacks/Path_Traversal))
-- [YesWeHack: Beyond Dot Dot Slash — A Practical Guide to Path Traversal Attacks. [](https://www.yeswehack.com/learn-bug-bounty/practical-guide-path-traversal-attacks](https://www.yeswehack.com/learn-bug-bounty/practical-guide-path-traversal-attacks))
-- [InstaTunnel: "Path Traversal 2.0: Escaping Containers and Reading /etc/passwd in 2025." [](https://medium.com/@instatunnel/path-traversal-2-0-escaping-containers-and-reading-etc-passwd-in-2025-809a45ccfe6a](https://medium.com/@instatunnel/path-traversal-2-0-escaping-containers-and-reading-etc-passwd-in-2025-809a45ccfe6a))
-- [Doyensec: "Bypassing File Upload Restrictions To Exploit Client-Side Path Traversal." [](https://blog.doyensec.com/2025/01/09/cspt-file-upload.html](https://blog.doyensec.com/2025/01/09/cspt-file-upload.html))
-- [Renwa: "Client Side Path Traversal (CSPT) Bug Bounty Reports and Techniques." [](https://medium.com/@renwa/client-side-path-traversal-cspt-bug-bounty-reports-and-techniques-8ee6cd2e7ca1](https://medium.com/@renwa/client-side-path-traversal-cspt-bug-bounty-reports-and-techniques-8ee6cd2e7ca1))
-- [mr-medi: "Practical client-side path-traversal attacks" (2022) — Original CSPT research establishing client-side path traversal as a distinct vulnerability class. [](https://mr-medi.github.io/research/2022/11/04/practical-client-side-path-traversal-attacks.html](https://mr-medi.github.io/research/2022/11/04/practical-client-side-path-traversal-attacks.html))
+- [PortSwigger Web Security Academy: Path Traversal.](https://portswigger.net/web-security/file-path-traversal)
+- [PayloadsAllTheThings: Directory Traversal.](https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Directory%20Traversal/README.md)
+- [PayloadsAllTheThings: Client-Side Path Traversal.](https://swisskyrepo.github.io/PayloadsAllTheThings/Client%20Side%20Path%20Traversal/)
+- [OWASP: Path Traversal.](https://owasp.org/www-community/attacks/Path_Traversal)
+- [YesWeHack: Beyond Dot Dot Slash — A Practical Guide to Path Traversal Attacks.](https://www.yeswehack.com/learn-bug-bounty/practical-guide-path-traversal-attacks)
+- [InstaTunnel: "Path Traversal 2.0: Escaping Containers and Reading /etc/passwd in 2025."](https://medium.com/@instatunnel/path-traversal-2-0-escaping-containers-and-reading-etc-passwd-in-2025-809a45ccfe6a)
+- [Doyensec: "Bypassing File Upload Restrictions To Exploit Client-Side Path Traversal."](https://blog.doyensec.com/2025/01/09/cspt-file-upload.html)
+- [Renwa: "Client Side Path Traversal (CSPT) Bug Bounty Reports and Techniques."](https://medium.com/@renwa/client-side-path-traversal-cspt-bug-bounty-reports-and-techniques-8ee6cd2e7ca1)
+- [mr-medi: "Practical client-side path-traversal attacks" (2022) — Original CSPT research establishing client-side path traversal as a distinct vulnerability class.](https://mr-medi.github.io/research/2022/11/04/practical-client-side-path-traversal-attacks.html)
 
 ### Tools & Repositories
-- [DotDotPwn: Directory Traversal Fuzzer. [](https://github.com/wireghoul/dotdotpwn](https://github.com/wireghoul/dotdotpwn))
-- [slip: Malicious Archive Generator. [](https://github.com/0xless/slip](https://github.com/0xless/slip))
-- [Advanced Directory Traversal Payloads. [](https://github.com/DeepakGhengat/ADVANCED-DIRECTORY-TRAVERSAL-PAYLOADS](https://github.com/DeepakGhengat/ADVANCED-DIRECTORY-TRAVERSAL-PAYLOADS))
-- [Doyensec CSPTBurpExtension. [](https://github.com/doyensec/CSPTBurpExtension](https://github.com/doyensec/CSPTBurpExtension))
+- [DotDotPwn: Directory Traversal Fuzzer.](https://github.com/wireghoul/dotdotpwn)
+- [slip: Malicious Archive Generator.](https://github.com/0xless/slip)
+- [Advanced Directory Traversal Payloads.](https://github.com/DeepakGhengat/ADVANCED-DIRECTORY-TRAVERSAL-PAYLOADS)
+- [Doyensec CSPTBurpExtension.](https://github.com/doyensec/CSPTBurpExtension)
 
 ### Standards & Specifications
 - RFC 3629: UTF-8, a transformation format of ISO 10646 (strict UTF-8 validation).
-- [CWE-22: Improper Limitation of a Pathname to a Restricted Directory ('Path Traversal'). [](https://cwe.mitre.org/data/definitions/22.html](https://cwe.mitre.org/data/definitions/22.html))
-
----
-
-*This taxonomy was created for defensive security research and vulnerability understanding purposes. All techniques documented are publicly disclosed and intended to improve security posture through comprehensive attack surface awareness.*
+- [CWE-22: Improper Limitation of a Pathname to a Restricted Directory ('Path Traversal').](https://cwe.mitre.org/data/definitions/22.html)

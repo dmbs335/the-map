@@ -1,7 +1,6 @@
 # Web Cache Poisoning & Deception — Mutation/Variation Taxonomy
 
 ---
-
 ## Classification Structure
 
 Web cache attacks exploit **discrepancies** between how a **caching layer** (CDN, reverse proxy, browser cache, or application-level cache) and an **origin server** (web server, framework, application) interpret the same HTTP request. The attacker's goal is one of two things:
@@ -453,7 +452,7 @@ Beyond DoS amplification, CDN forwarding request modifications create CPDoS, WCP
 | §8-2 (Next.js middleware bypass) | CVE-2025-29927 | Middleware auth bypass; chainable with cache poisoning |
 | §7-1 (HHO CPDoS) | CVE-2019-0941 (IIS) | Denial of service via oversized header; Microsoft patch |
 | §7 (CPDoS variants) | Amazon CloudFront CPDoS (2019) | DoS; Amazon stopped caching 400 errors by default |
-| §5-1 (Fat GET) | GitHub cache poisoning (2020, primary source verification needed) | Parameter override in abuse reporting; fixed |
+| §5-1 (Fat GET) | GitHub cache poisoning (2020, James Kettle's Black Hat research) | A body parameter overrode the query parameter processed by GitHub's abuse-reporting flow while the cache key followed the URL, allowing reports to be redirected to a different account |
 | §3-1 (Host/X-Forwarded-Host) | CVE-2017-12158 (Red Hat Keycloak) | Admin console uses Host header to construct resource URLs — reflected XSS (not stored XSS via shared cache poisoning as originally implied) |
 | §1-1 (classic WCD) | ChatGPT WCD original (2023) | Account takeover via `.css` extension appending |
 | §6-1 + §2 (Azure cache key confusion) | OpenAI/Azure (2024, primary source verification needed) | Arbitrary cache poisoning + DoS on Azure-hosted services |
@@ -494,28 +493,6 @@ Beyond DoS amplification, CDN forwarding request modifications create CPDoS, WCP
 
 ---
 
-## Summary: Core Principles
-
-### The Fundamental Property
-
-Web cache attacks exist because **caching is inherently a simplification**. A cache key is a lossy compression of the full HTTP request — it must discard some information to be useful (otherwise every unique request would miss the cache). The discarded information creates the attack surface: any request component that **influences the response but is not in the cache key** is an exploitable "unkeyed input." Similarly, any difference in how the cache and origin **interpret the same request** creates a "parser discrepancy" that can be weaponized.
-
-### Why Incremental Fixes Fail
-
-Each fix addresses a specific mutation — stripping one header, blocking one delimiter, normalizing one encoding — but the combinatorial space of (servers x CDNs x frameworks x configurations) is enormous. A fix on Cloudflare doesn't apply to Akamai; a fix in Nginx doesn't apply to IIS. More fundamentally, many discrepancies arise from **RFC ambiguities** (e.g., whether semicolons are parameter delimiters, how to handle encoded path traversal, whether GET bodies are valid) that different implementations resolve differently. Until HTTP parsing is fully standardized and uniformly implemented, new discrepancies will continue to emerge.
-
-### Structural Solutions
-
-1. **Cache key = full request semantics**: Include all response-influencing components in the cache key, or ensure they are stripped before reaching the origin.
-2. **Parse-then-cache consistency**: The cache must parse the URL using the *exact same rules* as the origin — or must cache based on the origin's parsed interpretation, not its own.
-3. **Response-driven cacheability**: Only cache responses explicitly marked as cacheable (`Cache-Control: public`); never infer cacheability from URL shape (extension, directory prefix).
-4. **Content-Type validation**: Verify that the response `Content-Type` matches the URL's implied type before caching (Cloudflare's Cache Deception Armor approach).
-5. **Sensitive endpoint protection**: Mark all authenticated/personalized responses with `Cache-Control: no-store, private` at the application layer, regardless of URL structure.
-
-**Caveat:** Cookie-based cache bypass (skip caching when session cookies are present) is insufficient for publicly accessible pages — unauthenticated requests carry no cookies, bypassing this defense entirely. Response-driven cacheability (`Cache-Control: no-store`) is more robust than cookie-presence checks (Mirheidari et al. 2022).
-
----
-
 ## References
 
 - [PortSwigger Research — *Practical Web Cache Poisoning* (2018)](https://portswigger.net/research/practical-web-cache-poisoning)
@@ -535,7 +512,3 @@ Each fix addresses a specific mutation — stripping one header, blocking one de
 - [HCache Research Tool](https://github.com/phantomnothingness/HCache)
 - [Jacopo Tediosi — *Worldwide Server-side Cache Poisoning on All Akamai Edge Nodes* (2022)](https://medium.com/@jacopotediosi/worldwide-server-side-cache-poisoning-on-all-akamai-edge-nodes-50k-bounty-earned-f97d80f3922b)
 - [nokline — *Caching the Un-cacheables — Abusing URL Parser Confusions (Web Cache Exploitation at Scale)* (2022)](https://nokline.github.io/bugbounty/2022/09/02/Glassdoor-Cache-Poisoning.html)
-
----
-
-*This document was created for defensive security research and vulnerability understanding purposes.*

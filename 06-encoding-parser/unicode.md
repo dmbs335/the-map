@@ -1,6 +1,6 @@
 # Unicode Vulnerability Mutation Taxonomy
 
-A comprehensive classification of attack techniques that exploit Unicode processing, encoding, normalization, and rendering behaviors to bypass security controls, deceive users, or achieve unauthorized access.
+Attack techniques that exploit Unicode processing, normalization, encoding, and rendering differences across security boundaries.
 
 ---
 
@@ -117,8 +117,6 @@ Unicode case mapping (uppercasing/lowercasing) can map distinct characters to th
 | **Kelvin Sign Collision** | `K` (U+212A, Kelvin sign) lowercases to `k` (U+006B), colliding with ASCII `K` → `k`. Used for domain/username collision attacks | Case-insensitive comparison without prior normalization to ASCII |
 | **Long S Collision** | `ſ` (U+017F, long s) uppercases to `S` in some implementations, colliding with standard `s` | Similar to Eszett |
 | **Sigma Collision** | Greek `Σ` (U+03A3) lowercases to either `σ` (U+03C3) or `ς` (U+03C2) depending on word position, creating asymmetric case folding | Case folding implementation doesn't account for final-sigma rule |
-
-**Widely Cited Example (unverified primary source):** A commonly referenced anecdote describes GitHub's password reset flow being exploited using a dotless-i collision — registering an email with a Turkish dotless-i variant that collides with a target account after case normalization. While this pattern is technically valid and widely discussed, no official GitHub advisory, blog post, or public bug report has been identified as a primary source. The scenario remains a plausible illustration of case-mapping collision attacks.
 
 ### §2-4. Normalization-Induced Truncation
 
@@ -386,7 +384,6 @@ Unicode mutations that affect data processing, storage, comparison, and protocol
 | §1-1 (Overlong Encoding) + §1-2 | CVE-2000-0884 (IIS 4.0/5.0) | Directory traversal, arbitrary file access. Nimda worm propagation vector |
 | §3-2 (BiDi Reordering) | CVE-2021-42574 (Trojan Source — multiple compilers) | Source code backdoor invisible to human reviewers. Affects C, C++, C#, JS, Java, Rust, Go, Python |
 | §3-1 (Homoglyph) | CVE-2021-42694 *(Disputed)* (Trojan Source — homoglyph variant) | Function impersonation via homoglyph-renamed functions. **Note:** This CVE is marked as **Disputed** in NVD |
-| §2-3 (Case Mapping Collision) | GitHub Password Reset Bypass *(unverified primary source)* | Account takeover via dotless-i email collision. Widely cited anecdote; no official GitHub advisory or public report identified |
 | §5-2 (Filename Smuggling) | CVE-2025-52488 (DNN/DotNetNuke) | NTLM hash disclosure via malicious interaction (per NVD). Fullwidth-to-UNC-separator normalization is a plausible but unconfirmed root cause detail |
 | §4-3 (Variation Selector) | CVE-2025-12758 (validator library) | Length calculation flaw in `isLength()` due to improper handling of variation selectors; enables length validation bypass |
 | §1-1 + §2-1 (Normalization) | CVE-2024-43093 (Android) | Privilege escalation via Unicode normalization bypass of file path filters |
@@ -415,35 +412,6 @@ Unicode mutations that affect data processing, storage, comparison, and protocol
 | **StegZero** (Web Tool) | Zero-width steganography (§4-1, §4-2) | Encode/decode messages hidden in zero-width Unicode characters |
 | **ASCII Smuggler** (Research Tool) | LLM prompt injection (§7-1) | Demonstrates Unicode tag character-based LLM manipulation |
 | **UTS #39 Reference Implementation** (Standard) | Confusable detection (§3-1, §6) | Official Unicode Security Mechanisms — skeleton algorithm, restriction levels |
-
----
-
-## Summary: Core Principles
-
-### The Root Cause
-
-Unicode vulnerability classes exist because Unicode is a **many-to-one** system operating in a **pipeline** architecture. The same visible character can be represented by multiple distinct code point sequences (normalization forms, encoding schemes, composed vs. decomposed). The same code point can map to different byte sequences (UTF-8, UTF-16, various ANSI code pages). And different code points can appear visually identical (confusables) or be completely invisible (zero-width, tags, variation selectors). At every stage in a processing pipeline — input reception, validation, normalization, storage, retrieval, rendering — these representations may be transformed. Security vulnerabilities arise whenever a **security decision** is made at one stage based on a representation that **changes** at a subsequent stage.
-
-### Why Incremental Patches Fail
-
-Each individual Unicode vulnerability can be patched: reject overlong encodings, normalize before validation, use confusable detection, strip invisible characters. But these patches address symptoms, not the structural condition. The fundamental problem is that Unicode processing is **order-dependent** and **context-dependent**, and modern software stacks have many components in the pipeline (WAF → reverse proxy → application framework → language runtime → database → filesystem → OS charset conversion), each making independent decisions about Unicode handling. A patch at one layer may be invalidated by a transformation at another layer. The WorstFit research dramatically illustrates this: even if every application correctly handles Unicode, the Windows OS-level charset conversion (`WideCharToMultiByte`) reintroduces dangerous characters.
-
-### The Structural Solution
-
-The only structural defense is **Unicode-aware security processing at every layer** with a consistent strategy:
-
-1. **Normalize early:** Apply a single normalization form at the earliest possible boundary, before any security decisions. NFKC is appropriate for identifier comparison and security checks (per UTS #39), but note that NFKC is lossy — it collapses compatibility distinctions (e.g., `ﬁ` → `fi`, superscripts → digits) which may be unacceptable for display text, filenames, or signature targets. Choose the normalization form appropriate to the context.
-2. **Use wide APIs:** Never convert Unicode to narrow/ANSI encodings for security-relevant operations. On Windows, use Wide Character APIs exclusively.
-3. **Validate post-normalization:** All security checks (input validation, sanitization, length checks, keyword matching) must operate on the fully normalized form.
-4. **Strip invisible characters:** Remove zero-width, tag, variation selector, and BiDi override characters at input boundaries unless the application specifically requires them.
-5. **Confusable detection:** For user-facing identifiers (usernames, domains, email), implement UTS #39 confusable detection with restriction level enforcement.
-6. **Consistent encoding throughout:** Use UTF-8 (or UTF-16) end-to-end, including database columns (`utf8mb4` in MySQL), filesystem operations, and all intermediary processing. Never mix character encodings across a pipeline.
-
-These principles must be applied **at every component boundary** in the stack, not just at the application layer. Unicode security is a systems problem, not an application problem.
-
----
-
-*This document was created for defensive security research and vulnerability understanding purposes.*
 
 ---
 

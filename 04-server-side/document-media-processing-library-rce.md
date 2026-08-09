@@ -1,9 +1,8 @@
 # Document & Media Processing Library RCE — Mutation/Variation Taxonomy
 
-*Comprehensive classification of Remote Code Execution attack surfaces in libraries that parse, render, convert, or transform documents, images, media, fonts, and structured file formats. This taxonomy covers the full lifecycle from file ingestion through processing to output generation, organized by the structural target of mutation rather than by individual vulnerability or research source.*
+*Recurring code-execution attack surfaces in libraries that parse, render, convert, or transform documents, images, media, fonts, and structured file formats.*
 
 ---
-
 ## Classification Structure
 
 Server-side processing of documents, images, fonts, and media files is ubiquitous — from thumbnail generation to format conversion, metadata extraction, document rendering, and content delivery. Each processing library implements complex parsers for binary formats, compression algorithms, scripting engines, and protocol handlers in memory-unsafe languages, creating a vast attack surface where malformed input triggers memory corruption, command injection, sandbox escape, or logic abuse. The critical insight is that the **file itself is the attack vector** — no injection point in a web form is needed, only the ability to upload or reference a file that will be processed.
@@ -38,7 +37,7 @@ The most common class of image processing RCE. Compression decoders allocate out
 
 | Subtype | Mechanism | Key Condition |
 |---|---|---|
-| **Huffman table overflow** | Malformed lossless image files trigger out-of-bounds heap writes during Huffman table construction. A specially crafted `BuildHuffmanTable` call writes beyond allocated buffer boundaries | libwebp ≤ 1.3.2 (CVE-2023-4863/CVE-2023-5129, CVSS 10.0); affects Chrome, Firefox, Safari, Electron, Pillow, Sharp — every application linking libwebp |
+| **Huffman table overflow** | Malformed lossless image files trigger out-of-bounds heap writes during Huffman table construction. A specially crafted `BuildHuffmanTable` call writes beyond allocated buffer boundaries | libwebp < 1.3.2 (CVE-2023-4863; NVD/CISA-ADP CVSS 8.8). Exposure requires a vulnerable bundled library and a reachable lossless-WebP decode path. CVE-2023-5129 was rejected as a duplicate |
 | **Interlaced PNG 16-to-8 conversion overflow** | When processing 16-bit interlaced PNGs with 8-bit output format, `png_combine_row` writes combined row data beyond the allocated buffer due to miscalculated row sizes | libpng 1.6.0–1.6.50 (CVE-2025-65018); may enable arbitrary code execution in certain heap configurations |
 | **JPEG2000 Ndecomp field overflow** | A specially crafted JPEG2000 file exploits the Ndecomp parameter handling to cause heap-based buffer overflow, leading to adjacent heap memory overwrite | NVIDIA nvJPEG2000 0.8.0 (TALOS-2024-2113, TALOS-2024-2108); GPU-accelerated image processing pipelines |
 | **DDS format heap corruption** | Malformed DDS (DirectDraw Surface) images trigger heap buffer overflow during encoding when sufficiently large images (>64k) are processed with default compression settings | Pillow 11.2.0–11.3.0 |
@@ -466,7 +465,7 @@ The pattern extends beyond ClamAV to any security tool that parses file formats.
 | §6-1 (Office security feature bypass) | CVE-2026-21509 (Microsoft Office) | CVSS 7.8. CISA KEV. Local/UI-required Office security feature bypass; not a standalone RCE per NVD/MSRC description |
 | §11-1 (ClamAV PDF parser overflow) | CVE-2025-20260 (ClamAV) | CVSS 9.8. RCE via PDF scanning in antivirus engine |
 | §11-1 (ClamAV HFS+ parser RCE) | CVE-2023-20032 (ClamAV) | CVSS 9.8. RCE via crafted HFS+ partition in antivirus scan |
-| §1-1 (WebP Huffman overflow) | CVE-2023-4863 / CVE-2023-5129 (libwebp) | CVSS 10.0. Affects every browser, Electron app, image library linking libwebp |
+| §1-1 (WebP Huffman overflow) | CVE-2023-4863 (libwebp; CVE-2023-5129 rejected as duplicate) | NVD/CISA-ADP CVSS 8.8. Affects products that bundle vulnerable libwebp versions and expose the lossless-WebP decoding path to attacker-controlled content |
 | §5-2 (PDF.js type confusion) | CVE-2024-4367 (Mozilla PDF.js) | Arbitrary JS execution in browser context via crafted PDF |
 | §1-2 (libpng heap overflow) | CVE-2025-65018 (libpng 1.6.0–1.6.50) | Heap buffer overflow in 16-bit interlaced PNG processing |
 | §1-2 (libtiff write-what-where) | CVE-2025-9900 (libtiff) | Write-what-where vulnerability enabling memory corruption |
@@ -519,36 +518,6 @@ The pattern extends beyond ClamAV to any security tool that parses file formats.
 
 ---
 
-## Summary: Core Principles
-
-### The Root Cause: Complexity Asymmetry
-
-Document and media processing libraries face a fundamental **complexity asymmetry** — they must correctly parse every valid input while safely rejecting every malformed one. File formats like PDF, PostScript, Office OOXML, and SVG are effectively specification-complete programming environments disguised as data formats. PostScript is Turing-complete by design. PDF supports embedded JavaScript. OOXML bundles XML, macros, OLE objects, and embedded media in a ZIP container. Even "simple" image formats like JPEG, PNG, and WebP implement complex compression algorithms requiring hundreds of thousands of lines of C code with manual memory management.
-
-This asymmetry means that **the attack surface grows with format capability**, and modern formats are designed for maximum capability. Every new feature — variable fonts, JPEG XL animation, PDF 3D annotations, SVG foreignObject — adds parser complexity and new exploitation surfaces. The defender must secure the entire parser; the attacker needs only one path to corruption.
-
-### Why Incremental Patches Fail
-
-The history of ImageMagick, Ghostscript, FreeType, and FFmpeg demonstrates that **patching individual vulnerabilities in complex parsers is a Sisyphean task**. ImageMagick's `policy.xml` approach — maintaining a deny-list of dangerous protocols and delegates — has been repeatedly bypassed through new protocols, encoding tricks, and configuration precedence issues. Ghostscript's `-dSAFER` sandbox has been escaped through format strings (2024), pipe devices, IJS servers, and OCR devices across multiple generations. Each patch addresses a specific bypass while leaving the fundamental architecture — a Turing-complete interpreter processing untrusted input — unchanged.
-
-The FORCEDENTRY exploit represents the logical extreme of this pattern: even JBIG2, a "simple" bi-level image compression codec, was subverted into a Turing-complete computation engine capable of bootstrapping arbitrary code execution from within the decompressor itself.
-
-### Structural Solutions
-
-Effective defense against document and media processing RCE requires **architectural mitigation** rather than parser-level patching:
-
-1. **Process isolation**: Run every processing operation in a disposable sandbox (nsjail, gVisor, Firecracker) with minimal filesystem, network, and syscall access. The parser can be compromised, but exploitation cannot escape the sandbox.
-
-2. **Format restriction**: Accept only the minimum set of formats and features required. Disable PostScript processing, JavaScript evaluation, macro execution, external resource loading, and protocol handlers unless explicitly needed.
-
-3. **Content Disarmament and Reconstruction (CDR)**: Parse files, extract only the structural data needed, and reconstruct clean output files from scratch. This eliminates polyglot payloads, embedded scripts, and format-level exploitation primitives.
-
-4. **Memory-safe reimplementation**: Long-term, critical parsers must be rewritten in memory-safe languages (Rust, Go). Projects like `image-rs` (Rust image decoding) and `resvg` (Rust SVG rendering) demonstrate this approach, though the ecosystem transition remains incomplete.
-
-5. **Separation of parsing and rendering**: Parsing untrusted format data should occur in a separate process/sandbox from rendering or executing the parsed content, limiting the blast radius of parser compromise.
-
----
-
 ## References
 
 - Codean Labs — CVE-2024-29510: Exploiting Ghostscript using Format Strings (2024)
@@ -568,12 +537,10 @@ Effective defense against document and media processing RCE requires **architect
 - Microsoft Security Response Center — CVE-2025-21298, CVE-2026-21509
 - ClamAV Security Advisories — CVE-2025-20260, CVE-2025-20234
 - Cloudflare Blog — Uncovering the Hidden WebP Vulnerability (CVE-2023-4863)
+- [NVD: CVE-2023-4863](https://nvd.nist.gov/vuln/detail/CVE-2023-4863)
+- [NVD: rejected duplicate CVE-2023-5129](https://nvd.nist.gov/vuln/detail/CVE-2023-5129)
 - ImageTragick.com — ImageMagick CVE-2016-3714 Advisory
 - arxiv.org — Where the Polyglots Are: How Polyglot Files Enable Cyber Attack Chains (2024)
 - TU Braunschweig — Server-Side Browsers: Exploring the Web's Hidden Attack Surface
 - [Emil Lerner — "HotPics 2021: The Current State of Server-Side Image Conversion Attacks" (ZeroNights X, 2021). Survey of ImageMagick, Ghostscript, Pillow exploitation including Ghostscript zero-day achieving bounties at Airbnb, Dropbox, and Yandex.](https://www.slideshare.net/neexemil/hotpics-2021)
 - [PT SWARM — "Blind trust: what is hidden behind the process of creating your PDF file?" (2025). Path traversal encoding bypass, Phar deserialization, and security hook timing bypass in TCPDF, spipu/html2pdf, mpdf, and jsPDF.](https://swarm.ptsecurity.com/blind-trust-what-is-hidden-behind-the-process-of-creating-your-pdf-file/)
-
----
-
-*This document was created for defensive security research and vulnerability understanding purposes.*

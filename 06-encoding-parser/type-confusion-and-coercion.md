@@ -1,9 +1,8 @@
 # Type Confusion and Coercion — Mutation/Variation Taxonomy
 
-> A comprehensive classification of vulnerabilities arising from type misinterpretation, implicit conversion, and type system boundary violations across all stack layers — from CPU-level memory layout to application-level comparison operators.
+> Vulnerability patterns arising from type misinterpretation, implicit conversion, and type-system boundary violations.
 
 ---
-
 ## Classification Structure
 
 Type confusion and coercion vulnerabilities share a single root cause: **a value is interpreted as a type different from its actual type**, and this misinterpretation creates security-relevant behavioral divergence. This class is uniquely cross-cutting — it manifests in native memory (C/C++), JIT compilers (V8/JSC/SpiderMonkey), scripting language operators (PHP/JS/Python), serialization formats (JSON/Pickle/YAML/Protobuf), databases (SQL/NoSQL), and API boundaries (GraphQL/gRPC).
@@ -527,7 +526,7 @@ Every language boundary is a potential type confusion point. Type systems are no
 | §2-4 (V8 optimization pipeline) | CVE-2024-5274 (Chrome V8) | In-the-wild zero-day |
 | §2-4 (V8 optimization) | CVE-2024-7971 (Chrome V8) | In-the-wild zero-day, Citrine Sleet + kernel exploit chain |
 | §2-2 (SpiderMonkey range analysis) | CVE-2024-29943 (Firefox) | Bounds check bypass, CVSS 9.8 |
-| §2 (Firefox event handler type confusion) | CVE-2024-29944 (Firefox) | Privileged JS execution, CVSS 10.0 |
+| §2 (Firefox event handler type confusion) | CVE-2024-29944 (Firefox) | Privileged JavaScript execution; Mozilla severity Critical. NVD currently shows no NIST/CNA score and reports CISA-ADP CVSS v3.1 8.4 |
 | §1-2 (UAF-to-type-confusion on freed object) | CVE-2024-9680 (Firefox Animation) | In-the-wild zero-day, RomCom APT, CVSS 9.8 |
 | §2-1 (JSC type speculation) | CVE-2024-23222 (Safari JSC) | In-the-wild zero-day, arbitrary memory R/W |
 | §2-1 (JSC JIT type error) | CVE-2024-27834 (Safari JSC) | Pwn2Own 2024 |
@@ -590,22 +589,6 @@ Every language boundary is a potential type confusion point. Type systems are no
 
 ---
 
-## Summary: Core Principles
-
-### Why Type Confusion Persists
-
-Type confusion is not a single bug class but an emergent property of **type system boundaries**. Every point where data crosses from one type system to another — compiler to runtime, serializer to deserializer, JIT optimizer to generated code, scripting language to database, one microservice to another — is a potential confusion point. Modern architectures multiply these boundaries: a single request may cross 5–10 type system transitions before reaching its final handler.
-
-### Why Incremental Fixes Fail
-
-Each type system enforces its own invariants within its own domain, but **no system enforces type consistency across boundaries**. PHP 8.0 fixed `0 == "foo"` but magic hashes still work because both operands are valid numeric strings — the fix addressed one coercion path while preserving others. V8's memory cage limits exploitation scope but doesn't prevent the JIT from emitting type-confused code. TypeScript adds compile-time types but they vanish at runtime. Each fix narrows one path while the fundamental boundary problem — the absence of end-to-end type provenance — remains.
-
-### What a Structural Solution Requires
-
-True elimination of type confusion requires **end-to-end type provenance**: every value carrying cryptographic or structural proof of its type from origin to final use, verified at every boundary crossing. This doesn't exist today. The practical defense stack is therefore layered: strict comparison operators and `declare(strict_types=1)` at the language level, runtime schema validation (Zod, beartype) at trust boundaries, sanitizers (UBSan, CFI) for native code, heap isolation (PartitionAlloc, Gigacage) for memory safety, and hardware tagging (ARM MTE) as a last line. The key insight is that **type is an attack surface** — and like all attack surfaces, it must be defended at every exposure point, not just the ones that have been exploited before.
-
----
-
 ## References
 
 - CWE-843: Access of Resource Using Incompatible Type ('Type Confusion')
@@ -619,7 +602,3 @@ True elimination of type confusion requires **end-to-end type provenance**: ever
 - V8 Blog: Sandbox architecture and type guard design
 - RFC 8259: JSON data interchange format (duplicate key semantics)
 - [Jake Miller (Bishop Fox) — "An Exploration of JSON Interoperability Vulnerabilities" (2021). Survey of 49 JSON parsers across 10 languages; documented duplicate key handling divergences, number precision differences, key collision attacks, and permissive parsing discrepancies enabling cross-parser smuggling.](https://bishopfox.com/blog/json-interoperability-vulnerabilities)
-
----
-
-*This document was created for defensive security research and vulnerability understanding purposes.*

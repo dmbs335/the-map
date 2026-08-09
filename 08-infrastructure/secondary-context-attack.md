@@ -3,7 +3,6 @@
 > **Scope**: Vulnerabilities where user-controlled data traverses a trust boundary between two processing contexts (frontend ↔ backend, proxy ↔ origin, gateway ↔ microservice, cloud service ↔ IAM) and the receiving context interprets it differently than the sending context validated it. This encompasses Sam Curry's "Attacking Secondary Contexts in Web Applications" class and its structural relatives across the modern web stack.
 
 ---
-
 ## Classification Structure
 
 Secondary Context Attacks exploit a fundamental architectural pattern: **a trusted intermediary forwards user input to a downstream system under different semantic rules than those under which the input was originally validated**. The intermediary (proxy, BFF, API gateway, GraphQL layer, cloud service) creates a "secondary context" — a second processing environment where the input is reinterpreted, re-parsed, or re-routed.
@@ -321,49 +320,21 @@ Unlike the real-time proxy-based attacks above, these mutations involve **storin
 
 ---
 
-## Summary: Core Principles
-
-### The Root Cause: Semantic Fragmentation Across Trust Boundaries
-
-Secondary context attacks exist because modern applications are architecturally fragmented — decomposed into layers (proxies, gateways, BFFs, microservices, cloud services, caches) where each layer implements its own parser, normalizer, router, and authorization logic. **The vulnerability is not in any single component but in the semantic gap between components.** A path, URL, header, or identifier that is "safe" under the rules of Context A can become "dangerous" under the rules of Context B.
-
-### Why Incremental Patches Fail
-
-Each fix addresses a specific encoding bypass, a specific normalization inconsistency, or a specific missing validation check. But the mutation space is combinatorial: `N` intermediary types × `M` backend types × `K` encoding schemes × `J` path normalization behaviors. New framework versions, new cloud services, and new architectural patterns continuously introduce new secondary contexts. The Apache httpd case is illustrative: a single deep audit revealed 9 vulnerabilities and 20 exploitation techniques in code that had been running for decades, because the architectural technical debt (modules sharing `r->filename` with different semantics) was never addressed structurally.
-
-### What a Structural Solution Looks Like
-
-1. **Parse once, propagate parsed**: User input should be parsed into a structured, validated representation at the outermost boundary and forwarded in parsed form (not as a raw string) to all downstream contexts. GraphQL `ID` fields should enforce `UUID` types, not accept arbitrary strings. BFF proxies should construct internal URLs from validated components, never via string concatenation.
-
-2. **Zero-trust inter-service communication**: Every microservice must independently verify authorization for every request, regardless of whether the request arrives from a trusted gateway. The gateway provides defense-in-depth, not a security perimeter.
-
-3. **Normalize before deciding**: Any component that makes a routing, caching, or authorization decision based on a URL path must normalize (decode, resolve dot-segments, canonicalize) the path **before** making the decision, using the **same normalization** as the downstream processor.
-
-4. **Condition-scoped cloud delegation**: IAM trust policies must always include `aws:SourceArn` and `aws:SourceAccount` (or equivalent) conditions. The `ExternalId` parameter must be validated on the backend, not just displayed in the UI.
-
-5. **Architectural boundary auditing**: Security reviews should explicitly map every context boundary (proxy→backend, gateway→service, service→service, service→cloud API) and verify that input semantics are preserved across each boundary. The secondary context attack surface is proportional to the number of context boundaries in the architecture.
-
----
-
 ## References
 
-- [Sam Curry, "Attacking Secondary Contexts in Web Applications," Kernelcon 2020 — [InfoconDB](](https://infocondb.org/con/kernelcon/kernelcon-2020/attacking-secondary-contexts-in-web-applications))
-- [Sam Curry, "Hacking Starbucks and Accessing Nearly 100 Million Customer Records" — [samcurry.net](](https://samcurry.net/hacking-starbucks))
-- [Orange Tsai, "Confusion Attacks: Exploiting Hidden Semantic Ambiguity in Apache HTTP Server!" Black Hat USA 2024 — [blog.orange.tw](](https://blog.orange.tw/posts/2024-08-confusion-attacks-en/))
-- [SilentRobots, "Exploiting GraphQL Secondary Context Attacks" — [silentrobots.com](](https://www.silentrobots.com/exploiting-graphql-secondary-context-attacks/))
-- [SL Cyber, "Secondary Context Path Traversal in Omnissa Workspace ONE" — [slcyber.io](](https://slcyber.io/research-center/secondary-context-path-traversal-in-omnissa-workspace-one-uem/))
-- [Datadog Security Labs, "A Confused Deputy Vulnerability in AWS AppSync" — [securitylabs.datadoghq.com](](https://securitylabs.datadoghq.com/articles/appsync-vulnerability-disclosure/))
-- [Sonarsource, "Security Implications of URL Parsing Differentials" — [sonarsource.com](](https://www.sonarsource.com/blog/security-implications-of-url-parsing-differentials/))
-- [Claroty Team82, "Exploiting URL Parsing Confusion" — [claroty.com](](https://claroty.com/team82/research/exploiting-url-parsing-confusion))
-- [PortSwigger Research, "Gotta Cache 'em All: Bending the Rules of Web Cache Exploitation" — [portswigger.net](](https://portswigger.net/research/gotta-cache-em-all))
-- [Nokline, "ChatGPT Account Takeover — Wildcard Web Cache Deception" — [nokline.github.io](](https://nokline.github.io/bugbounty/2024/02/04/ChatGPT-ATO.html))
-- [Joshua Rogers, "proxy_pass: nginx's Dangerous URL Normalization of Paths" — [joshua.hu](](https://joshua.hu/proxy-pass-nginx-decoding-normalizing-url-path-dangerous))
-- [Acunetix, "A Fresh Look on Reverse Proxy Related Attacks" — [acunetix.com](](https://www.acunetix.com/blog/articles/a-fresh-look-on-reverse-proxy-related-attacks/))
-- [Qualys, "Fortifying Your Cloud Against Cross-Service Confused Deputy Attacks" — [blog.qualys.com](](https://blog.qualys.com/vulnerabilities-threat-research/2025/07/24/fortifying-your-cloud-against-cross-service-confused-deputy-attacks))
-- [Praetorian, "AWS IAM Assume Role Vulnerabilities Found in Many Top Vendors" — [praetorian.com](](https://www.praetorian.com/blog/aws-iam-assume-role-vulnerabilities/))
-- [InstaTunnel, "The Sidecar Siphon: Exploiting Identity Leaks in Service Mesh Architectures" — [instatunnel.my](](https://instatunnel.my/blog/the-sidecar-siphon-exploiting-identity-leaks-in-service-mesh-architectures))
-- [Zayl Security, "Confused Deputy Problem — How to Hack Cloud Integrations" — [zayl.dk](](https://zayl.dk/posts/01-confused-deputy/))
-
----
-
-*This document was created for defensive security research and vulnerability understanding purposes.*
+- [Sam Curry, "Attacking Secondary Contexts in Web Applications," Kernelcon 2020 — InfoconDB](https://infocondb.org/con/kernelcon/kernelcon-2020/attacking-secondary-contexts-in-web-applications)
+- [Sam Curry, "Hacking Starbucks and Accessing Nearly 100 Million Customer Records" — samcurry.net](https://samcurry.net/hacking-starbucks)
+- [Orange Tsai, "Confusion Attacks: Exploiting Hidden Semantic Ambiguity in Apache HTTP Server!" Black Hat USA 2024 — blog.orange.tw](https://blog.orange.tw/posts/2024-08-confusion-attacks-en/)
+- [SilentRobots, "Exploiting GraphQL Secondary Context Attacks" — silentrobots.com](https://www.silentrobots.com/exploiting-graphql-secondary-context-attacks/)
+- [SL Cyber, "Secondary Context Path Traversal in Omnissa Workspace ONE" — slcyber.io](https://slcyber.io/research-center/secondary-context-path-traversal-in-omnissa-workspace-one-uem/)
+- [Datadog Security Labs, "A Confused Deputy Vulnerability in AWS AppSync" — securitylabs.datadoghq.com](https://securitylabs.datadoghq.com/articles/appsync-vulnerability-disclosure/)
+- [Sonarsource, "Security Implications of URL Parsing Differentials" — sonarsource.com](https://www.sonarsource.com/blog/security-implications-of-url-parsing-differentials/)
+- [Claroty Team82, "Exploiting URL Parsing Confusion" — claroty.com](https://claroty.com/team82/research/exploiting-url-parsing-confusion)
+- [PortSwigger Research, "Gotta Cache 'em All: Bending the Rules of Web Cache Exploitation" — portswigger.net](https://portswigger.net/research/gotta-cache-em-all)
+- [Nokline, "ChatGPT Account Takeover — Wildcard Web Cache Deception" — nokline.github.io](https://nokline.github.io/bugbounty/2024/02/04/ChatGPT-ATO.html)
+- [Joshua Rogers, "proxy_pass: nginx's Dangerous URL Normalization of Paths" — joshua.hu](https://joshua.hu/proxy-pass-nginx-decoding-normalizing-url-path-dangerous)
+- [Acunetix, "A Fresh Look on Reverse Proxy Related Attacks" — acunetix.com](https://www.acunetix.com/blog/articles/a-fresh-look-on-reverse-proxy-related-attacks/)
+- [Qualys, "Fortifying Your Cloud Against Cross-Service Confused Deputy Attacks" — blog.qualys.com](https://blog.qualys.com/vulnerabilities-threat-research/2025/07/24/fortifying-your-cloud-against-cross-service-confused-deputy-attacks)
+- [Praetorian, "AWS IAM Assume Role Vulnerabilities Found in Many Top Vendors" — praetorian.com](https://www.praetorian.com/blog/aws-iam-assume-role-vulnerabilities/)
+- [InstaTunnel, "The Sidecar Siphon: Exploiting Identity Leaks in Service Mesh Architectures" — instatunnel.my](https://instatunnel.my/blog/the-sidecar-siphon-exploiting-identity-leaks-in-service-mesh-architectures)
+- [Zayl Security, "Confused Deputy Problem — How to Hack Cloud Integrations" — zayl.dk](https://zayl.dk/posts/01-confused-deputy/)

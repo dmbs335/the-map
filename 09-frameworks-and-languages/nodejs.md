@@ -430,8 +430,8 @@ Node.js uses `llhttp` (TypeScript-generated HTTP parser) for HTTP/1.1 and `nghtt
 | CVE-2024-22019 | 2024 | High | Chunk extension parsing — unbounded memory growth |
 | CVE-2024-27982 | 2024 | Medium | Content-Length / Transfer-Encoding inconsistency |
 | CVE-2022-32213 | 2022 | Medium | Improper Transfer-Encoding parsing in llhttp |
-| CVE-2022-32214 | 2022 | Medium | Multi-line Transfer-Encoding headers not rejected |
-| CVE-2022-32215 | 2022 | Medium | Improper chunked encoding boundary handling |
+| CVE-2022-32214 | 2022 | Medium | Header fields not strictly delimited with CRLF |
+| CVE-2022-32215 | 2022 | Medium | Multi-line `Transfer-Encoding` headers parsed incorrectly |
 | CVE-2022-35256 | 2022 | Medium | Bare CR without LF accepted as line terminator |
 | CVE-2019-15605 | 2019 | High | Malformed Transfer-Encoding headers — CL.TE desync |
 
@@ -754,48 +754,44 @@ Since Node.js 15, unhandled promise rejections throw and crash the process by de
 
 ---
 
-## §12. Permission Model — Experimental and Repeatedly Bypassed
+## §12. Module Policy and Permission Controls — Repeatedly Bypassed, Then Evolved
 
-The experimental Permission Model (`--experimental-permission`, Node.js 20+) attempts to add Deno-like capability restrictions. Within two years of introduction, at least 16 distinct bypass CVEs were filed, each exploiting a Node.js API not covered by permission checks. The model operates entirely in JavaScript/C++ — not at the OS level — and has no network restriction scope.
+Two different Node.js mechanisms appear in the history below: the older module policy mechanism (`--experimental-policy`) and the process Permission Model introduced in Node.js 20. The table contains 12 CVEs that bypassed one of those controls. The Permission Model became stable in Node.js 22.13.0 and 23.5.0; current Node.js documentation explicitly describes it as a "seat belt" for trusted code rather than a boundary against malicious code. Current releases also restrict network access unless `--allow-net` is granted.
 
 ### §12-1. Bypass Timeline
 
-**Phase 1 — Initial API Coverage Gaps (2023)**:
+**Phase 1 — Module policy and early Permission Model gaps (2023)**:
 
 | CVE | Bypass Method | Root Cause |
 |---|---|---|
-| CVE-2023-23918 | `process.mainModule.require()` | `process.mainModule` not restricted; its `require` operates outside permission model |
-| CVE-2023-30581 | `process.mainModule` property access | Filesystem information leaked via mainModule properties |
-| CVE-2023-30585 | `fs.statfs()` | Function not instrumented with permission checks |
-| CVE-2023-32002 | `Module._load()` | Internal module loader callable and unrestricted |
-| CVE-2023-32004 | `fs.mkdtemp()` path traversal | Temp directory creation did not validate path stayed within permitted directories |
-| CVE-2023-32006 | `module.constructor.createRequire()` | New `require` function bypassed restrictions |
-| CVE-2023-32559 | `process.binding()` | Deprecated native binding API unrestricted — direct C++ function access |
+| CVE-2023-23918 | `process.mainModule.require()` | `process.mainModule` was not restricted by the experimental module policy |
+| CVE-2023-30581 | `process.mainModule.__proto__.require()` | `__proto__` access enabled loading modules outside `policy.json` |
+| CVE-2023-32002 | `Module._load()` | Internal module loader bypassed the experimental module policy |
+| CVE-2023-32004 | Buffer-based filesystem path traversal | Permission checks could be bypassed through improper handling of Buffer path arguments |
+| CVE-2023-32006 | `module.constructor.createRequire()` | A newly created `require` function bypassed the experimental module policy |
+| CVE-2023-32559 | `process.binding()` | Deprecated native binding API bypassed the module policy and reached `spawn_sync` |
 
-**Phase 2 — Path Manipulation (2024)**:
+**Phase 2 — Permission Model path and filesystem gaps (2024)**:
 
 | CVE | Bypass Method | Root Cause |
 |---|---|---|
 | CVE-2024-21890 | Wildcard misinterpretation in `--allow-fs-read=/safe/*` | Wildcard granted broader access than intended |
-| CVE-2024-21891 | Multiple path separators (`//etc/passwd`, mixed `\/`) | Path matching confused by multiple separators |
-| CVE-2024-21892 | `process.binding('spawn_sync')` | Native spawn binding unrestricted despite `--allow-child-process` not set |
-| CVE-2024-21896 | Symlinks + Buffer-encoded paths | Permission model checked Buffer path (within allowed dir); OS resolved symlink (outside allowed dir) |
-| CVE-2024-22017 | `setuid()` capability retention | Linux capabilities not dropped after `setuid()` |
-| CVE-2024-22018 | `fs.statfs` (again) | Still not fully restricted after CVE-2023-30585 fix |
-| CVE-2024-36137 | `fs.lstat` | Not instrumented with permission checks |
+| CVE-2024-21891 | Monkey-patched path-normalization helpers | Overwritable built-ins could alter normalized paths and bypass filesystem checks |
+| CVE-2024-21896 | Monkey-patched `Buffer.prototype.utf8Write` | The checked `path.resolve()` result could be changed while converting it back to a Buffer |
+| CVE-2024-22018 | `fs.lstat()` | File metadata remained readable without the required filesystem permission |
+| CVE-2024-36137 | `fs.fchown()` / `fs.fchmod()` via file descriptors | A read-only descriptor could still change file ownership or mode because descriptor operations were outside the model |
 
-**Phase 3 — Platform-Specific (2025)**:
+**Phase 3 — Worker exposure (2025)**:
 
 | CVE | Bypass Method | Root Cause |
 |---|---|---|
 | CVE-2025-23083 | `diagnostics_channel` + `worker_threads` | Worker creation events expose internal worker instances/constructors, enabling Permission Model bypass |
-| CVE-2025-23084 | Windows drive-name handling in `path.join()` | Drive-name input can escape an intended restricted directory by resolving to a drive root |
 
 ### §12-2. Architectural Limitations
 
 | Limitation | Description | Impact |
 |---|---|---|
-| **No network scope** | No `--allow-net` flag as of Node.js 22. Any code makes arbitrary network connections | SSRF, data exfiltration, C2 communication all unrestricted |
+| **Version-dependent network scope** | Node.js 22's Permission Model did not restrict networking; `--allow-net` was added in Node.js 25 and is part of the current model | Pin the documented behavior to the deployed major version |
 | **No per-module permissions** | All `require()`'d modules share process-level permissions. Malicious dependency has same capabilities as application | Supply chain attacks not mitigated |
 | **Native addon full access** | `--allow-addons` grants complete OS access. No partial addon permissions | Single addon permission negates all restrictions |
 | **No OS-level enforcement** | Operates in JavaScript/C++ within process. N-API native code bypasses entirely | Fundamental architectural limitation |
@@ -904,16 +900,16 @@ fetch(userUrl, { agent }); // Validates RESOLVED IP, not hostname
 | CVE-2024-27983 | 2024 | High | HTTP/2 CONTINUATION flood — unbounded memory | HTTP/2 | P1 (Missing Limits) |
 | CVE-2024-27982 | 2024 | Medium | CL/TE inconsistency in llhttp | HTTP parser | P4 (Parser Differential) |
 | CVE-2024-22019 | 2024 | High | Chunk extension parsing — unbounded memory growth | HTTP parser | P1 (Missing Limits) |
-| CVE-2024-21896 | 2024 | High | Symlinks + Buffer paths bypass Permission Model | Permission Model / fs | P1 (Convenience Default) |
-| CVE-2024-21892 | 2024 | High | `process.binding('spawn_sync')` bypasses Permission Model | Permission Model | P2 (Backward Compat) |
-| CVE-2024-21891 | 2024 | Medium | Multiple path separators confuse Permission Model | Permission Model / path | P4 (Parser Differential) |
+| CVE-2024-21896 | 2024 | High | Monkey-patched Buffer conversion alters a path after `path.resolve()` validation | Permission Model / fs | P2 (Backward Compat) |
+| CVE-2024-21892 | 2024 | High | Environment-variable code injection when Node.js runs with certain Linux capabilities | Process startup / Linux capabilities | P5 (Implicit Trust) |
+| CVE-2024-21891 | 2024 | Medium | Monkey-patched path-normalization helpers bypass filesystem permission checks | Permission Model / path | P2 (Backward Compat) |
 | CVE-2024-21890 | 2024 | Medium | Wildcard misinterpretation in `--allow-fs-read` | Permission Model | P3 (Abstraction Opacity) |
 | CVE-2023-44487 | 2023 | High | HTTP/2 Rapid Reset DoS | HTTP/2 | P1 (Missing Limits) |
-| CVE-2023-32559 | 2023 | High | `process.binding()` bypasses Permission Model | Permission Model | P2 (Backward Compat) |
-| CVE-2023-32002 | 2023 | High | `Module._load()` bypasses Permission Model | Permission Model | P2 (Backward Compat) |
-| CVE-2023-23918 | 2023 | High | `process.mainModule.require()` bypasses Permission Model | Permission Model | P2 (Backward Compat) |
+| CVE-2023-32559 | 2023 | High | `process.binding()` bypasses the experimental module policy | Module policy | P2 (Backward Compat) |
+| CVE-2023-32002 | 2023 | High | `Module._load()` bypasses the experimental module policy | Module policy | P2 (Backward Compat) |
+| CVE-2023-23918 | 2023 | High | `process.mainModule.require()` bypasses experimental permissions/policy | Module policy | P2 (Backward Compat) |
 | CVE-2022-35256 | 2022 | Medium | Bare CR without LF in HTTP headers | HTTP parser | P4 (Parser Differential) |
-| CVE-2022-32215 | 2022 | Medium | Chunked encoding boundary handling | HTTP parser | P4 (Parser Differential) |
+| CVE-2022-32215 | 2022 | Medium | Incorrect parsing of multi-line `Transfer-Encoding` | HTTP parser | P4 (Parser Differential) |
 | CVE-2022-32212 | 2022 | High | DNS rebinding against inspector protocol | Inspector / debugger | P5 (Implicit Trust) |
 | CVE-2022-21824 | 2022 | High | `console.table()` pollutes `Object.prototype` | console (core) | P1 (Convenience Default) |
 | CVE-2018-7160 | 2018 | High | DNS rebinding against inspector WebSocket | Inspector / debugger | P5 (Implicit Trust) |
@@ -935,26 +931,7 @@ fetch(userUrl, { agent }); // Validates RESOLVED IP, not hostname
 
 ---
 
-## Appendix A: Meta-Pattern ↔ Attack ↔ Defense Mapping
-
-| Meta-Pattern | Representative Vulnerability | Attack Technique | Source Location | Mitigation |
-|---|---|---|---|---|
-| P1: Convenience Default | Shell command injection | `;rm -rf /` in user input to `exec()` | `lib/child_process.js` — `normalizeExecArgs()` | Use `spawn(file, [args])` without `shell: true` |
-| P1: Convenience Default | HTTP DoS (Slowloris) | Send headers slowly; server never times out | `lib/_http_server.js` — `this.timeout = 0` | Set `requestTimeout`, `headersTimeout`, `timeout` |
-| P1: Convenience Default | Heap memory disclosure | Read `Buffer.allocUnsafe()` before filling | `lib/buffer.js` — `Buffer.allocUnsafe()` | Use `Buffer.alloc()` or fill immediately |
-| P2: Backward Compat | SSRF via parser differential | URL parsed differently by legacy vs WHATWG | `lib/url.js` vs `lib/internal/url.js` | Use only `new URL()` for all URL parsing |
-| P2: Backward Compat | Weak encryption | Deprecated `createCipher()` with MD5 KDF | `lib/crypto.js` — `createCipher()` | Use `createCipheriv()` with `scrypt`-derived key |
-| P2: Backward Compat | Permission model bypass | `process.binding()` provides unrestricted native access | `process.binding('spawn_sync')` | `--permission` updates; avoid deprecated APIs |
-| P3: Abstraction Opacity | Supply chain RCE | Malicious npm package calls `exec()` | `require()` system — no capability boundary | `--permission` flag; `npm audit`; `ignore-scripts` |
-| P3: Abstraction Opacity | Shell injection via option | `shell: true` on `spawn()` | `lib/child_process.js` — `normalizeSpawnArguments()` | Never use `shell: true` with user input |
-| P4: Parser Differential | SSRF (backslash confusion) | `http://evil.com\@trusted.com/` | `url.parse()` vs `new URL()` | Validate with WHATWG; verify resolved IP |
-| P4: Parser Differential | Request smuggling | Malformed headers accepted by Node but not proxy | llhttp parser | Keep `insecureHTTPParser: false`; update Node.js |
-| P5: Implicit Trust | Prototype pollution | `__proto__` in JSON body pollutes all objects | `JSON.parse()` + recursive merge | `--disable-proto=throw`; schema validation; `Object.create(null)` |
-| P5: Implicit Trust | Environment variable injection | `NODE_OPTIONS=--require /tmp/evil.js` | Process environment | Clear/sanitize env vars in production entry |
-| P6: Naming Mismatch | VM sandbox escape | `this.constructor.constructor('return process')()` | `lib/vm.js` — `runInNewContext()` | Use `isolated-vm` or separate processes |
-| P6: Naming Mismatch | Path traversal | `path.join(base, '../../../etc/passwd')` | `lib/path.js` — `join()` | `resolve()` + `startsWith()` + `realpath()` containment |
-
-## Appendix B: Version Security Timeline
+## Version Security Timeline
 
 | Version | Security-Relevant Change | Breaking? |
 |---|---|---|
@@ -965,51 +942,10 @@ fetch(userUrl, { agent }); // Validates RESOLVED IP, not hostname
 | Node 12 (2019) | `--max-http-header-size` default 8KB (inherited from Node 11.6.0 security fix for CVE-2018-12121; later increased to 16KB in Node 13.13.0) | No |
 | Node 13 (2019) | `server.timeout` changed from 120000ms to **0** (no timeout) | **Yes — silent DoS protection removal** |
 | Node 15 (2020) | `unhandledRejection` default changed to `throw` (crash on unhandled) | **Yes** |
-| Node 18 (2022) | `server.requestTimeout` added (default: 300000ms). `fetch()` API available globally | No |
+| Node 14.11 (2020) / Node 18 (2022) | `server.requestTimeout` added in **14.11.0** with initial default `0` (no timeout); default changed to **300000ms** in **18.0.0**. `fetch()` API available globally from Node 18 | Default-change in 18 closes a long-standing DoS gap, but the option exists since 14.11 |
 | Node 20 (2023) | `--experimental-permission` flag introduced. Permission Model | No |
 | Node 12.17 (2020) | `--disable-proto` option added | No |
-| Node 22 (2024) | WebSocket support; Permission Model symlink fixes | No |
-
-## Appendix C: Security Configuration Checklist
-
-**HTTP Server**:
-- [ ] `server.requestTimeout` set (not default 0 / 300000)
-- [ ] `server.headersTimeout` set below 60 seconds
-- [ ] `server.timeout` set to non-zero value
-- [ ] `insecureHTTPParser` NOT enabled
-- [ ] Request body size limit configured (`express.json({ limit: '256kb' })`)
-- [ ] Security headers set (CSP, HSTS, X-Content-Type-Options) — use `helmet`
-
-**Code Patterns**:
-- [ ] No `child_process.exec()` / `execSync()` with user-controlled input
-- [ ] No `spawn()` / `execFile()` with `shell: true` and user input
-- [ ] No `vm` module used as security sandbox
-- [ ] No `url.parse()` for security-critical URL validation
-- [ ] No `Buffer()` constructor or `Buffer.allocUnsafe()` without immediate fill
-- [ ] No `crypto.createCipher()` — use `createCipheriv()`
-- [ ] No `eval()`, `new Function()`, or `vm.runInThisContext()` with user input
-- [ ] All file paths validated with resolve + containment check + symlink resolution
-- [ ] Error objects from `fs`, `child_process` not sent to clients
-
-**Cryptography**:
-- [ ] No MD5 or SHA1 for security-critical hashing
-- [ ] PBKDF2 iterations ≥ 600,000 (SHA-256), or use `scrypt`/`argon2`
-- [ ] RSA key size ≥ 2048 bits
-- [ ] `crypto.timingSafeEqual()` with hash pre-processing for length uniformity
-- [ ] `crypto.randomBytes()` / `crypto.randomUUID()` for tokens (not `Math.random()`)
-
-**Dependencies and Runtime**:
-- [ ] `npm ci` (not `npm install`) in production
-- [ ] `npm audit` in CI pipeline
-- [ ] `--ignore-scripts` considered for non-build dependencies
-- [ ] Lockfile committed with integrity hashes
-- [ ] `NODE_OPTIONS` cleared/controlled in production
-- [ ] `NODE_TLS_REJECT_UNAUTHORIZED` never set to `0` in production
-- [ ] `--inspect` never enabled in production, or bound to `127.0.0.1` only
-- [ ] `--disable-proto=throw` evaluated
-- [ ] `--experimental-permission` evaluated for defense-in-depth
-
----
+| Node 22.13 (2025) | Permission Model marked stable; network permission control was added later in Node 25 | No |
 
 ## References
 
@@ -1022,6 +958,8 @@ fetch(userUrl, { agent }); // Validates RESOLVED IP, not hostname
 - [Security Best Practices](https://nodejs.org/en/learn/getting-started/security-best-practices)
 - [Threat Model](https://github.com/nodejs/node/blob/main/SECURITY.md)
 - [Permission Model](https://nodejs.org/api/permissions.html)
+- [Node.js July 2022 security release: CVE-2022-32214 and CVE-2022-32215](https://nodejs.org/en/blog/vulnerability/july-2022-security-releases/)
+- [Node.js February 2024 security release: CVE-2024-21892](https://nodejs.org/en/blog/vulnerability/february-2024-security-releases)
 
 ### Security Research
 - "Silent Spring: Prototype Pollution Leads to Remote Code Execution in Node.js" — Shcherbakov & Balliu, USENIX Security 2023

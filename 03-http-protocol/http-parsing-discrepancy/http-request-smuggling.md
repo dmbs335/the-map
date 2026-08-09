@@ -682,7 +682,7 @@ How the mutations above are **weaponized** under specific architectural conditio
 | **Microservice Internal Desync** | Service mesh (Envoy/Istio) + heterogeneous runtimes (Go/Node/Python) with differing parser leniency | §6 + §8; manifests even on internal networks | Go (bare LF) ↔ Node.js (bare CR) ↔ Python (underscores, bare CR) — no external attacker required if any microservice processes untrusted input |
 | **Cross-Protocol TLS Desync (Opossum)** | MitM + server supporting both implicit and opportunistic TLS → permanent response stream desync | §6-1 (TLS / Opossum) | Affects HTTP, SMTP, FTP, POP3 beyond HTTP; 3M+ hosts. CVE-2025-49812 |
 | **Response Desync / CGI Desync** | Proxy and origin disagree on response body boundaries or CGI output parsing → response queue misalignment | §8-4 (response/CGI divergence) | Response forgery, response stealing. 9 CVEs |
-| **Cache-Poisoned DoS (CPDoS) via Path Parsing** | Proxy and origin disagree on percent-encoded path normalization → cache stores error response for legitimate resource | §8-1 (path normalization divergence) | ATS interprets `/foo%2fbar` as `/foo/bar` for caching but Apache returns 404; cached error denies service to legitimate path (Gudifu). See also `web-cache-poisoning-and-deception.md` §3 |
+| **Cache-Poisoned DoS (CPDoS) via Path Parsing** | Proxy and origin disagree on percent-encoded path normalization → cache stores error response for legitimate resource | §8-1 (path normalization divergence) | ATS interprets `/foo%2fbar` as `/foo/bar` for caching but Apache returns 404; cached error denies service to legitimate path (Gudifu). See also `08-infrastructure/web-cache-poisoning-and-deception.md` §3 |
 | **Header Smuggling via Trailer Merge** | Proxy inspects only headers; intermediary merges trailer fields into headers before forwarding downstream → attacker injects headers invisible to upstream (ACL bypass via `x-forwarded-for`, Host spoofing for password reset, cache key poisoning). No request boundary manipulation required | §5-3 (TR.MRG) + §6 (Connection token parsing) | HAProxy ACL bypass: `x-forwarded-for: 127.0.0.1` in trailers bypasses `req.fhdr(x-forwarded-for)` check; downstream receives it as a regular header. CVE-2025-12642 (lighttpd) |
 
 **Composite Payload — CL.TE → Response Queue Poisoning:**
@@ -824,31 +824,13 @@ Host: vulnerable.com\r\n
 
 
 
-## Summary: Core Principles
+## Defensive Takeaways
 
-
-
-All HTTP Request Smuggling mutations ultimately stem from **one fact**: HTTP/1.1 is a text-based protocol that offers multiple methods for specifying message boundaries, and thousands of independent implementations interpret the specification with varying degrees of leniency. HTTP/2 downgrading adds a fourth length interpretation method, expanding the mismatch combinatorics. The protocol's fundamental design — conveying structured data through text that must be parsed identically by every agent in the chain — guarantees divergence when the specification uses SHOULD instead of MUST, is silent on edge cases, or deprecates features (like obsolete line folding) without mandating rejection.
-
-**The 2025 turning point.** Three developments defined this year. First, **chunk extensions emerged as a major independent attack surface** (§5). A feature "nobody uses" enables TERM.EXT / EXT.TERM / SPILL mutations that achieve smuggling *without any CL-vs-TE confusion* — a fundamental shift from the 20-year-old CL.TE/TE.CL paradigm. CVE-2025-55315 (CVSS 9.9, Microsoft's highest-ever for ASP.NET Core) demonstrated the severity. Second, **the attack surface expanded into the TLS layer** (§6-1). The Opossum Attack exploits a protocol design weakness — the coexistence of implicit and opportunistic TLS — to achieve *permanent* desync without any implementation bug, affecting 3M+ hosts across HTTP, SMTP, FTP, and POP3. Third, **desync began to be repurposed as attack infrastructure**: CL.0 global cache poisoning weaponized the Location header of 3xx redirects as a covert C2 side channel, turning CDN infrastructure into bidirectional command-and-control channels against `.mil` and `.gov` targets.
-
-**Evolution of discovery methodology.** The vulnerability discovery approach has undergone a paradigm shift from manual payload crafting to systematic automated fuzzing, with each generation uncovering classes invisible to its predecessors:
-
-| Generation | Approach | Key Innovation |
-|---|---|---|
-| Manual (2005–2019) | Hand-crafted CL.TE/TE.CL payloads | Proved the concept; worked on ~1/3 of the internet |
-| Grammar-based blackbox (2021) | Full-request grammar mutations, pairwise testing | Showed request-line and header mutations beyond CL/TE cause smuggling |
-| H2 frame fuzzing (2022) | H2 frame sequence grammar mutations | Discovered Request Blackholing, Query-of-Death, conversion-induced smuggling |
-| Specification-driven (2022) | NLP on RFCs → targeted test generation | Revealed semantic gap attacks (interpretation, prioritization, tolerance) |
-| Coverage-guided stream-level (2023–2024) | Coverage feedback on origin servers, request *streams* not individual requests | 122 discrepancies across 39 implementations; 39 exploitable |
-| Graybox proxy (2024) | Coverage feedback from proxy *internals* | Critical CVEs in HAProxy and ATS invisible to blackbox approaches |
-| Response + CGI (2025) | Gray-box testing of response and CGI output parsing | Extended desync beyond requests; 9 CVEs in response handling |
-| 0.CL at scale + chunk extensions (2025) | Early response gadgets, double-desync, chunk extension mutations | $350K+ bounties, CVSS 9.9, C2 infrastructure weaponization |
-| Trailer section systematic (2026) | Targeted trailer parsing differential testing across ~70 implementations | TR.MRG header smuggling, unparsed trailers, early termination, hide-merge-smuggle; 4 CVEs, 12+ implementations |
-
-Six years of individual patches and regex-based defenses block only **known mutation fingerprints** without resolving the fundamental parser divergence. The structural solution requires three concurrent efforts: (1) **upstream HTTP/2 adoption** — eliminating framing mismatch by removing text-based length interpretation entirely (but as of 2025, Cloudflare downgrades H2→H1 internally, and Nginx/Akamai/CloudFront/Fastly lack upstream H2 support); (2) **opportunistic TLS deprecation** — eliminating TLS-layer desync; and (3) **RFC-strict normalization proxies** — enforcing a single interpretation at the network edge before requests reach heterogeneous backends. From a detection perspective, the necessary shift is from exploit-pattern matching to identifying **parser-primitive-level discrepancies themselves** — the approach embodied in HTTP Request Smuggler v3.0's V-H/H-V probing methodology.
-
-**HTTP/3 and QUIC.** The transition to HTTP/3 (QUIC-based transport) introduces additional protocol-level attack surfaces not covered by the H1/H2 mutations documented above: H3→H1/H2 downgrade translation differentials, QPACK header compression attacks, 0-RTT early data replay and IP spoofing, QUIC transport-level memory corruption, and connection coalescing contamination. These are documented separately in the companion **HTTP/3 & QUIC Protocol-Level Smuggling** taxonomy.
+- Request smuggling arises when adjacent HTTP components disagree about message boundaries or request semantics.
+- Test proxy-origin pairs as request streams, including malformed framing, HTTP/2 downgrades, chunk extensions, trailers, and early responses.
+- Reject ambiguous requests rather than attempting to repair them, and apply one canonical framing interpretation across the chain.
+- Detect parser discrepancies at the primitive level instead of matching only known payload signatures.
+- See the separate HTTP/3 and QUIC taxonomy for H3 translation and transport-specific behavior.
 
 
 
@@ -856,7 +838,6 @@ Six years of individual patches and regex-based defenses block only **known muta
 
 
 
-*This document was created for defensive security research and vulnerability understanding purposes.*
 
 
 

@@ -41,7 +41,7 @@ This taxonomy organizes the Symfony attack surface along three orthogonal axes:
 
 ## §1. Deserialization & Gadget Chains
 
-Symfony's architecture relies on PHP `serialize()`/`unserialize()` across caching, sessions, and remember-me cookies. The framework ships dozens of classes with exploitable `__destruct()`, `__wakeup()`, and `__toString()` magic methods, creating a persistent and growing gadget chain attack surface cataloged by PHPGGC.
+Symfony has historically used PHP `serialize()`/`unserialize()` in cache and other persisted-state paths. Reachable deserialization sinks can combine with magic methods such as `__destruct()`, `__wakeup()`, and `__toString()` to create gadget-chain risk cataloged by PHPGGC. Remember-me cookie flaws such as CVE-2024-51996 belong to authentication and token-lifecycle handling, not to CVE-2019-10912 deserialization.
 
 ### §1-1. Direct unserialize() Injection
 
@@ -49,7 +49,7 @@ User-controlled data reaches `unserialize()` through Symfony components that his
 
 | Subtype | Mechanism | Key Condition | Impact |
 |---------|-----------|---------------|--------|
-| **Remember-me cookie deserialization** | `remember_me` cookie passed user-controlled data directly to `unserialize()`, allowing arbitrary object injection | Symfony 2.8.0–2.8.49, 3.4.0–3.4.25, 4.1.0–4.1.11, 4.2.0–4.2.6 with token-based remember-me; fixed in 2.8.50 / 3.4.26 / 4.1.12 / 4.2.7 (CVE-2019-10912) | RCE |
+| **Cache object deserialization side effects** | Cache entries containing attacker-influenced objects could trigger destructors with side effects when serialized or unserialized | Symfony Cache / PHPUnit Bridge versions fixed in 2.8.50, 3.4.26, 4.1.12, and 4.2.7 (CVE-2019-10912) | File deletion or attacker-controlled raw output; not a remember-me cookie RCE |
 | **Cache adapter deserialization** | `PhpArrayAdapter` and `TagAwareAdapter` deserialized attacker-controlled cache data without type filtering | Symfony 3.x–4.x cache components (CVE-2019-18889) | RCE |
 | **Serializer component mass assignment** | `Serializer::deserialize()` with user input to objects set all writable properties without restriction | Symfony 3.x–4.x Serializer | AUTHZ |
 | **UriSigner timing attack** | Non-constant-time HMAC comparison in `UriSigner` enabled timing-based forgery of signed URLs | Symfony HttpKernel (CVE-2019-18887) | AUTHZ |
@@ -194,7 +194,6 @@ Symfony uses Twig as its default template engine. The Twig sandbox is opt-in (of
 
 | Subtype | Mechanism | Key Condition | Impact |
 |---------|-----------|---------------|--------|
-| **User-controlled template name** | Template name passed to `Environment::render()` from user input allows code injection via specially crafted template names | Application passes unsanitized input as template name (CVE-2024-51996) | RCE |
 | **Path traversal via source()/include()** | `source()` and `include()` Twig functions with user-controlled template names enable arbitrary file read: `{{ source('/etc/passwd') }}` | User input reaches template name argument (CVE-2022-39261) | FS |
 
 ### §4-2. Template Content Injection (SSTI)
@@ -211,8 +210,7 @@ Twig's sandbox, when enabled, uses an allowlist model for methods, properties, a
 
 | Subtype | Mechanism | Key Condition | Impact |
 |---------|-----------|---------------|--------|
-| **`sort` filter callable bypass** | `sort` filter allowed arbitrary function calls as the comparison callback, escaping the sandbox | Twig 2.x–3.x sandbox (CVE-2020-15098) | RCE |
-| **Callable pattern escape** | Certain callable patterns (e.g., array callables, Closure bindings) were not recognized by the sandbox inspector | Twig 3.x sandbox (CVE-2022-23614, CVSS 9.8) | RCE |
+| **`sort` filter callable bypass** | The sandbox failed to require the `sort` filter's arrow argument to be a `Closure`, allowing other PHP callables | Twig 2.0.0–2.14.10 and 3.0.0–3.3.7 (CVE-2022-23614) | Code injection |
 | **Object method chain traversal** | Sandbox checks direct method calls but not the transitive call chain — `allowedObject.getService().dangerousMethod()` passes if `getService()` is allowed | Sandbox with broad method allowlist | RCE |
 | **`__toString()` implicit invocation** | Twig's output mechanism calls `__toString()` implicitly; the sandbox does not intercept this, allowing `__toString()` to call restricted methods internally | Object with dangerous `__toString()` on allowlist | RCE |
 
@@ -254,7 +252,7 @@ Symfony's `Request` object centralizes all HTTP request parsing and proxy trust 
 | **Wildcard proxy trust** | `Request::setTrustedProxies(['0.0.0.0/0'], ...)` or `TRUSTED_PROXIES=REMOTE_ADDR` — any client spoofs IP via `X-Forwarded-For` | Cloud environments with dynamic proxy IPs often recommended to use `REMOTE_ADDR` | AUTHZ |
 | **Missing proxy configuration** | `getClientIp()` returns proxy IP instead of real client IP when no trusted proxies configured behind reverse proxy | Application behind LB/proxy without `TRUSTED_PROXIES` | AUTHZ |
 | **X-Forwarded-Host injection** | Trusting `HEADER_X_FORWARDED_HOST` allows host header injection → cache poisoning, password reset link manipulation | `X-Forwarded-Host` trusted in proxy config | ATO, INFO |
-| **IPv6-mapped IPv4 bypass** | `IpUtils::checkIp()` failed to normalize `::ffff:127.0.0.1` against IPv4 whitelist entries | Specific IPv6/IPv4 mapping edge cases (CVE-2024-24569) | AUTHZ |
+| **IPv6 transition-form private-network bypass** | `IpUtils::PRIVATE_SUBNETS` omitted 6to4, Teredo, NAT64, and IPv4-compatible IPv6 prefixes that can embed private IPv4 destinations | `NoPrivateNetworkHttpClient` / `IpUtils` versions fixed in Symfony 5.4.53, 6.4.41, 7.4.13, and 8.0.13 (CVE-2026-48736); actual reachability depends on deployment routing | SSRF |
 
 **Cascade effect:** Once `getClientIp()` returns a spoofed IP, ALL downstream consumers are simultaneously compromised:
 - Rate limiting (`Symfony\Component\RateLimiter`)
@@ -329,9 +327,10 @@ security:
 
 | Subtype | Mechanism | Key Condition | Impact |
 |---------|-----------|---------------|--------|
-| **Session fixation on auth** | Session ID not regenerated after authentication — attacker pre-sets session ID before victim authenticates | Multiple CVEs: CVE-2022-24894, CVE-2022-24895, CVE-2018-11385 | ATO |
-| **Remember-me token fixation** | Sessions not properly invalidated in certain user provider configurations with remember-me | CVE-2023-46733 | ATO |
-| **Cookie-based session auth bypass** | Improper token validation in cookie-based session authentication | CVE-2021-41268 | ATO |
+| **Session fixation on auth** | Session ID not regenerated after authentication — attacker pre-sets session ID before victim authenticates | CVE-2018-11385 and CVE-2023-46733; CVE-2022-24895 is a related same-site CSRF-token retention issue, not the same flaw | ATO |
+| **Incomplete session migration after authentication** | The session ID was not regenerated when a partially authenticated token became fully authenticated but retained the same user identifier | Symfony 5.4.21–5.4.30 and 6.2.7–6.3.7 (CVE-2023-46733) | Session fixation |
+| **Persisted remember-me owner mismatch** | A persisted remember-me cookie's submitted username was not checked against the username stored for that token | Symfony Security-Http before 5.4.47, 6.4.15, and 7.1.8 (CVE-2024-51996) | Authentication bypass |
+| **Remember-me cookie survives password change** | A previously issued remember-me cookie was not invalidated when the user changed their password | Symfony 5.3.0–5.3.11 (CVE-2021-41268) | Continued account access after password reset |
 | **Invalid method override** | Reject invalid HTTP method override bypassed security firewalls matching on HTTP method | CVE-2019-10913 | AUTHZ |
 | **Generic type annotation detection flaw** | Method-level `@PreAuthorize`/`@Secured` annotations on generic superclass/interface methods not properly detected on implementations | Similar to Spring's CVE-2025-41248 pattern in voter-based method security | AUTHZ |
 
@@ -494,7 +493,8 @@ CSRF protection in Symfony depends on correct configuration across multiple inde
 
 | Subtype | Mechanism | Key Condition | Impact |
 |---------|-----------|---------------|--------|
-| **Vary header manipulation** | `HttpCache` Store generates cache keys incorporating manipulable request attributes (Host, Accept-Language, proxy headers) — attacker poisons cache with modified responses | Symfony HttpCache or Varnish with manipulable Vary headers (CVE-2022-24894, CVSS 8.8) | ATO, XSS |
+| **Session response cached for another client** | A response carrying `Set-Cookie` could be stored by Symfony HttpCache and served to a later client, exposing the first user's session | Symfony HttpCache with affected `AbstractSessionListener` behavior (CVE-2022-24894) | Session theft |
+| **Vary header manipulation** | `HttpCache` Store generates cache keys incorporating manipulable request attributes (Host, Accept-Language, proxy headers) — attacker poisons cache with modified responses | Symfony HttpCache or Varnish with manipulable Vary headers | ATO, XSS |
 | **Host header cache poisoning** | Response contains URLs generated from `$request->getHost()` — attacker sends spoofed Host header, cached response serves attacker-controlled URLs to all users | Trusted proxies misconfigured + HTTP caching enabled | ATO |
 | **Web cache deception** | `/my-account/profile/nonexistent.css` — Symfony routes to `/my-account/profile`, cache stores response keyed on `.css` URL, attacker retrieves victim's cached private page | CDN/cache caching based on file extension + route ignoring trailing path | INFO |
 
@@ -566,25 +566,23 @@ The security firewall runs at priority `8` on `kernel.request`. Any listener reg
 
 | Mutation Combination | CVE / Case | Year | CVSS | Impact |
 |---------------------|-----------|------|------|--------|
-| §1-1 (Remember-me deser) | CVE-2019-10912 | 2019 | 9.8 | RCE via remember-me cookie deserialization |
+| §1-1 (Cache object unserialize) | CVE-2019-10912 | 2019 | High | File deletion or raw output through destructor side effects during cache serialization/unserialization |
 | §1-1 (Cache deser) | CVE-2019-18889 | 2019 | 9.8 | RCE via cache adapter deserialization |
 | §4-3 (Sandbox bypass) | CVE-2022-23614 | 2022 | 9.8 | Twig sandbox bypass to full code execution |
 | §3-1 (CachingHttpClient RCE) | CVE-2020-15094 | 2020 | 9.1 | RCE via CachingHttpClient `X-Body-Eval`/`X-Body-File` headers from untrusted remote responses |
-| §11-1 (Cache poisoning) | CVE-2022-24894 | 2022 | 8.8 | HTTP cache poisoning in HttpKernel Store |
-| §6-3 (Session fixation) | CVE-2022-24895 | 2022 | 8.8 | Session fixation via improper proxy handling |
+| §11-1 (Cached session response) | CVE-2022-24894 | 2022 | 8.8 | A cached `Set-Cookie` response can disclose one user's session to another client |
+| §8-1 (CSRF token retention) | CVE-2022-24895 | 2022 | 8.8 | Same-site attacker can reuse pre-login CSRF tokens because login preserves session attributes |
 | §4-1 (Template path traversal) | CVE-2022-39261 | 2022 | 7.5 | Arbitrary file read via Twig `source()`/`include()` |
-| §4-3 (sort filter bypass) | CVE-2020-15098 | 2020 | Critical | Twig sandbox bypass via `sort` filter callable |
 | §5-3 (X-Original-URL) | CVE-2018-14773 | 2018 | High | Request path override via header injection |
-| §5-1 (Proxy bypass) | CVE-2024-24569 | 2024 | High | Trusted proxy bypass via IPv6-mapped IPv4 |
 | §5-3 (Redirect) | CVE-2024-50345 | 2024 | Medium | Open redirect in `RedirectResponse` |
-| §4-1 (Template name injection) | CVE-2024-51996 | 2024 | High | Code injection via user-controlled template names in Twig `Environment::render()` |
-| §6-3 (Auth bypass) | CVE-2023-46733 | 2023 | High | Session not invalidated in remember-me configs |
-| §6-3 (Cookie auth bypass) | CVE-2021-41268 | 2021 | High | Cookie-based session authentication bypass |
-| §3-1 (Firewall bypass) | CVE-2021-41267 | 2021 | Medium | Firewall bypass through `_fragment` URIs |
+| §6-4 (Persisted remember-me owner mismatch) | CVE-2024-51996 | 2024 | High | Authentication bypass because the submitted username was not checked against the stored token owner |
+| §6-3 (Session migration) | CVE-2023-46733 | 2023 | High | Session fixation when the authentication token type changes but the user identifier does not |
+| §6-4 (Remember-me invalidation) | CVE-2021-41268 | 2021 | High | A stolen remember-me cookie remains valid after the user changes their password |
+| §11-1 (Untrusted forwarded prefix) | CVE-2021-41267 | 2021 | Medium | Web-cache poisoning through `X-Forwarded-Prefix` propagation into subrequests |
 | §6-3 (Session fixation) | CVE-2018-11385 | 2018 | High | Session fixation via authentication migration failure |
 | §6-3 (Open redirect) | CVE-2018-19790 | 2018 | Medium | Open redirect in `DefaultAuthenticationSuccessHandler` |
 | §8-1 (CSRF seeding) | CVE-2016-1902 | 2016 | High | Weak RNG fallback (SecureRandom used `mt_rand()` when OpenSSL unavailable) |
-| §8-1 (CSRF removal) | CVE-2014-5245 | 2014 | Medium | CSRF bypass by removing token field entirely |
+| §3-1 (ESI fragment authorization bypass) | CVE-2014-5245 | 2014 | Medium | Direct access to unsigned ESI fragment URLs when ESI is enabled behind a trusted proxy; fixed by signing fragment URLs |
 
 ---
 
@@ -615,58 +613,22 @@ The security firewall runs at priority `8` on `kernel.request`. Any listener reg
 
 ---
 
-## Summary: Core Principles
-
-### Why the Symfony Ecosystem Is a Rich Attack Surface
-
-Symfony's fundamental design philosophy — **component-based architecture with convention over configuration** — creates five structural tensions that define its security posture:
-
-**1. Single Secret Architecture:** `APP_SECRET` is the cryptographic root for CSRF tokens, remember-me cookies, `_fragment` route HMAC, signed URIs, and login links. This is a **single point of failure by design** — one leaked environment variable compromises every security subsystem simultaneously. The framework provides no key derivation per subsystem and no rotation mechanism.
-
-**2. Explicit vs. Magical Binding Inconsistency:** The Form component requires explicit field definitions (an inherent whitelist — secure by design), while the Serializer auto-binds all matching properties (insecure by default). Developers who learn safe patterns in one component carry unsafe assumptions into the other.
-
-**3. Configuration Depth vs. Correctness:** Application security depends on correct configuration at 6+ independent layers: debug mode, trusted proxies, firewall ordering, access control regex, voter strategy, CSRF enablement, session cookies, and validation groups. The probability of ALL layers being correctly configured decreases multiplicatively with each layer.
-
-**4. PHP Type System vs. Framework Strictness:** Symfony attempts to impose type safety through `InputBag`, route requirements, and Validator constraints. But PHP's foundational loose typing (silent coercion in `ParameterBag`, type juggling in comparisons, reflection bypassing visibility in `PropertyNormalizer`) undermines these efforts at every trust boundary.
-
-**5. Backward Compatibility Tax:** Changing `access_decision_manager.strategy` from `affirmative` to `unanimous`, `ALLOW_EXTRA_ATTRIBUTES` from `true` to `false`, or `cookie_secure` from empty to `true` would break existing applications. Symfony prioritizes backward compatibility, meaning insecure defaults persist across major versions.
-
-### Why Incremental Fixes Fail
-
-The Symfony vulnerability space resists incremental patching for three structural reasons:
-
-1. **The gadget chain surface regenerates.** Each new Symfony component or Composer dependency potentially introduces new `__destruct()`/`__wakeup()`/`__toString()` chains. PHPGGC documents 10+ Symfony-specific chains, and new ones are discovered regularly. The only structural fix is eliminating `unserialize()` from all data paths — but backward compatibility prevents this.
-
-2. **Session/token lifecycle creates complex state transitions.** The interaction between session migration, remember-me tokens, CSRF tokens seeded from session IDs, and multi-firewall boundary crossing creates combinatorial state that has produced 4+ fixation CVEs over 6 years. Each fix addresses one transition path while leaving others exploitable.
-
-3. **The `_fragment` route is an architectural backdoor.** It provides a legitimate function (ESI fragment rendering) through a mechanism (universal controller invocation gated only by HMAC) that becomes catastrophic when the single secret is compromised. The feature exists by design and is enabled by default.
-
-### Structural Solution Direction
-
-- Use Symfony Secrets Vault (`secrets:set`) instead of `.env` for `APP_SECRET` — prevents VCS exposure
-- Disable `_fragment` route if ESI/HInclude is not used: `framework: fragments: { enabled: false }`
-- Use `strategy: unanimous` for AccessDecisionManager in all production applications
-- Enforce serialization `groups` on ALL Serializer deserialization of external input + `ALLOW_EXTRA_ATTRIBUTES => false`
-- Use DTOs instead of entities for all API input/output through the Serializer
-- Add explicit `requirements` regex constraints to every route parameter
-- Set `cookie_secure: true`, `use_strict_mode: true` for sessions
-- Restrict `dev` firewall to `when@dev` environment only
-- Block web access to `var/cache/`, `.env`, `.git/` at the web server level
-- Prefer route-based security (`#[IsGranted]`) over path-regex `access_control` to eliminate normalization mismatches
-- Use `|e('js')`, `|e('url')`, `|e('css')` for context-specific Twig escaping — never rely on default HTML-only auto-escaping in non-HTML contexts
-
----
-
 ## References
 
 ### Sources Consulted
 
 - Symfony Official Security Advisories (symfony.com/blog/category/security-advisories)
+- [Symfony CVE-2019-10912 advisory: cache unserialization side effects](https://symfony.com/blog/cve-2019-10912-prevent-destructors-with-side-effects-from-being-unserialized)
+- [Symfony CVE-2024-51996 advisory: persisted remember-me authentication bypass](https://symfony.com/cve-2024-51996)
+- [Twig CVE-2022-23614 advisory](https://github.com/twigphp/Twig/security/advisories/GHSA-5mv2-rx3q-4w2v)
+- [Symfony CVE-2021-41267 advisory: X-Forwarded-Prefix web-cache poisoning](https://symfony.com/blog/cve-2021-41267-webcache-poisoning-via-x-forwarded-prefix-and-sub-request)
+- [Symfony CVE-2026-48736 advisory: IPv6 transition-form SSRF bypass](https://symfony.com/blog/cve-2026-48736-iputils-private-subnets-omits-ipv6-transition-forms-ssrf-bypass-in-noprivatenetworkhttpclient)
+- [Symfony CVE-2014-5245 advisory: Direct access of ESI URLs behind a trusted proxy](https://symfony.com/blog/cve-2014-5245-direct-access-of-esi-urls-behind-a-trusted-proxy)
 - National Vulnerability Database (nvd.nist.gov) — Symfony CVE records 2014–2024
 - PHPGGC Gadget Chain Library (github.com/ambionics/phpggc) — Symfony RCE/FW/FD chains
 - Symfony GitHub Repository (github.com/symfony/symfony) — Source code analysis of HttpFoundation, HttpKernel, Security, Serializer, Form, Routing, PropertyAccess, DependencyInjection, TwigBridge
 - Twig Engine Source (github.com/twigphp/Twig) — EscaperExtension, sandbox implementation
-- Ambionics Research — `_fragment` route exploitation, PHAR deserialization, CVE-2024-2961
+- Ambionics Research — `_fragment` route exploitation and PHAR deserialization; separately, CVE-2024-2961 is a glibc `iconv()` buffer overflow exploitable through some PHP filter chains, not a Symfony vulnerability
 - Synacktiv Research — PHP filter chains, Twig SSTI exploitation
 - PortSwigger Research — SSTI, cache poisoning, web cache deception
 - HackTricks — Symfony-specific exploitation guides
@@ -675,5 +637,3 @@ The Symfony vulnerability space resists incremental patching for three structura
 - OWASP — Mass assignment, CSRF, SSTI guidelines
 
 ---
-
-*This document was created for defensive security research and vulnerability understanding purposes.*

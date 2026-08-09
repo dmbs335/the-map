@@ -6,7 +6,6 @@
 > **CVEs Covered**: CVE-2025-55182 (CVSS 10.0; CVE-2025-66478 was the Next.js-specific identifier but later rejected as duplicate), CVE-2025-55183, CVE-2025-55184, CVE-2025-67779, CVE-2026-23864, CVE-2025-29927 (CVSS 9.1), CVE-2024-34351, CVE-2024-46982, CVE-2025-57822, and 27+ total GHSA advisories
 
 ---
-
 ## Executive Summary
 
 The fundamental security problem in Next.js stems from the **convergence of server and client execution contexts into a single codebase with implicit trust boundaries**. In traditional web architectures, server and client were separate applications with a clear HTTP boundary. Next.js blurs this line: Server Components and Client Components coexist in the same file, Server Actions are invoked through client-side POST requests, internal coordination headers flow alongside external request headers, and the build pipeline separates code based on string directives (`"use server"`, `"use client"`).
@@ -60,7 +59,7 @@ The React Server Components "Flight" protocol represents a fundamentally new tru
 | **Self-Reference Gadget (Source Leak)** | Crafted payload causes a server function to receive itself as an argument. When the function stringifies or processes this, the server returns the function's source code in the response | Server function that returns data including stringified arguments | **INFO** |
 | **Infinite Loop DoS** | Specially crafted deserialization payload creates circular references or recursive resolution that hangs the server process, preventing all future HTTP requests | Any App Router endpoint accepting Flight payloads | **DoS** |
 
-**Real-World Case**: CVE-2025-55182 (React, CVSS 10.0) / CVE-2025-66478 (Next.js). Actively exploited shortly after disclosure by China-nexus threat groups (confirmed by AWS Security Blog). Disclosed December 3, 2025; secret rotation advisory issued.
+**Real-World Case**: CVE-2025-55182 (React, CVSS 10.0; CVE-2025-66478 was the Next.js tracking identifier and was later rejected as a duplicate). Actively exploited shortly after disclosure by China-nexus threat groups (confirmed by AWS Security Blog). Disclosed December 3, 2025; secret rotation advisory issued.
 
 **Root Cause Analysis**: The RSC protocol's value proposition is transparent server-client function invocation. To achieve this transparency, the serialization format must express arbitrary module references, and the deserializer resolved these references without validating against an export allowlist. A classic case of convenience-driven design leading to remote code execution.
 
@@ -533,7 +532,7 @@ export async function getProfileDTO(slug: string) {
 |------------------------|-------------|-------------|
 | **zhero_web_security** (Rachid Allam) | "The Stale Elixir", "Black Hole", "Eclipse on Next.js", "The Corrupt Middleware" | CVE-2025-29927, cache poisoning series, batcher race condition. Most prolific Next.js security researcher as of 2025 |
 | **Assetnote** | "Digging for SSRF in NextJS Apps" | CVE-2024-34351. Documented Vercel vs self-hosted security gap. Established Next.js pentest methodology |
-| **Lachlan Davidson** | React2Shell discovery | CVE-2025-55182/CVE-2025-66478 (CVSS 10.0) responsible disclosure |
+| **Lachlan Davidson** | React2Shell discovery | CVE-2025-55182 (CVSS 10.0) responsible disclosure; CVE-2025-66478 was later rejected as a duplicate |
 | **RyotaK** (GMO Flatt Security), Shinsaku Nomura, React team | RSC DoS variants | CVE-2025-55184 / CVE-2025-67779 / CVE-2026-23864 discovery and follow-up fixes |
 | **Andrew MacPherson** | RSC Source Leak | CVE-2025-55183 discovery |
 | **JFrog, Wiz, Akamai, Microsoft, AWS, Trend Micro** | Independent React2Shell analyses (2025.12) | Attack mechanics, detection signatures, cloud impact analysis |
@@ -557,25 +556,11 @@ export async function getProfileDTO(slug: string) {
 
 ---
 
-## Core Principles Summary
-
-**1. Zero Trust Boundary Enforcement**: Every framework layer must independently validate its inputs rather than trusting coordination headers or serialized data from adjacent layers.
-
-**2. Explicit Security Boundaries**: Server-only code must be physically separated from client-accessible code at the build level, not merely annotated with directives. The Data Access Layer pattern achieves this.
-
-**3. Defense-in-Depth Authentication**: Authentication verification must be performed independently at middleware, Server Component, and Server Action levels. Middleware is "a helpful optimization" not "a security guarantee."
-
-**4. Cache-Aware Security**: Cache keys must incorporate content type, authentication state, and response format to prevent poisoning and deception.
-
-**5. Self-Hosted Security Parity**: The implicit protections provided by Vercel infrastructure (header stripping, Host validation, automatic patching) must be explicitly reproduced in self-hosted environments.
-
----
-
 ## References
 
 - [React Security Blog: Critical Security Vulnerability in React Server Components (December 2025)](https://react.dev/blog/2025/12/03/critical-security-vulnerability-in-react-server-components)
 - [React Security Blog: Denial of Service and Source Code Exposure in React Server Components (updated January 26, 2026)](https://react.dev/blog/2025/12/11/denial-of-service-and-source-code-exposure-in-react-server-components)
-- [Next.js Security Advisory: CVE-2025-66478](https://nextjs.org/blog/CVE-2025-66478)
+- [Next.js advisory originally published under CVE-2025-66478 (later rejected as a duplicate)](https://nextjs.org/blog/CVE-2025-66478)
 - [Next.js Security Update: December 11, 2025](https://nextjs.org/blog/security-update-2025-12-11)
 - [Vercel Postmortem: Next.js Middleware Bypass / CVE-2025-29927](https://nextjs.org/blog/cve-2025-29927)
 - [Next.js Docs: Renaming Middleware to Proxy](https://nextjs.org/docs/messages/middleware-to-proxy)
@@ -600,7 +585,3 @@ export async function getProfileDTO(slug: string) {
 - [AWS Security Blog — China-nexus Groups Exploit React2Shell (December 2025)](https://aws.amazon.com/blogs/security/china-nexus-cyber-threat-groups-rapidly-exploit-react2shell-vulnerability-cve-2025-55182/)
 - [Resecurity: React2Shell Explained](https://www.resecurity.com/blog/article/react2shell-explained-cve-2025-55182-from-vulnerability-discovery-to-exploitation)
 - [Sam Curry — Exploiting Web3's Hidden Attack Surface: Universal XSS on Netlify's Next.js Library (2022)](https://samcurry.net/universal-xss-on-netlifys-next-js-library)
-
----
-
-*This document was created for defensive security research and vulnerability understanding purposes.*
