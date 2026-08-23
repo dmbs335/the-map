@@ -1,11 +1,10 @@
 export type Level = 'foundation' | 'practitioner' | 'advanced' | 'research';
 
-export type EvidenceBoundary =
-  | 'modelOnly'
-  | 'symbolicWitness'
-  | 'syntheticHarness'
-  | 'implementationHarness'
-  | 'checkedFinding';
+export type SupportLevel =
+  | 'idea'
+  | 'sourceBacked'
+  | 'reproduced'
+  | 'wellSupported';
 
 export interface CurriculumTrack {
   id: string;
@@ -28,7 +27,7 @@ export interface Lesson {
   relatedCategories: string[];
   prerequisiteIds: string[];
   practiceType: string;
-  evidenceBoundary: EvidenceBoundary;
+  supportLevel: SupportLevel;
   safetyNote: string;
   keyQuestions: string[];
   sourceRefs: string[];
@@ -98,7 +97,7 @@ export interface QuizReview {
 export type ReviewRating = 0 | 1 | 2 | 3;
 
 export interface LearningProgress {
-  version: 3;
+  version: 4;
   completedLessonIds: string[];
   completedMissionIds: string[];
   bookmarkedTopicIds: string[];
@@ -108,99 +107,7 @@ export interface LearningProgress {
 
 export type TabId = 'today' | 'learn' | 'library' | 'lab' | 'research';
 
-export type AnalysisSeverity = 'info' | 'low' | 'medium' | 'high' | 'critical';
-export type AnalysisConfidence = 'low' | 'medium' | 'high';
-export type AndroidComponentType =
-  | 'activity'
-  | 'service'
-  | 'receiver'
-  | 'provider'
-  | 'application';
-
-export interface JadxAppIdentity {
-  packageName: string;
-  versionName: string;
-  versionCode: number;
-  minSdk: number;
-  targetSdk: number;
-  sha256?: string;
-  signerSha256?: string;
-}
-
-export interface JadxComponent {
-  name: string;
-  type: AndroidComponentType;
-  exported: boolean;
-  permission?: string;
-  intentActions: string[];
-  authorities: string[];
-  evidence: string[];
-}
-
-export interface JadxFinding {
-  id: string;
-  title: string;
-  category: string;
-  severity: AnalysisSeverity;
-  confidence: AnalysisConfidence;
-  description: string;
-  evidence: string[];
-  locations: string[];
-  assumptions: string[];
-  negativeControls: string[];
-  learningObjectives: string[];
-  evidenceBoundary: EvidenceBoundary;
-}
-
-export interface JadxBehaviorSignal {
-  id: string;
-  title: string;
-  category: string;
-  confidence: AnalysisConfidence;
-  description: string;
-  evidence: string[];
-  benignExplanations: string[];
-  capabilities: string[];
-}
-
-export interface JadxDataFlow {
-  id: string;
-  source: string;
-  sink: string;
-  path: string[];
-  confidence: AnalysisConfidence;
-  notes: string;
-}
-
-export interface JadxLearningReport {
-  schema: 'jadx-learning-report.v1';
-  generatedAt: string;
-  generator: string;
-  app: JadxAppIdentity;
-  summary: {
-    classCount: number;
-    methodCount: number;
-    permissionCount: number;
-    exportedComponentCount: number;
-    nativeLibraryCount: number;
-    findingCount: number;
-    behaviorSignalCount: number;
-  };
-  permissions: string[];
-  nativeLibraries: string[];
-  components: JadxComponent[];
-  findings: JadxFinding[];
-  behaviorSignals: JadxBehaviorSignal[];
-  dataFlows: JadxDataFlow[];
-  analysisLimits: string[];
-  safety: {
-    syntheticOrAuthorizedOnly: boolean;
-    executablePayloadsIncluded: boolean;
-    notes: string;
-  };
-}
-
-export interface LabMission {
+export interface PracticeMission {
   id: string;
   title: string;
   level: Level;
@@ -211,13 +118,13 @@ export interface LabMission {
   expectedSignals: string[];
   hints: string[];
   prerequisiteLessonIds: string[];
-  findingCategories: string[];
-  evidenceBoundary: EvidenceBoundary;
+  focusAreas: string[];
+  supportLevel: SupportLevel;
   safetyNote: string;
   sourceRefs: string[];
 }
 
-export interface LabData {
+export interface PracticeData {
   schema: string;
-  missions: LabMission[];
+  missions: PracticeMission[];
 }

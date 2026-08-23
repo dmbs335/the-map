@@ -9,10 +9,12 @@ async function readJson(relativePath) {
   return JSON.parse(await fs.readFile(path.join(appDir, relativePath), 'utf8'));
 }
 
+async function readText(relativePath) {
+  return fs.readFile(path.join(appDir, relativePath), 'utf8');
+}
+
 function assert(condition, message) {
-  if (!condition) {
-    throw new Error(message);
-  }
+  if (!condition) throw new Error(message);
 }
 
 function unique(values) {
@@ -36,31 +38,31 @@ function assertAcyclic(lessons) {
 }
 
 async function main() {
-  const [curriculum, quizzes, labs, catalog, sample] = await Promise.all([
+  const [curriculum, quizzes, practice, catalog] = await Promise.all([
     readJson('src/data/curriculum.json'),
     readJson('src/data/quizzes.json'),
     readJson('src/data/labs.json'),
     readJson('src/data/generated/catalog.json'),
-    readJson('src/data/samples/jadx-learning-report.json'),
   ]);
 
-  assert(curriculum.tracks.length >= 13, 'Expected at least 13 curriculum tracks');
-  assert(curriculum.lessons.length >= 90, 'Expected at least 90 lessons');
-  assert(quizzes.questions.length >= 70, 'Expected at least 70 quiz questions');
-  assert(labs.missions.length >= 12, 'Expected at least 12 lab missions');
-  assert(catalog.categories.length >= 13, 'Catalog must cover all 13 categories');
+  assert(curriculum.schema === 'the-map.learning-curriculum.v2', 'Curriculum schema invalid');
+  assert(quizzes.schema === 'the-map.learning-quizzes.v2', 'Quiz schema invalid');
+  assert(practice.schema === 'the-map.learning-practice.v2', 'Practice schema invalid');
+  assert(curriculum.tracks.length === 13, 'Expected exactly 13 The Map tracks');
+  assert(curriculum.lessons.length >= 52, 'Expected at least 52 lessons');
+  assert(quizzes.questions.length >= 52, 'Expected at least 52 review questions');
+  assert(practice.missions.length === 13, 'Expected one practice mission per category');
+  assert(catalog.categories.length === 13, 'Catalog must cover all 13 categories');
   assert(catalog.topics.length >= 100, 'Catalog must contain at least 100 topics');
 
   const trackIds = curriculum.tracks.map((track) => track.id);
   const lessonIds = curriculum.lessons.map((lesson) => lesson.id);
-  assert(unique(trackIds), 'Track IDs must be unique');
-  assert(unique(lessonIds), 'Lesson IDs must be unique');
   const lessonSet = new Set(lessonIds);
   const trackSet = new Set(trackIds);
-  const boundaries = new Set([
-    'modelOnly', 'symbolicWitness', 'syntheticHarness',
-    'implementationHarness', 'checkedFinding',
-  ]);
+  const supportLevels = new Set(['idea', 'sourceBacked', 'reproduced', 'wellSupported']);
+
+  assert(unique(trackIds), 'Track IDs must be unique');
+  assert(unique(lessonIds), 'Lesson IDs must be unique');
 
   for (const lesson of curriculum.lessons) {
     assert(trackSet.has(lesson.trackId), `Unknown track ${lesson.trackId}`);
@@ -69,7 +71,7 @@ async function main() {
     assert(lesson.concepts.length >= 3, `${lesson.id} needs at least 3 concepts`);
     assert(lesson.keyQuestions.length >= 1, `${lesson.id} needs a key question`);
     assert(Boolean(lesson.safetyNote), `${lesson.id} needs a safety note`);
-    assert(boundaries.has(lesson.evidenceBoundary), `${lesson.id} has invalid evidence boundary`);
+    assert(supportLevels.has(lesson.supportLevel), `${lesson.id} has invalid support level`);
     for (const prerequisite of lesson.prerequisiteIds) {
       assert(lessonSet.has(prerequisite), `${lesson.id} prerequisite ${prerequisite} missing`);
     }
@@ -79,34 +81,24 @@ async function main() {
   const categoryIds = new Set(catalog.categories.map((category) => category.id));
   for (let index = 1; index <= 13; index += 1) {
     const prefix = String(index).padStart(2, '0');
+    const categoryId = [...categoryIds].find((id) => id.startsWith(`${prefix}-`));
+    assert(categoryId, `Catalog category ${prefix} missing`);
+    assert(trackSet.has(categoryId), `Curriculum track ${categoryId} missing`);
     assert(
-      [...categoryIds].some((id) => id.startsWith(`${prefix}-`)),
-      `Catalog category ${prefix} missing`,
-    );
-    assert(
-      curriculum.lessons.some((lesson) =>
-        lesson.relatedCategories.some((category) => category.startsWith(`${prefix}-`)),
-      ),
-      `Curriculum does not cover category ${prefix}`,
+      curriculum.lessons.filter((lesson) => lesson.trackId === categoryId).length >= 4,
+      `Curriculum track ${categoryId} needs at least four lessons`,
     );
   }
 
   const conceptCorpus = curriculum.lessons
-    .flatMap((lesson) => [lesson.title, lesson.summary, ...lesson.concepts])
+    .flatMap((lesson) => [lesson.title, lesson.summary, ...lesson.concepts, ...lesson.keyQuestions])
     .join(' ')
     .toLocaleLowerCase();
   const requiredConcepts = [
-    'apk', 'androidmanifest', 'dex', 'activity', 'service', 'broadcastreceiver',
-    'contentprovider', 'intent', 'binder', 'permission', 'signer', 'sandbox',
-    'jadx', 'call graph', 'reflection', 'obfuscation', 'jni', 'exported',
-    'deep link', 'pendingintent', 'webview', 'storage', 'keystore', 'tls',
-    'dynamic code', 'supply chain', 'c2', 'persistence', 'accessibility',
-    'overlay', 'otp', 'exfiltration', 'dropper', 'anti-debug', 'ransomware',
-    'adb', 'runtime instrumentation', 'semantic differential', 'preservation law',
-    'carrier', 'observer', 'capability', 'evidence boundary',
-    'deferred authorization drift', 'authority laundering', 'semantic state',
-    'invariant', 'reachability', 'refinement', 'observational equivalence',
-    'markov adequacy', 'finite universe', 'safety kernel', 'mcts readiness',
+    'source', 'sink', 'authorization', 'message framing', 'trust boundary',
+    'origin', 'normalization', 'workflow', 'cache', 'framework defaults',
+    'hypothesis', 'primary source', 'threat model', 'research gap',
+    'baseline', 'falsification',
   ];
   for (const concept of requiredConcepts) {
     assert(conceptCorpus.includes(concept), `Required concept missing: ${concept}`);
@@ -126,40 +118,78 @@ async function main() {
     assert(Boolean(question.explanation), `${question.id} explanation missing`);
   }
 
-  const missionIds = labs.missions.map((mission) => mission.id);
-  assert(unique(missionIds), 'Mission IDs must be unique');
-  for (const mission of labs.missions) {
+  const missionIds = practice.missions.map((mission) => mission.id);
+  assert(unique(missionIds), 'Practice IDs must be unique');
+  for (const mission of practice.missions) {
     assert(mission.objectives.length >= 3, `${mission.id} objectives missing`);
     assert(mission.steps.length >= 4, `${mission.id} steps missing`);
     assert(mission.expectedSignals.length >= 2, `${mission.id} signals missing`);
+    assert(supportLevels.has(mission.supportLevel), `${mission.id} support level invalid`);
     assert(Boolean(mission.safetyNote), `${mission.id} safety note missing`);
     for (const prerequisite of mission.prerequisiteLessonIds) {
       assert(lessonSet.has(prerequisite), `${mission.id} prerequisite ${prerequisite} missing`);
     }
   }
 
-  assert(sample.schema === 'jadx-learning-report.v1', 'Sample report schema invalid');
-  assert(sample.safety.syntheticOrAuthorizedOnly === true, 'Sample scope must be safe');
-  assert(sample.safety.executablePayloadsIncluded === false, 'Sample cannot contain payloads');
-  assert(sample.summary.findingCount === sample.findings.length, 'Sample finding count mismatch');
-  assert(sample.summary.behaviorSignalCount === sample.behaviorSignals.length, 'Sample signal count mismatch');
-  assert(
-    curriculum.lessons.some((lesson) =>
-      lesson.id === 'safety-kernel-mcts-readiness' &&
-      lesson.summary.toLocaleLowerCase().includes('구현하지 않는다'),
-    ),
-    'MCTS non-goal must be explicit',
-  );
+  const sourceFiles = [
+    'App.tsx',
+    'README.md',
+    'src/types.ts',
+    'src/content/researchConcepts.ts',
+    'src/screens/TodayScreen.tsx',
+    'src/screens/LearnScreen.tsx',
+    'src/screens/LabScreen.tsx',
+    'src/screens/ResearchScreen.tsx',
+    'src/screens/LessonDetailScreen.tsx',
+    'src/screens/MissionDetailScreen.tsx',
+    'src/screens/LibraryScreen.tsx',
+    'src/screens/TopicDetailScreen.tsx',
+  ];
+  const sourceCorpus = (
+    await Promise.all(sourceFiles.map((file) => readText(file)))
+  ).join('\n');
+  const learningCorpus = [
+    sourceCorpus,
+    JSON.stringify(curriculum),
+    JSON.stringify(quizzes),
+    JSON.stringify(practice),
+  ].join('\n');
+
+  const removedTerms = [
+    /\bjadx\b/i,
+    /\bandroidmanifest\b/i,
+    /\bapk\b/i,
+    /\bdex\b/i,
+    /\bbinder\b/i,
+    /\bpendingintent\b/i,
+    /\bcontentprovider\b/i,
+    /\bandroid security\b/i,
+    /\bmalware\b/i,
+    /semantic differential/i,
+    /preservation law/i,
+    /evidence boundary/i,
+    /deferred authorization drift/i,
+    /authority laundering/i,
+    /markov adequacy/i,
+    /finite universe/i,
+    /safety kernel/i,
+    /proof-carrying/i,
+    /\bmcts\b/i,
+    /reinforcement learning/i,
+    /policy\/value network/i,
+  ];
+  for (const pattern of removedTerms) {
+    assert(!pattern.test(learningCorpus), `Removed domain term remains: ${pattern}`);
+  }
 
   console.log(JSON.stringify({
     tracks: curriculum.tracks.length,
     lessons: curriculum.lessons.length,
     quizzes: quizzes.questions.length,
-    missions: labs.missions.length,
+    practiceMissions: practice.missions.length,
     catalogTopics: catalog.topics.length,
     catalogCategories: catalog.categories.length,
-    sampleFindings: sample.findings.length,
-    sampleSignals: sample.behaviorSignals.length,
+    removedDomainTermsChecked: removedTerms.length,
   }));
 }
 

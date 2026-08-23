@@ -1,30 +1,25 @@
 {
   "expo": {
-    "name": "JADX Security Learning Lab",
-    "slug": "the-map-jadx-learning",
-    "version": "0.3.0",
+    "name": "The Map Learning",
+    "slug": "the-map-learning",
+    "version": "0.4.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
-    "scheme": "jadxlearn",
+    "scheme": "themaplearn",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "io.rewritelab.jadxlearning"
+      "bundleIdentifier": "io.rewritelab.themaplearning"
     },
     "android": {
-      "package": "io.rewritelab.jadxlearning",
+      "package": "io.rewritelab.themaplearning",
       "adaptiveIcon": {
         "backgroundColor": "#0E1726"
       }
     },
-    "plugins": [
-      "expo-sqlite",
-      "expo-document-picker"
-    ],
+    "plugins": ["expo-sqlite"],
     "extra": {
-      "contentRepository": "dmbs335/the-map",
-      "analysisRepository": "dmbs335/jadx",
-      "formalRepository": "rewrite-lab/websec-formal"
+      "contentRepository": "dmbs335/the-map"
     }
   }
 }

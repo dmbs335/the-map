@@ -4,9 +4,8 @@ dist/
 web-build/
 *.log
 
-# Restored/generated at install or build time.
+# Generated from The Map at install/build time.
 src/data/curriculum.json
 src/data/quizzes.json
 src/data/labs.json
-src/data/samples/jadx-learning-report.json
 src/data/generated/catalog.json

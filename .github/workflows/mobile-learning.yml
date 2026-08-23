@@ -1,4 +1,4 @@
-name: Mobile Learning App
+name: The Map Learning App
 
 on:
   push:
@@ -52,11 +52,11 @@ jobs:
           node-version: '22'
       - name: Install dependencies
         run: npm install --no-audit --no-fund
-      - name: Generate complete The Map catalog
-        run: npm run generate:catalog
-      - name: Validate curriculum, labs, quizzes, and sample report
+      - name: Generate The Map catalog and learning content
+        run: npm run prepare:content
+      - name: Validate curriculum, practice, and review data
         run: npm run validate:curriculum
-      - name: Typecheck mobile app
+      - name: Typecheck learning app
         run: npx tsc --noEmit
-      - name: Export Android bundle
+      - name: Export app bundle
         run: npx expo export --platform android --output-dir dist

@@ -71,7 +71,7 @@ export function LibraryScreen({
       <ScreenHeader
         eyebrow="THE MAP"
         title="웹 보안 지식 지도"
-        subtitle="모바일 백엔드·WebView·인증·parser·공급망까지 연결되는 The Map 문서를 오프라인 색인으로 탐색한다."
+        subtitle="13개 범주의 원문을 검색하고, 북마크하고, 커리큘럼과 함께 교차해서 읽는다."
         theme={theme}
       />
 
