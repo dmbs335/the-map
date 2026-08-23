@@ -4,10 +4,9 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import catalogJson from '../data/generated/catalog.json';
 import curriculumJson from '../data/curriculum.json';
 import labsJson from '../data/labs.json';
-import { useAnalysis } from '../state/AnalysisContext';
 import { useLearning } from '../state/LearningContext';
 import { palette, spacing, type AppTheme } from '../theme';
-import type { CatalogData, CurriculumData, LabData, TabId } from '../types';
+import type { CatalogData, CurriculumData, PracticeData, TabId } from '../types';
 import {
   Card,
   Pill,
@@ -19,7 +18,7 @@ import {
 
 const curriculum = curriculumJson as CurriculumData;
 const catalog = catalogJson as CatalogData;
-const labs = labsJson as LabData;
+const practice = labsJson as PracticeData;
 
 export function TodayScreen({
   theme,
@@ -41,7 +40,6 @@ export function TodayScreen({
     dueQuizIds,
     streak,
   } = useLearning();
-  const { report, reportSource } = useAnalysis();
 
   const nextLesson = useMemo(
     () =>
@@ -54,9 +52,10 @@ export function TodayScreen({
       ),
     [progress.completedLessonIds],
   );
+
   const nextMission = useMemo(
     () =>
-      labs.missions.find(
+      practice.missions.find(
         (mission) =>
           !progress.completedMissionIds.includes(mission.id) &&
           mission.prerequisiteLessonIds.every((id) =>
@@ -77,11 +76,12 @@ export function TodayScreen({
       showsVerticalScrollIndicator={false}
     >
       <ScreenHeader
-        eyebrow="ANDROID SECURITY LEARNING LAB"
-        title="오늘은 증거 사슬 하나를 닫아보자"
-        subtitle="JADX에서 관찰하고, 모바일·웹 경계를 연결하고, semantic 가설을 local control로 검증한다."
+        eyebrow="THE MAP LEARNING"
+        title="오늘은 질문 하나를 더 정교하게"
+        subtitle="취약점 이름을 외우기보다 관찰, 가설, 대조, 재현, 일반화의 흐름으로 The Map을 익힌다."
         theme={theme}
       />
+
       <View style={styles.pillRow}>
         <Pill
           label={hydrated ? `${streak}일 연속` : '진도 불러오는 중'}
@@ -89,9 +89,9 @@ export function TodayScreen({
           tone="success"
         />
         <Pill
-          label={reportSource === 'sample' ? 'synthetic report' : 'imported report'}
+          label={`${bookmarkedCount}개 북마크`}
           theme={theme}
-          tone="research"
+          tone="primary"
         />
       </View>
 
@@ -103,8 +103,9 @@ export function TodayScreen({
           </Text>
         </View>
         <ProgressBar value={completion} theme={theme} />
-        <Text style={[styles.small, { color: theme.muted }]}>
-          {curriculum.tracks.length}개 트랙: Android 플랫폼·JADX·공격면·악성행위·동적 분석·웹·formal research
+        <Text style={[styles.body, { color: theme.muted }]}>
+          The Map의 13개 최상위 범주를 그대로 따라가며 각 범주를 개념, 사례, 분석법,
+          실험 설계 순서로 학습한다.
         </Text>
       </Card>
 
@@ -114,8 +115,10 @@ export function TodayScreen({
           <Text style={[styles.small, { color: theme.muted }]}>복습 대기</Text>
         </Card>
         <Card theme={theme} style={styles.metricCard}>
-          <Text style={[styles.metric, { color: theme.text }]}>{completedMissionCount}/{labs.missions.length}</Text>
-          <Text style={[styles.small, { color: theme.muted }]}>미션</Text>
+          <Text style={[styles.metric, { color: theme.text }]}>
+            {completedMissionCount}/{practice.missions.length}
+          </Text>
+          <Text style={[styles.small, { color: theme.muted }]}>연습</Text>
         </Card>
         <Card theme={theme} style={styles.metricCard}>
           <Text style={[styles.metric, { color: theme.text }]}>{bookmarkedCount}</Text>
@@ -123,7 +126,7 @@ export function TodayScreen({
         </Card>
         <Card theme={theme} style={styles.metricCard}>
           <Text style={[styles.metric, { color: theme.text }]}>{catalog.stats.topicCount}</Text>
-          <Text style={[styles.small, { color: theme.muted }]}>The Map</Text>
+          <Text style={[styles.small, { color: theme.muted }]}>Map 주제</Text>
         </Card>
       </View>
 
@@ -133,7 +136,7 @@ export function TodayScreen({
           <View style={styles.pillRow}>
             <Pill label={nextLesson.level} theme={theme} tone="primary" />
             <Pill label={`${nextLesson.minutes}분`} theme={theme} />
-            <Pill label={nextLesson.evidenceBoundary} theme={theme} tone="research" />
+            <Pill label={nextLesson.supportLevel} theme={theme} tone="research" />
           </View>
           <Text style={[styles.cardTitle, { color: theme.text }]}>{nextLesson.title}</Text>
           <Text style={[styles.body, { color: theme.muted }]}>{nextLesson.summary}</Text>
@@ -142,52 +145,40 @@ export function TodayScreen({
       ) : (
         <Card theme={theme}>
           <Text style={[styles.cardTitle, { color: theme.text }]}>레슨을 모두 완료했어</Text>
-          <Text style={[styles.body, { color: theme.muted }]}>Lab과 연구 가설을 반복해서 검토해봐.</Text>
+          <Text style={[styles.body, { color: theme.muted }]}>
+            연습과 탐구 탭에서 범주 간 연결과 새로운 질문 만들기를 반복해봐.
+          </Text>
         </Card>
       )}
 
-      <SectionTitle title="다음 분석 미션" subtitle="실제 evidence chain을 연습하는 단계" theme={theme} />
+      <SectionTitle title="다음 분석 연습" subtitle="관찰과 대조군을 실제로 적어보는 단계" theme={theme} />
       {nextMission ? (
         <Card theme={theme}>
           <Text style={[styles.cardTitle, { color: theme.text }]}>{nextMission.title}</Text>
           <Text style={[styles.body, { color: theme.muted }]}>{nextMission.summary}</Text>
-          <PrimaryButton label="미션 열기" onPress={() => onOpenMission(nextMission.id)} theme={theme} />
+          <PrimaryButton label="연습 열기" onPress={() => onOpenMission(nextMission.id)} theme={theme} />
         </Card>
       ) : null}
 
-      <SectionTitle title="현재 JADX Artifact" theme={theme} />
-      <Card theme={theme}>
-        <View style={styles.rowBetween}>
-          <View style={styles.flex}>
-            <Text style={[styles.cardTitle, { color: theme.text }]}>{report.app.packageName}</Text>
-            <Text style={[styles.body, { color: theme.muted }]}>
-              {report.findings.length} finding candidates · {report.behaviorSignals.length} behavior signals · {report.analysisLimits.length} limits
-            </Text>
-          </View>
-          <Pill label={reportSource} theme={theme} tone="warning" />
-        </View>
-        <PrimaryButton label="Lab에서 분석" onPress={() => onNavigate('lab')} theme={theme} variant="secondary" />
-      </Card>
-
-      <SectionTitle title="오늘의 균형" subtitle="읽기·회상·분석·연구를 함께 유지한다" theme={theme} />
+      <SectionTitle title="오늘의 균형" subtitle="읽기·회상·분석·탐구를 함께 유지한다" theme={theme} />
       <Card theme={theme}>
         <View style={styles.balanceRow}>
           <Balance number="1" label="레슨" color={palette.primary} theme={theme} />
           <Balance number="5" label="회상" color={palette.warning} theme={theme} />
-          <Balance number="1" label="미션" color={palette.success} theme={theme} />
-          <Balance number="1" label="가설" color={palette.research} theme={theme} />
+          <Balance number="1" label="연습" color={palette.success} theme={theme} />
+          <Balance number="1" label="질문" color={palette.research} theme={theme} />
         </View>
         <View style={styles.buttonStack}>
-          <PrimaryButton label="Lab 열기" onPress={() => onNavigate('lab')} theme={theme} />
-          <PrimaryButton label="Research 열기" onPress={() => onNavigate('research')} theme={theme} variant="secondary" />
+          <PrimaryButton label="연습 열기" onPress={() => onNavigate('lab')} theme={theme} />
+          <PrimaryButton label="탐구 열기" onPress={() => onNavigate('research')} theme={theme} variant="secondary" />
         </View>
       </Card>
 
       <Card theme={theme} style={{ backgroundColor: theme.primarySoft }}>
-        <Text style={[styles.cardTitle, { color: theme.text }]}>안전 경계</Text>
+        <Text style={[styles.cardTitle, { color: theme.text }]}>학습 원칙</Text>
         <Text style={[styles.body, { color: theme.muted }]}>
-          앱은 synthetic/authorized artifact와 교육용 JSON을 다룬다. APK 실행, payload 배포,
-          제3자 시스템 테스트를 자동화하지 않으며 model-only 가설을 실제 제품 finding으로 표시하지 않는다.
+          공개 자료, 합성 예제, 또는 명시적으로 허가된 환경에서만 검증한다.
+          관찰하지 않은 사실은 추측으로 표시하고, 결론의 강도는 가진 근거보다 세게 잡지 않는다.
         </Text>
       </Card>
     </ScrollView>
@@ -217,7 +208,6 @@ const styles = StyleSheet.create({
   content: { gap: spacing.lg, padding: spacing.lg, paddingBottom: 120 },
   pillRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: spacing.md },
-  flex: { flex: 1, gap: spacing.xs },
   cardTitle: { fontSize: 18, fontWeight: '900' },
   body: { fontSize: 14, lineHeight: 22 },
   small: { fontSize: 11, lineHeight: 17, textAlign: 'center' },
