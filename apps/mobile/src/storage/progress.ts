@@ -2,10 +2,10 @@ import Storage from 'expo-sqlite/kv-store';
 
 import type { LearningProgress, QuizReview, ReviewRating } from '../types';
 
-const STORAGE_KEY = 'the-map-learning-progress-v3';
+const STORAGE_KEY = 'the-map-learning-progress-v4';
 
 export const EMPTY_PROGRESS: LearningProgress = {
-  version: 3,
+  version: 4,
   completedLessonIds: [],
   completedMissionIds: [],
   bookmarkedTopicIds: [],
@@ -56,7 +56,7 @@ function sanitizeProgress(value: unknown): LearningProgress {
   }
 
   return {
-    version: 3,
+    version: 4,
     completedLessonIds: unique(
       isStringArray(candidate.completedLessonIds)
         ? candidate.completedLessonIds
