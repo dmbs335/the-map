@@ -5,7 +5,7 @@ import labsJson from '../data/labs.json';
 import curriculumJson from '../data/curriculum.json';
 import { useLearning } from '../state/LearningContext';
 import { spacing, type AppTheme } from '../theme';
-import type { CurriculumData, LabData } from '../types';
+import type { CurriculumData, PracticeData } from '../types';
 import {
   BulletList,
   Card,
@@ -17,7 +17,7 @@ import {
   TextButton,
 } from '../components/ui';
 
-const labs = labsJson as LabData;
+const practice = labsJson as PracticeData;
 const curriculum = curriculumJson as CurriculumData;
 
 export function MissionDetailScreen({
@@ -32,13 +32,13 @@ export function MissionDetailScreen({
   onOpenLesson: (lessonId: string) => void;
 }): React.ReactElement {
   const { progress, completeMission, reopenMission } = useLearning();
-  const mission = labs.missions.find((candidate) => candidate.id === missionId);
+  const mission = practice.missions.find((candidate) => candidate.id === missionId);
 
   if (!mission) {
     return (
       <ScrollView contentContainerStyle={styles.content}>
-        <TextButton label="‹ Lab" onPress={onBack} theme={theme} />
-        <EmptyState title="미션을 찾지 못했어" detail={missionId} theme={theme} />
+        <TextButton label="‹ 연습" onPress={onBack} theme={theme} />
+        <EmptyState title="연습을 찾지 못했어" detail={missionId} theme={theme} />
       </ScrollView>
     );
   }
@@ -53,9 +53,9 @@ export function MissionDetailScreen({
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
-      <TextButton label="‹ Lab" onPress={onBack} theme={theme} />
+      <TextButton label="‹ 연습" onPress={onBack} theme={theme} />
       <ScreenHeader
-        eyebrow="SAFE ANALYSIS MISSION"
+        eyebrow="SAFE PRACTICE"
         title={mission.title}
         subtitle={mission.summary}
         theme={theme}
@@ -63,7 +63,7 @@ export function MissionDetailScreen({
       <View style={styles.pills}>
         <Pill label={mission.level} theme={theme} tone="primary" />
         <Pill label={`${mission.minutes}분`} theme={theme} />
-        <Pill label={mission.evidenceBoundary} theme={theme} tone="research" />
+        <Pill label={mission.supportLevel} theme={theme} tone="research" />
       </View>
 
       {missing.length > 0 ? (
@@ -100,7 +100,7 @@ export function MissionDetailScreen({
         ))}
       </Card>
 
-      <SectionTitle title="기대 신호" theme={theme} />
+      <SectionTitle title="확인할 결과" theme={theme} />
       <Card theme={theme}>
         <BulletList items={mission.expectedSignals} theme={theme} />
       </Card>
@@ -111,12 +111,12 @@ export function MissionDetailScreen({
       </Card>
 
       <Card theme={theme} style={{ backgroundColor: theme.primarySoft }}>
-        <Text style={[styles.cardTitle, { color: theme.text }]}>안전 경계</Text>
+        <Text style={[styles.cardTitle, { color: theme.text }]}>안전 범위</Text>
         <Text style={[styles.body, { color: theme.muted }]}>{mission.safetyNote}</Text>
       </Card>
 
       <PrimaryButton
-        label={completed ? '완료 취소' : '미션 완료'}
+        label={completed ? '완료 취소' : '연습 완료'}
         onPress={() =>
           completed ? reopenMission(mission.id) : completeMission(mission.id)
         }
