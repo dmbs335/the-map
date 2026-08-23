@@ -77,22 +77,23 @@ export function TopicDetailScreen({
         )}
       </View>
 
-      <SectionTitle title="학습할 때 확인할 것" theme={theme} />
+      <SectionTitle title="읽으면서 던질 질문" theme={theme} />
       <Card theme={theme}>
         <BulletList
           items={[
-            '어떤 mutation target이 바뀌는가?',
-            'validator와 consumer 사이에 어떤 discrepancy가 생기는가?',
-            '공격자가 실제로 얻는 capability는 무엇인가?',
-            '어떤 evidence boundary까지 확인됐는가?',
-            '모바일 앱·WebView·백엔드와 연결되는 지점이 있는가?',
+            '직접 관찰된 사실과 저자의 해석은 각각 무엇인가?',
+            '입력 또는 상태가 어디에서 다른 의미로 바뀌는가?',
+            '어떤 신뢰 가정이 필요하며 누가 그 값을 만들 수 있는가?',
+            '정상 대조군과 최소 변형 사례를 어떻게 만들 수 있는가?',
+            '결론을 반박할 수 있는 조건은 무엇인가?',
+            '다른 The Map 범주에도 같은 질문을 적용할 수 있는가?',
           ]}
           theme={theme}
         />
       </Card>
 
       <Card theme={theme} style={{ backgroundColor: theme.primarySoft }}>
-        <Text style={[styles.cardTitle, { color: theme.text }]}>문서 해석 경계</Text>
+        <Text style={[styles.cardTitle, { color: theme.text }]}>문서 해석 범위</Text>
         <Text style={[styles.body, { color: theme.muted }]}>
           이 앱의 catalog는 제목·요약·태그를 offline index로 제공한다. 전체 원문과
           최신 수정 내용은 저장소 문서에서 확인하며, 문서 존재만으로 실제 제품
