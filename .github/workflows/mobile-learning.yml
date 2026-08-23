@@ -1,0 +1,62 @@
+name: Mobile Learning App
+
+on:
+  push:
+    paths:
+      - 'apps/mobile/**'
+      - '01-injection/**'
+      - '02-auth/**'
+      - '03-http-protocol/**'
+      - '04-server-side/**'
+      - '05-client-side/**'
+      - '06-encoding-parser/**'
+      - '07-application-logic/**'
+      - '08-infrastructure/**'
+      - '09-frameworks-and-languages/**'
+      - '10-recon-methodology/**'
+      - '11-researchers/**'
+      - '12-product-security/**'
+      - '13-misc/**'
+      - 'VERIFIED_ONLY.md'
+      - '.github/workflows/mobile-learning.yml'
+  pull_request:
+    paths:
+      - 'apps/mobile/**'
+      - '01-injection/**'
+      - '02-auth/**'
+      - '03-http-protocol/**'
+      - '04-server-side/**'
+      - '05-client-side/**'
+      - '06-encoding-parser/**'
+      - '07-application-logic/**'
+      - '08-infrastructure/**'
+      - '09-frameworks-and-languages/**'
+      - '10-recon-methodology/**'
+      - '11-researchers/**'
+      - '12-product-security/**'
+      - '13-misc/**'
+      - 'VERIFIED_ONLY.md'
+      - '.github/workflows/mobile-learning.yml'
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Generate complete The Map catalog
+        run: npm run generate:catalog
+      - name: Validate curriculum, labs, quizzes, and sample report
+        run: npm run validate:curriculum
+      - name: Typecheck mobile app
+        run: npx tsc --noEmit
+      - name: Export Android bundle
+        run: npx expo export --platform android --output-dir dist
