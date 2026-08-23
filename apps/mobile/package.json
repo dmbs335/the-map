@@ -1,12 +1,12 @@
 {
-  "name": "the-map-jadx-learning",
-  "version": "0.3.0",
+  "name": "the-map-learning",
+  "version": "0.4.0",
   "private": true,
   "main": "index.ts",
   "scripts": {
-    "restore:content": "node ./scripts/restore-bundled-data.mjs",
     "generate:catalog": "node ./scripts/generate-catalog.mjs",
-    "prepare:content": "npm run restore:content && npm run generate:catalog",
+    "generate:learning": "node ./scripts/generate-learning-content.mjs",
+    "prepare:content": "npm run generate:catalog && npm run generate:learning",
     "validate:curriculum": "node ./scripts/validate-curriculum.mjs",
     "postinstall": "npm run prepare:content",
     "prestart": "npm run prepare:content",
@@ -21,8 +21,6 @@
   },
   "dependencies": {
     "expo": "~57.0.9",
-    "expo-document-picker": "~57.0.1",
-    "expo-file-system": "~57.0.2",
     "expo-sqlite": "~57.0.1",
     "expo-status-bar": "~57.0.1",
     "react": "19.2.3",
