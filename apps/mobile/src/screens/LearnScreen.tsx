@@ -144,7 +144,7 @@ export function LearnScreen({
                 return (
                   <ListItemButton
                     key={lesson.id}
-                    title={`${lesson.order}. ${lesson.title}`}
+                    title={lesson.title}
                     subtitle={lesson.summary}
                     meta={`${lesson.minutes}분 · ${lesson.level} · ${lesson.supportLevel}`}
                     onPress={() => onOpenLesson(lesson.id)}
