@@ -25,31 +25,32 @@ export function ResearchScreen({
       showsVerticalScrollIndicator={false}
     >
       <ScreenHeader
-        eyebrow="FORMAL RESEARCH"
-        title="취약점 family를 넘어 연구 공간으로"
-        subtitle="semantic differential에서 proof-carrying harness와 future search environment까지, 현재 구현된 것과 아직 non-goal인 것을 분리한다."
+        eyebrow="RESEARCH HABITS"
+        title="사례 암기에서 질문 만드는 습관으로"
+        subtitle="The Map의 사례를 관찰하고, 반박 가능한 가설을 만들고, 대조군과 재현으로 좁힌 뒤 다른 범주에 적용한다."
         theme={theme}
       />
 
       <View style={styles.statusGrid}>
-        <StatusCard label="연구 주제 생성" value="운영" color={palette.success} theme={theme} />
-        <StatusCard label="Semantic theory" value="형식화" color={palette.research} theme={theme} />
-        <StatusCard label="Android/JADX bridge" value="학습 어댑터" color={palette.primary} theme={theme} />
-        <StatusCard label="MCTS / RL" value="미구현" color={palette.warning} theme={theme} />
+        <StatusCard label="1. 관찰" value="무엇을 봤나" color={palette.primary} theme={theme} />
+        <StatusCard label="2. 가설" value="왜 그랬나" color={palette.warning} theme={theme} />
+        <StatusCard label="3. 검증" value="어떻게 틀릴까" color={palette.success} theme={theme} />
+        <StatusCard label="4. 일반화" value="어디에 또 있나" color={palette.research} theme={theme} />
       </View>
 
       <Card theme={theme} style={{ backgroundColor: theme.primarySoft }}>
-        <Text style={[styles.cardTitle, { color: theme.text }]}>현재 경계</Text>
+        <Text style={[styles.cardTitle, { color: theme.text }]}>핵심 원칙</Text>
         <Text style={[styles.body, { color: theme.muted }]}>
-          앱은 state/action/transition/invariant/refinement/finite closure를 학습한다.
-          MCTS, reinforcement learning, policy/value network, learned reward는 구현하지
-          않고 future optimizer의 전제 조건으로만 다룬다.
+          특정 이론이나 도구의 용어를 외우는 것이 목적이 아니다. 서로 다른 사례를
+          비교할 때 반복해서 쓸 수 있는 질문—누가 해석하는지, 무엇을 믿는지,
+          시간이 흐른 뒤에도 판단이 유효한지, 어떤 증거가 결론을 지지하는지—를
+          습관으로 만드는 것이 목적이다.
         </Text>
       </Card>
 
       <SectionTitle
-        title="핵심 개념"
-        subtitle="각 카드를 열면 연결된 커리큘럼 레슨으로 이동한다"
+        title="탐구를 돕는 8가지 질문"
+        subtitle="각 카드는 The Map 커리큘럼의 실제 레슨으로 연결된다"
         theme={theme}
       />
       <View style={styles.list}>
@@ -61,9 +62,9 @@ export function ResearchScreen({
                 label={concept.status}
                 theme={theme}
                 tone={
-                  concept.status === 'operational'
+                  concept.status === 'core'
                     ? 'success'
-                    : concept.status === 'future'
+                    : concept.status === 'explore'
                       ? 'warning'
                       : 'research'
                 }
@@ -73,7 +74,7 @@ export function ResearchScreen({
             <Text style={[styles.why, { color: theme.text }]}>{concept.whyItMatters}</Text>
             <BulletList items={concept.checks} theme={theme} />
             <TextButton
-              label="레슨 열기"
+              label="관련 레슨 열기"
               onPress={() => onOpenLesson(concept.lessonId)}
               theme={theme}
             />
@@ -81,32 +82,19 @@ export function ResearchScreen({
         ))}
       </View>
 
-      <SectionTitle title="Android에 적용할 연구 질문" theme={theme} />
+      <SectionTitle title="한 사례를 끝까지 보는 순서" theme={theme} />
       <Card theme={theme}>
-        <BulletList
-          items={[
-            'PendingIntent·background work의 authorization certificate는 어떤 lifecycle transition까지 유효한가?',
-            'Binder caller identity가 Intent extra, Bundle, database row로 바뀔 때 provenance가 어디서 사라지는가?',
-            'Manifest permission validator와 runtime component consumer가 같은 capability boundary를 보는가?',
-            'WebView에서 확인한 origin과 native bridge가 사용한 document authority가 같은가?',
-            'JADX call graph가 끊긴 reflection/native/dynamic-loading edge를 어떤 evidence로 안전하게 보완할 수 있는가?',
-            '악성행위 분류에서 permission/API signature와 실제 capability trace를 어떻게 분리할 것인가?',
-          ]}
-          theme={theme}
-        />
-      </Card>
-
-      <SectionTitle title="연구 결과의 승격 경로" theme={theme} />
-      <Card theme={theme}>
-        <Text style={[styles.pipeline, { color: theme.text }]}>Research coordinate</Text>
+        <Text style={[styles.pipeline, { color: theme.text }]}>The Map 사례와 1차 자료</Text>
         <Text style={[styles.arrow, { color: theme.muted }]}>↓</Text>
-        <Text style={[styles.pipeline, { color: theme.text }]}>Semantic state & mutation trace</Text>
+        <Text style={[styles.pipeline, { color: theme.text }]}>직접 관찰한 사실</Text>
         <Text style={[styles.arrow, { color: theme.muted }]}>↓</Text>
-        <Text style={[styles.pipeline, { color: theme.text }]}>JADX/static evidence + assumptions</Text>
+        <Text style={[styles.pipeline, { color: theme.text }]}>반박 가능한 가설</Text>
         <Text style={[styles.arrow, { color: theme.muted }]}>↓</Text>
-        <Text style={[styles.pipeline, { color: theme.text }]}>Local baseline / adversarial / mitigation</Text>
+        <Text style={[styles.pipeline, { color: theme.text }]}>정상 대조군과 최소 변형</Text>
         <Text style={[styles.arrow, { color: theme.muted }]}>↓</Text>
-        <Text style={[styles.pipeline, { color: theme.text }]}>Evidence-bound checked finding</Text>
+        <Text style={[styles.pipeline, { color: theme.text }]}>재현 결과와 남은 가정</Text>
+        <Text style={[styles.arrow, { color: theme.muted }]}>↓</Text>
+        <Text style={[styles.pipeline, { color: theme.text }]}>다른 범주에 던질 질문</Text>
       </Card>
     </ScrollView>
   );
