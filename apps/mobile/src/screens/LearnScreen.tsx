@@ -48,9 +48,9 @@ export function LearnScreen({
       showsVerticalScrollIndicator={false}
     >
       <ScreenHeader
-        eyebrow="CURRICULUM"
-        title="Android 보안 분석 로드맵"
-        subtitle="APK 구조와 JADX부터 악성행위·동적 검증·웹 백엔드·semantic/formal 연구까지 끊김 없이 연결한다."
+        eyebrow="THE MAP CURRICULUM"
+        title="13개 범주를 하나의 사고법으로"
+        subtitle="각 범주의 핵심 개념, 실패 패턴, 분석 절차, 대조 실험을 순서대로 연결한다."
         theme={theme}
       />
 
@@ -104,6 +104,7 @@ export function LearnScreen({
         if (trackLessons.length === 0) {
           return null;
         }
+
         const allTrackLessons = curriculum.lessons.filter(
           (lesson) => lesson.trackId === track.id,
         );
@@ -145,7 +146,7 @@ export function LearnScreen({
                     key={lesson.id}
                     title={`${lesson.order}. ${lesson.title}`}
                     subtitle={lesson.summary}
-                    meta={`${lesson.minutes}분 · ${lesson.level} · ${lesson.evidenceBoundary}`}
+                    meta={`${lesson.minutes}분 · ${lesson.level} · ${lesson.supportLevel}`}
                     onPress={() => onOpenLesson(lesson.id)}
                     theme={theme}
                     completed={completedLesson}
@@ -165,10 +166,9 @@ export function LearnScreen({
       />
       <Card theme={theme}>
         <Text style={[styles.scopeText, { color: theme.muted }]}>
-          Android 플랫폼, JADX 정적 분석, 컴포넌트/IPC, WebView, 데이터·TLS·Native,
-          악성행위, 동적 검증, The Map 웹 보안, semantic differential,
-          분산 권한, 자동 연구 발굴, 형식적 탐색 기반과 방어 엔지니어링을
-          모두 포함한다.
+          Injection, 인증·인가, HTTP, 서버·클라이언트, parser, 비즈니스 로직,
+          인프라, 프레임워크, recon, 공개 연구, 제품 보안, 교차 범주 탐구를
+          The Map의 원문과 함께 학습한다.
         </Text>
       </Card>
     </ScrollView>
