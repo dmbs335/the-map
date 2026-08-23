@@ -9,100 +9,49 @@ import {
 
 import labsJson from '../data/labs.json';
 import quizJson from '../data/quizzes.json';
-import { findingPriorityScore, reportCoverage } from '../analysis/report';
-import { useAnalysis } from '../state/AnalysisContext';
 import { useLearning } from '../state/LearningContext';
 import { palette, spacing, type AppTheme } from '../theme';
 import type {
-  AnalysisSeverity,
-  JadxFinding,
-  LabData,
+  PracticeData,
   QuizData,
   ReviewRating,
 } from '../types';
 import {
   BulletList,
   Card,
-  KeyValueRow,
   ListItemButton,
   Pill,
   PrimaryButton,
   ScreenHeader,
   SectionTitle,
-  TextButton,
 } from '../components/ui';
 
-const labs = labsJson as LabData;
+const practice = labsJson as PracticeData;
 const quizzes = quizJson as QuizData;
-
-const severityTone: Record<
-  AnalysisSeverity,
-  'neutral' | 'primary' | 'warning' | 'danger'
-> = {
-  info: 'neutral',
-  low: 'primary',
-  medium: 'warning',
-  high: 'danger',
-  critical: 'danger',
-};
 
 export function LabScreen({
   theme,
   onOpenMission,
-  onOpenLesson,
 }: {
   theme: AppTheme;
   onOpenMission: (missionId: string) => void;
-  onOpenLesson: (lessonId: string) => void;
 }): React.ReactElement {
-  const {
-    report,
-    reportSource,
-    importError,
-    importing,
-    importReport,
-    useSampleReport,
-    clearImportError,
-  } = useAnalysis();
   const {
     progress,
     dueQuizIds,
     rateQuiz,
   } = useLearning();
-  const [selectedFindingId, setSelectedFindingId] = useState<string | null>(
-    null,
-  );
   const [quizIndex, setQuizIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
-
-  const coverage = useMemo(() => reportCoverage(report), [report]);
-  const findings = useMemo(
-    () =>
-      [...report.findings].sort(
-        (left, right) =>
-          findingPriorityScore(
-            right.severity,
-            right.confidence,
-            right.evidence.length,
-          ) -
-          findingPriorityScore(
-            left.severity,
-            left.confidence,
-            left.evidence.length,
-          ),
-      ),
-    [report.findings],
-  );
-  const selectedFinding = findings.find(
-    (finding) => finding.id === selectedFindingId,
-  );
 
   const dueQuestions = useMemo(() => {
     const dueSet = new Set(dueQuizIds);
     const due = quizzes.questions.filter((question) => dueSet.has(question.id));
     return due.length > 0 ? due : quizzes.questions.slice(0, 12);
   }, [dueQuizIds]);
-  const currentQuestion = dueQuestions[quizIndex % Math.max(1, dueQuestions.length)];
+
+  const currentQuestion =
+    dueQuestions[quizIndex % Math.max(1, dueQuestions.length)];
 
   const submitRating = (rating: ReviewRating): void => {
     if (!currentQuestion) {
@@ -119,153 +68,52 @@ export function LabScreen({
       showsVerticalScrollIndicator={false}
     >
       <ScreenHeader
-        eyebrow="JADX LEARNING LAB"
-        title="관찰 → 가설 → 검증"
-        subtitle="JADX export report를 가져오거나 synthetic report로 Android 공격면·악성행위·semantic invariant를 안전하게 연습한다."
+        eyebrow="PRACTICE"
+        title="관찰 → 가설 → 대조 → 검증"
+        subtitle="공개 자료와 합성 사례로 The Map의 질문을 직접 적용한다. 취약점 이름보다 원인과 반례를 먼저 적는다."
         theme={theme}
       />
-
-      <Card theme={theme}>
-        <View style={styles.rowBetween}>
-          <View style={styles.flex}>
-            <Text style={[styles.cardTitle, { color: theme.text }]}>분석 Artifact</Text>
-            <Text style={[styles.body, { color: theme.muted }]}>
-              {reportSource === 'sample' ? '교육용 synthetic report' : '로컬에서 가져온 report'}
-            </Text>
-          </View>
-          <Pill
-            label={reportSource === 'sample' ? 'SAMPLE' : 'IMPORTED'}
-            theme={theme}
-            tone={reportSource === 'sample' ? 'research' : 'success'}
-          />
-        </View>
-        <KeyValueRow label="Package" value={report.app.packageName} theme={theme} />
-        <KeyValueRow label="Version" value={`${report.app.versionName} (${report.app.versionCode})`} theme={theme} />
-        <KeyValueRow label="SDK" value={`${report.app.minSdk} → ${report.app.targetSdk}`} theme={theme} />
-        <View style={styles.buttonRow}>
-          <PrimaryButton
-            label={importing ? '가져오는 중' : 'JADX JSON 가져오기'}
-            onPress={() => {
-              importReport().catch((error) => console.warn(error));
-            }}
-            theme={theme}
-            disabled={importing}
-          />
-          <PrimaryButton
-            label="샘플로 복원"
-            onPress={() => {
-              useSampleReport().catch((error) => console.warn(error));
-            }}
-            theme={theme}
-            variant="secondary"
-          />
-        </View>
-        {importError ? (
-          <Card theme={theme} style={{ backgroundColor: palette.dangerSoft }}>
-            <Text style={[styles.body, { color: palette.danger }]}>{importError}</Text>
-            <TextButton label="닫기" onPress={clearImportError} theme={theme} />
-          </Card>
-        ) : null}
-      </Card>
 
       <View style={styles.metrics}>
         <Card theme={theme} style={styles.metricCard}>
-          <Text style={[styles.metric, { color: theme.text }]}>{report.summary.exportedComponentCount}</Text>
-          <Text style={[styles.small, { color: theme.muted }]}>exported</Text>
+          <Text style={[styles.metric, { color: theme.text }]}>
+            {progress.completedMissionIds.length}
+          </Text>
+          <Text style={[styles.small, { color: theme.muted }]}>완료 연습</Text>
         </Card>
         <Card theme={theme} style={styles.metricCard}>
-          <Text style={[styles.metric, { color: theme.text }]}>{report.findings.length}</Text>
-          <Text style={[styles.small, { color: theme.muted }]}>후보</Text>
+          <Text style={[styles.metric, { color: theme.text }]}>
+            {practice.missions.length}
+          </Text>
+          <Text style={[styles.small, { color: theme.muted }]}>전체 연습</Text>
         </Card>
         <Card theme={theme} style={styles.metricCard}>
-          <Text style={[styles.metric, { color: theme.text }]}>{report.behaviorSignals.length}</Text>
-          <Text style={[styles.small, { color: theme.muted }]}>행동 신호</Text>
-        </Card>
-        <Card theme={theme} style={styles.metricCard}>
-          <Text style={[styles.metric, { color: theme.text }]}>{coverage.limits}</Text>
-          <Text style={[styles.small, { color: theme.muted }]}>분석 한계</Text>
+          <Text style={[styles.metric, { color: theme.text }]}>{dueQuizIds.length}</Text>
+          <Text style={[styles.small, { color: theme.muted }]}>복습 대기</Text>
         </Card>
       </View>
 
+      <Card theme={theme} style={{ backgroundColor: theme.primarySoft }}>
+        <Text style={[styles.cardTitle, { color: theme.text }]}>연습할 때 지킬 것</Text>
+        <BulletList
+          items={[
+            '직접 관찰한 사실과 추론을 분리한다.',
+            '한 번에 하나의 조건만 바꾸는 대조군을 둔다.',
+            '반례가 나오면 가설을 버리거나 좁힌다.',
+            '결론의 강도는 출처와 재현 수준에 맞춘다.',
+            '공개 자료, 합성 예제, 명시적으로 허가된 환경만 사용한다.',
+          ]}
+          theme={theme}
+        />
+      </Card>
+
       <SectionTitle
-        title="우선 검토 후보"
-        subtitle="severity·confidence·evidence 수로 정렬하지만 점수는 finding 확정이 아니다"
+        title="범주별 분석 연습"
+        subtitle={`${progress.completedMissionIds.length}/${practice.missions.length} 완료`}
         theme={theme}
       />
       <View style={styles.list}>
-        {findings.map((finding) => (
-          <Pressable
-            key={finding.id}
-            onPress={() =>
-              setSelectedFindingId((current) =>
-                current === finding.id ? null : finding.id,
-              )
-            }
-            style={({ pressed }: { pressed: boolean }) => ({ opacity: pressed ? 0.7 : 1 })}
-          >
-            <Card theme={theme}>
-              <View style={styles.rowBetween}>
-                <View style={styles.flex}>
-                  <Text style={[styles.findingTitle, { color: theme.text }]}>
-                    {finding.title}
-                  </Text>
-                  <Text style={[styles.small, { color: theme.muted }]}>
-                    {finding.category} · confidence {finding.confidence}
-                  </Text>
-                </View>
-                <Pill
-                  label={finding.severity}
-                  theme={theme}
-                  tone={severityTone[finding.severity]}
-                />
-              </View>
-              <Text numberOfLines={3} style={[styles.body, { color: theme.muted }]}>
-                {finding.description}
-              </Text>
-              <View style={styles.pills}>
-                <Pill label={finding.evidenceBoundary} theme={theme} tone="research" />
-                <Pill label={`${finding.evidence.length} evidence`} theme={theme} />
-              </View>
-            </Card>
-          </Pressable>
-        ))}
-      </View>
-
-      {selectedFinding ? (
-        <FindingDetail finding={selectedFinding} theme={theme} onOpenLesson={onOpenLesson} />
-      ) : null}
-
-      <SectionTitle
-        title="악성행위 가설"
-        subtitle="단일 API가 아니라 trigger·behavior·capability 조합으로 읽는다"
-        theme={theme}
-      />
-      <View style={styles.list}>
-        {report.behaviorSignals.map((signal) => (
-          <Card key={signal.id} theme={theme}>
-            <View style={styles.rowBetween}>
-              <Text style={[styles.findingTitle, { color: theme.text }]}>{signal.title}</Text>
-              <Pill label={signal.confidence} theme={theme} tone="warning" />
-            </View>
-            <Text style={[styles.body, { color: theme.muted }]}>{signal.description}</Text>
-            <BulletList
-              items={[
-                `capability: ${signal.capabilities.join(', ') || '미정'}`,
-                `benign alternative: ${signal.benignExplanations.join(', ') || '없음'}`,
-              ]}
-              theme={theme}
-            />
-          </Card>
-        ))}
-      </View>
-
-      <SectionTitle
-        title="분석 미션"
-        subtitle={`${progress.completedMissionIds.length}/${labs.missions.length} 완료`}
-        theme={theme}
-      />
-      <View style={styles.list}>
-        {labs.missions.map((mission) => {
+        {practice.missions.map((mission) => {
           const locked = !mission.prerequisiteLessonIds.every((id) =>
             progress.completedLessonIds.includes(id),
           );
@@ -274,7 +122,7 @@ export function LabScreen({
               key={mission.id}
               title={mission.title}
               subtitle={mission.summary}
-              meta={`${mission.minutes}분 · ${mission.level} · ${mission.evidenceBoundary}`}
+              meta={`${mission.minutes}분 · ${mission.level} · ${mission.supportLevel}`}
               onPress={() => onOpenMission(mission.id)}
               theme={theme}
               completed={progress.completedMissionIds.includes(mission.id)}
@@ -327,6 +175,7 @@ export function LabScreen({
               );
             })}
           </View>
+
           {selectedAnswer !== null ? (
             <View style={styles.explanation}>
               <Text
@@ -340,7 +189,9 @@ export function LabScreen({
                   },
                 ]}
               >
-                {selectedAnswer === currentQuestion.answerIndex ? '정답' : '다시 연결해보자'}
+                {selectedAnswer === currentQuestion.answerIndex
+                  ? '정답'
+                  : '다시 연결해보자'}
               </Text>
               <Text style={[styles.body, { color: theme.muted }]}>
                 {currentQuestion.explanation}
@@ -361,70 +212,24 @@ export function LabScreen({
           ) : null}
         </Card>
       ) : null}
-
-      <Card theme={theme} style={{ backgroundColor: theme.primarySoft }}>
-        <Text style={[styles.cardTitle, { color: theme.text }]}>실험 안전 경계</Text>
-        <Text style={[styles.body, { color: theme.muted }]}>
-          앱은 JSON report와 교육용 미션을 다룬다. APK 실행·payload 전달·외부 target
-          테스트 기능은 포함하지 않는다. 동적 검증은 별도 로컬 격리 lab에서만 수행한다.
-        </Text>
-      </Card>
     </ScrollView>
-  );
-}
-
-function FindingDetail({
-  finding,
-  theme,
-  onOpenLesson,
-}: {
-  finding: JadxFinding;
-  theme: AppTheme;
-  onOpenLesson: (lessonId: string) => void;
-}): React.ReactElement {
-  return (
-    <Card theme={theme} style={{ backgroundColor: theme.primarySoft }}>
-      <Text style={[styles.cardTitle, { color: theme.text }]}>선택한 후보의 Evidence Boundary</Text>
-      <KeyValueRow label="ID" value={finding.id} theme={theme} />
-      <KeyValueRow label="Evidence" value={finding.evidenceBoundary} theme={theme} />
-      <SectionTitle title="관찰 증거" theme={theme} />
-      <BulletList items={finding.evidence} theme={theme} />
-      <SectionTitle title="Locator" theme={theme} />
-      <BulletList items={finding.locations} theme={theme} />
-      <SectionTitle title="아직 필요한 가정" theme={theme} />
-      <BulletList items={finding.assumptions} theme={theme} tone="warning" />
-      <SectionTitle title="Negative Control" theme={theme} />
-      <BulletList items={finding.negativeControls} theme={theme} />
-      <SectionTitle title="학습 목표" theme={theme} />
-      <BulletList items={finding.learningObjectives} theme={theme} />
-      <TextButton
-        label="증거 중심 리포트 레슨 열기"
-        onPress={() => onOpenLesson('jadx-evidence-report')}
-        theme={theme}
-      />
-    </Card>
   );
 }
 
 const styles = StyleSheet.create({
   content: { gap: spacing.lg, padding: spacing.lg, paddingBottom: 120 },
-  rowBetween: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: spacing.md },
-  flex: { flex: 1, gap: spacing.xs },
+  metrics: { flexDirection: 'row', gap: spacing.sm },
+  metricCard: { flex: 1, alignItems: 'center' },
+  metric: { fontSize: 22, fontWeight: '900' },
+  small: { fontSize: 12, lineHeight: 18, textAlign: 'center' },
   cardTitle: { fontSize: 17, fontWeight: '900' },
   body: { fontSize: 14, lineHeight: 21 },
-  small: { fontSize: 12, lineHeight: 18 },
-  buttonRow: { gap: spacing.sm, marginTop: spacing.sm },
-  metrics: { flexDirection: 'row', gap: spacing.xs },
-  metricCard: { flex: 1, alignItems: 'center', paddingHorizontal: spacing.xs },
-  metric: { fontSize: 19, fontWeight: '900' },
   list: { gap: spacing.sm },
-  findingTitle: { fontSize: 15, lineHeight: 20, fontWeight: '900', flex: 1 },
-  pills: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  quizPrompt: { fontSize: 17, lineHeight: 25, fontWeight: '800' },
+  quizPrompt: { fontSize: 17, fontWeight: '800', lineHeight: 25 },
   answerList: { gap: spacing.sm },
-  answer: { borderWidth: 1.5, borderRadius: 12, padding: spacing.md },
-  answerText: { fontSize: 14, lineHeight: 20, fontWeight: '700' },
-  explanation: { gap: spacing.md, marginTop: spacing.sm },
-  result: { fontSize: 18, fontWeight: '900' },
-  ratingRow: { gap: spacing.sm },
+  answer: { borderWidth: 1, borderRadius: 12, padding: spacing.md },
+  answerText: { fontSize: 14, lineHeight: 21 },
+  explanation: { gap: spacing.md },
+  result: { fontSize: 16, fontWeight: '900' },
+  ratingRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
 });
