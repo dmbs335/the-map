@@ -72,7 +72,7 @@ export function LessonDetailScreen({
       <View style={styles.pills}>
         <Pill label={lesson.level} theme={theme} tone="primary" />
         <Pill label={`${lesson.minutes}분`} theme={theme} />
-        <Pill label={lesson.evidenceBoundary} theme={theme} tone="research" />
+        <Pill label={lesson.supportLevel} theme={theme} tone="research" />
         <Pill label={lesson.practiceType} theme={theme} tone="success" />
       </View>
 
@@ -107,7 +107,7 @@ export function LessonDetailScreen({
 
       <SectionTitle
         title="스스로 확인할 질문"
-        subtitle="답을 외우기보다 분석 artifact에서 근거를 찾아본다"
+        subtitle="답을 외우기보다 원문과 사례에서 근거를 찾아본다"
         theme={theme}
       />
       <Card theme={theme}>
@@ -133,8 +133,10 @@ export function LessonDetailScreen({
       </Card>
 
       <Card theme={theme} style={{ backgroundColor: theme.primarySoft }}>
-        <Text style={[styles.cardTitle, { color: theme.text }]}>안전·증거 경계</Text>
-        <Text style={[styles.body, { color: theme.muted }]}>{lesson.safetyNote}</Text>
+        <Text style={[styles.cardTitle, { color: theme.text }]}>근거 수준과 안전 범위</Text>
+        <Text style={[styles.body, { color: theme.muted }]}>
+          현재 레슨의 근거 수준은 {lesson.supportLevel}이다. {lesson.safetyNote}
+        </Text>
       </Card>
 
       <PrimaryButton
