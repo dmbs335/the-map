@@ -10,7 +10,6 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
-import { AnalysisProvider, useAnalysis } from './src/state/AnalysisContext';
 import { LearningProvider, useLearning } from './src/state/LearningContext';
 import { themeFor, spacing, type AppTheme } from './src/theme';
 import type { TabId } from './src/types';
@@ -27,8 +26,8 @@ const tabs: Array<{ id: TabId; label: string; icon: string }> = [
   { id: 'today', label: '오늘', icon: '⌂' },
   { id: 'learn', label: '학습', icon: '◫' },
   { id: 'library', label: 'Map', icon: '◇' },
-  { id: 'lab', label: 'Lab', icon: '⌁' },
-  { id: 'research', label: '연구', icon: '△' },
+  { id: 'lab', label: '연습', icon: '⌁' },
+  { id: 'research', label: '탐구', icon: '△' },
 ];
 
 export default function App(): React.ReactElement {
@@ -38,10 +37,8 @@ export default function App(): React.ReactElement {
   return (
     <SafeAreaProvider>
       <LearningProvider>
-        <AnalysisProvider>
-          <StatusBar style={theme.isDark ? 'light' : 'dark'} />
-          <AppShell theme={theme} />
-        </AnalysisProvider>
+        <StatusBar style={theme.isDark ? 'light' : 'dark'} />
+        <AppShell theme={theme} />
       </LearningProvider>
     </SafeAreaProvider>
   );
@@ -49,7 +46,6 @@ export default function App(): React.ReactElement {
 
 function AppShell({ theme }: { theme: AppTheme }): React.ReactElement {
   const learning = useLearning();
-  const analysis = useAnalysis();
   const [tab, setTab] = useState<TabId>('today');
   const [lessonId, setLessonId] = useState<string | null>(null);
   const [topicId, setTopicId] = useState<string | null>(null);
@@ -80,13 +76,13 @@ function AppShell({ theme }: { theme: AppTheme }): React.ReactElement {
     setMissionId(id);
   };
 
-  if (!learning.hydrated || !analysis.hydrated) {
+  if (!learning.hydrated) {
     return (
       <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]}>
         <View style={styles.loading}>
           <ActivityIndicator size="large" color={theme.primary} />
           <Text style={[styles.loadingText, { color: theme.muted }]}>
-            오프라인 학습 상태와 분석 artifact를 불러오는 중
+            오프라인 학습 상태를 불러오는 중
           </Text>
         </View>
       </SafeAreaView>
@@ -133,7 +129,6 @@ function AppShell({ theme }: { theme: AppTheme }): React.ReactElement {
           <LabScreen
             theme={theme}
             onOpenMission={openMission}
-            onOpenLesson={openLesson}
           />
         );
         break;
