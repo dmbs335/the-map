@@ -1,0 +1,36 @@
+{
+  "name": "the-map-jadx-learning",
+  "version": "0.3.0",
+  "private": true,
+  "main": "index.ts",
+  "scripts": {
+    "restore:content": "node ./scripts/restore-bundled-data.mjs",
+    "generate:catalog": "node ./scripts/generate-catalog.mjs",
+    "prepare:content": "npm run restore:content && npm run generate:catalog",
+    "validate:curriculum": "node ./scripts/validate-curriculum.mjs",
+    "postinstall": "npm run prepare:content",
+    "prestart": "npm run prepare:content",
+    "start": "expo start",
+    "preandroid": "npm run prepare:content",
+    "android": "expo start --android",
+    "preios": "npm run prepare:content",
+    "ios": "expo start --ios",
+    "typecheck": "npm run prepare:content && tsc --noEmit",
+    "check": "npm run prepare:content && npm run validate:curriculum && tsc --noEmit",
+    "export:android": "npm run prepare:content && expo export --platform android --output-dir dist"
+  },
+  "dependencies": {
+    "expo": "~57.0.9",
+    "expo-document-picker": "~57.0.1",
+    "expo-file-system": "~57.0.2",
+    "expo-sqlite": "~57.0.1",
+    "expo-status-bar": "~57.0.1",
+    "react": "19.2.3",
+    "react-native": "0.86.2",
+    "react-native-safe-area-context": "~5.7.0"
+  },
+  "devDependencies": {
+    "@types/react": "~19.2.2",
+    "typescript": "~6.0.3"
+  }
+}
